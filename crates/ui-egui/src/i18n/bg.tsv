@@ -2158,3 +2158,7 @@ key	Space	Интервал
 	Resize panel window	Преоразмери прозореца на панела
 	Tools	Инструменти
 	Inspector	Инспектор
+	Mouse wheel scroll speed	Скорост на превъртане с колелцето на мишката
+scroll speed	Slow	Ниска
+scroll speed	Normal	Нормална
+scroll speed	Fast	Висока

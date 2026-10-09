@@ -2194,3 +2194,7 @@ key	Space	Szóköz
 	Resize panel window	Panelablak átméretezése
 	Tools	Eszközök
 	Inspector	Tulajdonságvizsgáló
+	Mouse wheel scroll speed	Egérgörgő görgetési sebessége
+scroll speed	Slow	Lassú
+scroll speed	Normal	Normál
+scroll speed	Fast	Gyors

@@ -2197,3 +2197,7 @@ key	Space	Espaço
 	Resize panel window	Redimensionar janela do painel
 	Tools	Ferramentas
 	Inspector	Inspetor
+	Mouse wheel scroll speed	Velocidade de rolagem da roda do mouse
+scroll speed	Slow	Lenta
+scroll speed	Normal	Normal
+scroll speed	Fast	Rápida

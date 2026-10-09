@@ -2196,3 +2196,7 @@ key	Space	スペース
 	Resize panel window	パネルウィンドウのサイズを変更
 	Tools	ツール
 	Inspector	インスペクター
+	Mouse wheel scroll speed	マウスホイールのスクロール速度
+scroll speed	Slow	遅い
+scroll speed	Normal	標準
+scroll speed	Fast	速い

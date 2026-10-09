@@ -2112,3 +2112,7 @@ key	Space	Espacio
 	Resize panel window	Cambiar tamaño de la ventana del panel
 	Tools	Herramientas
 	Inspector	Inspector
+	Mouse wheel scroll speed	Velocidad de desplazamiento de la rueda del ratón
+scroll speed	Slow	Lenta
+scroll speed	Normal	Normal
+scroll speed	Fast	Rápida

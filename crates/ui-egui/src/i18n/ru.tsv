@@ -2109,3 +2109,7 @@ key	Space	Пробел
 	Resize panel window	Изменить размер окна панели
 	Tools	Инструменты
 	Inspector	Инспектор
+	Mouse wheel scroll speed	Скорость прокрутки колесом мыши
+scroll speed	Slow	Низкая
+scroll speed	Normal	Обычная
+scroll speed	Fast	Высокая

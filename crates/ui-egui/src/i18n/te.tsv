@@ -2126,3 +2126,7 @@ key	Space	స్పేస్
 	Resize panel window	ప్యానెల్ విండో పరిమాణం మార్చు
 	Tools	సాధనాలు
 	Inspector	పరిశీలకుడు
+	Mouse wheel scroll speed	మౌస్ వీల్ స్క్రోల్ వేగం
+scroll speed	Slow	నెమ్మదిగా
+scroll speed	Normal	సాధారణం
+scroll speed	Fast	వేగంగా

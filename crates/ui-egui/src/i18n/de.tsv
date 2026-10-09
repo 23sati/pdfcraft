@@ -2196,3 +2196,7 @@ key	Space	Leertaste
 	Resize panel window	Größe des Bereichsfensters ändern
 	Tools	Werkzeuge
 	Inspector	Inspektor
+	Mouse wheel scroll speed	Scrollgeschwindigkeit des Mausrads
+scroll speed	Slow	Langsam
+scroll speed	Normal	Normal
+scroll speed	Fast	Schnell

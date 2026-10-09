@@ -2082,3 +2082,7 @@ key	Space	空格
 	Resize panel window	調整面板視窗大小
 	Tools	工具
 	Inspector	檢查器
+	Mouse wheel scroll speed	滑鼠滾輪捲動速度
+scroll speed	Slow	慢
+scroll speed	Normal	正常
+scroll speed	Fast	快

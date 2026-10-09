@@ -2217,3 +2217,7 @@ key	Space	Пробіл
 	Panels	Панелі
 	Resize panels	Змінити розмір панелей
 	Resize panel window	Змінити розмір вікна панелі
+	Mouse wheel scroll speed	Швидкість прокручування коліщатком миші
+scroll speed	Slow	Повільна
+scroll speed	Normal	Звичайна
+scroll speed	Fast	Швидка
