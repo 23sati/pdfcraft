@@ -254,6 +254,11 @@ const MAX_LAYER_STATE: usize = 1024;
 
 /// A push button's mouse-up action (`/A`, or `/AA /U`, on the field or its widget).
 fn button_action(doc: &Document, d: &Dict, widgets: &[ObjRef]) -> Option<af::ButtonAction> {
+    // A button PdfCraft generated for an XFA image field (`/PCXfaImage true`, no PDF action):
+    // clicking it picks a picture, as `buttonImportIcon()` does.
+    if matches!(d.get(b"PCXfaImage").map(|o| doc.resolve(o)).as_deref(), Some(Object::Bool(true))) {
+        return Some(af::ButtonAction::ImportIcon);
+    }
     let pick = |dict: &Dict| -> Option<Object> {
         dict.get(b"A").cloned().or_else(|| dict.get(b"AA").map(|a| doc.resolve(a)).and_then(|a| a.as_dict().and_then(|aa| aa.get(b"U").cloned())))
     };

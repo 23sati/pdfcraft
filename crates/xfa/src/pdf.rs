@@ -156,6 +156,10 @@ pub struct Written {
     pub warnings: Vec<String>,
 }
 
+/// On a push button generated for an XFA image field: clicking it picks a picture (the forms
+/// layer reads this key).
+pub const IMAGE_FIELD_KEY: &[u8] = b"PCXfaImage";
+
 /// On an image XObject written for a picture: the SHA-256 (hex) of the picture's bytes. A
 /// re-layout (after every script event) finds the XObjects on the pages it replaces by this,
 /// and reuses them instead of decoding and embedding the same picture again. Nothing is kept
@@ -369,6 +373,13 @@ impl Emitter<'_> {
                     }
                     ff |= 1;
                 }
+            }
+            WidgetKind::Image => {
+                // A push button with nothing drawn: the forms layer treats one so marked as an
+                // image field (clicking picks a picture), with no action other viewers run.
+                d.set(b"FT".to_vec(), Object::name("Btn"));
+                ff |= 1 << 16;
+                d.set(IMAGE_FIELD_KEY.to_vec(), Object::Bool(true));
             }
             WidgetKind::CheckBox { on, .. } => {
                 d.set(b"FT".to_vec(), Object::name("Btn"));

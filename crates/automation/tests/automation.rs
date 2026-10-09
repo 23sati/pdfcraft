@@ -3482,6 +3482,39 @@ fn exporting_to_word_html_and_rtf() {
 }
 
 #[test]
+fn xfa_data_files_export_and_import_through_tools() {
+    let dir = workdir("xfa-data");
+    let data = "<form><page1><country>JP</country></page1></form>";
+    std::fs::write(dir.join("fields.pdf"), pdfcraft_xfa::fixtures::shell(&pdfcraft_xfa::fixtures::fields_template(data))).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "fields.pdf" }))["doc"].as_u64().unwrap();
+    ok(&mut a, "doc_export_data", json!({ "doc": doc, "path": "data.xml", "what": "fields" }));
+    ok(&mut a, "doc_export_data", json!({ "doc": doc, "path": "data.xdp", "what": "fields" }));
+    let xml = std::fs::read_to_string(dir.join("data.xml")).unwrap();
+    let xdp = std::fs::read_to_string(dir.join("data.xdp")).unwrap();
+    assert!(xml.contains("<form") && xml.contains("<country>JP</country>"), "{xml}");
+    assert!(xdp.contains("<xdp:xdp") && xdp.contains("<country>JP</country>"), "{xdp}");
+    // Edit the exported data and import it back.
+    std::fs::write(dir.join("edited.xdp"), xdp.replace("<country>JP</country>", "<country>CA</country>")).unwrap();
+    let r = ok(&mut a, "doc_import_data", json!({ "doc": doc, "path": "edited.xdp" }));
+    assert!(r["filled_fields"].as_u64().unwrap() >= 1);
+    let fields = ok(&mut a, "form_fields", json!({ "doc": doc }));
+    let country = fields["fields"].as_array().unwrap().iter().find(|f| f["name"] == "country").unwrap();
+    assert_eq!(country["value"], json!("CA"));
+    // A picture for the image field, through form_set_image, lands in the data.
+    std::fs::write(dir.join("pic.gif"), pdfcraft_xfa::fixtures::TINY_GIF).unwrap();
+    ok(&mut a, "form_set_image", json!({ "doc": doc, "field": "photo", "path": "pic.gif" }));
+    ok(&mut a, "doc_export_data", json!({ "doc": doc, "path": "after.xml", "what": "fields" }));
+    let after = std::fs::read_to_string(dir.join("after.xml")).unwrap();
+    assert!(after.contains("<photo xfa:contentType=\"image/gif\">R0lGODlh"), "{after}");
+    // XDP is for XFA forms only.
+    std::fs::write(dir.join("plain.pdf"), pdfcraft_xfa::fixtures::static_shell("<form1><page1><name>Ada</name></page1></form1>")).unwrap();
+    let plain = ok(&mut a, "doc_open", json!({ "path": "plain.pdf" }))["doc"].as_u64().unwrap();
+    ok(&mut a, "doc_export_data", json!({ "doc": plain, "path": "static.xml", "what": "fields" }));
+    assert!(std::fs::read_to_string(dir.join("static.xml")).unwrap().contains("<name>Ada</name>"), "a static XFA form exports its data too");
+}
+
+#[test]
 fn dynamic_xfa_forms_open_render_fill_and_save_through_tools() {
     let dir = workdir("xfa");
     std::fs::write(dir.join("xfa.pdf"), pdfcraft_xfa::fixtures::shell(&pdfcraft_xfa::fixtures::template(2))).unwrap();
