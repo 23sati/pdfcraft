@@ -205,7 +205,7 @@ fn write_action(doc: &Document, d: &mut Dict, a: &LinkAction) -> Result<(), Anno
 /// Add a link over `rect` (user space). Returns its index in the page's `/Annots`.
 pub fn add(doc: &mut Document, page: usize, rect: [f64; 4], action: &LinkAction, style: &LinkStyle) -> Result<usize, AnnotError> {
     let p = page_ref(doc, page)?;
-    let r = [rect[0].min(rect[2]), rect[1].min(rect[3]), rect[0].max(rect[2]), rect[1].max(r[3])];
+    let r = [rect[0].min(rect[2]), rect[1].min(rect[3]), rect[0].max(rect[2]), rect[1].max(rect[3])];
     if !r.iter().all(|v| v.is_finite()) || r[2] - r[0] < 2.0 || r[3] - r[1] < 2.0 {
         return Err(AnnotError::Invalid("the link area is too small".into()));
     }
