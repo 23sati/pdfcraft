@@ -52,7 +52,16 @@ pub fn button(ui: &mut egui::Ui, name: &str, box_size: f32, selected: bool, tool
     } else if hovered {
         ui.painter().rect_filled(rect, t.radius, t.hover);
     }
-    let tint = if selected { t.accent_text } else { t.icon };
+    if t.overrides(crate::theme::ColorToken::Focus) && resp.has_focus() {
+        ui.painter().rect_stroke(rect, t.radius, egui::Stroke::new(1.5, t.focus), egui::StrokeKind::Inside);
+    }
+    let tint = if !t.legacy && !ui.is_enabled() {
+        t.text_faint
+    } else if selected {
+        t.accent_text
+    } else {
+        t.icon
+    };
     paint(ui, rect, name, (box_size * 0.5).round(), tint);
     if tooltip.is_empty() { resp } else { resp.on_hover_text(tooltip) }
 }

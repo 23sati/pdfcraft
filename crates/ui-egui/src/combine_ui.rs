@@ -490,7 +490,7 @@ pub(crate) fn page(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                         } else {
                             crate::i18n::fmt(tl!("{n} files need attention"), &[("n", &bad.to_string())])
                         };
-                        ui.label(egui::RichText::new(text).color(ERROR));
+                        ui.label(egui::RichText::new(text).color(t.compatible(ERROR, theme::ColorToken::Error)));
                     });
                 }
             });
@@ -564,7 +564,7 @@ fn unlock_prompt(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 }
             });
             if let Some(e) = &prompt.error {
-                ui.label(egui::RichText::new(e).color(ERROR));
+                ui.label(egui::RichText::new(e).color(t.compatible(ERROR, theme::ColorToken::Error)));
             }
             ui.add_space(6.0);
             ui.label(egui::RichText::new(tl!("The password is only used to read the file; it isn't saved.")).small().color(t.text_faint));
@@ -919,7 +919,11 @@ fn table_body(
                                     egui::TextEdit::singleline(&mut f.range).hint_text(tl!("All pages")).desired_width(88.0),
                                 );
                                 // A visible field on plain and striped rows alike; red when the range is wrong.
-                                let border = if check.is_err() { Stroke::new(1.5, ERROR) } else { Stroke::new(1.0, t.border) };
+                                let border = if check.is_err() {
+                                    Stroke::new(1.5, t.compatible(ERROR, theme::ColorToken::Error))
+                                } else {
+                                    Stroke::new(1.0, t.border)
+                                };
                                 ui.painter().rect_stroke(edit.rect, CornerRadius::same(4), border, egui::StrokeKind::Inside);
                                 if let Err(e) = &check {
                                     edit.clone().on_hover_text(e);
@@ -939,7 +943,11 @@ fn table_body(
                                     (Ok(k), _) => crate::i18n::fmt(tl!("{k} of {n}"), &[("k", &k.to_string()), ("n", &f.pages.to_string())]),
                                     (Err(_), _) => crate::i18n::fmt(tl!("? of {n}"), &[("n", &f.pages.to_string())]),
                                 };
-                                ui.label(egui::RichText::new(count).small().color(if check.is_err() { ERROR } else { t.text_faint }));
+                                ui.label(egui::RichText::new(count).small().color(if check.is_err() {
+                                    t.compatible(ERROR, theme::ColorToken::Error)
+                                } else {
+                                    t.text_faint
+                                }));
                             }
                             SortKey::Size => {
                                 ui.label(egui::RichText::new(crate::panels::human_size(f.bytes.len())).color(t.text_muted));
@@ -963,8 +971,8 @@ fn table_body(
                                     warnings.push(tl!("Added more than once").to_string());
                                 }
                                 let (icon, colour, first) = match (errors.first(), warnings.first()) {
-                                    (Some(e), _) => ("circle-x", ERROR, e.clone()),
-                                    (None, Some(w)) => ("triangle-alert", WARNING, w.clone()),
+                                    (Some(e), _) => ("circle-x", t.compatible(ERROR, theme::ColorToken::Error), e.clone()),
+                                    (None, Some(w)) => ("triangle-alert", t.compatible(WARNING, theme::ColorToken::Warning), w.clone()),
                                     (None, None) => return,
                                 };
                                 let all = errors.iter().chain(&warnings).cloned().collect::<Vec<_>>().join("\n");
@@ -980,9 +988,13 @@ fn table_body(
                                     }
                                 }
                                 ui.add(
-                                    egui::Label::new(egui::RichText::new(first).color(if colour == ERROR { ERROR } else { t.text }))
-                                        .truncate()
-                                        .selectable(false),
+                                    egui::Label::new(egui::RichText::new(first).color(if colour == t.compatible(ERROR, theme::ColorToken::Error) {
+                                        t.compatible(ERROR, theme::ColorToken::Error)
+                                    } else {
+                                        t.text
+                                    }))
+                                    .truncate()
+                                    .selectable(false),
                                 )
                                 .on_hover_text(all);
                             }

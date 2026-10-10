@@ -18,7 +18,10 @@ pub fn mode_tab(ui: &mut egui::Ui, label: &str, active: bool) -> Response {
     ui.painter().text(rect.center(), Align2::CENTER_CENTER, label, font, if active { t.text } else { t.text_muted });
     if active {
         let r = Rect::from_min_max(rect.left_bottom() + vec2(11.0, -3.0), rect.right_bottom() - vec2(11.0, 0.0));
-        ui.painter().rect_filled(r, CornerRadius::same(1), t.text);
+        ui.painter().rect_filled(r, CornerRadius::same(1), t.compatible(t.text, theme::ColorToken::Accent));
+    }
+    if t.overrides(crate::theme::ColorToken::Focus) && resp.has_focus() {
+        ui.painter().rect_stroke(rect.expand(3.0), t.radius, Stroke::new(1.5, t.focus), egui::StrokeKind::Inside);
     }
     resp
 }
@@ -31,12 +34,15 @@ pub fn pill_button(ui: &mut egui::Ui, label: &str, primary: bool) -> Response {
     let (rect, resp) = ui.allocate_exact_size(vec2(w + 26.0, 28.0), Sense::click());
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), label));
     let (fill, stroke, text) = if primary {
-        (if resp.hovered() { t.accent_text } else { t.accent }, Stroke::NONE, Color32::WHITE)
+        (if resp.hovered() { t.accent_text } else { t.accent }, Stroke::NONE, t.on_accent)
     } else {
         (if resp.hovered() { t.hover } else { t.card }, Stroke::new(1.2, t.text_muted), t.text)
     };
     ui.painter().rect(rect, CornerRadius::same(14), fill, stroke, egui::StrokeKind::Inside);
     ui.painter().text(rect.center(), Align2::CENTER_CENTER, label, font, text);
+    if t.overrides(crate::theme::ColorToken::Focus) && resp.has_focus() {
+        ui.painter().rect_stroke(rect.expand(3.0), t.radius, Stroke::new(1.5, t.focus), egui::StrokeKind::Inside);
+    }
     resp
 }
 
@@ -52,6 +58,9 @@ pub fn ghost_button(ui: &mut egui::Ui, icon: &str, label: &str) -> Response {
     }
     icons::paint(ui, Rect::from_min_size(rect.min + vec2(6.0, 6.0), vec2(18.0, 18.0)), icon, 17.0, t.icon);
     ui.painter().text(rect.left_center() + vec2(30.0, 0.0), Align2::LEFT_CENTER, label, font, t.text);
+    if t.overrides(crate::theme::ColorToken::Focus) && resp.has_focus() {
+        ui.painter().rect_stroke(rect.expand(3.0), t.radius, Stroke::new(1.5, t.focus), egui::StrokeKind::Inside);
+    }
     resp
 }
 
@@ -77,6 +86,9 @@ pub fn search_box(ui: &mut egui::Ui, placeholder: &str, width: f32) -> Response 
     let elided = text.elided;
     ui.painter().with_clip_rect(text_rect).galley(egui::pos2(text_left, rect.center().y - text.size().y * 0.5), text, t.text_faint);
     ui.painter().with_clip_rect(rect).galley(shortcut_pos, shortcut, t.text_faint);
+    if t.overrides(theme::ColorToken::Focus) && resp.has_focus() {
+        ui.painter().rect_stroke(rect.expand(3.0), 16, Stroke::new(1.5, t.focus), egui::StrokeKind::Inside);
+    }
     let resp = resp.on_hover_cursor(egui::CursorIcon::Text);
     if elided { resp.on_hover_text(placeholder) } else { resp }
 }
@@ -123,21 +135,14 @@ pub fn toast(app: &mut PdfCraftApp, ctx: &egui::Context) {
         .pivot(Align2::CENTER_BOTTOM)
         .fixed_pos(screen.center_bottom() - vec2(0.0, lift))
         .show(ctx, |ui| {
-            egui::Frame::NONE
-                .fill(if t.dark() { Color32::from_rgb(0xEC, 0xEC, 0xEF) } else { Color32::from_rgb(0x2A, 0x2A, 0x2F) })
-                .corner_radius(CornerRadius::same(8))
-                .inner_margin(egui::Margin::symmetric(16, 10))
-                .show(ui, |ui| {
-                    // An Area remembers its previous content width. A short notice
-                    // must not force the next validation message into a narrow column.
-                    // Allow natural short labels; wrap longer ones within the viewport,
-                    // including the frame's 32 points and 16-point outside margins.
-                    ui.set_max_width((screen.width() - 64.0).clamp(1.0, 560.0));
-                    ui.add(
-                        egui::Label::new(egui::RichText::new(msg).color(if t.dark() { Color32::from_rgb(0x22, 0x22, 0x26) } else { Color32::WHITE }))
-                            .wrap(),
-                    );
-                });
+            egui::Frame::NONE.fill(t.notice_bg).corner_radius(CornerRadius::same(8)).inner_margin(egui::Margin::symmetric(16, 10)).show(ui, |ui| {
+                // An Area remembers its previous content width. A short notice
+                // must not force the next validation message into a narrow column.
+                // Allow natural short labels; wrap longer ones within the viewport,
+                // including the frame's 32 points and 16-point outside margins.
+                ui.set_max_width((screen.width() - 64.0).clamp(1.0, 560.0));
+                ui.add(egui::Label::new(egui::RichText::new(msg).color(t.notice_text)).wrap());
+            });
         });
     ctx.request_repaint_after(std::time::Duration::from_millis(100));
 }
@@ -162,12 +167,8 @@ pub fn progress_notice(app: &PdfCraftApp, ctx: &egui::Context) -> bool {
     let Some(p) = &app.progress_notice else { return false };
     let t = Tokens::get(ctx);
     let screen = ctx.content_rect();
-    // The same inverted card as the toast.
-    let (fill, text) = if t.dark() {
-        (Color32::from_rgb(0xEC, 0xEC, 0xEF), Color32::from_rgb(0x22, 0x22, 0x26))
-    } else {
-        (Color32::from_rgb(0x2A, 0x2A, 0x2F), Color32::WHITE)
-    };
+    // Share the notification surface and text with the toast.
+    let (fill, text) = (t.notice_bg, t.notice_text);
     let fraction = if p.fraction.is_finite() { p.fraction.clamp(0.0, 1.0) } else { 0.0 };
     let shown = ctx.animate_value_with_time(egui::Id::new("progress-notice-bar"), fraction, 0.3);
     let now = ctx.input(|i| i.time);
@@ -206,7 +207,7 @@ pub fn progress_notice(app: &PdfCraftApp, ctx: &egui::Context) -> bool {
                     let clip = painter.with_clip_rect(done);
                     for (i, a) in [0.10_f32, 0.22, 0.10].into_iter().enumerate() {
                         let r = Rect::from_min_size(egui::pos2(x + i as f32 * band / 3.0, done.top()), vec2(band / 3.0, done.height()));
-                        clip.rect_filled(r, CornerRadius::ZERO, Color32::WHITE.gamma_multiply(a));
+                        clip.rect_filled(r, CornerRadius::ZERO, t.compatible(Color32::WHITE, theme::ColorToken::OnAccent).gamma_multiply(a));
                     }
                 }
                 if p.cancellable {
@@ -295,13 +296,16 @@ pub fn icon_pill(ui: &mut egui::Ui, icon: &str, label: &str, primary: bool) -> R
     let (rect, resp) = ui.allocate_exact_size(vec2(w + 46.0, 30.0), Sense::click());
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), label));
     let (fill, stroke, text) = if primary {
-        (if resp.hovered() { t.accent_text } else { t.accent }, Stroke::NONE, Color32::WHITE)
+        (if resp.hovered() { t.accent_text } else { t.accent }, Stroke::NONE, t.on_accent)
     } else {
         (if resp.hovered() { t.hover } else { t.card }, Stroke::new(1.2, t.text_muted), t.text)
     };
     ui.painter().rect(rect, CornerRadius::same(15), fill, stroke, egui::StrokeKind::Inside);
     crate::icons::paint(ui, Rect::from_min_size(rect.min + vec2(12.0, 7.0), vec2(16.0, 16.0)), icon, 15.0, text);
     ui.painter().text(rect.left_center() + vec2(34.0, 0.0), Align2::LEFT_CENTER, label, font, text);
+    if t.overrides(crate::theme::ColorToken::Focus) && resp.has_focus() {
+        ui.painter().rect_stroke(rect.expand(3.0), t.radius, Stroke::new(1.5, t.focus), egui::StrokeKind::Inside);
+    }
     resp
 }
 

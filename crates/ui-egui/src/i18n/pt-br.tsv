@@ -2135,3 +2135,11 @@ comment menu	Edit	Editar
 	The field {name} no longer exists.	O campo {name} não existe mais.
 	A selected field has no widget on any page, so the fields can't be edited together.	Um campo selecionado não tem widget em nenhuma página, então os campos não podem ser editados juntos.
 	 ({n} at {dpi} dpi, the largest size they can be drawn at)	 ({n} a {dpi} dpi, o maior tamanho em que podem ser desenhadas)
+
+# Application theme names (palette brands retain their names).
+	Forest	Floresta
+	Ocean	Oceano
+	Sunset	Pôr do sol
+	Paper & Ink	Papel e tinta
+	Catppuccin	Catppuccin
+	Solarized	Solarized

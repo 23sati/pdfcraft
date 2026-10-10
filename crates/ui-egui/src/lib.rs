@@ -390,6 +390,7 @@ pub struct PdfCraftApp {
     /// Resolved colours, including the current OS theme when following the system.
     pub theme: ThemeKind,
     pub theme_preference: ThemePreference,
+    pub theme_library: theme::ThemeLibrary,
     /// Interface language preference: `auto` (follow the system) or a code from [`i18n::LANGUAGES`].
     pub language: String,
     /// Preferences: bake Fill & Sign marks into the page when saving. Off, so a normal save stays editable.
@@ -668,6 +669,7 @@ impl PdfCraftApp {
             comment_prefs: Default::default(),
             theme: ThemeKind::Light,
             theme_preference: ThemePreference::Light,
+            theme_library: theme::ThemeLibrary::default(),
             language: i18n::AUTO.to_string(),
             flatten_fill_sign_on_save: false,
             dialog: None,
@@ -1208,9 +1210,10 @@ impl PdfCraftApp {
 
     pub fn set_theme_preference(&mut self, preference: ThemePreference) {
         self.theme_preference = preference;
-        self.theme = preference.resolve(self.ctx.as_ref().and_then(egui::Context::system_theme), self.theme);
+        let palette = preference.palette(&self.theme_library, self.ctx.as_ref().and_then(egui::Context::system_theme), self.theme);
+        self.theme = palette.kind;
         if let Some(ctx) = &self.ctx {
-            theme::apply(ctx, self.theme);
+            theme::apply_palette(ctx, palette);
         }
     }
 
@@ -1222,10 +1225,10 @@ impl PdfCraftApp {
     }
 
     fn sync_theme(&mut self, ctx: &egui::Context) {
-        let kind = self.theme_preference.resolve(ctx.system_theme(), self.theme);
-        if kind != self.theme {
-            self.theme = kind;
-            theme::apply(ctx, kind);
+        let palette = self.theme_preference.palette(&self.theme_library, ctx.system_theme(), self.theme);
+        self.theme = palette.kind;
+        if theme::Tokens::get(ctx) != palette {
+            theme::apply_palette(ctx, palette);
         }
     }
 
@@ -1288,6 +1291,7 @@ impl PdfCraftApp {
             "last_session": self.reopen_last_session.then(|| self.session_to_save()),
             "pinned_folders": self.pinned.folders,
             "theme": self.theme_preference,
+            "theme_library": self.theme_library,
             "default_mode": self.default_mode,
             "default_layout": self.view_defaults.layout.as_str(),
             "default_zoom": self.view_defaults.zoom_name(),
@@ -1343,6 +1347,14 @@ impl PdfCraftApp {
         }
         self.last_session = last_session::LastSession::from_json(&v["last_session"]);
         self.pinned.restore(&v["pinned_folders"]);
+        if let Some(value) = v.get("theme_library")
+            && let Ok(library) = serde_json::from_value::<theme::ThemeLibrary>(value.clone())
+        {
+            for warning in library.diagnostics() {
+                log::warn!("{warning}");
+            }
+            self.theme_library = library;
+        }
         if let Ok(preference) = serde_json::from_value::<ThemePreference>(v["theme"].clone()) {
             self.set_theme_preference(preference);
         }
@@ -1454,12 +1466,9 @@ impl PdfCraftApp {
                 self.language = language.to_string();
             }
             ("theme", _) => {
-                let preference = match value {
-                    "system" => ThemePreference::System,
-                    "light" => ThemePreference::Light,
-                    "dark" => ThemePreference::Dark,
-                    _ => return Err("theme must be light, dark, or system".into()),
-                };
+                let preference = ThemePreference::parse(value).ok_or_else(|| {
+                    "theme must be light, dark, or system, catppuccin, solarized, forest, ocean, sunset, paper-ink, or custom:<id>".to_owned()
+                })?;
                 self.set_theme_preference(preference);
             }
             ("panel", _) => {
