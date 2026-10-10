@@ -205,7 +205,7 @@ fn write_action(doc: &Document, d: &mut Dict, a: &LinkAction) -> Result<(), Anno
 /// Add a link over `rect` (user space). Returns its index in the page's `/Annots`.
 pub fn add(doc: &mut Document, page: usize, rect: [f64; 4], action: &LinkAction, style: &LinkStyle) -> Result<usize, AnnotError> {
     let p = page_ref(doc, page)?;
-    let r = [rect[0].min(rect[2]), rect[1].min(rect[3]), rect[0].max(rect[2]), rect[1].max(rect[3])];
+    let r = [rect[0].min(rect[2]), rect[1].min(rect[3]), rect[0].max(rect[2]), rect[1].max(r[3])];
     if !r.iter().all(|v| v.is_finite()) || r[2] - r[0] < 2.0 || r[3] - r[1] < 2.0 {
         return Err(AnnotError::Invalid("the link area is too small".into()));
     }
@@ -299,30 +299,39 @@ pub fn remove_all(doc: &mut Document, pages: Option<&[usize]>) -> Result<usize, 
 /// Find web addresses in text: `http(s)://…`, `www.…` and bare e-mail addresses become
 /// `mailto:`. Returns character ranges and the URI for each.
 pub fn find_urls(chars: &[char]) -> Vec<(std::ops::Range<usize>, String)> {
-    let text: String = chars.iter().collect();
-    let lower = text.to_lowercase();
-    let lc: Vec<char> = lower.chars().collect();
+    // Iterate using indices into `chars` (the original text). We must NOT slice `chars`
+    // using indices derived from a lowercased copy: characters such as U+0130 ('İ')
+    // lowercase to two characters ('i' + U+0307 combining dot above), so an offset found
+    // in the lowercased buffer can overshoot the original slice and panic. Instead,
+    // only lowercase the small prefix we compare against the URL scheme.
     let mut out = Vec::new();
     let url_char = |c: char| !c.is_whitespace() && !"<>\"'()[]{}".contains(c);
     let mut i = 0;
-    while i < lc.len() {
-        let at = |s: &str| lc[i..].iter().take(s.chars().count()).copied().eq(s.chars());
-        let boundary = i == 0 || !lc[i - 1].is_alphanumeric();
-        if boundary && (at("http://") || at("https://") || at("www.")) {
-            let mut j = i;
-            while j < chars.len() && url_char(chars[j]) {
-                j += 1;
-            }
-            // Trailing punctuation belongs to the sentence.
-            while j > i && ".,;:!?".contains(chars[j - 1]) {
-                j -= 1;
-            }
-            let s: String = chars[i..j].iter().collect();
-            if s.len() > 6 && s.contains('.') {
-                let uri = if s.to_lowercase().starts_with("www.") { format!("http://{s}") } else { s };
-                out.push((i..j, uri));
-                i = j;
-                continue;
+    while i < chars.len() {
+        let boundary = i == 0 || !chars[i - 1].is_alphanumeric();
+        if boundary {
+            // Up to 8 chars covers `https://` (the longest supported scheme).
+            let prefix: String = chars[i..].iter().take(8).collect();
+            let prefix_lc = prefix.to_lowercase();
+            let starts_url_scheme = prefix_lc.starts_with("http://")
+                || prefix_lc.starts_with("https://")
+                || prefix_lc.starts_with("www.");
+            if starts_url_scheme {
+                let mut j = i;
+                while j < chars.len() && url_char(chars[j]) {
+                    j += 1;
+                }
+                // Trailing punctuation belongs to the sentence.
+                while j > i && ".,;:!?".contains(chars[j - 1]) {
+                    j -= 1;
+                }
+                let s: String = chars[i..j].iter().collect();
+                if s.len() > 6 && s.contains('.') {
+                    let uri = if s.to_lowercase().starts_with("www.") { format!("http://{s}") } else { s };
+                    out.push((i..j, uri));
+                    i = j;
+                    continue;
+                }
             }
         }
         i += 1;
