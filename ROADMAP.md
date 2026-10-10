@@ -328,3 +328,6 @@ Newest first. One line per session: the date, what moved, and the new overall pe
 - **2026-09-30 (session 1):** planning complete; viewer vertical slice.
 
 - M13: common command, batch, inspection and bounded preview tools share the existing confined automation path. MCP tools carry complete hints and reject unknown top-level keys as invalid parameters.
+
+- **2026-10-09 (M3, theme foundation):** Add six preset identities, a shared typed palette and a versioned custom-theme library foundation. Editor remains a separate proposal in `docs/themes.md`; overall parity estimate unchanged.
+- **2026-10-10 (M3, theme validation):** Workspace tests pass (1,765 passed); native build, formatting, Clippy, assets and layering validated. Environment/upstream check limits are recorded in `docs/theme-validation.md`.

@@ -1591,15 +1591,15 @@ notes = ""
 
 [[feature]]
 id = "view.theme-light-dark"
-title = "Light and dark themes"
+title = "Built-in application themes"
 area = "B"
 tier = "P1"
 milestone = "M3"
 status = "shipped"
-commands = ["view.theme", "view.theme.light", "view.theme.dark"]
+commands = ["view.theme", "view.theme.light", "view.theme.dark", "view.theme.catppuccin", "view.theme.solarized", "view.theme.forest", "view.theme.ocean", "view.theme.sunset", "view.theme.paper-ink"]
 tools = []
-evidence = ["crates/ui-egui/tests/theme.rs::toolbar_and_view_menu_share_three_state_preferences", "crates/ui-egui/src/theme.rs::text_is_readable_on_every_surface"]
-notes = "Toolbar and Display theme share three choices and a preference setter; manual choices exit system mode. Every text colour meets WCAG AA (4.5:1) on every surface in both themes; glyphs are pixel-aligned for sharper text at 100–150 % scaling."
+evidence = ["crates/ui-egui/tests/theme.rs::toolbar_and_view_menu_share_three_state_preferences", "crates/ui-egui/src/theme.rs::text_is_readable_on_every_surface", "crates/ui-egui/tests/theme.rs::all_presets_switch_live_persist_and_preserve_unsaved_documents", "crates/ui-egui/tests/theme.rs::new_presets_are_available_from_the_existing_menu_and_commands"]
+notes = "Toolbar and Display theme share System, Light, Dark and six additional presets through one preference setter; manual choices exit system mode. Every text colour meets WCAG AA (4.5:1) on every surface in both themes; glyphs are pixel-aligned for sharper text at 100–150 % scaling."
 
 [[feature]]
 id = "view.theme-system"
