@@ -537,6 +537,23 @@ fn urls_are_found_in_text() {
     assert_eq!(found, ["https://example.org/a?b=1", "http://www.rust-lang.org"]);
 }
 
+/// #816: characters that lowercase to two code points (e.g. U+0130 capital I with dot above
+/// lowercases to "i" + U+0307 combining dot above) used to make `find_urls` slice `chars`
+/// with an index from the lowercased copy and panic ("range start index 41 out of range
+/// for slice of length 39"). The URL sits after the affected characters.
+#[test]
+fn urls_are_found_after_a_character_that_lowercases_to_two_chars() {
+    let prefix = "\u{0130}".repeat(20);
+    let text = format!("{prefix} http://example.com");
+    let t: Vec<char> = text.chars().collect();
+    let found: Vec<(std::ops::Range<usize>, String)> = crate::links::find_urls(&t);
+    assert_eq!(found.len(), 1, "no panic and one URL");
+    let (range, uri) = &found[0];
+    assert_eq!(uri, "http://example.com");
+    assert_eq!(&t[range.clone()].iter().collect::<String>(), "http://example.com");
+    assert_eq!(range.start, prefix.chars().count() + 1, "the range starts at the first char of the URL, not an offset in the lowercased copy");
+}
+
 #[test]
 fn polygons_clouds_connected_lines_callouts_and_carets_are_drawn() {
     let mut doc = fixture();
