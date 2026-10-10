@@ -125,8 +125,18 @@ fn plural_polish(n: u64) -> usize {
     }
 }
 
+/// Slovene (CLDR `sl`): one (1, 101, 201 ...) | two (2, 102 ...) | few (3, 4, 103 ...) | other.
+fn plural_sl(n: u64) -> usize {
+    match n % 100 {
+        1 => 0,
+        2 => 1,
+        3 | 4 => 2,
+        _ => 3,
+    }
+}
+
 /// The registry. English first: it is the fallback and the source language.
-pub static LANGUAGES: [LangInfo; 17] = [
+pub static LANGUAGES: [LangInfo; 18] = [
     LangInfo { code: "en", name: "English", source: "", plural: plural_one_other, rtl: false, catalog: OnceLock::new() },
     LangInfo { code: "ja", name: "日本語", source: include_str!("ja.tsv"), plural: plural_none, rtl: false, catalog: OnceLock::new() },
     // Simplified Chinese; `zh`, `zh-CN`, `zh-SG` and `zh-Hans-*` locales resolve here (see `candidates`).
@@ -177,6 +187,8 @@ pub static LANGUAGES: [LangInfo; 17] = [
     LangInfo { code: "ar", name: "العربية", source: include_str!("ar.tsv"), plural: plural_arabic, rtl: true, catalog: OnceLock::new() },
     // Polish; every `pl-*` locale (`pl-pl`, `pl_pl.UTF-8`) resolves here.
     LangInfo { code: "pl", name: "Polski", source: include_str!("pl.tsv"), plural: plural_polish, rtl: false, catalog: OnceLock::new() },
+    // Slovene; every `sl-*` locale (`sl-SI`) resolves here. Four plural forms (one, two, few, other).
+    LangInfo { code: "sl", name: "Slovenščina", source: include_str!("sl.tsv"), plural: plural_sl, rtl: false, catalog: OnceLock::new() },
 ];
 
 impl LangInfo {
@@ -1710,6 +1722,125 @@ mod tests {
         assert_eq!(fmt(t("{n} pages selected"), &[("n", "3")]), "Выбрано 3 страницы");
         assert_eq!(tr(ru, "CheckBox"), "Флажок");
         set_current(Lang::EN);
+    }
+
+    #[test]
+    fn slovene_is_registered_and_persists() {
+        let sl = Lang::from_code("sl").expect("sl registered");
+        assert_eq!(sl.name(), "Slovenščina");
+        assert_eq!(normalize_pref("SL"), Some("sl"));
+        for tag in ["sl", "sl-SI", "sl_SI.UTF-8", "SL-si", "sl_SI@variant"] {
+            assert_eq!(lang_from_tag(tag), Some(sl), "{tag}");
+        }
+        assert_eq!(first_supported("sl-SI\r\nen-US"), Some(sl));
+        assert_eq!(tr(sl, "File"), "Datoteka");
+        assert_eq!(tr(sl, "Save as…"), "Shrani kot…");
+        assert_eq!(tr(sl, "Bookmarks"), "Zaznamki");
+        assert_eq!(tr(sl, "Layers"), "Plasti");
+        assert_eq!(tr(sl, "Poročilo {n}.pdf"), "Poročilo {n}.pdf");
+        assert_eq!(tr_ctx(sl, "comment menu", "Edit"), "Uredi");
+        assert_eq!(tr_ctx(sl, "signature pad", "Type"), "Vtipkaj");
+        assert_eq!(tr_ctx(sl, "action wizard", "Start"), "Začni");
+        // one (1), two (2), few (3, 4), other (0, 5+)
+        assert_eq!((0..=5).map(|n| (sl.0.plural)(n)).collect::<Vec<_>>(), [3, 0, 1, 2, 2, 3]);
+        let mut app = crate::PdfCraftApp::default();
+        app.set_option("language", "SL").unwrap();
+        assert_eq!(app.language, "sl");
+        let mut restored = crate::PdfCraftApp::default();
+        restored.restore(&app.persist());
+        assert_eq!(restored.language, "sl");
+        assert!(restored.set_option("language", "xx").is_err());
+        assert_eq!(restored.language, "sl");
+    }
+
+    #[test]
+    fn slovene_plurals_cover_dual_few_teens_and_large_counts() {
+        let sl = Lang::from_code("sl").expect("sl registered");
+        for (counts, page, field) in [
+            (vec![1, 101, 201, 1001, 1101], "stran", "polje"),
+            (vec![2, 102, 202, 1002], "strani", "polji"),
+            (vec![3, 4, 103, 104, 1003], "strani", "polja"),
+            (vec![0, 5, 10, 11, 12, 13, 14, 15, 20, 21, 22, 23, 24, 25, 31, 100, 111, 112, 121, 122, 1000, u64::MAX], "strani", "polj"),
+        ] {
+            for n in counts {
+                assert_eq!(trn(sl, n, "{n} page", "{n} pages"), format!("{n} {page}"));
+                assert_eq!(trn(sl, n, "{n} field", "{n} fields"), format!("{n} {field}"));
+            }
+        }
+    }
+
+    #[test]
+    fn slovene_diagnostics_preserve_user_values() {
+        let sl = Lang::from_code("sl").expect("sl registered");
+        set_current(sl);
+        assert_eq!(action_label("Custom action {n}"), "Custom action {n}");
+        assert_eq!(fmt(t("{n} pages selected"), &[("n", "3")]), "Izbranih strani: 3");
+        assert_eq!(tr(sl, "CheckBox"), "Potrditveno polje");
+        set_current(Lang::EN);
+    }
+
+    /// Slovene translates every registered command and every All tools group, section and item.
+    #[test]
+    fn slovene_covers_commands_and_catalogue() {
+        let sl = Lang::from_code("sl").expect("sl registered");
+        for command in pdfcraft_engine::commands::COMMANDS {
+            assert!(has(sl, command.label), "missing command: {}", command.label);
+            if let Some(menu) = command.menu {
+                assert!(has(sl, menu), "missing menu: {menu}");
+            }
+        }
+        for group in pdfcraft_engine::catalog::TOOL_GROUPS {
+            assert!(has(sl, group.label), "missing group: {}", group.label);
+            for section in group.sections {
+                assert!(has(sl, section.title), "missing section: {}", section.title);
+                for item in section.items {
+                    assert!(has(sl, item.label), "missing item: {}", item.label);
+                }
+            }
+        }
+    }
+
+    /// New tl!("literal") labels must not silently fall back to English.
+    #[test]
+    fn slovene_covers_ui_literals() {
+        let sl = Lang::from_code("sl").expect("sl registered");
+        let mut stack = vec![std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src")];
+        let mut literals = std::collections::BTreeSet::new();
+        while let Some(dir) = stack.pop() {
+            for entry in std::fs::read_dir(dir).expect("UI source directory") {
+                let path = entry.expect("UI source entry").path();
+                if path.is_dir() {
+                    if path.file_name().is_some_and(|name| name != "i18n") {
+                        stack.push(path);
+                    }
+                } else if path.extension().is_some_and(|ext| ext == "rs") {
+                    let source = std::fs::read_to_string(path).expect("UI source file").replace("\r\n", "\n");
+                    let mut rest = source.split("#[cfg(test)]\nmod ").next().unwrap_or_default();
+                    while let Some((_, after)) = rest.split_once("tl!(\"") {
+                        let mut escaped = false;
+                        let end = after
+                            .char_indices()
+                            .find_map(|(i, c)| {
+                                if c == '"' && !escaped {
+                                    return Some(i);
+                                }
+                                escaped = c == '\\' && !escaped;
+                                None
+                            })
+                            .expect("closed tl! literal");
+                        let (raw, tail) = after.split_at(end);
+                        if tail.starts_with("\")") {
+                            let label: String = serde_json::from_str(&format!("\"{raw}\"")).expect("UI literal escapes");
+                            literals.insert(label);
+                        }
+                        rest = tail.strip_prefix('"').expect("closing quote");
+                    }
+                }
+            }
+        }
+        assert!(literals.len() > 900, "source scan found only {} literals", literals.len());
+        let missing: Vec<_> = literals.iter().filter(|label| !has(sl, label)).collect();
+        assert!(missing.is_empty(), "untranslated Slovene UI literals: {missing:#?}");
     }
 
     #[test]
