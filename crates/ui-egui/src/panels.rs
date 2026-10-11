@@ -16,22 +16,16 @@ fn hue(g: &ToolGroup) -> Color32 {
 
 pub fn left_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
-    egui::Panel::left("tool_panel")
-        .resizable(false)
-        .exact_size(272.0)
-        .frame(
-            egui::Frame::NONE
-                .fill(t.panel)
-                .inner_margin(egui::Margin { left: 14, right: 10, top: 12, bottom: 10 })
-                .stroke(Stroke::new(1.0, t.divider)),
-        )
-        .show(ui, |ui| match app.left {
+    egui::Frame::NONE.fill(t.panel).inner_margin(egui::Margin { left: 14, right: 10, top: 12, bottom: 10 }).stroke(Stroke::new(1.0, t.divider)).show(
+        ui,
+        |ui| match app.left {
             LeftPanel::AllTools => all_tools(app, ui, &t),
             LeftPanel::Tool(id) => match catalog::group(id) {
                 Some(g) => tool_detail(app, ui, &t, g),
                 None => app.left = LeftPanel::AllTools,
             },
-        });
+        },
+    );
 }
 
 fn panel_header(ui: &mut egui::Ui, t: &Tokens, title: &str, back: bool) -> (bool, bool) {
@@ -456,16 +450,10 @@ pub fn right_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
         let comment_allowed = doc.allows_annotation();
         // A dialog or the palette owns the keyboard: the panel leaves Escape to it.
         let modal = app.dialog.is_some() || app.palette_open;
-        egui::Panel::right("right_panel")
-            .resizable(true)
-            .default_size(330.0)
-            .size_range(260.0..=520.0)
-            .frame(
-                egui::Frame::NONE
-                    .fill(t.panel)
-                    .inner_margin(egui::Margin { left: 14, right: 12, top: 12, bottom: 8 })
-                    .stroke(Stroke::new(1.0, t.divider)),
-            )
+        egui::Frame::NONE
+            .fill(t.panel)
+            .inner_margin(egui::Margin { left: 14, right: 12, top: 12, bottom: 8 })
+            .stroke(Stroke::new(1.0, t.divider))
             .show(ui, |ui| {
                 let (title, count) = match panel {
                     RightPanel::Comments => ("Comments", Some(crate::comments_panel::count(info))),
@@ -558,7 +546,7 @@ pub fn right_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     ui.data_mut(|d| d.insert_temp(search_id, bookmark_query.clone()));
                     ui.add_space(6.0);
                 }
-                let bookmark_query = bookmark_query.trim().to_lowercase();
+                let bookmark_query = pdfcraft_render::text::fold_case(bookmark_query.trim());
                 let mut bookmark_matches =
                     if panel == RightPanel::Bookmarks { outline_matches(&info.outline, &bookmark_query) } else { std::collections::HashSet::new() };
                 // A new bookmark must stay nameable even when its initial title doesn't match.
@@ -774,6 +762,7 @@ pub enum BmAction {
 }
 
 /// Matching titles plus their ancestors, keeping document paths rather than filtered indexes.
+/// `query` is folded with [`pdfcraft_render::text::fold_case`], as titles are here.
 fn outline_matches(items: &[OutlineItem], query: &str) -> std::collections::HashSet<Vec<usize>> {
     let mut matches = std::collections::HashSet::new();
     if query.is_empty() {
@@ -781,7 +770,7 @@ fn outline_matches(items: &[OutlineItem], query: &str) -> std::collections::Hash
     }
     let mut pending: Vec<_> = items.iter().enumerate().map(|(i, item)| (vec![i], item)).collect();
     while let Some((path, item)) = pending.pop() {
-        if item.title.to_lowercase().contains(query) {
+        if pdfcraft_render::text::fold_case(&item.title).contains(query) {
             let mut ancestor = path.clone();
             while !ancestor.is_empty() {
                 matches.insert(ancestor.clone());
@@ -1355,5 +1344,27 @@ mod label_column {
         });
         assert!(calls <= super::LABEL_MEASURE_CHARS + 1, "{calls} measurements");
         assert!(shown.ends_with('\u{2026}') && label.starts_with(shown.trim_end_matches('\u{2026}')), "{shown:?}");
+    }
+}
+
+#[cfg(test)]
+mod bookmark_filter {
+    use super::outline_matches;
+    use pdfcraft_render::OutlineItem;
+
+    fn item(title: &str, children: Vec<OutlineItem>) -> OutlineItem {
+        OutlineItem { title: title.into(), page: Some(0), view: pdfcraft_render::DestView::Top, children, open: true }
+    }
+
+    /// Turkish dotted and dotless i match in any case, as in Find (#892).
+    #[test]
+    fn titles_match_in_any_case_with_turkish_i() {
+        let outline = [item("İSTANBUL ŞUBESİ", vec![item("Kış dönemi", vec![])]), item("Ankara", vec![])];
+        let fold = pdfcraft_render::text::fold_case;
+        assert_eq!(outline_matches(&outline, &fold("istanbul")).len(), 1);
+        assert_eq!(outline_matches(&outline, &fold("şubesi")).len(), 1);
+        // A child match keeps its parent: [0] and [0, 0].
+        assert_eq!(outline_matches(&outline, &fold("KIŞ")).len(), 2);
+        assert!(outline_matches(&outline, &fold("izmir")).is_empty());
     }
 }

@@ -148,9 +148,58 @@ impl PdfCraftApp {
             Some(crate::canvas::ViewAction::Split) => self.dialog = Some(crate::Dialog::Split),
             Some(crate::canvas::ViewAction::CopyPages { cut }) => self.copy_pages(cut),
             Some(crate::canvas::ViewAction::PastePages) => self.paste_pages(),
+            Some(crate::canvas::ViewAction::EnhanceCamera) => self.enhance_camera(i),
+            Some(crate::canvas::ViewAction::CancelCamera) => self.leave_camera(i),
+            Some(crate::canvas::ViewAction::CameraRotate { clockwise }) => {
+                if let Some(page) = self.views.get(i).and_then(|v| v.camera_done) {
+                    self.apply_edit(Edit::RotatePages { pages: vec![page], degrees: if clockwise { 90 } else { -90 } });
+                }
+            }
+            Some(crate::canvas::ViewAction::CameraNext(command)) => {
+                self.leave_camera(i);
+                self.execute(command);
+            }
             None => {}
         }
         applied
+    }
+
+    /// Leave Enhance ▸ Camera image on tab `i`.
+    fn leave_camera(&mut self, i: usize) {
+        if let Some(view) = self.views.get_mut(i) {
+            view.camera = None;
+            view.camera_done = None;
+        }
+        if self.quick_tool == crate::QuickTool::EnhanceCamera {
+            self.quick_tool = crate::QuickTool::Select;
+        }
+    }
+
+    /// Enhance ▸ Camera image: straighten what the corners on tab `i` enclose. On success the
+    /// bar offers rotate, crop and organize for the page; on failure the corners stay so they
+    /// can be adjusted.
+    fn enhance_camera(&mut self, i: usize) {
+        let Some(view) = self.views.get(i) else { return };
+        let (id, Some(q)) = (view.id, view.camera) else { return };
+        let Some(page) = self.session.get(id).and_then(|d| d.info.pages.get(q.page).cloned()) else { return };
+        let corners = q.corners.map(|[x, y]| {
+            let [u, v] = page.view_to_user(x, y);
+            [u as f64, v as f64]
+        });
+        match self.session.enhance_camera_page(id, q.page, corners) {
+            Ok(()) => {
+                // The tool stays open with rotate, crop and organize for the enhanced page.
+                if let (Some(doc), Some(view)) = (self.session.get(id), self.views.get_mut(i)) {
+                    view.document_changed(&doc.info);
+                    view.camera = None;
+                    view.camera_done = Some(q.page);
+                }
+            }
+            Err(e) => {
+                let label = crate::i18n::action_label("Enhance camera image");
+                self.notify_fmt("{label} failed: {e}", &[("label", &label), ("e", &e.to_string())]);
+            }
+        }
     }
 
     /// Organize ▸ Copy / Cut: remember the selected pages (the document as it is now); Cut also
@@ -238,6 +287,19 @@ impl PdfCraftApp {
             _ => false,
         };
         if self.apply_edit(edit) {
+            // Tab can wrap to the same field (including another widget of that field).
+            // Its new editor was opened before this edit ran, so it still holds the old
+            // value. Refresh from the accepted form before Save can commit that stale draft.
+            if typed
+                && let Some(view) = self.views.get_mut(i)
+                && let Some(focus) = view.forms.focus.as_mut()
+                && focus.request_focus
+                && committed.as_ref().is_some_and(|draft| draft.name == focus.name)
+                && let Some(field) = self.session.get(view.id).and_then(|doc| doc.form.iter().find(|field| field.name == focus.name))
+            {
+                focus.text = field.value.first().cloned().unwrap_or_default();
+                focus.picked = field.value.clone();
+            }
             if let Some(page) = signature_page
                 && let Some(view) = self.views.get_mut(i)
             {
@@ -602,6 +664,20 @@ impl PdfCraftApp {
         }
     }
 
+    /// Request a normal application exit, preserving every unsaved document until answered.
+    /// Returns false while the existing save/discard/cancel prompt needs a decision.
+    pub(crate) fn request_quit(&mut self, ctx: &egui::Context) -> bool {
+        if self.first_dirty().is_some() {
+            self.close_request = Some(CloseRequest::Quit);
+            ctx.request_repaint();
+            false
+        } else {
+            self.shutdown_recovery();
+            self.quit(ctx);
+            true
+        }
+    }
+
     fn quit(&mut self, ctx: &egui::Context) {
         self.allow_quit = true;
         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -948,6 +1024,39 @@ mod revert_draft_tests {
         let form = app.session.get(app.views[index].id).unwrap().form.clone();
         crate::forms_ui::commit(&mut app.views[index], &form);
         assert!(app.views[index].forms.committed.is_some() && app.views[index].pending_edit.is_some());
+    }
+
+    #[test]
+    fn control_quit_prompts_for_uncommitted_typing_and_cancel_retains_it() {
+        for queued in [false, true] {
+            let mut app = app();
+            let id = app.views[0].id;
+            app.open_bytes("other.pdf", None, include_bytes!("../tests/data/form.pdf").to_vec()).unwrap();
+            if queued {
+                queue_draft(&mut app, 0, "Unsaved typing");
+            } else {
+                app.views[0].forms.focus = Some(focus("Unsaved typing"));
+            }
+            assert!(!app.session.get(id).unwrap().dirty);
+            assert_eq!(app.active, Some(1));
+            let ctx = egui::Context::default();
+            assert!(!app.request_quit(&ctx));
+            assert_eq!(app.close_request, Some(CloseRequest::Quit));
+            assert!(!app.allow_quit);
+            app.resolve_close(&ctx, None);
+            assert!(app.close_request.is_none());
+            assert_eq!(app.views.len(), 2);
+            assert!(app.has_unsaved_work(0));
+            assert_eq!(app.views[0].id, id);
+            assert!(!app.session.get(id).unwrap().dirty);
+            if queued {
+                assert!(
+                    matches!(&app.views[0].pending_edit, Some(Edit::SetFieldValue { value: FieldValue::Text(text), .. }) if text == "Unsaved typing")
+                );
+            } else {
+                assert_eq!(app.views[0].forms.focus.as_ref().unwrap().text, "Unsaved typing");
+            }
+        }
     }
 
     #[test]
