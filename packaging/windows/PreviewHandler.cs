@@ -1409,7 +1409,12 @@ namespace LinkcoPdfPreview
     [ClassInterface(ClassInterfaceType.None)]
     [ProgId("LinkcoPDFEditor.PreviewHandler")]
     [Guid(LinkcoPdfPreviewHandler.ClsidString)]
-    public sealed class LinkcoPdfPreviewHandler :
+    // StandardOleMarshalObject: .NET otherwise hands COM a free-threaded object, so calls from Explorer
+    // arrive on prevhost's RPC worker threads. DoPreview then created the pane window on a thread with
+    // no message loop: every call succeeded, but the window never painted or answered a message, and the
+    // preview pane stayed blank or kept "loading". With standard STA marshaling every call runs on the
+    // apartment thread that created the handler, whose message loop the pane needs.
+    public sealed class LinkcoPdfPreviewHandler : StandardOleMarshalObject,
         IPreviewHandler,
         IPreviewHandlerVisuals,
         IInitializeWithFile,
@@ -1651,8 +1656,12 @@ namespace LinkcoPdfPreview
                 }
                 AttachControl();
                 UpdateBounds();
-                PreviewLog.Write("DoPreview: pane " + _bounds.Width.ToString(CultureInfo.InvariantCulture) + "x" +
-                    _bounds.Height.ToString(CultureInfo.InvariantCulture) + (_initError != null ? ", init error: " + _initError : ""));
+PreviewLog.Write("DoPreview: pane " + _bounds.Width.ToString(CultureInfo.InvariantCulture) + "x" +
+                    _bounds.Height.ToString(CultureInfo.InvariantCulture) + ", thread " +
+                    Thread.CurrentThread.ManagedThreadId.ToString(CultureInfo.InvariantCulture) + " (" +
+                    Thread.CurrentThread.GetApartmentState().ToString() + ")" + (_initError != null ? ", init error: " + _initError : ""));
+                if (Thread.CurrentThread.GetApartmentState() != ApartmentState.STA)
+                    PreviewLog.Write("DoPreview was called on a thread without a message loop; the pane cannot paint");
                 _control.LoadDocument(_filePath, _displayName, _initError);
             }
             catch (Exception ex)
