@@ -150,6 +150,7 @@ impl PdfCraftApp {
                     self.notify(error);
                 }
             }
+            "view.dark_page" => self.set_dark_page(!self.dark_page),
             "file.open" => self.open_dialog(),
             "file.open_recent" => match self.recent.first().map(|r| r.path.clone()) {
                 // The palette runs commands without a submenu: open the most recent file.

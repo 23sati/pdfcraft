@@ -28,7 +28,7 @@ struct Layers {
 }
 
 impl SignatureDrag {
-    pub fn prepare(&mut self, ctx: &egui::Context, doc: &Document, selected: Option<(usize, usize)>, scale: f32) {
+    pub fn prepare(&mut self, ctx: &egui::Context, doc: &Document, selected: Option<(usize, usize)>, scale: f32, dark_page: bool) {
         let key = selected.map(|(p, i)| (doc.edit_generation(), p, i));
         if self.key != key {
             self.key = key;
@@ -66,7 +66,7 @@ impl SignatureDrag {
         let scale = scale.min(crate::canvas::BASE_SIDE / p.width.max(p.height).max(1.0));
         let tag = (scale * 1000.0) as u64;
         if layers.tag != Some(tag) {
-            layers.renderer.set_queue(vec![RenderRequest { page, scale, tag, ..Default::default() }]);
+            layers.renderer.set_queue(vec![RenderRequest { page, scale, tag, dark_page, ..Default::default() }]);
             layers.tag = Some(tag);
         }
         if let Some(out) = layers.renderer.try_recv()

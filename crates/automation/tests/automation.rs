@@ -125,6 +125,32 @@ fn open_inspect_render_and_find() {
 }
 
 #[test]
+fn dark_page_render_is_a_screen_only_preview_option() {
+    let dir = workdir("dark-page-preview");
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    let render = |a: &mut Automation, dark_page| {
+        let content = a.call("page_render", &json!({ "doc": doc, "page": 1, "dpi": 72, "dark_page": dark_page })).unwrap();
+        let Content::Png { data, width, height } = &content[0] else { panic!("expected an image") };
+        assert_eq!((*width, *height), (200, 300));
+        let mut reader = png::Decoder::new(std::io::Cursor::new(data)).read_info().unwrap();
+        let mut rgba = vec![0; reader.output_buffer_size().expect("bounded synthetic PNG")];
+        let frame = reader.next_frame(&mut rgba).unwrap();
+        rgba.truncate(frame.buffer_size());
+        rgba
+    };
+    let normal = render(&mut a, false);
+    let dark = render(&mut a, true);
+    let background = |pixels: &[u8]| {
+        let index = (5 * 200 + 5) * 4;
+        [pixels[index], pixels[index + 1], pixels[index + 2], pixels[index + 3]]
+    };
+    assert_eq!(background(&normal), [255, 255, 255, 255]);
+    assert_eq!(background(&dark), [51, 51, 51, 255]);
+    assert_eq!(ok(&mut a, "doc_info", json!({ "doc": doc }))["document"]["dirty"], false);
+}
+
+#[test]
 fn edit_undo_redo_and_save_round_trip() {
     let dir = workdir("edit");
     let mut a = auto(&dir);

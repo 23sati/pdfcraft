@@ -33,6 +33,7 @@
 //!   for this session without changing the saved preference. `ui.state.default_mode` reports it.
 //!   `theme=light|dark|system` changes the saved theme preference; `ui.state.theme_preference`
 //!   reports the choice and `ui.state.theme` reports the resolved light/dark colours.
+//!   `dark-page=on|off` changes the saved page appearance; `ui.state.dark_page` reports it.
 //! - `ui.open {path}`: open a file.
 //! - `ui.screenshot {region?}`: PNG of the window (base64), optionally cropped to a rect.
 
@@ -703,6 +704,7 @@ impl Host for crate::PdfCraftApp {
             "palette_open": self.palette_open,
             "theme": format!("{:?}", self.theme),
             "theme_preference": self.theme_preference,
+            "dark_page": self.dark_page,
             "language": self.language,
             "notice": self.toast.as_ref().map(|t| t.0.clone()),
             "progress": self.progress_notice.as_ref().map(|p| json!({ "label": p.label, "fraction": p.fraction })),

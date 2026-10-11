@@ -215,6 +215,15 @@ fn shortcuts_run_registered_commands() {
     h.key_press_modifiers(Modifiers::COMMAND | Modifiers::CTRL, Key::H);
     h.run_steps(2);
     assert_eq!(h.state().mode, pdfcraft_ui_egui::Mode::Read);
+
+    let theme = h.state().theme_preference;
+    h.key_press_modifiers(Modifiers::COMMAND | Modifiers::SHIFT, Key::D);
+    h.run_steps(2);
+    assert!(h.state().dark_page, "Cmd/Ctrl+Shift+D turns dark page on");
+    assert_eq!(h.state().theme_preference, theme, "page appearance is independent of the UI theme");
+    h.key_press_modifiers(Modifiers::COMMAND | Modifiers::SHIFT, Key::D);
+    h.run_steps(2);
+    assert!(!h.state().dark_page, "the shortcut toggles it off again");
 }
 
 #[test]
@@ -341,6 +350,7 @@ fn the_shortcuts_dialog_lists_the_real_bindings() {
     h.state_mut().execute("help.shortcuts");
     h.run_steps(3);
     h.get_by_label("Ctrl+Shift+S");
+    h.get_by_label("Ctrl+Shift+D");
     h.get_by_label("Save as");
     // The keys the document view handles itself are written for the platform too, and Fit
     // visible (a registered command) is listed once.
@@ -353,6 +363,7 @@ fn the_shortcuts_dialog_lists_the_real_bindings() {
     h.ctx.set_os(OperatingSystem::Mac);
     h.run_steps(2);
     h.get_by_label("⇧⌘S");
+    h.get_by_label("⇧⌘D");
     h.get_by_label("⌘1");
     h.get_by_label("Zoom in / out (also pinch or ⌘-scroll)");
 }

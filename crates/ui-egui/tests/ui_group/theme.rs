@@ -40,12 +40,27 @@ fn open_view_menu(h: &mut Harness<'static, PdfCraftApp>) {
     h.run_steps(2);
     h.get_by_label("View ⏵").hover();
     h.run_steps(3);
+    h.get_by_label("Dark page");
     assert!(h.query_by_label("Switch light / dark theme").is_none());
     h.get_by_label("Display theme ⏵").hover();
     h.run_steps(3);
     for choice in ["Use system setting", "Light gray", "Dark gray"] {
         h.get_by_label(choice);
     }
+}
+
+#[test]
+fn dark_page_is_toggled_from_the_view_menu_without_changing_the_ui_theme() {
+    let mut h = harness();
+    h.get_by_label("Menu").click();
+    h.run_steps(2);
+    h.get_by_label("View ⏵").hover();
+    h.run_steps(3);
+    h.get_by_label("Dark page").click();
+    h.run_steps(3);
+    assert!(h.state().dark_page);
+    assert_eq!(h.state().theme_preference, ThemePreference::Light);
+    assert_eq!(h.state().theme, ThemeKind::Light);
 }
 
 #[test]
@@ -105,6 +120,24 @@ fn saved_preferences_restore_with_legacy_light_dark_settings() {
     app.restore(r#"{"theme":"System"}"#);
     app.restore(r#"{"theme":"Purple"}"#);
     assert_eq!(app.theme_preference, ThemePreference::System);
+}
+
+#[test]
+fn dark_page_is_saved_as_an_independent_display_preference() {
+    let mut app = PdfCraftApp::new();
+    app.set_option("language", "en").unwrap();
+    app.set_option("theme", "light").unwrap();
+    app.set_option("dark-page", "on").unwrap();
+    let saved = app.persist();
+
+    let mut restored = PdfCraftApp::new();
+    restored.set_option("language", "en").unwrap();
+    restored.restore(&saved);
+    assert!(restored.dark_page);
+    assert_eq!(restored.theme_preference, ThemePreference::Light);
+
+    restored.restore(r#"{"dark_page":false}"#);
+    assert!(!restored.dark_page);
 }
 
 #[test]

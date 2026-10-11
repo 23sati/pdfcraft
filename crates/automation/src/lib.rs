@@ -1540,7 +1540,14 @@ impl Automation {
         if !(1.0..=MAX_DPI).contains(&dpi) {
             return Err(ToolError::InvalidArgs(format!("dpi must be between 1 and {MAX_DPI}")));
         }
-        let out = self.renderer(id)?.render(RenderRequest { page, kind: RequestKind::Pixels, tile: None, scale: (dpi / 72.0) as f32, tag: 0 });
+        let out = self.renderer(id)?.render(RenderRequest {
+            page,
+            kind: RequestKind::Pixels,
+            tile: None,
+            scale: (dpi / 72.0) as f32,
+            tag: 0,
+            dark_page: a.opt_bool("dark_page")?.unwrap_or(false),
+        });
         if let Some(e) = out.error {
             return Err(failed(format!("page {} could not be rendered: {e}", page + 1)));
         }
@@ -1990,7 +1997,7 @@ fn encode_png(width: u32, height: u32, premultiplied: &[u8]) -> Result<Vec<u8>> 
 /// Extract the text of `pages` (0-based) with one renderer per worker thread.
 fn extract_parallel(bytes: &Arc<Vec<u8>>, password: Option<Arc<str>>, pages: &[usize]) -> Vec<(usize, std::result::Result<PageText, String>)> {
     let extract = |r: &mut PageRenderer, p: usize| {
-        let out = r.render(RenderRequest { page: p, kind: RequestKind::Text, tile: None, scale: 1.0, tag: 0 });
+        let out = r.render(RenderRequest { page: p, kind: RequestKind::Text, tile: None, scale: 1.0, tag: 0, dark_page: false });
         match out.error {
             Some(e) => Err(e),
             None => Ok(out.text.map(|t| (*t).clone()).unwrap_or_default()),
