@@ -33,6 +33,7 @@ fmv-macos-events = "=0.1.0"
 # drawn on that one (src/compositor_gpu.rs). Both are already in the tree through winit.
 wayland-client = "0.31"
 wayland-protocols = { version = "0.32", features = ["client"] }
+winit = { version = "0.30", default-features = false, features = ["x11"] }
 
 [dev-dependencies]
 # Waits for wgpu's adapter, device and error-scope futures in tests (already in the tree through wgpu).

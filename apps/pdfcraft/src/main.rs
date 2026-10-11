@@ -255,6 +255,19 @@ fn retry_with_gl(choice: RendererChoice, app_started: bool) -> bool {
     choice == RendererChoice::Auto && !app_started
 }
 
+/// winit 0.30 forwards file drops through X11, not through native Wayland (#634).
+/// A Wayland desktop usually provides XWayland via DISPLAY; keep native Wayland when it doesn't,
+/// or when the user explicitly opts out (e.g. for scaling or sandbox compatibility).
+#[cfg(target_os = "linux")]
+fn enable_linux_file_drops(native: &mut eframe::NativeOptions, display: Option<&std::ffi::OsStr>, wayland: Option<&std::ffi::OsStr>) {
+        if display.is_some_and(|value| !value.is_empty()) && wayland != Some(std::ffi::OsStr::new("1")) {
+                native.event_loop_builder = Some(Box::new(|event_loop| {
+                       use winit::platform::x11::EventLoopBuilderExtX11 as _;
+                        event_loop.with_x11();
+                    }));
+            }
+}
+
 /// The window and renderer settings for one run.
 fn native_options(integrated: bool, renderer: eframe::Renderer) -> eframe::NativeOptions {
     let mut viewport = egui::ViewportBuilder::default()
@@ -275,6 +288,14 @@ fn native_options(integrated: bool, renderer: eframe::Renderer) -> eframe::Nativ
     let persistence_path = settings_dir().map(|d| d.join("app.ron"));
     // Set explicitly, so the renderer never depends on which one eframe defaults to.
     let mut native = eframe::NativeOptions { viewport, persistence_path, renderer, ..Default::default() };
+
+    #[cfg(target_os = "linux")]
+        enable_linux_file_drops(
+                &mut native,
+                std::env::var_os("DISPLAY").as_deref(),
+                                         std::env::var_os("PDFCRAFT_WAYLAND").as_deref(),
+                                     );
+
     if renderer == eframe::Renderer::Wgpu {
         configure_gpu(&mut native);
     }
@@ -668,6 +689,23 @@ mod tests {
         Ok(Endpoint { port: 4321, token: "0123456789abcdef".into() })
     }
 
+    #[cfg(target_os = "linux")]
+        #[test]
+        fn linux_file_drops_select_x11_only_when_available_and_not_opted_out() {
+                // No GUI or changes to the process environment: works on headless Linux CI.
+                let os = std::ffi::OsStr::new;
+                for (display, wayland, use_x11) in [
+                        (None, None, false),
+                        (Some(os("")), None, false),
+                        (Some(os(":0")), None, true),
+                        (Some(os(":1")), Some(os("0")), true),
+                        (Some(os(":1")), Some(os("1")), false),
+                    ] {
+                            let mut native = eframe::NativeOptions::default();
+                            super::enable_linux_file_drops(&mut native, display, wayland);
+                            assert_eq!(native.event_loop_builder.is_some(), use_x11, "DISPLAY={display:?}, PDFCRAFT_WAYLAND={wayland:?}");
+                        }
+                    }
     #[test]
     fn a_control_channel_that_cant_be_published_stops_the_app() {
         let dir = std::env::temp_dir().join(format!("pdfcraft-app-control-{}", std::process::id()));
