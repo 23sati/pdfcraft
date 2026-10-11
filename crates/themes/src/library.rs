@@ -2,7 +2,7 @@
 //! Unknown data survives a save; malformed entries cannot invalidate their siblings.
 
 use super::{Palette, ThemeKind, ThemePreference};
-use egui::Color32;
+use ecolor::Color32;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -393,7 +393,7 @@ impl ThemePreference {
     pub fn parse(value: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|p| p.id() == value).or_else(|| value.strip_prefix("custom:").and_then(CustomThemeId::parse).map(Self::Custom))
     }
-    pub fn palette(self, library: &ThemeLibrary, system: Option<egui::Theme>, fallback: ThemeKind) -> Palette {
+    pub fn palette(self, library: &ThemeLibrary, system: Option<ThemeKind>, fallback: ThemeKind) -> Palette {
         if let Self::Custom(id) = self {
             return library.get(id).map(|d| d.resolve()).unwrap_or_else(|| Palette::for_kind(ThemeKind::Light));
         }

@@ -4,6 +4,7 @@
 //! Page images come from the engine's render pool as whole-page rasters at the current zoom;
 //! stale rasters are shown stretched until the sharp one arrives (tiling comes in M3.3).
 
+use crate::theme::ThemeContext as _;
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::ops::Range;
 use std::sync::Arc;

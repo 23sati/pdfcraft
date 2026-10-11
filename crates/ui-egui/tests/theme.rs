@@ -3,7 +3,7 @@
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable;
 use pdfcraft_ui_egui::PdfCraftApp;
-use pdfcraft_ui_egui::theme::{ThemeKind, ThemePreference, Tokens};
+use pdfcraft_ui_egui::theme::{ThemeContext as _, ThemeKind, ThemePreference, Tokens};
 
 fn harness() -> Harness<'static, PdfCraftApp> {
     let mut h = Harness::builder().with_size(egui::vec2(1100.0, 800.0)).build_eframe(|_cc| {
@@ -142,7 +142,7 @@ fn all_presets_switch_live_persist_and_preserve_unsaved_documents() {
         h.state_mut().set_option("theme", &preference.id()).unwrap();
         h.run_steps(3);
         assert_eq!(h.state().theme_preference, preference);
-        let expected = preference.palette(&h.state().theme_library, h.ctx.system_theme(), h.state().theme);
+        let expected = preference.palette(&h.state().theme_library, h.ctx.system_theme().map(pdfcraft_ui_egui::theme::system_kind), h.state().theme);
         assert_eq!(Tokens::get(&h.ctx), expected);
         assert_eq!(h.ctx.global_style().visuals.panel_fill, expected.panel);
         assert_eq!(h.state().views.len(), view_count);
@@ -202,6 +202,25 @@ fn palette_visual_review() {
         h.run_steps(4);
         h.render().unwrap().save(format!("{dir}/{}-dialog.png", preference.id())).unwrap();
     }
+    let mut h = harness();
+    let created = h
+        .state_mut()
+        .manage_theme(
+            "theme_create",
+            &serde_json::json!({
+                "name":"Navy and cream", "base_theme_id":"ocean", "palette":{"text":"#fff4df","accent":"#efbd88"}
+            }),
+        )
+        .unwrap();
+    h.state_mut().set_option("theme", created["id"].as_str().unwrap()).unwrap();
+    h.run_steps(4);
+    h.render().unwrap().save(format!("{dir}/custom-home.png")).unwrap();
+    h.get_by_label("Display theme: Custom theme").click();
+    h.run_steps(3);
+    h.render().unwrap().save(format!("{dir}/custom-menu.png")).unwrap();
+    h.get_by_label("Navy and cream").click();
+    h.run_steps(3);
+    assert_eq!(h.state().theme_preference.id(), created["id"].as_str().unwrap());
 }
 
 #[test]
@@ -249,4 +268,40 @@ fn legacy_copies_are_identical_until_a_color_is_edited() {
         theme::apply_palette(&copy_ctx, edited);
         assert_eq!(copy_ctx.global_style().visuals.error_fg_color, edited.error);
     }
+}
+
+#[test]
+fn native_store_cli_edits_and_gui_activation_share_latest_library() {
+    use pdfcraft_ui_egui::theme::store::ThemeStore;
+    let dir = std::env::temp_dir().join(format!("pdfcraft-gui-themes-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("themes.json");
+    let mut app = PdfCraftApp::new();
+    app.restore(r#"{"theme":"System"}"#);
+    app.enable_theme_store(&path).unwrap();
+    let store = ThemeStore::new(&path);
+    let id = "custom:00000000-0000-0000-0000-000000000001";
+    store
+        .execute("theme_create", &serde_json::json!({"id":"00000000-0000-0000-0000-000000000001", "name":"CLI Ocean", "base_theme_id":"ocean"}))
+        .unwrap();
+    store.execute("theme_activate", &serde_json::json!({"id":id})).unwrap();
+    // A GUI action re-reads the current store instead of saving its startup snapshot.
+    app.set_option("theme", "dark").unwrap();
+    assert_eq!(app.theme_library.definitions().count(), 1);
+    assert_eq!(store.load().unwrap().theme, ThemePreference::Dark);
+    app.set_option("theme", id).unwrap();
+    assert_eq!(app.theme_preference.id(), id);
+    // App settings remain a compatibility mirror, never authoritative over themes.json.
+    let mirror = app.persist();
+    store.execute("theme_delete", &serde_json::json!({"id":id})).unwrap();
+    let mut restarted = PdfCraftApp::new();
+    restarted.restore(&mirror);
+    restarted.enable_theme_store(&path).unwrap();
+    assert_eq!(restarted.theme_preference, ThemePreference::Ocean);
+    assert_eq!(restarted.theme_library.definitions().count(), 0);
+    std::fs::write(&path, "{malformed").unwrap();
+    assert!(restarted.set_option("theme", "light").is_err());
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "{malformed");
+    let _ = std::fs::remove_dir_all(dir);
 }

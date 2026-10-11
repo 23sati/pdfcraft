@@ -1,6 +1,7 @@
 //! Vector icons: embedded Lucide SVGs, recoloured to white, rasterized by egui_extras at the exact
 //! on-screen pixel size, and tinted per use (PhotoCraft lesson: never use Unicode glyphs as icons).
 
+use crate::theme::ThemeContext as _;
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 

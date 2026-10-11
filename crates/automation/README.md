@@ -84,3 +84,12 @@ Exports complete synchronously. `progressToken` and cancellation notifications a
 ignored; no background-job or cancellation behavior is added.
 
 Session resources `pdfcraft://document` and `pdfcraft://commands`, and the refusal of unknown argument keys, are described in [docs/mcp.md](../../docs/mcp.md).
+
+## Application themes
+
+The ten `theme_*` tools use the shared `pdfcraft-themes` API and native transaction
+store, without a document or graphical application. All require a `store` path,
+confined by `--root`; mutations support `expected_revision`. `pdfcraft-cli tools`
+exposes the 31-color schema. The same tools are already available over the opt-in
+MCP server, including compact discovery. See [themes](../../docs/themes.md) for
+commands, import/export examples, migration, concurrent GUI/CLI behavior and errors.

@@ -1,5 +1,6 @@
 //! Small custom widgets built on the design tokens.
 
+use crate::theme::ThemeContext as _;
 use egui::{Align2, Color32, CornerRadius, Rect, Response, Sense, Stroke, vec2};
 
 use crate::theme::{self, Tokens};

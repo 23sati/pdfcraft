@@ -1,5 +1,6 @@
 //! Modal dialogs: Document Properties, Keyboard Shortcuts, About (with the Contributors and Models credits).
 
+use crate::theme::ThemeContext as _;
 use egui::{Align, Layout};
 
 use crate::theme::{self, Tokens};

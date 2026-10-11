@@ -6,6 +6,7 @@
 //! `pdfcraft-engine`.
 
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
+use crate::theme::ThemeContext as _;
 
 /// Translate an English UI string into the current language (see [`i18n`]).
 macro_rules! tl {
@@ -391,6 +392,13 @@ pub struct PdfCraftApp {
     pub theme: ThemeKind,
     pub theme_preference: ThemePreference,
     pub theme_library: theme::ThemeLibrary,
+    theme_state: theme::ThemeState,
+    #[cfg(not(target_arch = "wasm32"))]
+    theme_store: Option<theme::store::ThemeStore>,
+    #[cfg(not(target_arch = "wasm32"))]
+    theme_poll: Option<std::time::Instant>,
+    #[cfg(not(target_arch = "wasm32"))]
+    theme_store_error: Option<String>,
     /// Interface language preference: `auto` (follow the system) or a code from [`i18n::LANGUAGES`].
     pub language: String,
     /// Preferences: bake Fill & Sign marks into the page when saving. Off, so a normal save stays editable.
@@ -670,6 +678,13 @@ impl PdfCraftApp {
             theme: ThemeKind::Light,
             theme_preference: ThemePreference::Light,
             theme_library: theme::ThemeLibrary::default(),
+            theme_state: Default::default(),
+            #[cfg(not(target_arch = "wasm32"))]
+            theme_store: None,
+            #[cfg(not(target_arch = "wasm32"))]
+            theme_poll: None,
+            #[cfg(not(target_arch = "wasm32"))]
+            theme_store_error: None,
             language: i18n::AUTO.to_string(),
             flatten_fill_sign_on_save: false,
             dialog: None,
@@ -1209,11 +1224,83 @@ impl PdfCraftApp {
     }
 
     pub fn set_theme_preference(&mut self, preference: ThemePreference) {
-        self.theme_preference = preference;
-        let palette = preference.palette(&self.theme_library, self.ctx.as_ref().and_then(egui::Context::system_theme), self.theme);
+        if let Err(error) = self.manage_theme("theme_activate", &serde_json::json!({"id":preference.id()})) {
+            self.notify(error.to_string());
+        }
+    }
+
+    fn apply_theme_state(&mut self, state: theme::ThemeState) {
+        self.theme_preference = state.theme;
+        self.theme_library = state.theme_library.clone();
+        self.theme_state = state;
+        let palette = self.theme_preference.palette(
+            &self.theme_library,
+            self.ctx.as_ref().and_then(egui::Context::system_theme).map(theme::system_kind),
+            self.theme,
+        );
         self.theme = palette.kind;
         if let Some(ctx) = &self.ctx {
             theme::apply_palette(ctx, palette);
+        }
+    }
+
+    /// Shared validated operations for the future editor and native store adapters.
+    /// Neither autosave nor closing the application writes a stale library snapshot.
+    pub fn manage_theme(&mut self, operation: &str, args: &serde_json::Value) -> Result<serde_json::Value, theme::ThemeError> {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(store) = &self.theme_store {
+            let result = store.execute(operation, args)?;
+            let state = store.load()?;
+            self.apply_theme_state(state);
+            return Ok(result);
+        }
+        let mut state = self.theme_state.clone();
+        state.theme = self.theme_preference;
+        state.theme_library = self.theme_library.clone();
+        let result = state.execute(operation, args)?;
+        self.apply_theme_state(state);
+        Ok(result)
+    }
+
+    /// Migrate eframe theme settings once, then use the shared native store.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn enable_theme_store(&mut self, path: impl Into<std::path::PathBuf>) -> Result<(), theme::ThemeError> {
+        let store = theme::store::ThemeStore::new(path);
+        let mut seed = self.theme_state.clone();
+        seed.theme = self.theme_preference;
+        seed.theme_library = self.theme_library.clone();
+        self.theme_store = Some(store.clone());
+        self.apply_theme_state(store.initialize(seed)?);
+        Ok(())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn refresh_theme_store(&mut self, ctx: &egui::Context) {
+        if self.theme_store.is_none() {
+            return;
+        }
+        ctx.request_repaint_after(std::time::Duration::from_secs(1));
+        if self.theme_poll.is_some_and(|last| last.elapsed() < std::time::Duration::from_secs(1)) {
+            return;
+        }
+        self.theme_poll = Some(std::time::Instant::now());
+        let result = self.theme_store.as_ref().map(|store| store.load());
+        match result {
+            Some(Ok(state)) => {
+                self.theme_store_error = None;
+                if state != self.theme_state {
+                    self.apply_theme_state(state);
+                }
+            }
+            Some(Err(error)) => {
+                let message = error.to_string();
+                if self.theme_store_error.as_ref() != Some(&message) {
+                    log::warn!("theme store: {message}");
+                    self.notify(message.clone());
+                    self.theme_store_error = Some(message);
+                }
+            }
+            None => {}
         }
     }
 
@@ -1225,7 +1312,9 @@ impl PdfCraftApp {
     }
 
     fn sync_theme(&mut self, ctx: &egui::Context) {
-        let palette = self.theme_preference.palette(&self.theme_library, ctx.system_theme(), self.theme);
+        #[cfg(not(target_arch = "wasm32"))]
+        self.refresh_theme_store(ctx);
+        let palette = self.theme_preference.palette(&self.theme_library, ctx.system_theme().map(theme::system_kind), self.theme);
         self.theme = palette.kind;
         if theme::Tokens::get(ctx) != palette {
             theme::apply_palette(ctx, palette);
@@ -1356,7 +1445,10 @@ impl PdfCraftApp {
             self.theme_library = library;
         }
         if let Ok(preference) = serde_json::from_value::<ThemePreference>(v["theme"].clone()) {
-            self.set_theme_preference(preference);
+            let mut state = self.theme_state.clone();
+            state.theme = preference;
+            state.theme_library = self.theme_library.clone();
+            self.apply_theme_state(state);
         }
         if let Ok(mode) = serde_json::from_value::<Mode>(v["default_mode"].clone()) {
             self.default_mode = mode;
@@ -1469,7 +1561,7 @@ impl PdfCraftApp {
                 let preference = ThemePreference::parse(value).ok_or_else(|| {
                     "theme must be light, dark, or system, catppuccin, solarized, forest, ocean, sunset, paper-ink, or custom:<id>".to_owned()
                 })?;
-                self.set_theme_preference(preference);
+                self.manage_theme("theme_activate", &serde_json::json!({"id":preference.id()})).map_err(|e| e.to_string())?;
             }
             ("panel", _) => {
                 self.right = match value {

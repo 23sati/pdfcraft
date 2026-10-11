@@ -1,5 +1,6 @@
 //! Window chrome: tab strip (with the integrated macOS title bar), mode bar, right rail.
 
+use crate::theme::ThemeContext as _;
 use egui::{Align, Align2, Color32, CornerRadius, Layout, Rect, Sense, Stroke, vec2};
 
 use crate::canvas::{DocView, Fit, PageLayout};
@@ -151,6 +152,16 @@ fn theme_menu(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
             ui.close();
         }
     }
+    let custom: Vec<_> = app.theme_library.definitions().filter(|theme| theme.schema_version == crate::theme::THEME_SCHEMA_VERSION).collect();
+    egui::ScrollArea::vertical().max_height(300.0).show_rows(ui, ui.spacing().interact_size.y, custom.len(), |ui, rows| {
+        for theme in custom.get(rows).unwrap_or_default() {
+            let preference = ThemePreference::Custom(theme.id);
+            if ui.radio(app.theme_preference == preference, &theme.name).clicked() {
+                app.set_theme_preference(preference);
+                ui.close();
+            }
+        }
+    });
 }
 
 /// A tab's chrome around its name: the icon on the left, the close button on the right.

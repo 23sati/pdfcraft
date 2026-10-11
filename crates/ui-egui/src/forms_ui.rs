@@ -4,6 +4,7 @@
 //! cancels, Tab moves to the next field). Check boxes and radio buttons toggle on click. Combo
 //! and list boxes open a list of their options. Every change is one undoable engine edit.
 
+use crate::theme::ThemeContext as _;
 use egui::{Color32, CornerRadius, Rect, Stroke, vec2};
 use pdfcraft_engine::{Edit, FieldValue, FormField, FormFieldKind, field_flags};
 use pdfcraft_render::DocInfo;

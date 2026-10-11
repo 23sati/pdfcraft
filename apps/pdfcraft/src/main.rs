@@ -300,6 +300,13 @@ fn app_creator<'a>(
         if let Some(json) = cc.storage.and_then(|s| s.get_string("pdfcraft").or_else(|| s.get_string(LEGACY_STORAGE_KEY))) {
             app.restore(&json);
         }
+        if let Some(dir) = settings_dir() {
+            if let Err(error) = std::fs::create_dir_all(&dir) {
+                app.notify(format!("Theme storage: {error}"));
+            } else if let Err(error) = app.enable_theme_store(dir.join("themes.json")) {
+                app.notify(format!("Theme storage: {error}"));
+            }
+        }
         app.integrated_titlebar = integrated;
         app.update_source = Some(std::sync::Arc::new(updates::latest_release));
         app.os_key_store_ids = cfg!(any(target_os = "macos", target_os = "windows"));

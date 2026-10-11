@@ -4,6 +4,7 @@
 //! Shift+click), moved with the toolbar, the keyboard or by dragging, and sorted by clicking a
 //! column heading; PDFs dropped on the tab join the list. Every change to the list can be undone.
 
+use crate::theme::ThemeContext as _;
 use std::cmp::Ordering;
 use std::collections::BTreeSet;
 use std::sync::Arc;

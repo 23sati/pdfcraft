@@ -6,6 +6,7 @@
 //! listed on a worker thread and at most every few seconds while Home shows, so a slow, huge or
 //! offline synced folder never blocks the frame.
 
+use crate::theme::ThemeContext as _;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::SystemTime;
 

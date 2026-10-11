@@ -2,6 +2,7 @@
 //! Password Security settings behind "Advanced Options" (compatibility, what to encrypt,
 //! printing, changes, copying, screen readers). Execution plan M8.1.
 
+use crate::theme::ThemeContext as _;
 use egui::{Align, Color32, Layout};
 use pdfcraft_engine::{Changes, Edit, Printing, Protection};
 
