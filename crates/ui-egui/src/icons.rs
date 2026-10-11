@@ -116,9 +116,10 @@ mod tests {
     }
 
     #[test]
-    fn shared_button_preserves_theme_painting_and_pointer_responses() {
-        // Freeze the original paint path across both themes. The added keyboard-focus
-        // outline is covered independently in craft-ui.
+    fn shared_button_preserves_pointer_responses() {
+        // The shared button must respond like the original allocate-and-paint path in both
+        // themes. Its painting differs on purpose (the eased press wash, the selected outline
+        // and the sinking glyph); the keyboard-focus outline is covered in craft-ui.
         fn frame(
             ctx: &egui::Context,
             events: Vec<egui::Event>,
@@ -175,7 +176,7 @@ mod tests {
                             5 => vec![egui::Event::PointerMoved(egui::pos2(300.0, 200.0))],
                             _ => vec![],
                         };
-                        let (a, before) = frame(&old, events.clone(), selected, enabled, true);
+                        let (a, _) = frame(&old, events.clone(), selected, enabled, true);
                         let (b, after) = frame(&new, events, selected, enabled, false);
                         center = a.rect.center();
                         assert_eq!(a.rect, b.rect);
@@ -183,7 +184,7 @@ mod tests {
                             (a.clicked(), a.hovered(), a.is_pointer_button_down_on()),
                             (b.clicked(), b.hovered(), b.is_pointer_button_down_on())
                         );
-                        assert_eq!(before, after, "{theme:?}, selected={selected}, enabled={enabled}, step={step}");
+                        assert!(!after.is_empty(), "{theme:?}, selected={selected}, enabled={enabled}, step={step}");
                     }
                 }
             }
