@@ -85,6 +85,8 @@
 	Display theme	Tema de visualización
 	Side panels	Paneles laterales
 	Enable Acrobat JavaScript	Activar Acrobat JavaScript
+	Flatten Fill & Sign when saving	Acoplar Rellenar y firmar al guardar
+	Text, marks and signatures become part of the page. Other comments stay editable.	El texto, las marcas y las firmas pasan a formar parte de la página. Los demás comentarios siguen siendo editables.
 	OK	Aceptar
 	Join our Discord	Únete a nuestro Discord
 	Close	Cerrar
@@ -656,7 +658,7 @@
 	Social Security Number	Número de la Seguridad Social
 	Arbitrary Mask	Máscara arbitraria
 	Mask:	Máscara:
-	9 digit, A letter, O letter or digit, X any character	9 dígito, A letra, O letra o dígito, X cualquier carácter
+	9 digit, A letter, O letter or digit, X any character	9: dígito; A: letra; O: letra o dígito; X: cualquier carácter
 	Example: {sample}	Ejemplo: {sample}
 	Field value is not validated	El valor del campo no se valida
 	Field value is in range:	El valor del campo está en el intervalo:
@@ -785,6 +787,7 @@
 	Rotation	Rotación
 	Appear behind page	Mostrar detrás de la página
 	Appear on top of page	Mostrar encima de la página
+	Offset from centre	Desplazamiento desde el centro
 	From colour	A partir de un color
 	Page Range Options	Opciones de intervalo de páginas
 	Preview: page {p} of {n}	Vista previa: página {p} de {n}
@@ -923,6 +926,7 @@
 	Remove hidden information, metadata, scripts and embedded content, and rewrite the files.	Quita la información oculta, los metadatos, los scripts y el contenido incrustado, y reescribe los archivos.
 	Type text	Escribe texto
 	Text to insert	Texto que insertar
+	Inserted text	Texto insertado
 	Replacement text	Texto de reemplazo
 	Edit text…	Editar texto…
 	Add a sticky note here	Añadir una nota adhesiva aquí
@@ -933,6 +937,7 @@
 	This comment's appearance can't be changed yet.	El aspecto de este comentario todavía no se puede cambiar.
 	Icon	Icono
 	Thickness	Grosor
+	Line ending	Extremo de línea
 	Modified	Fecha de modificación
 	No status has been set.	No se ha establecido ningún estado.
 	Compare Files	Comparar archivos
@@ -1226,7 +1231,7 @@
 	1 mark	1 marca
 	{n} marks	{n} marcas
 	Dynamic	Dinámicos
-	Sign Here	Firme aquí
+	Sign Here	Firma aquí
 	Standard Business	Empresariales estándar
 	Choose a stamp, then click on the page to place it.	Elige un sello y haz clic en la página para colocarlo.
 	Note	Nota
@@ -1584,6 +1589,7 @@
 	Looking for printers…	Buscando impresoras…
 	Sending to {printer}…	Enviando a {printer}…
 	Choose a folder for the searchable files	Elige una carpeta para los archivos con búsqueda
+	Files are combined in this order. Leave Pages empty to take every page.	Los archivos se combinan en este orden. Deja Páginas vacío para incluir todas las páginas.
 	Files are combined from top to bottom. Leave Pages empty to take every page.	Los archivos se combinan de arriba abajo. Deja Páginas vacío para incluir todas las páginas.
 	Unlock…	Desbloquear…
 	Select a password-protected file first	Selecciona primero un archivo protegido con contraseña
@@ -1610,6 +1616,11 @@
 	Add folder and subfolders	Añadir carpeta y subcarpetas
 	No PDFs, images or text files found in {folder}	No se encontraron PDF, imágenes ni archivos de texto en {folder}
 	Added the first {n} files in {folder}	Se añadieron los primeros {n} archivos de {folder}
+comment menu	Edit	Editar
+	Undo {action}	Deshacer {action}
+	Redo {action}	Rehacer {action}
+certificate	Subject	Titular
+action wizard	Start	Iniciar
 	Click to sort, drag to move the column. Drag its edge to resize it.	Haz clic para ordenar; arrastra para mover la columna. Arrastra su borde para cambiar el ancho.
 	Reset columns	Restablecer columnas
 	Remove {n} files	Quitar {n} archivos
@@ -2031,7 +2042,73 @@
 	Default page display	Presentación de página predeterminada
 	Default zoom	Zoom predeterminado
 	Used when a PDF doesn't ask for a layout or zoom. Continuous scrolling never snaps between pages.	Se usa cuando un PDF no pide una presentación ni un zoom. El desplazamiento continuo nunca salta de página en página.
+	Show	Mostrar
+	Sort	Ordenar
+	Reverse the order	Invertir el orden
+	Grab bag	Miscelánea
+	Table	Tabla
+	Username	Nombre de usuario
+	Display name	Nombre para mostrar
+	Real name	Nombre real
+	Name (A–Z)	Nombre (A–Z)
+	Merged PRs	PR fusionados
+	PRs	PR
+	Commits	Commits
+	Lines added	Líneas añadidas
+	+LOC	+LOC
+	Lines deleted	Líneas eliminadas
+	−LOC	−LOC
+	Line delta	Diferencia de líneas
+	ΔLOC	ΔLOC
+	Binary assets added	Recursos binarios añadidos
+	+Bin	+Bin
+	Binary assets removed	Recursos binarios eliminados
+	−Bin	−Bin
+	First commit	Primer commit
+	First	Primero
+	Last commit	Último commit
+	Last	Último
+	No contributor data was built into this copy.	Esta copia no incluye datos de colaboradores.
+	No model credits were built into this copy.	Esta copia no incluye créditos de modelos.
+	{n} contributors · {c} commits	{n} colaboradores · {c} commits
+	Company	Empresa
+	Model	Modelo
+	% of all commits	% de todos los commits
+	Lines +/−	Líneas +/−
+	@{login}: {prs} PRs, {commits} commits, +{added} / −{deleted} lines (Δ {delta}), +{bin_added} / −{bin_deleted} binary assets, {first} – {last}	@{login}: {prs} PR, {commits} commits, +{added} / −{deleted} líneas (Δ {delta}), +{bin_added} / −{bin_deleted} recursos binarios, {first} – {last}
 	Reopen the files that were open when PdfCraft last closed	Volver a abrir los archivos que estaban abiertos al cerrar PdfCraft por última vez
+	Add {what}	Añadir {what}
+	Use {what}	Usar {what}
+	Place saved {what}	Colocar {what} desde lo guardado
+	Remove saved {what}	Quitar {what} de lo guardado
+	A link	Un enlace
+	A button	Un botón
+	A script	Un script
+	{who} in this document tried to open an address PdfCraft won't open: {e}.	{who} de este documento intentó abrir una dirección que PdfCraft no abre: {e}.
+	{who} in this document tried to open an address PdfCraft won't open: {e}. Only web (http, https) and email (mailto) links open from documents.	{who} de este documento intentó abrir una dirección que PdfCraft no abre: {e}. Desde los documentos solo se abren enlaces web (http, https) y de correo (mailto).
+	Another file dialog is still open. Finish with it first.	Todavía hay otro cuadro de archivos abierto. Termina primero con ese.
+	Couldn't show the file picker. Please try again.	No se pudo mostrar el selector de archivos. Inténtalo de nuevo.
+	The document changed while you were choosing a file, so nothing was changed.	El documento cambió mientras elegías un archivo, así que no se modificó nada.
+	The document was closed before it could be saved.	El documento se cerró antes de poder guardarlo.
+	The pages were extracted but not deleted, because the document changed while you were choosing a folder.	Las páginas se extrajeron pero no se eliminaron, porque el documento cambió mientras elegías una carpeta.
+	That didn't work: an internal error stopped it ({m}).	No ha funcionado: un error interno lo ha detenido ({m}).
+	The Windows store's digital IDs couldn't be listed: {e}	No se pudieron listar los ID digitales del almacén de Windows: {e}
+	Align fields	Alinear campos
+	Distribute fields	Distribuir campos
+	Match field sizes	Igualar el tamaño de los campos
+	Mark for redaction	Marcar para censurar
+	Mark pages for redaction	Marcar páginas para censurar
+	Change document properties	Cambiar propiedades del documento
+	Mark differences	Marcar diferencias
+	Run form script	Ejecutar script del formulario
+	Scripted content must be usable with a keyboard and assistive technology. Check the document's scripts.	El contenido con scripts debe poder usarse con teclado y con tecnologías de asistencia. Revisa los scripts del documento.
+	Table rows belong directly in a table or its head, body or foot. Fix the table's tags.	Las filas de una tabla van directamente en la tabla o en su encabezado, cuerpo o pie. Corrige las etiquetas de la tabla.
+	Basic constraints	Restricciones básicas
+	SHA-1 digest	Huella SHA-1
+	SHA-256 digest	Huella SHA-256
+	Squiggly	Ondulado
+	Home / End	Inicio / Fin
+	H / Space (hold)	H / Espacio (mantener)
 	Reload documents when their files change on disk	Recargar los documentos cuando sus archivos cambien en el disco
 	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Este archivo ha cambiado en el disco. Recárgalo para ver la nueva versión; se perderán tus cambios sin guardar.
 	Reload	Recargar
@@ -2049,6 +2126,11 @@
 	Choose a PNG or JPEG image (up to 4 MiB). Transparency is preserved.	Elige una imagen PNG o JPEG (hasta 4 MiB). Se conserva la transparencia.
 	Couldn't import the signature image: {e}	No se pudo importar la imagen de la firma: {e}
 	Go to page…	Ir a la página…
+	About	Acerca de
+	Contributors	Colaboradores
+	Models	Modelos
+	Only continue if you trust this document. An address can carry information from the document, such as what you typed into its form.	Continúa solo si confías en este documento. Una dirección puede llevar información del documento, como lo que escribiste en su formulario.
+	Print single-sided. Keep the sheets in order, cut at the marks, then stack the piles left to right, top to bottom.	Imprime a una cara. Mantén las hojas en orden, corta por las marcas y apila los montones de izquierda a derecha y de arriba abajo.
 	For page sizes and margins.	Para tamaños de página y márgenes.
 	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	Las fuentes de texto PDF no pueden mostrar «{c}» ({code}). Elija texto compatible.
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Las fuentes estándar no pueden mostrar «{c}» ({code}). Por ahora solo se pueden añadir como texto caracteres de Europa occidental.
@@ -2237,10 +2319,8 @@
 	Change Author	Cambiar el autor
 	Change Subject	Cambiar el asunto
 	Change Keywords	Cambiar las palabras clave
-	Run form script	Ejecutar el script del formulario
 	Save as {level}	Guardar como {level}
 	Create links	Crear enlaces
-	Mark differences	Marcar diferencias
 
 # Multi-object selection and movement (#844)
 @plural	{n} object selected|{n} objects selected	{n} objeto seleccionado|{n} objetos seleccionados
@@ -2288,16 +2368,18 @@ key	Space	Espacio
 	Tools	Herramientas
 	Inspector	Inspector
 	Select page {label}	Seleccionar la página {label}
-	Rotate page {label} counterclockwise	Girar la página {label} en sentido antihorario
-	Rotate page {label} clockwise	Girar la página {label} en sentido horario
+	Rotate page {label} counterclockwise	Girar la página {label} a la izquierda
+	Rotate page {label} clockwise	Girar la página {label} a la derecha
 	Delete page {label}	Eliminar la página {label}
 	Mouse wheel scroll speed	Velocidad de desplazamiento de la rueda del ratón
 scroll speed	Slow	Lenta
 scroll speed	Normal	Normal
 scroll speed	Fast	Rápida
 	Enhance camera image	Mejorar foto de cámara
-	Drag the corners onto the document's edges, then choose Enhance page.	Arrastre las esquinas hasta los bordes del documento y elija Mejorar página.
+	Drag the corners onto the document's edges, then choose Enhance page.	Arrastra las esquinas hasta los bordes del documento y elige Mejorar página.
 	Enhance page	Mejorar página
+	Certificate authority	Autoridad de certificación
+	End entity	Entidad final
 	Clean-up	Limpieza
 	Original	Original
 	Greyscale	Escala de grises
