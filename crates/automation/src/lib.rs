@@ -196,6 +196,28 @@ impl Automation {
                 out["rotated"] = json!(n);
                 out
             }
+            "page_enhance_camera" => {
+                let page = self.page(&a)?;
+                let given = a.nums::<8>("corners")?;
+                let doc = self.doc(&a)?;
+                let (id, info) = (doc.id, doc.info.pages.get(page).cloned().ok_or_else(|| failed("no such page"))?);
+                let corners = match given {
+                    Some(c) => [0, 1, 2, 3].map(|i| {
+                        let [x, y] = info.view_to_user(c[2 * i] as f32, c[2 * i + 1] as f32);
+                        [x as f64, y as f64]
+                    }),
+                    None => self.session.detect_camera_corners(id, page).ok_or_else(|| {
+                        failed("the document's edges could not be found on this page: pass `corners` [x1, y1, x2, y2, x3, y3, x4, y4]")
+                    })?,
+                };
+                self.session.enhance_camera_page(id, page, corners).map_err(failed)?;
+                let r = |v: f32| (v * 100.0).round() / 100.0;
+                let used: Vec<f32> = corners.iter().flat_map(|&[x, y]| info.user_to_view(x as f32, y as f32)).map(r).collect();
+                let mut out = summary(self.doc(&a)?);
+                out["corners"] = json!(used);
+                out["detected"] = json!(given.is_none());
+                out
+            }
             "page_delete" => {
                 let pages = self.pages(&a, "pages")?;
                 self.apply(&a, Edit::DeletePages { pages })?
