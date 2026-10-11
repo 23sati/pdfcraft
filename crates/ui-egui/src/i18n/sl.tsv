@@ -2196,3 +2196,62 @@ key	Space	Preslednica
 	Resize panel window	Spremeni velikost okna razdelka
 	Resize panels	Spremeni velikost razdelkov
 	Tools	Orodja
+
+# Added for labels that landed alongside this catalog (2026-10-11).
+	Appearance mode	Način videza
+	Light	Svetlo
+	Dark	Temno
+	Active	Aktivno
+	Dark theme	Temna tema
+	Appearance settings…	Nastavitve videza …
+	Save ({key})	Shrani ({key})
+	Select page {label}	Izberi stran {label}
+	Rotate page {label} counterclockwise	Zasukaj stran {label} v nasprotni smeri urinega kazalca
+	Rotate page {label} clockwise	Zasukaj stran {label} v smeri urinega kazalca
+	Delete page {label}	Izbriši stran {label}
+	Offset from centre	Zamik od središča
+	Graphic	Grafika
+	Signer's name	Ime podpisnika
+	Fill & Sign signature	Podpis iz orodja Izpolni in podpiši
+	Choose image…	Izberi sliko …
+	Enter permissions password…	Vnesi geslo za dovoljenja …
+	Permissions password	Geslo za dovoljenja
+	“{name}” has security restrictions. Enter its permissions password to lift them.	Dokument »{name}« ima varnostne omejitve. Vnesite geslo za dovoljenja, da jih odpravite.
+	Restrictions lifted	Omejitve so odpravljene
+	Couldn't unlock {name}: {e}	Dokumenta {name} ni bilo mogoče odkleniti: {e}
+	This document has no restrictions to lift	Ta dokument nima omejitev, ki bi jih bilo treba odpraviti
+	The document's security settings don't allow copying text and images	Varnostne nastavitve dokumenta ne dovolijo kopiranja besedila in slik
+	Add the files to combine	Dodajte datoteke za združevanje
+	Leave out files that can't be read?	Izpustim datoteke, ki jih ni mogoče prebrati?
+	These files can't be read, so they won't be in the combined PDF:	Teh datotek ni mogoče prebrati, zato ne bodo v združenem PDF-ju:
+	Combine the rest	Združi ostale
+	and {n} more	in še {n}
+	Drop PDFs, images, text files or folders here, or choose them.	Sem povlecite datoteke PDF, slike, besedilne datoteke ali mape ali pa jih izberite.
+	Every PDF, image and text file in the folder	Vse datoteke PDF, slike in besedilne datoteke v mapi
+	Every PDF, image and text file in the folder and the folders inside it	Vse datoteke PDF, slike in besedilne datoteke v mapi in njenih podmapah
+	No PDFs, images or text files found in {folder}	V mapi {folder} ni datotek PDF, slik ali besedilnih datotek
+	Added the first {n} files in {folder}	Dodanih je prvih {n} datotek iz mape {folder}
+	Margins	Robovi
+	For page sizes and margins.	Za velikosti strani in robove.
+	PDF page: {size}	Stran PDF: {size}
+	Match page at 100%	Prilagodi strani pri 100 %
+	PDF scale: {scale}%	Merilo PDF: {scale} %
+	Printer paper and scaling may differ. Check driver settings.	Papir in merilo tiskalnika se lahko razlikujeta. Preverite nastavitve gonilnika.
+	Drawing scale changes. Use Actual size for full-scale plans.	Merilo risbe se spremeni. Za načrte v polnem merilu uporabite Dejansko velikost.
+	Reload documents when their files change on disk	Znova naloži dokumente, ko se njihove datoteke na disku spremenijo
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Ta datoteka se je na disku spremenila. Znova jo naložite, da vidite novo različico; neshranjene spremembe bodo izgubljene.
+	Reload	Znova naloži
+	Couldn't reload {name}: {e}	Datoteke {name} ni bilo mogoče znova naložiti: {e}
+	Mouse wheel scroll speed	Hitrost drsenja s kolescem miške
+scroll speed	Slow	Počasi
+scroll speed	Normal	Običajno
+scroll speed	Fast	Hitro
+	Enhance camera image	Izboljšaj fotografijo s kamere
+	Drag the corners onto the document's edges, then choose Enhance page.	Povlecite vogale na robove dokumenta, nato izberite Izboljšaj stran.
+	Enhance page	Izboljšaj stran
+	Done adding text	Dodajanje besedila končano
+	Discard this text (Esc)	Zavrzi to besedilo (Esc)
+	Clean-up	Čiščenje
+	Original	Izvirnik
+	Greyscale	Sivine
+	Black and white	Črno-belo
