@@ -3053,6 +3053,24 @@ fn enhance_camera_page_straightens_the_sheet() {
 }
 
 #[test]
+fn detect_camera_corners_finds_the_sheet_in_user_space() {
+    let mut s = Session::new().with_clock(|| 1_700_000_000);
+    let (png, sheet) = camera_photo();
+    let bytes = s.create_from_images_with_resolution(&[("photo.png".into(), png)], ImageResolution::Dpi(72.0)).unwrap();
+    let id = s.open("photo.pdf", None, bytes, None).unwrap();
+    let found = s.detect_camera_corners(id, 0).expect("the sheet's edges");
+    // One point per pixel, y flipped: the sheet's corners in reading order.
+    for (f, p) in found.iter().zip(sheet.iter()) {
+        let want = [p[0], 300.0 - p[1]];
+        assert!((f[0] - want[0]).hypot(f[1] - want[1]) < 4.0, "{found:?} vs {sheet:?}");
+    }
+    // A page with no photo on it: nothing to find.
+    let id = s.open("doc.pdf", None, Arc::new(fixture(1)), None).unwrap();
+    assert_eq!(s.detect_camera_corners(id, 0), None);
+    assert_eq!(s.detect_camera_corners(id, 7), None);
+}
+
+#[test]
 fn enhance_camera_page_refuses_bad_corners_and_pages() {
     let mut s = Session::new().with_clock(|| 1_700_000_000);
     let id = s.open("doc.pdf", None, Arc::new(fixture(1)), None).unwrap();

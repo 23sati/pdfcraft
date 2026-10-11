@@ -87,7 +87,30 @@ pub fn warp(rgba: &[u8], width: u32, height: u32, quad: [Point; 4]) -> Result<Wa
     Ok(Warped { width: ow, height: oh, rgb })
 }
 
+/// The long side, in pixels, a page is rendered at to look for the document's edges.
+const DETECT_SIDE: f32 = 1200.0;
+
 impl Session {
+    /// Enhance ▸ Camera image: the corners of the photographed document on page `page`
+    /// (0-based) of document `id`, in PDF user space (top-left, top-right, bottom-right,
+    /// bottom-left as displayed), or `None` when its edges can't be found with confidence.
+    pub fn detect_camera_corners(&self, id: DocId, page: usize) -> Option<[Point; 4]> {
+        let doc = self.get(id)?;
+        let info = doc.info.pages.get(page)?;
+        let scale = (DETECT_SIDE / info.width.max(info.height).max(1.0)).clamp(0.05, MAX_SCALE);
+        let config = RenderConfig { password: doc.password.as_deref().map(Arc::from), ..Default::default() };
+        let shot = pdfcraft_render::PageRenderer::new(doc.bytes.clone(), config).render(RenderRequest { page, scale, ..Default::default() });
+        if shot.error.is_some() {
+            return None;
+        }
+        let quad = crate::camera_edges::detect_document(&shot.rgba, shot.width, shot.height)?;
+        let k = shot.width as f64 / (info.width as f64).max(1e-3);
+        Some(quad.map(|[x, y]| {
+            let [u, v] = info.view_to_user((x / k) as f32, (y / k) as f32);
+            [u as f64, v as f64]
+        }))
+    }
+
     /// Enhance ▸ Camera image: replace page `page` (0-based) of document `id` with the part of it
     /// inside `corners` (PDF user space, any order), straightened to a rectangle. The page is
     /// read at its picture's own resolution (at most 600 dpi) and keeps that physical size.

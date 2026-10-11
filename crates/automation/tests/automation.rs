@@ -1618,11 +1618,41 @@ fn enhance_camera_image_through_tools() {
         let e = a.call("page_enhance_camera", &json!({ "doc": photo, "page": 1, "corners": bad }));
         assert!(matches!(e, Err(ToolError::InvalidArgs(_) | ToolError::Failed(_))), "{bad}: {e:?}");
     }
-    assert!(matches!(a.call("page_enhance_camera", &json!({ "doc": photo, "page": 1 })), Err(ToolError::InvalidArgs(_))));
+    // Without corners on a page with no photo, the edges can't be found: an error that says so.
+    let e = a.call("page_enhance_camera", &json!({ "doc": photo, "page": 1 }));
+    assert!(matches!(&e, Err(ToolError::Failed(m)) if m.contains("corners")), "{e:?}");
     assert!(matches!(
         a.call("page_enhance_camera", &json!({ "doc": photo, "page": 9, "corners": [0, 0, 9, 0, 9, 9, 0, 9] })),
         Err(ToolError::InvalidArgs(_))
     ));
+}
+
+#[test]
+fn enhance_camera_image_finds_the_edges_by_itself() {
+    let dir = workdir("enhance-camera-auto");
+    // A 600 × 450 photo: a white sheet, tilted, on a dark table.
+    let sheet = [[90.0, 60.0], [500.0, 30.0], [525.0, 405.0], [60.0, 375.0]];
+    let inside = |x: f64, y: f64| {
+        (0..4).all(|i| {
+            let (a, b): ([f64; 2], [f64; 2]) = (sheet[i], sheet[(i + 1) % 4]);
+            (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]) >= 0.0
+        })
+    };
+    let img = image::RgbImage::from_fn(600, 450, |x, y| {
+        if inside(x as f64 + 0.5, y as f64 + 0.5) { image::Rgb([240, 238, 232]) } else { image::Rgb([70, 60, 50]) }
+    });
+    img.save(dir.join("photo.jpg")).unwrap();
+    let mut a = auto(&dir);
+    let photo = ok(&mut a, "doc_create", json!({ "from": "images", "paths": ["photo.jpg"] }))["doc"].as_u64().unwrap();
+    let r = ok(&mut a, "page_enhance_camera", json!({ "doc": photo, "page": 1 }));
+    assert_eq!(r["detected"], true);
+    assert_eq!(r["undo"], "Enhance camera image");
+    // One point per pixel: the corners it used are the sheet's.
+    let used: Vec<f64> = r["corners"].as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect();
+    for (k, p) in sheet.iter().enumerate() {
+        let (x, y) = (used[2 * k], used[2 * k + 1]);
+        assert!((x - p[0]).hypot(y - p[1]) < 4.0, "{used:?} vs {sheet:?}");
+    }
 }
 
 #[test]
