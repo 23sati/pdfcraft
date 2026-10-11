@@ -10007,11 +10007,11 @@ title = "Localization (Fluent catalogs)"
 area = "N"
 tier = "P1"
 milestone = "M14"
-status = "planned"
+status = "partial"
 commands = []
 tools = []
-evidence = []
-notes = ""
+evidence = ["crates/ui-egui/src/i18n/mod.rs::bundled_catalogs_are_consistent", "crates/ui-egui/src/i18n/mod.rs::date_languages_are_the_interface_languages", "crates/ui-egui/src/i18n/mod.rs::language_persists_and_invalid_input_keeps_current_language"]
+notes = "The UI offers 20 non-English catalogs plus English fallback, and the selected language persists. It remains partial because language selection is not exposed through a headless automation tool (AGENTS.md §3). Catalog coverage and polish vary: Czech and Brazilian Portuguese still lack full dialog coverage; other catalogs can still fall back to English; Chinese and Telugu font delivery in releases and Arabic layout remain open (see localization-parity.md and misc.rtl-ui)."
 
 [[feature]]
 id = "misc.rtl-ui"
@@ -10031,11 +10031,11 @@ title = "Signed installers for macOS, Windows and Linux"
 area = "N"
 tier = "P1"
 milestone = "M14"
-status = "planned"
+status = "partial"
 commands = []
 tools = []
 evidence = []
-notes = "Windows MSI creates a Start menu shortcut and an optional (default on) desktop shortcut and confirms full-UI completion with Finish (#143); packaging/windows/test-msi.ps1 checks the compiled MSI and windows-arm64.yml checks installation/removal. PDF files use a dedicated embedded document icon when PdfCraft is chosen as the default reader (confirmed in Windows Explorer); first-page thumbnails remain unsupported. Signed installers across platforms remain planned."
+notes = "Release builds provide signed and notarized macOS artifacts and code-signed Windows installers when signing credentials are configured (packaging/macos/package.sh; packaging/windows/sign.ps1; README.md). Linux AppImage, Flatpak, deb and rpm packages ship, but are not code-signed. Windows MSI creates Start menu and optional desktop shortcuts (#143); packaging/windows/test-msi.ps1 checks the compiled MSI and windows-arm64.yml checks installation/removal. First-page PDF thumbnails remain unsupported."
 
 [[feature]]
 id = "misc.web-deploy"
