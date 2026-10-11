@@ -11,6 +11,11 @@ set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/../env.sh"
 HERE="$ROOT/packaging/web"
 
+# The reusable release workflow may not supply a font checkout for its web job.
+# Verify an explicit checkout or fetch the immutable approved one before packaging.
+CRAFT_FONTS_DIR="$(cd "$ROOT" && cargo xtask web-fonts)"
+export CRAFT_FONTS_DIR CRAFT_FONTS_REQUIRED=1
+
 if [ "${1:-}" != "--skip-build" ]; then
   command -v trunk >/dev/null || { echo "error: trunk not found (cargo install trunk --locked)" >&2; exit 1; }
   (cd "$ROOT/apps/pdfcraft-web" && trunk build --release)

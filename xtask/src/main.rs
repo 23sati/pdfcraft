@@ -12,6 +12,7 @@ mod macos_integration;
 mod parity;
 mod screenshots;
 mod version;
+mod web_fonts;
 
 type Command = fn(&[String]) -> anyhow::Result<()>;
 
@@ -34,6 +35,7 @@ const COMMANDS: &[(&str, &str, Command)] = &[
     ),
     ("text-oracle", "Compare text extraction with pdftotext over corpus/ (word F1; target median ≥ 0.97)", gates::text_oracle),
     ("screenshots", "Regenerate the README screenshots in docs/images/ and their ATTRIBUTION entries", screenshots::run),
+    ("web-fonts", "Prepare the verified, pinned fonts needed by standalone web packaging", web_fonts::run),
     ("models", "Fetch the OCR models (ATTRIBUTION.toml kind = \"model\") into assets/models/, verified by SHA-256", assets::models),
     ("demo-pdf", "Build dist/demo/pdfcraft-showcase.pdf (needs Google Chrome or Chromium)", demo_pdf::run),
 ];

@@ -2212,3 +2212,28 @@ key	Space	स्पेस
 	Next (⌘G)	अगला (⌘G)
 	Creator	सृजक
 	Producer	उत्पादक
+	Active	सक्रिय
+	Add the files to combine	जोड़ने के लिए फ़ाइलें जोड़ें
+	Added the first {n} files in {folder}	{folder} में पहली {n} फ़ाइलें जोड़ी गईं
+	Appearance mode	प्रदर्शन मोड
+	Appearance settings…	प्रदर्शन सेटिंग…
+	Combine the rest	बाकी फ़ाइलें जोड़ें
+	Dark	गहरा
+	Dark theme	गहरी थीम
+	Drag the corners onto the document's edges, then choose Enhance page.	कोनों को दस्तावेज़ के किनारों तक खींचें, फिर पृष्ठ सुधारें चुनें।
+	Drop PDFs, images, text files or folders here, or choose them.	PDF, चित्र, टेक्स्ट फ़ाइलें या फ़ोल्डर यहाँ छोड़ें, या उन्हें चुनें।
+	Enhance camera image	कैमरे का चित्र सुधारें
+	Enhance page	पृष्ठ सुधारें
+	Every PDF, image and text file in the folder	फ़ोल्डर में हर PDF, चित्र और टेक्स्ट फ़ाइल
+	Every PDF, image and text file in the folder and the folders inside it	फ़ोल्डर और उसके अंदर के फ़ोल्डरों में हर PDF, चित्र और टेक्स्ट फ़ाइल
+	Leave out files that can't be read?	जिन फ़ाइलों को पढ़ा नहीं जा सकता, उन्हें छोड़ दें?
+	Light	हल्का
+	Mouse wheel scroll speed	माउस व्हील की स्क्रॉल गति
+	No PDFs, images or text files found in {folder}	{folder} में कोई PDF, चित्र या टेक्स्ट फ़ाइल नहीं मिली
+	Offset from centre	केंद्र से अंतर
+	Save ({key})	सहेजें ({key})
+	These files can't be read, so they won't be in the combined PDF:	इन फ़ाइलों को पढ़ा नहीं जा सकता, इसलिए ये जोड़ी गई PDF में शामिल नहीं होंगी:
+	and {n} more	और {n} अन्य
+scroll speed	Fast	तेज़
+scroll speed	Normal	सामान्य
+scroll speed	Slow	धीमा

@@ -2208,3 +2208,28 @@ key	Space	스페이스바
 	Next (⌘G)	다음(⌘G)
 	Creator	작성 프로그램
 	Producer	생성 도구
+	Active	활성
+	Add the files to combine	결합할 파일 추가
+	Added the first {n} files in {folder}	{folder}의 처음 {n}개 파일을 추가했습니다
+	Appearance mode	화면 모드
+	Appearance settings…	화면 설정…
+	Combine the rest	나머지 결합
+	Dark	어둡게
+	Dark theme	어두운 테마
+	Drag the corners onto the document's edges, then choose Enhance page.	모서리를 문서 가장자리로 드래그한 다음 페이지 개선을 선택하세요.
+	Drop PDFs, images, text files or folders here, or choose them.	PDF, 이미지, 텍스트 파일 또는 폴더를 여기에 놓거나 선택하세요.
+	Enhance camera image	카메라 이미지 개선
+	Enhance page	페이지 개선
+	Every PDF, image and text file in the folder	폴더에 있는 모든 PDF, 이미지 및 텍스트 파일
+	Every PDF, image and text file in the folder and the folders inside it	폴더와 하위 폴더에 있는 모든 PDF, 이미지 및 텍스트 파일
+	Leave out files that can't be read?	읽을 수 없는 파일을 제외할까요?
+	Light	밝게
+	Mouse wheel scroll speed	마우스 휠 스크롤 속도
+	No PDFs, images or text files found in {folder}	{folder}에서 PDF, 이미지 또는 텍스트 파일을 찾지 못했습니다
+	Offset from centre	중심에서의 간격
+	Save ({key})	저장 ({key})
+	These files can't be read, so they won't be in the combined PDF:	다음 파일은 읽을 수 없어 결합된 PDF에 포함되지 않습니다:
+	and {n} more	외 {n}개
+scroll speed	Fast	빠르게
+scroll speed	Normal	보통
+scroll speed	Slow	느리게

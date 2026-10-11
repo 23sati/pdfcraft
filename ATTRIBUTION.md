@@ -4,7 +4,7 @@
 
 Every asset PdfCraft includes, bundles or uses to build its published material, with its author, source and licence. The policy is in [AGENTS.md](AGENTS.md) §1. The machine-readable list, with SHA-256 hashes, is [ATTRIBUTION.toml](ATTRIBUTION.toml). Licence texts are kept beside the assets and summarised in [NOTICE](NOTICE).
 
-## In this repository (269)
+## In this repository (270)
 
 | Asset | Title | Author | Licence | Source | Used for |
 |---|---|---|---|---|---|
@@ -199,7 +199,7 @@ Every asset PdfCraft includes, bundles or uses to build its published material, 
 | `assets/icons/x.svg` | Lucide icon "x" | Lucide Contributors (portions Cole Bemis, Feather) | ISC | https://github.com/lucide-icons/lucide (npm lucide-static 1.49.0, icons/x.svg) | UI icon, embedded via crates/ui-egui/src/icon_data.rs |
 | `assets/icons/zoom-in.svg` | Lucide icon "zoom-in" | Lucide Contributors (portions Cole Bemis, Feather) | ISC | https://github.com/lucide-icons/lucide (npm lucide-static 1.49.0, icons/zoom-in.svg) | UI icon, embedded via crates/ui-egui/src/icon_data.rs |
 | `assets/icons/zoom-out.svg` | Lucide icon "zoom-out" | Lucide Contributors (portions Cole Bemis, Feather) | ISC | https://github.com/lucide-icons/lucide (npm lucide-static 1.49.0, icons/zoom-out.svg) | UI icon, embedded via crates/ui-egui/src/icon_data.rs |
-| `assets/fonts/Inter-Regular.ttf` | Inter Regular | The Inter Project Authors (Rasmus Andersson) | OFL-1.1 | https://github.com/rsms/inter | UI font, embedded in the app; demo PDF labels |
+| `assets/fonts/Inter-Regular.ttf` | Inter Regular | The Inter Project Authors (Rasmus Andersson) | OFL-1.1 | https://github.com/rsms/inter | UI font, embedded in the app; demo PDF labels; slanted fallback glyphs in Fill & Sign typed signatures for characters Dancing Script lacks (Cyrillic, Greek), drawn as filled paths |
 | `assets/fonts/Inter-Medium.ttf` | Inter Medium | The Inter Project Authors (Rasmus Andersson) | OFL-1.1 | https://github.com/rsms/inter | UI font, embedded in the app; demo PDF labels |
 | `assets/fonts/Inter-SemiBold.ttf` | Inter SemiBold | The Inter Project Authors (Rasmus Andersson) | OFL-1.1 | https://github.com/rsms/inter | UI font, embedded in the app; demo PDF labels |
 | `assets/fonts/JetBrainsMono-Regular.ttf` | JetBrains Mono Regular | The JetBrains Mono Project Authors | OFL-1.1 | https://github.com/JetBrains/JetBrainsMono | UI monospace font; demo PDF code |
@@ -277,6 +277,7 @@ Every asset PdfCraft includes, bundles or uses to build its published material, 
 | `crates/ui-egui/src/i18n/hi.tsv` | Hindi interface translation catalog | PdfCraft contributors | MIT OR Apache-2.0 | Contributor-original: clean-room translations of PdfCraft's English UI labels, no proprietary localisation resources | Hindi UI strings, compiled in by crates/ui-egui/src/i18n/mod.rs |
 | `crates/ui-egui/src/i18n/bn.tsv` | Bengali interface translation catalog | PdfCraft contributors | MIT OR Apache-2.0 | Contributor-original: clean-room translations of PdfCraft's English UI labels, no proprietary localisation resources | Bengali UI strings, compiled in by crates/ui-egui/src/i18n/mod.rs |
 | `crates/ui-egui/src/i18n/ur.tsv` | Urdu interface translation catalog | PdfCraft contributors | MIT OR Apache-2.0 | Contributor-original: clean-room translations of PdfCraft's English UI labels, no proprietary localisation resources | Urdu UI strings, compiled in by crates/ui-egui/src/i18n/mod.rs |
+| `assets/icons/monitor.svg` | Lucide icon "monitor" | Lucide Contributors (portions Cole Bemis, Feather) | ISC | https://github.com/lucide-icons/lucide (npm lucide-static 1.49.0, icons/monitor.svg) | UI icon, embedded via crates/ui-egui/src/icon_data.rs |
 
 ## Compiled in through dependencies (6)
 

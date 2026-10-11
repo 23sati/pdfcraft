@@ -2212,3 +2212,28 @@ key	Space	স্পেস
 	Next (⌘G)	পরেরটি (⌘G)
 	Creator	সৃষ্টিকারী
 	Producer	প্রস্তুতকারক
+	Active	সক্রিয়
+	Add the files to combine	একত্র করার ফাইল যোগ করুন
+	Added the first {n} files in {folder}	{folder}-এর প্রথম {n}টি ফাইল যোগ করা হয়েছে
+	Appearance mode	প্রদর্শনের ধরন
+	Appearance settings…	প্রদর্শন সেটিংস…
+	Combine the rest	বাকিগুলো একত্র করুন
+	Dark	গাঢ়
+	Dark theme	গাঢ় থিম
+	Drag the corners onto the document's edges, then choose Enhance page.	কোণগুলো নথির প্রান্তে টেনে নিন, তারপর পৃষ্ঠার মান উন্নত করুন বেছে নিন।
+	Drop PDFs, images, text files or folders here, or choose them.	PDF, ছবি, টেক্সট ফাইল বা ফোল্ডার এখানে ছেড়ে দিন, অথবা সেগুলো বেছে নিন।
+	Enhance camera image	ক্যামেরার ছবির মান উন্নত করুন
+	Enhance page	পৃষ্ঠার মান উন্নত করুন
+	Every PDF, image and text file in the folder	ফোল্ডারের প্রতিটি PDF, ছবি ও টেক্সট ফাইল
+	Every PDF, image and text file in the folder and the folders inside it	ফোল্ডার ও তার ভেতরের ফোল্ডারগুলোর প্রতিটি PDF, ছবি ও টেক্সট ফাইল
+	Leave out files that can't be read?	পড়া যায় না এমন ফাইলগুলো বাদ দেবেন?
+	Light	হালকা
+	Mouse wheel scroll speed	মাউস হুইলের স্ক্রল করার গতি
+	No PDFs, images or text files found in {folder}	{folder}-এ কোনো PDF, ছবি বা টেক্সট ফাইল পাওয়া যায়নি
+	Offset from centre	কেন্দ্র থেকে দূরত্ব
+	Save ({key})	সংরক্ষণ করুন ({key})
+	These files can't be read, so they won't be in the combined PDF:	এই ফাইলগুলো পড়া যাচ্ছে না, তাই একত্র করা PDF-এ সেগুলো থাকবে না:
+	and {n} more	এবং আরও {n}টি
+scroll speed	Fast	দ্রুত
+scroll speed	Normal	স্বাভাবিক
+scroll speed	Slow	ধীর

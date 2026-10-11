@@ -2212,3 +2212,28 @@ key	Space	اسپیس
 	Next (⌘G)	اگلا (⌘G)
 	Creator	تخلیق کار
 	Producer	پیدا کار
+	Active	فعال
+	Add the files to combine	یکجا کرنے کے لیے فائلیں شامل کریں
+	Added the first {n} files in {folder}	{folder} کی پہلی {n} فائلیں شامل کر دی گئیں
+	Appearance mode	ظاہری وضع
+	Appearance settings…	ظاہری شکل کی ترتیبات…
+	Combine the rest	باقی فائلیں یکجا کریں
+	Dark	گہرا
+	Dark theme	گہری تھیم
+	Drag the corners onto the document's edges, then choose Enhance page.	کونوں کو دستاویز کے کناروں تک کھینچیں، پھر صفحہ بہتر کریں منتخب کریں۔
+	Drop PDFs, images, text files or folders here, or choose them.	PDF، تصاویر، متنی فائلیں یا فولڈر یہاں چھوڑیں، یا انہیں منتخب کریں۔
+	Enhance camera image	کیمرے کی تصویر بہتر کریں
+	Enhance page	صفحہ بہتر کریں
+	Every PDF, image and text file in the folder	فولڈر میں موجود ہر PDF، تصویر اور متنی فائل
+	Every PDF, image and text file in the folder and the folders inside it	فولڈر اور اس کے اندر کے فولڈروں میں موجود ہر PDF، تصویر اور متنی فائل
+	Leave out files that can't be read?	جو فائلیں پڑھی نہیں جا سکتیں انہیں چھوڑ دیں؟
+	Light	ہلکا
+	Mouse wheel scroll speed	ماؤس وہیل کی اسکرول رفتار
+	No PDFs, images or text files found in {folder}	{folder} میں کوئی PDF، تصویر یا متنی فائل نہیں ملی
+	Offset from centre	مرکز سے فاصلہ
+	Save ({key})	محفوظ کریں ({key})
+	These files can't be read, so they won't be in the combined PDF:	یہ فائلیں پڑھی نہیں جا سکتیں، اس لیے یکجا کی گئی PDF میں شامل نہیں ہوں گی:
+	and {n} more	اور مزید {n}
+scroll speed	Fast	تیز
+scroll speed	Normal	معمول
+scroll speed	Slow	آہستہ

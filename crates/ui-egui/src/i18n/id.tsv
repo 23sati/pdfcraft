@@ -2208,3 +2208,28 @@ key	Space	Spasi
 	Next (⌘G)	Berikutnya (⌘G)
 	Creator	Pembuat
 	Producer	Produsen
+	Active	Aktif
+	Add the files to combine	Tambahkan berkas yang akan digabungkan
+	Added the first {n} files in {folder}	{n} berkas pertama dalam {folder} ditambahkan
+	Appearance mode	Mode tampilan
+	Appearance settings…	Pengaturan tampilan…
+	Combine the rest	Gabungkan sisanya
+	Dark	Gelap
+	Dark theme	Tema gelap
+	Drag the corners onto the document's edges, then choose Enhance page.	Seret sudut ke tepi dokumen, lalu pilih Sempurnakan halaman.
+	Drop PDFs, images, text files or folders here, or choose them.	Letakkan PDF, gambar, berkas teks, atau folder di sini, atau pilih berkas tersebut.
+	Enhance camera image	Sempurnakan gambar kamera
+	Enhance page	Sempurnakan halaman
+	Every PDF, image and text file in the folder	Setiap PDF, gambar, dan berkas teks dalam folder
+	Every PDF, image and text file in the folder and the folders inside it	Setiap PDF, gambar, dan berkas teks dalam folder beserta subfoldernya
+	Leave out files that can't be read?	Abaikan berkas yang tidak dapat dibaca?
+	Light	Terang
+	Mouse wheel scroll speed	Kecepatan gulir roda tetikus
+	No PDFs, images or text files found in {folder}	Tidak ada PDF, gambar, atau berkas teks dalam {folder}
+	Offset from centre	Pergeseran dari tengah
+	Save ({key})	Simpan ({key})
+	These files can't be read, so they won't be in the combined PDF:	Berkas berikut tidak dapat dibaca sehingga tidak akan disertakan dalam PDF gabungan:
+	and {n} more	dan {n} lainnya
+scroll speed	Fast	Cepat
+scroll speed	Normal	Normal
+scroll speed	Slow	Lambat
