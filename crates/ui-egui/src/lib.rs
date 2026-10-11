@@ -75,6 +75,7 @@ pub mod fill_sign;
 pub mod folders_ui;
 pub mod forms_ui;
 mod home;
+pub mod host_files;
 mod icon_data;
 pub mod icons;
 pub mod last_session;
@@ -368,6 +369,8 @@ pub struct PasswordPrompt {
     /// The bytes are a recovery snapshot: once the document is open it takes the snapshot's
     /// path and recovery entry. Cancelling the prompt drops the association with it (#813).
     recovered: Option<RecoveryMeta>,
+    /// Native-host recovery identity, retained across password retries.
+    host_origin: Option<String>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -468,6 +471,8 @@ pub struct PdfCraftApp {
     pub os_events: Option<OsEventsFn>,
     /// Save delivers to the embedding page instead of downloading (web, see [`HostSaveFn`]).
     pub host_save: Option<HostSaveFn>,
+    /// Native mobile file dialogs, with asynchronous completion before marking a save.
+    pub host_files: Option<host_files::HostFiles>,
     /// Reports unsaved work to the embedding page (web, see [`HostDirtyFn`]).
     pub host_dirty: Option<HostDirtyFn>,
     /// A pending "save changes?" question (closing a dirty tab or quitting).
@@ -757,6 +762,7 @@ impl PdfCraftApp {
             unsaved_flag: Default::default(),
             os_events: None,
             host_save: None,
+            host_files: None,
             host_dirty: None,
             close_request: None,
             save_override: None,
@@ -936,8 +942,16 @@ impl PdfCraftApp {
             Ok(id) => id,
             Err(e @ (OpenError::NeedsPassword | OpenError::WrongPassword)) => {
                 let error = matches!(e, OpenError::WrongPassword).then(|| "Incorrect password. Try again.".to_string());
-                self.password_prompt =
-                    Some(PasswordPrompt { name: name.to_string(), path, bytes, input: String::new(), error, activate, recovered: None });
+                self.password_prompt = Some(PasswordPrompt {
+                    name: name.to_string(),
+                    path,
+                    bytes,
+                    input: String::new(),
+                    error,
+                    activate,
+                    recovered: None,
+                    host_origin: None,
+                });
                 return Ok(());
             }
             Err(e) => return Err(e.to_string()),
@@ -1130,6 +1144,9 @@ impl PdfCraftApp {
             Err(e) => self.notify_fmt("Couldn't open {name}: {e}", &[("name", &p.name), ("e", &e.to_string())]),
             // A recovered encrypted document is open once its prompt is gone.
             Ok(()) if self.password_prompt.is_none() => {
+                if let Some(origin) = p.host_origin {
+                    self.bind_host_origin(origin);
+                }
                 if let Some(meta) = &p.recovered {
                     self.finish_recovery(meta);
                 }
@@ -1138,6 +1155,7 @@ impl PdfCraftApp {
             Ok(()) => {
                 if let Some(prompt) = self.password_prompt.as_mut() {
                     prompt.recovered = p.recovered;
+                    prompt.host_origin = p.host_origin;
                 }
             }
         }
@@ -1169,6 +1187,10 @@ impl PdfCraftApp {
 
     pub fn open_dialog(&mut self) {
         self.startup_superseded = true;
+        if self.host_files.is_some() {
+            self.open_from_host();
+            return;
+        }
         #[cfg(not(target_arch = "wasm32"))]
         self.pick(
             pickers::PickFor::Open,
@@ -2045,6 +2067,7 @@ impl eframe::App for PdfCraftApp {
             }
         }
         self.poll_export();
+        self.poll_host_files();
         self.poll_ocr();
         self.poll_optimize();
         self.poll_action();

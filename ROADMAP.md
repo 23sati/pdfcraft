@@ -1,5 +1,7 @@
 # PdfCraft roadmap
 
+Mobile preview: Android/iPad/iPhone host, shared translated editor, system PDF open/save and asynchronous save confirmation; see [mobile packaging](packaging/mobile/README.md). Device/signing validation and desktop-only capabilities remain outside this preview.
+
 **Stage: alpha** · next: beta, ~26% (ready for real work 49% → 75%) and ~400–700 h away
 
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-10 · **Change:** minor (localized shortcut labels, #496; readiness table with hours per audience; full number as weighted sum 49%; earlier: second look: ready 40% → 47%, mainstream 55% added; core-workflow gate applied → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)

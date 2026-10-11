@@ -1,5 +1,7 @@
 # PdfCraft roadmap: milestones and what's next
 
+Mobile preview: Android/iPad/iPhone host, shared translated editor, system PDF open/save and asynchronous save confirmation; see [mobile packaging](../packaging/mobile/README.md). Device/signing validation and desktop-only capabilities remain outside this preview.
+
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-10 · **Change:** minor (localized shortcut labels, #496; alpha gate added; convert-and-share re-judged with the cross-app rule → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
 Forward-looking: the milestones, the current focus and what comes next. The parity numbers behind

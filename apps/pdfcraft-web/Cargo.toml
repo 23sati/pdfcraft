@@ -9,6 +9,9 @@ publish = false
 [lints]
 workspace = true
 
+[features]
+mobile-host = []
+
 [dependencies]
 pdfcraft-ui-egui = { workspace = true }
 eframe = { workspace = true, features = ["default_fonts", "glow", "persistence", "accesskit"] }
