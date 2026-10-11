@@ -296,6 +296,9 @@ pub struct DocView {
     pub highlight_fields: bool,
     pub page_input: String,
     pub notice_dismissed: bool,
+    /// The file changed on disk while this document had unsaved changes: the notice bar asks
+    /// before replacing it (#431).
+    pub disk_changed: bool,
     /// Two-page view: show the first page alone, as a cover (View ▸ Page display).
     pub cover: bool,
     /// Previous view / Next view: pages visited before (and after, once going back).
@@ -343,6 +346,8 @@ pub struct DocView {
     selection: Option<Selection>,
     /// Clicks in the current run on the text layer: two select a word, three the line, four the page.
     clicks: u32,
+    last_press_time: f64,
+    last_press_pos: Option<Pos2>,
     last_queue: Vec<RenderRequest>,
     viewport_w: f32,
     viewport_h: f32,
@@ -545,6 +550,7 @@ impl DocView {
             highlight_fields: defaults.highlight_fields,
             page_input: "1".into(),
             notice_dismissed: false,
+            disk_changed: false,
             cover: false,
             back: Vec::new(),
             forward: Vec::new(),
@@ -569,6 +575,8 @@ impl DocView {
             find: None,
             selection: None,
             clicks: 0,
+            last_press_time: 0.0,
+            last_press_pos: None,
             last_queue: Vec::new(),
             viewport_w: 800.0,
             viewport_h: 600.0,
@@ -643,6 +651,38 @@ impl DocView {
         self.flash = None;
         // A thumbnail drag holds page indexes from before the change.
         self.panel_drag = None;
+    }
+
+    /// The document was replaced by a newer version of its file (#431). The reader's place
+    /// stays: zoom, layout, rotation, page, scroll, view history and the find bar, and the page
+    /// images on screen until their replacements are drawn, so nothing flashes. Everything that
+    /// pointed into the old version (a selected comment, a field being typed in, text being
+    /// edited, a drag, page selection) starts afresh, so no stale index reaches the new one.
+    pub fn document_replaced(&mut self, info: &DocInfo) {
+        let mut fresh = Self::new(self.id, info, ViewDefaults::default());
+        fresh.zoom = self.zoom;
+        fresh.fit = self.fit;
+        fresh.layout = self.layout;
+        fresh.rotation = self.rotation;
+        fresh.current = self.current;
+        fresh.organize = self.organize;
+        fresh.grid_zoom = self.grid_zoom;
+        // Same document id, so the scroll offset egui keeps for it is still this document's.
+        fresh.shown = self.shown;
+        fresh.highlight_fields = self.highlight_fields;
+        fresh.notice_dismissed = self.notice_dismissed;
+        fresh.cover = self.cover;
+        fresh.back = std::mem::take(&mut self.back);
+        fresh.forward = std::mem::take(&mut self.forward);
+        fresh.find = self.find.take();
+        fresh.pages = std::mem::take(&mut self.pages);
+        fresh.thumbs = std::mem::take(&mut self.thumbs);
+        fresh.viewport_w = self.viewport_w;
+        fresh.viewport_h = self.viewport_h;
+        fresh.viewport_screen = self.viewport_screen;
+        *self = fresh;
+        // Marks the kept images out of date and clamps the page to the new page count.
+        self.document_changed(info);
     }
 
     /// Pages an organize command acts on: the selection, or the current page.
@@ -1833,6 +1873,10 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     let secured = doc.security_summary().is_some_and(|s| !(s.owner || (s.permissions.modify() && s.permissions.assemble())));
     let repaired = !doc.repair_log().is_empty();
     match notices(view, doc, secured, repaired, crate::sign_ui::banner(&doc.signatures), ui, &t) {
+        #[cfg(not(target_arch = "wasm32"))]
+        Some(Notice::Reload) => app.watch.reload_request = Some(view.id),
+        #[cfg(target_arch = "wasm32")]
+        Some(Notice::Reload) => {}
         Some(Notice::Repairs) => app.dialog = Some(crate::Dialog::Properties(crate::PropsTab::Advanced)),
         Some(Notice::Security) => app.dialog = Some(crate::Dialog::Properties(crate::PropsTab::Security)),
         Some(Notice::Signatures) => app.right = Some(RightPanel::Signatures),
@@ -2465,14 +2509,40 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                         ui.ctx().set_cursor_icon(egui::CursorIcon::Text);
                     }
                     let press_here = ui.input(|inp| inp.pointer.press_origin()).is_some_and(|o| r.contains(o));
+                    let pressed = ui.input(|inp| inp.pointer.primary_pressed());
+                    if pressed && press_here && !over_link {
+                        let now = ui.input(|inp| inp.time);
+                        // The same limits egui uses to count clicks on release.
+                        let (max_delay, max_dist) = ui.ctx().options(|o| (o.input_options.max_double_click_delay, o.input_options.max_click_dist));
+                        let is_consecutive =
+                            now - view.last_press_time <= max_delay && view.last_press_pos.is_some_and(|pos| pos.distance(p) <= max_dist);
+                        view.clicks = if is_consecutive { view.clicks.saturating_add(1) } else { 1 };
+                        view.last_press_time = now;
+                        view.last_press_pos = Some(p);
+
+                        // Multi-click highlights immediately on pointer press instead of release (#1024).
+                        let clicks = if view.clicks > 2 && tool != QuickTool::Select { 1 } else { view.clicks };
+                        if clicks >= 2 && over_text {
+                            let span = text.nearest(vx, vy).and_then(|a| match clicks {
+                                2 => text.word_at(a),
+                                3 => text.line_at(a),
+                                _ => text.glyphs.len().checked_sub(1).map(|last| (0, last)),
+                            });
+                            if let Some((first, last)) = span {
+                                view.selection = Some(Selection::run(i, first, last));
+                            }
+                        }
+                    }
                     if resp.drag_started() && press_here && !over_link {
                         let origin = ui.input(|inp| inp.pointer.press_origin()).unwrap_or(p);
                         let (ox, oy) = xf.screen_to_view(origin);
-                        view.selection = if column {
-                            Some(Selection { page: i, span: Span::Column { rect: [ox, oy, vx, vy] } })
-                        } else {
-                            text.nearest(ox, oy).map(|a| Selection::run(i, a, a))
-                        };
+                        if view.clicks < 2 {
+                            view.selection = if column {
+                                Some(Selection { page: i, span: Span::Column { rect: [ox, oy, vx, vy] } })
+                            } else {
+                                text.nearest(ox, oy).map(|a| Selection::run(i, a, a))
+                            };
+                        }
                     }
                     if resp.dragged()
                         && let Some(sel) = view.selection.as_mut().filter(|s| s.page == i)
@@ -2496,29 +2566,30 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                         view.selection = None;
                     }
                     // Quick clicks widen the selection: two a word, three the line, four the page.
-                    // egui counts up to three, so four come from the run kept here. The markup and
-                    // Redact tools mark a double-clicked word at once, so they stop at the word.
-                    let clicks = if resp.triple_clicked() {
+                    // Release-based fallback for platforms or synthetic events that report double_clicked.
+                    let release_clicks = if resp.triple_clicked() {
                         view.clicks.max(2).saturating_add(1)
                     } else if resp.double_clicked() {
-                        2
+                        view.clicks.max(2)
                     } else {
-                        u32::from(resp.clicked())
+                        0
                     };
-                    if clicks > 0 {
-                        view.clicks = clicks;
+                    if release_clicks > 0 {
+                        view.clicks = release_clicks;
                     }
-                    let clicks = if clicks > 2 && tool != QuickTool::Select { 1 } else { clicks };
+                    let clicks = if view.clicks > 2 && tool != QuickTool::Select { 1 } else { view.clicks };
                     if clicks >= 2 && over_text {
-                        let span = text.nearest(vx, vy).and_then(|a| match clicks {
-                            2 => text.word_at(a),
-                            3 => text.line_at(a),
-                            _ => text.glyphs.len().checked_sub(1).map(|last| (0, last)),
-                        });
-                        if let Some((first, last)) = span {
-                            view.selection = Some(Selection::run(i, first, last));
+                        if view.selection.is_none() {
+                            let span = text.nearest(vx, vy).and_then(|a| match clicks {
+                                2 => text.word_at(a),
+                                3 => text.line_at(a),
+                                _ => text.glyphs.len().checked_sub(1).map(|last| (0, last)),
+                            });
+                            if let Some((first, last)) = span {
+                                view.selection = Some(Selection::run(i, first, last));
+                            }
                         }
-                    } else if resp.clicked() && !over_link {
+                    } else if resp.clicked() && view.clicks < 2 && !over_link {
                         // ⇧-click extends a selection on this page to the click, keeping its
                         // anchor (#527). Otherwise (no shift, no selection on this page, or a
                         // column selection, which has no anchor glyph; a selection cannot yet
@@ -3118,6 +3189,8 @@ enum FieldMenu {
 
 /// What the notice bar's buttons ask for.
 enum Notice {
+    /// Reload the file that changed on disk, dropping unsaved changes.
+    Reload,
     Security,
     Signatures,
     Repairs,
@@ -3138,6 +3211,27 @@ fn notices(
 ) -> Option<Notice> {
     let info = &doc.info;
     let xfa = doc.xfa.as_ref();
+    // The file changed on disk while this document has unsaved changes (#431): ask before
+    // replacing it, ahead of every other notice.
+    if view.disk_changed {
+        let mut reload = false;
+        egui::Frame::NONE.fill(t.accent_soft).inner_margin(egui::Margin::symmetric(14, 7)).show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.add(icons::image("rotate-cw", 16.0, t.accent_text));
+                ui.label(
+                    egui::RichText::new(tl!("This file changed on disk. Reload it to see the new version; your unsaved changes will be lost."))
+                        .color(t.text),
+                );
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if icons::button(ui, "x", 22.0, false, tl!("Dismiss")).clicked() {
+                        view.disk_changed = false;
+                    }
+                    reload = crate::widgets::pill_button(ui, tl!("Reload"), false).clicked();
+                });
+            });
+        });
+        return reload.then_some(Notice::Reload);
+    }
     if let Some((icon, color, template, arg)) = signed {
         let mut open = false;
         notice_bar(ui, t, icon, color, crate::i18n::fmt(tl!(template), &[("by", &arg)]), |ui| {
@@ -3416,10 +3510,10 @@ fn organize_toolbar(view: &mut DocView, info: &DocInfo, editable: bool, dirty: b
             // Fixed width so the buttons never shift as the selection text changes.
             ui.add_sized([150.0, 30.0], egui::Label::new(egui::RichText::new(label).font(theme::medium(13.0)).color(t.text_muted)).truncate());
             ui.add_enabled_ui(editable, |ui| {
-                if icons::button(ui, "rotate-ccw", 30.0, false, "Rotate counterclockwise").clicked() {
+                if icons::button(ui, "rotate-ccw", 30.0, false, tl!("Rotate counterclockwise")).clicked() {
                     view.pending_edit = Some(Edit::RotatePages { pages: targets.clone(), degrees: -90 });
                 }
-                if icons::button(ui, "rotate-cw", 30.0, false, "Rotate clockwise").clicked() {
+                if icons::button(ui, "rotate-cw", 30.0, false, tl!("Rotate clockwise")).clicked() {
                     view.pending_edit = Some(Edit::RotatePages { pages: targets.clone(), degrees: 90 });
                 }
                 let can_delete = targets.len() < n;
@@ -3563,7 +3657,7 @@ fn gap_button(ui: &mut egui::Ui, gap: usize, at: Pos2, height: f32, label: Strin
 fn organize_grid(view: &mut DocView, info: &DocInfo, editable: bool, dirty: bool, unobstructed: bool, ui: &mut egui::Ui, t: &Tokens) {
     let ppp = ui.ctx().pixels_per_point();
     // The page image scales with the zoom; the padding and the page number don't.
-    let cell = vec2(146.0 * view.grid_zoom + 44.0, 194.0 * view.grid_zoom + 56.0);
+    let cell = vec2(146.0 * view.grid_zoom + 44.0, 194.0 * view.grid_zoom + 88.0);
     let anchor = view.grid_anchor.take();
     let mut open_page = None;
     organize_toolbar(view, info, editable, dirty, unobstructed, ui, t);
@@ -3621,10 +3715,10 @@ fn organize_grid(view: &mut DocView, info: &DocInfo, editable: bool, dirty: bool
                 if resp.drag_stopped() {
                     drop = true;
                 }
-                let info = crate::i18n::fmt(tl!("Page {label}"), &[("label", &p.label)]);
-                resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Checkbox, true, view.selected.contains(&i), info.clone()));
-                let s = (cell.x - 44.0) / p.width.max(1.0);
-                let size = vec2(p.width * s, p.height * s).min(vec2(cell.x - 44.0, cell.y - 56.0));
+                let page_label = crate::i18n::fmt(tl!("Page {label}"), &[("label", &p.label)]);
+                resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Checkbox, true, view.selected.contains(&i), page_label.clone()));
+                let s = ((cell.x - 60.0) / p.width.max(1.0)).min((cell.y - 88.0) / p.height.max(1.0));
+                let size = vec2(p.width * s, p.height * s);
                 let pr = Rect::from_center_size(pos2(c.center().x, c.top() + 16.0 + size.y / 2.0), size);
                 let selected = view.selected.contains(&i) || (view.selected.is_empty() && i == view.current);
                 if selected || resp.hovered() {
@@ -3651,7 +3745,43 @@ fn organize_grid(view: &mut DocView, info: &DocInfo, editable: bool, dirty: bool
                     ui.painter().image(tex.id(), pr, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
                 }
                 ui.painter().rect_stroke(pr, CornerRadius::ZERO, Stroke::new(1.0, t.border), egui::StrokeKind::Outside);
-                ui.painter().text(pos2(c.center().x, pr.bottom() + 16.0), Align2::CENTER_CENTER, &p.label, theme::medium(12.0), t.text_muted);
+                ui.painter().text(pos2(c.center().x, c.bottom() - 48.0), Align2::CENTER_CENTER, &p.label, theme::medium(12.0), t.text_muted);
+                // The checkbox toggles just this page without requiring a modifier. Keep it
+                // outside the page image, including on very tall or wide pages.
+                let mut checked = view.selected.contains(&i);
+                let check_rect = Rect::from_min_size(c.min + vec2(8.0, 8.0), Vec2::splat(20.0));
+                let check = ui.push_id(("org-check", i), |ui| ui.put(check_rect, egui::Checkbox::without_text(&mut checked))).inner;
+                let label = crate::i18n::fmt(tl!("Select page {label}"), &[("label", &p.label)]);
+                check.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Checkbox, true, checked, label.clone()));
+                if check.on_hover_text(label).changed() {
+                    view.click_page(i, egui::Modifiers::COMMAND, false);
+                    view.current = i;
+                }
+                // Local actions always target the labelled page. The toolbar above the grid
+                // remains the place for actions on the whole selection.
+                if selected || resp.contains_pointer() || resp.has_focus() {
+                    let actions = Rect::from_center_size(pos2(c.center().x, c.bottom() - 24.0), vec2(84.0, 26.0));
+                    ui.scope_builder(
+                        egui::UiBuilder::new().id_salt(("org-actions", i)).max_rect(actions).layout(egui::Layout::left_to_right(egui::Align::Center)),
+                        |ui| {
+                            ui.spacing_mut().item_spacing.x = 3.0;
+                            ui.add_enabled_ui(editable, |ui| {
+                                for (icon, degrees, key) in
+                                    [("rotate-ccw", -90, "Rotate page {label} counterclockwise"), ("rotate-cw", 90, "Rotate page {label} clockwise")]
+                                {
+                                    let label = crate::i18n::fmt(tl!(key), &[("label", &p.label)]);
+                                    if icons::button(ui, icon, 26.0, false, &label).clicked() {
+                                        view.pending_edit = Some(Edit::RotatePages { pages: vec![i], degrees });
+                                    }
+                                }
+                                let label = crate::i18n::fmt(tl!("Delete page {label}"), &[("label", &p.label)]);
+                                if ui.add_enabled_ui(info.pages.len() > 1, |ui| icons::button(ui, "trash-2", 26.0, false, &label)).inner.clicked() {
+                                    view.pending_edit = Some(Edit::DeletePages { pages: vec![i] });
+                                }
+                            });
+                        },
+                    );
+                }
                 if resp.clicked() {
                     let m = ui.input(|i| i.modifiers);
                     view.click_page(i, m, false);
@@ -3683,20 +3813,20 @@ fn organize_grid(view: &mut DocView, info: &DocInfo, editable: bool, dirty: bool
         }
         // Between pages (and at both ends): insert files right there.
         if editable && !middle_gesture && view.org_drag.is_none() {
-            let mid = |r: &Rect| r.top() + 16.0 + (cell.y - 56.0) / 2.0;
+            let mid = |r: &Rect| r.top() + 16.0 + (cell.y - 88.0) / 2.0;
             for (i, c) in &cells {
                 let label = info
                     .pages
                     .get(*i)
                     .map(|p| crate::i18n::fmt(tl!("Insert a file before page {label}"), &[("label", &p.label)]))
                     .unwrap_or_default();
-                if gap_button(ui, *i, pos2(c.left(), mid(c)), cell.y - 56.0, label, t) {
+                if gap_button(ui, *i, pos2(c.left(), mid(c)), cell.y - 88.0, label, t) {
                     view.pending_action = Some(ViewAction::InsertFromFileAt(*i));
                 }
             }
             if let Some((i, c)) = cells.last()
                 && i + 1 == info.pages.len()
-                && gap_button(ui, i + 1, pos2(c.right(), mid(c)), cell.y - 56.0, tl!("Insert a file at the end").to_string(), t)
+                && gap_button(ui, i + 1, pos2(c.right(), mid(c)), cell.y - 88.0, tl!("Insert a file at the end").to_string(), t)
             {
                 view.pending_action = Some(ViewAction::InsertFromFileAt(i + 1));
             }

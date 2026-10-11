@@ -1328,6 +1328,56 @@ fn headers_footers_watermarks_and_backgrounds_show_update_and_remove() {
 }
 
 #[test]
+fn open_populates_marks_and_added_from_the_combined_marker_scan() {
+    let (mut source, source_id) = session_with(1);
+    let mut header = HeaderFooter::default();
+    header.text[0] = "Header".into();
+    source.apply(source_id, Edit::AddHeaderFooter { pages: vec![0], settings: header, replace: false }).unwrap();
+    source
+        .apply(
+            source_id,
+            Edit::AddWatermark { pages: vec![0], settings: Watermark { text: "Draft".into(), ..Watermark::default() }, file: None, replace: false },
+        )
+        .unwrap();
+    source
+        .apply(
+            source_id,
+            Edit::AddBackground {
+                pages: vec![0],
+                settings: Background { color: [0.9, 0.9, 1.0], opacity: 1.0, ..Background::default() },
+                replace: false,
+                file: None,
+            },
+        )
+        .unwrap();
+    source
+        .apply(
+            source_id,
+            Edit::AddText { page: 0, text: AddedText { rect: [20.0, 250.0, 180.0, 280.0], text: "Added note".into(), ..Default::default() } },
+        )
+        .unwrap();
+
+    let bytes = source.save_bytes(source_id).unwrap();
+    let reference = pdfcraft_cos::Document::open(bytes.clone()).unwrap();
+    let expected_marks = pdfcraft_edit::marks_present(&reference);
+    let expected_added = pdfcraft_edit::list_added(&reference);
+    source.mark_saved(source_id, bytes.clone(), None).unwrap();
+    let refreshed = source.get(source_id).unwrap();
+    assert_eq!(refreshed.marks, expected_marks);
+    assert_eq!(refreshed.added, expected_added);
+    let mut reopened = Session::new();
+    let reopened_id = reopened.open("marked.pdf", None, bytes, None).unwrap();
+    let opened = reopened.get(reopened_id).unwrap();
+    assert_eq!(opened.marks, expected_marks);
+    assert_eq!(opened.added, expected_added);
+    assert_eq!(opened.marks.len(), 3);
+    assert!(opened.marks.contains(&MarkKind::HeaderFooter));
+    assert!(opened.marks.contains(&MarkKind::Watermark));
+    assert!(opened.marks.contains(&MarkKind::Background));
+    assert_eq!(opened.added.len(), 1);
+}
+
+#[test]
 fn export_images_and_text_follow_the_working_file() {
     let (mut s, id) = session_with(2);
     s.apply(id, Edit::RotatePages { pages: vec![1], degrees: 90 }).unwrap();
@@ -1610,6 +1660,25 @@ fn added_images_rotate_flip_and_crop_as_drawn() {
     img.crop = [0.0, 0.0, 0.5, 0.0];
     s.apply(id, Edit::UpdateContent { page: 0, index: 0, content: AddedContent::Image(img) }).unwrap();
     assert!(red(colour_at(&s, 130, 150)), "the right half cropped away: red fills the box");
+}
+
+#[test]
+fn reload_reads_the_new_file_into_the_same_document() {
+    let (mut s, id) = session_with(2);
+    let other = s.open("other.pdf", None, Arc::new(fixture(1)), None).unwrap();
+    s.apply(id, Edit::RotatePages { pages: vec![0], degrees: 90 }).unwrap();
+    let before = s.get(id).unwrap().edit_generation();
+    s.reload(id, Arc::new(fixture(3))).unwrap();
+    let d = s.get(id).unwrap();
+    assert_eq!((d.id, d.name.as_str()), (id, "fixture.pdf"), "same document, same name");
+    assert_eq!(page_texts(&s, id), ["Page 1", "Page 2", "Page 3"], "the new version");
+    assert!(!d.dirty && d.can_undo().is_none(), "nothing unsaved, nothing to undo");
+    assert!(d.edit_generation() > before, "caches keyed by the generation see a change");
+    assert_eq!(s.docs().iter().map(|d| d.id).collect::<Vec<_>>(), [id, other], "no new tab, same order");
+    // A file that isn't a PDF (yet) leaves the document as it was.
+    assert!(s.reload(id, Arc::new(b"%PDF-1.7 half written".to_vec())).is_err());
+    assert_eq!(page_texts(&s, id).len(), 3);
+    assert_eq!(s.docs().len(), 2);
 }
 
 #[test]
