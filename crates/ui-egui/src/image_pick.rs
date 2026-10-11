@@ -22,6 +22,7 @@ const BLUE: Color32 = Color32::from_rgb(0x3A, 0x7B, 0xF0);
 
 /// A click on page `page` (Select tool, not taken by anything else): selects the picture under
 /// it, or clears the selection. `over_text`: the click is on text, which text selection takes.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn page_input(
     resp: &egui::Response,
     xf: &PageXform,
