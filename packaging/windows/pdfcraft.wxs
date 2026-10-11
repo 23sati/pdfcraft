@@ -52,6 +52,13 @@
     </Property>
     <SetProperty Id="INSTALLHOTFOLDER" Value="1" After="AppSearch" Sequence="both"
         Condition="HOTFOLDERPRESENT AND NOT INSTALLHOTFOLDER" />
+    <!-- InstallServices reconfigures an existing service, including its logon.
+         Detect registration independently of retained task data. Do not read or
+         transport credentials: SCM keeps the existing account and password. -->
+    <Property Id="HOTFOLDERSERVICEACCOUNT" Secure="yes">
+      <RegistrySearch Id="ExistingHotFolderService" Root="HKLM"
+          Key="SYSTEM\CurrentControlSet\Services\PdfCraftHotFolder" Name="ObjectName" Type="raw" />
+    </Property>
     <UIRef Id="PdfcraftInstallerUI" />
 
     <!-- Use the safe service API rather than MSI 5's unreliable ServiceConfig table.
@@ -61,6 +68,7 @@
         ExeCommand="--service-action prepare-account --config &quot;[HotFolderData]tasks.json&quot;"
         Execute="deferred" Impersonate="no" Return="check" />
     <InstallExecuteSequence>
+      <InstallServices Condition="NOT HOTFOLDERSERVICEACCOUNT" />
       <Custom Action="PrepareHotFolderService" Before="StartServices" Condition="$PdfcraftHotFolderApp = 3" />
     </InstallExecuteSequence>
 

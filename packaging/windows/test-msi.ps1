@@ -173,6 +173,13 @@ Assert-Equal $prepare[2] '--service-action prepare-account --config "[HotFolderD
 if (([int] $prepare[0] -band 3072) -ne 3072) { throw 'Service preparation must be deferred and elevated' }
 $prepareSequence = Read-Row 'SELECT `Sequence` FROM `InstallExecuteSequence` WHERE `Action` = ''PrepareHotFolderService''' 1
 $installServices = Read-Row 'SELECT `Sequence` FROM `InstallExecuteSequence` WHERE `Action` = ''InstallServices''' 1
+$registrationCondition = Read-Row 'SELECT `Condition` FROM `InstallExecuteSequence` WHERE `Action` = ''InstallServices''' 1
+Assert-Equal $registrationCondition[0] 'NOT HOTFOLDERSERVICEACCOUNT' 'Existing SCM registration must preserve account and password'
+if (($secure[0] -split ';') -notcontains 'HOTFOLDERSERVICEACCOUNT') { throw 'Existing service identity is not secure' }
+$registrationSearch = Read-Row 'SELECT `Root`, `Key`, `Name` FROM `RegLocator` WHERE `Signature_` = ''ExistingHotFolderService''' 3
+Assert-Equal $registrationSearch[0] '2' 'Service identity comes from HKLM'
+Assert-Equal $registrationSearch[1] 'SYSTEM\CurrentControlSet\Services\PdfCraftHotFolder' 'Service registry key'
+Assert-Equal $registrationSearch[2] 'ObjectName' 'Only public service account identity is inspected'
 $startServices = Read-Row 'SELECT `Sequence` FROM `InstallExecuteSequence` WHERE `Action` = ''StartServices''' 1
 if ([int] $prepareSequence[0] -le [int] $installServices[0] -or [int] $prepareSequence[0] -ge [int] $startServices[0]) { throw 'Service preparation must run between registration and start' }
 $shortcut = Read-Row 'SELECT `Target`, `Arguments` FROM `Shortcut` WHERE `Shortcut` = ''HotFolderStartMenuShortcut''' 2
