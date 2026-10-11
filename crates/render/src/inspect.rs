@@ -440,6 +440,7 @@ fn inspect_structure(info: &mut DocInfo, fill: impl FnOnce(&mut DocInfo) -> Resu
 
 struct Inspector<'a> {
     doc: &'a dyn Structure,
+    page_order: Vec<ObjectId>,
     page_index: HashMap<ObjectId, usize>,
     /// Named destinations (`/Names /Dests` tree), keyed by raw string bytes, built once.
     /// Looking each name up by walking the tree was O(links × names): minutes on manuals.
@@ -448,8 +449,12 @@ struct Inspector<'a> {
 
 impl<'a> Inspector<'a> {
     fn new(doc: &'a dyn Structure) -> Self {
-        let page_index = doc.get_pages().into_iter().map(|(n, id)| (id, n as usize - 1)).collect();
-        let mut me = Self { doc, page_index, named: HashMap::new() };
+        let pages = doc.get_pages();
+        let page_index: HashMap<_, _> = pages.iter().map(|(&n, &id)| (id, n as usize - 1)).collect();
+        // A malformed tree can repeat a page object; retain only its last index, as the old
+        // sorted `page_index` iteration did.
+        let page_order = pages.into_iter().filter_map(|(n, id)| (page_index.get(&id).copied() == Some(n as usize - 1)).then_some(id)).collect();
+        let mut me = Self { doc, page_order, page_index, named: HashMap::new() };
         let mut named = HashMap::new();
         if let Some(tree) =
             doc.catalog().ok().and_then(|c| c.get(b"Names").ok()).and_then(|o| me.dict(o)).and_then(|n| n.get(b"Dests").ok()).and_then(|o| me.dict(o))
@@ -497,9 +502,7 @@ impl<'a> Inspector<'a> {
         }
         // Widgets no `/Fields` entry reaches are fields too (Acrobat and the browsers fill them);
         // each is adopted through its topmost unlisted `/Parent`, so a split field stays one.
-        let mut pages: Vec<_> = self.page_index.iter().collect();
-        pages.sort_by_key(|(_, i)| **i);
-        for (&pid, _) in pages {
+        for &pid in &self.page_order {
             let Ok(page_dict) = self.doc.get_dictionary(pid) else { continue };
             let Ok(Object::Array(annots)) = page_dict.get(b"Annots").map(|o| self.resolve(o)) else { continue };
             for a in annots {
@@ -1157,9 +1160,7 @@ impl<'a> Inspector<'a> {
 
     fn fonts(&self, out: &mut Vec<FontInfo>) {
         let mut seen = HashSet::new();
-        let mut pages: Vec<_> = self.page_index.iter().collect();
-        pages.sort_by_key(|(_, i)| **i);
-        for (&pid, _) in pages {
+        for &pid in &self.page_order {
             let Ok(fonts) = self.doc.get_page_fonts(pid) else { continue };
             for (_, f) in fonts {
                 let base = f
@@ -1870,6 +1871,55 @@ trailer << /Root 1 0 R >>
         let info = inspect(Arc::new(ORPHAN_FIELDS.to_vec()), None).expect("opens");
         let listed: Vec<_> = info.fields.iter().map(|f| (f.name.as_str(), f.value.as_deref(), f.page)).collect();
         assert_eq!(listed, [("alpha", Some("one"), Some(0)), ("beta", None, Some(0))], "{:?}", info.fields);
+    }
+
+    #[test]
+    fn inspector_page_order_matches_sorted_page_index_for_nested_sparse_ids() {
+        let mut doc = Document::with_version("1.7");
+        let catalog_id = (1, 0);
+        let pages_id = (2, 0);
+        let first_page_id = (31, 0);
+        let nested_pages_id = (90, 0);
+        let second_page_id = (11, 0);
+        let third_page_id = (42, 0);
+
+        let mut catalog = Dictionary::new();
+        catalog.set("Type", Object::Name(b"Catalog".to_vec()));
+        catalog.set("Pages", Object::Reference(pages_id));
+        doc.objects.insert(catalog_id, Object::Dictionary(catalog));
+
+        let mut pages = Dictionary::new();
+        pages.set("Type", Object::Name(b"Pages".to_vec()));
+        pages.set("Kids", vec![Object::Reference(first_page_id), Object::Reference(nested_pages_id)]);
+        pages.set("Count", Object::Integer(4));
+        doc.objects.insert(pages_id, Object::Dictionary(pages));
+
+        let mut nested_pages = Dictionary::new();
+        nested_pages.set("Type", Object::Name(b"Pages".to_vec()));
+        nested_pages.set("Parent", Object::Reference(pages_id));
+        // The repeated page ID pins the old map's last-index behavior for malformed trees.
+        nested_pages.set("Kids", vec![Object::Reference(second_page_id), Object::Reference(first_page_id), Object::Reference(third_page_id)]);
+        nested_pages.set("Count", Object::Integer(3));
+        doc.objects.insert(nested_pages_id, Object::Dictionary(nested_pages));
+
+        for (id, parent) in [(first_page_id, pages_id), (second_page_id, nested_pages_id), (third_page_id, nested_pages_id)] {
+            let mut page = Dictionary::new();
+            page.set("Type", Object::Name(b"Page".to_vec()));
+            page.set("Parent", Object::Reference(parent));
+            doc.objects.insert(id, Object::Dictionary(page));
+        }
+        doc.trailer.set("Root", Object::Reference(catalog_id));
+
+        let inspector = Inspector::new(&doc);
+        let mut previous_order: Vec<_> = inspector.page_index.iter().collect();
+        previous_order.sort_by_key(|(_, index)| **index);
+        let previous_order: Vec<_> = previous_order.into_iter().map(|(&id, _)| id).collect();
+
+        assert_eq!(inspector.page_order, [second_page_id, first_page_id, third_page_id]);
+        assert_eq!(inspector.page_order, previous_order);
+        assert_eq!(inspector.page_index.get(&first_page_id), Some(&2));
+        assert_eq!(inspector.page_index.get(&second_page_id), Some(&1));
+        assert_eq!(inspector.page_index.get(&third_page_id), Some(&3));
     }
 
     #[test]

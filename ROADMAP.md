@@ -2,7 +2,7 @@
 
 **Stage: alpha** · next: beta, ~26% (ready for real work 49% → 75%) and ~400–700 h away
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-10 · **Change:** minor (localized shortcut labels, #496; readiness table with hours per audience; full number as weighted sum 49%; earlier: second look: ready 40% → 47%, mainstream 55% added; core-workflow gate applied → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (M14 #307 inspector page-order optimization: total inspect time neutral, isolated sort work reduced; fresh-base focused, workspace, and WASM checks passed; includes a legacy destination Clippy binding; earlier: localized shortcut labels, #496; readiness table with hours per audience; full number as weighted sum 49%; second look: ready 40% → 47%, mainstream 55% added; core-workflow gate applied → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
 PdfCraft's one-page summary: how close it is to Adobe Acrobat Pro's offline feature set, and what
 comes next. Adobe's cloud services (Document Cloud, Acrobat Sign requests, shared review, the AI
@@ -135,6 +135,7 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 Newest first: the date, what moved, and the new overall estimate.
 
+- **2026-10-11 (M14, #307, inspector page-order candidate):** The inspector stores the page-ID order alongside its lookup map and reuses it for orphan-widget and font discovery, replacing two repeated collect/sort traversals. On refreshed base `bbbe600`, `DocInfo` output hashes matched for three repository PDFs and two synthetic fixtures. On a 20,000-page release fixture, total inspect medians were effectively neutral (150.65 ms baseline, 150.23 ms candidate), while an isolated replay of two sorted traversals fell from 25.405 ms to 0.127 ms. Peak RSS medians were 50.88 MiB baseline and 51.67 MiB candidate, with overlapping ranges. Formatting, focused tests, workspace Clippy/tests (one network-only test ignored), and 30-crate WASM checks passed. A minimal `changed` binding in inline legacy destination pruning addresses the workspace Clippy `collapsible_match` warning without changing the pruning condition. No milestone estimate change.
 - **2026-10-10 (M14, interface size):** Preferences ▸ Interface size scales the whole interface (50–250 %, setting `ui_scale`, control option `ui-scale`); 50 % brings an interface the system draws at 200 % back to 100 % (#456). Auto, the default, follows the desktop's text scaling: on Linux and the BSDs the desktop app reads GNOME's `text-scaling-factor` once at launch, so with Large Text (1.25) on a 1× display the interface no longer draws 13 px labels that show their pixels next to the system's text. The size is egui's zoom factor, so `pixels_per_point` grows with it and page rasters stay one texel per screen pixel; egui's own ⌘+/⌘− interface zoom is turned off so those keys stay page zoom. Still missing: KDE's font DPI and Windows' "Make text bigger" aren't read (both scale only text there), and egui's text is still greyscale-antialiased without the system's gamma, so small text looks rougher than GTK's at 100 %.
 - **2026-10-10 (M14, #496):** Shortcut displays share a UI formatter across toolbar search, registry menus, command palette, Help and tooltips. Modifier and key names use a dedicated catalog context in every bundled translation; missing entries keep the English key name rather than a command translation. German shows Strg/Umschalt/Entf, macOS retains its symbols, and runtime language changes refresh the display. Regression coverage checks localized layout widths, English/German switching, platform conventions and unchanged command execution. Milestone and effort estimates unchanged.
 
@@ -317,6 +318,7 @@ Newest first: the date, what moved, and the new overall estimate.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Recorded refreshed-base #307 inspector page-order evidence; total inspect time was neutral and the isolated sort replay improved |
 | 2026-10-10 | minor | Readiness table with hours per audience; full number restated as the additive weighted sum over dimensions (47% → 49%; method aligned with the standard, no new evidence) |
 | 2026-10-10 | minor | Essentials-user score added (≈ 66%) |
 | 2026-10-10 | minor | Gate consistency check: convert and share re-judged partial, not blocking; stage pre-alpha → alpha |
