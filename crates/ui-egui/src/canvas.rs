@@ -351,6 +351,7 @@ pub struct DocView {
     /// line being edited.
     pub(crate) edit_lines: HashMap<usize, (u64, Vec<pdfcraft_engine::TextBlock>)>,
     pub line_editor: Option<crate::edit_text_ui::LineEditor>,
+    pub(crate) text_background: crate::edit_text_ui::TextBackground,
     /// Edit text & images: the images per page (by document generation), and the selected one.
     pub(crate) edit_images: HashMap<usize, (u64, Vec<pdfcraft_engine::PageImage>)>,
     pub(crate) objects: crate::object_ui::ObjectSelection,
@@ -545,6 +546,7 @@ impl DocView {
             pending_edit: None,
             edit_lines: HashMap::new(),
             line_editor: None,
+            text_background: Default::default(),
             edit_images: HashMap::new(),
             objects: Default::default(),
             image_selection: None,
@@ -646,7 +648,7 @@ impl DocView {
     }
 
     pub fn render_pending(&self) -> bool {
-        !self.last_queue.is_empty()
+        !self.last_queue.is_empty() || self.text_background.pending()
     }
 
     /// Re-render every page and text layer (the document's appearance changed, e.g. a layer
@@ -1145,6 +1147,7 @@ impl DocView {
         self.waiting_since.clear();
         // Signature previews own a separate renderer and image/background textures.
         self.signature_drag = Default::default();
+        self.text_background = Default::default();
         if !self.last_queue.is_empty() {
             pool.set_queue(Vec::new());
             self.last_queue.clear();
@@ -1973,6 +1976,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         view.prepare.selected = None;
     }
     view.objects.prepare(doc, tool == QuickTool::EditText && can_modify, ui.ctx());
+    view.text_background.prepare(ui.ctx(), doc, view.line_editor.as_ref(), scale);
     let added = doc.added.clone();
     let doc_links = if tool == QuickTool::Link { doc.links.clone() } else { Vec::new() };
     if editing_content {
@@ -2157,6 +2161,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                     }
                 }
             }
+            view.text_background.paint(painter, &xf, i, view.line_editor.as_ref());
             painter.rect_stroke(r, CornerRadius::ZERO, Stroke::new(0.5, t.border.gamma_multiply(0.8)), egui::StrokeKind::Outside);
 
             // Comments: tools, selection, moving and resizing come before text selection.
@@ -2300,7 +2305,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                 };
                 // Images first (they can sit under text boxes' corners); then paragraphs.
                 crate::edit_text_ui::image_input(ui, &resp, &xf, i, info, &images, view, &mut image_action)
-                    || crate::edit_text_ui::page_input(ui, &resp, &xf, i, info, &lines, view)
+                    || crate::edit_text_ui::page_input(ui, &resp, &xf, i, doc, &lines, view)
             };
             let on_link = tool == QuickTool::Link && can_modify && crate::link_ui::page_input(ui, &resp, &xf, i, info, &doc_links, view);
             let consumed = on_objects || on_edit_text || on_link || on_content || boxing || on_field || comments::page_input(ui, &resp, &pcx, view);

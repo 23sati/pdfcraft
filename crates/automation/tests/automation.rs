@@ -125,6 +125,30 @@ fn open_inspect_render_and_find() {
 }
 
 #[test]
+fn text_editor_background_is_read_only_and_removes_source_glyphs() {
+    let dir = workdir("text-preview");
+    let mut a = auto(&dir);
+    std::fs::write(dir.join("text-preview.pdf"), fixture(2)).unwrap();
+    let doc = ok(&mut a, "doc_open", json!({ "path": "text-preview.pdf" }))["doc"].as_u64().unwrap();
+    let args = json!({ "doc": doc, "page": 1, "dpi": 72 });
+    let before = a.call("page_render", &args).unwrap();
+    let state = ok(&mut a, "doc_info", json!({ "doc": doc }));
+    let preview = a.call("page_render", &json!({ "doc": doc, "page": 1, "dpi": 72, "hide_text_block": 1 })).unwrap();
+    assert_ne!(preview, before);
+    let Content::Png { data, .. } = &preview[0] else { panic!("expected PNG") };
+    let mut reader = png::Decoder::new(std::io::Cursor::new(data)).read_info().unwrap();
+    let mut pixels = vec![0; reader.output_buffer_size().unwrap()];
+    let info = reader.next_frame(&mut pixels).unwrap();
+    assert!(pixels[..info.buffer_size()].iter().all(|b| *b == 255), "no source glyphs remain on the white page");
+    assert_eq!(a.call("page_render", &args).unwrap(), before);
+    assert_eq!(ok(&mut a, "doc_info", json!({ "doc": doc })), state);
+    assert_eq!(page_text(&mut a, doc), ["Page 1", "Page 2"]);
+    for block in [-1, 0, 2, i64::MAX] {
+        assert!(a.call("page_render", &json!({ "doc": doc, "page": 1, "hide_text_block": block })).is_err());
+    }
+}
+
+#[test]
 fn edit_undo_redo_and_save_round_trip() {
     let dir = workdir("edit");
     let mut a = auto(&dir);

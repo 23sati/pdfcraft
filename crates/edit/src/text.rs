@@ -1,6 +1,6 @@
 //! Edit a PDF ▸ Edit text: the text lines already on a page, and replacing a line's text in place.
 //!
-//! A *line* is a run of text-showing operators inside one `BT … ET` on the same baseline, read
+//! A *line* is a run of compatible text-showing operators on the same baseline, read
 //! from one content stream. Replacing it rewrites only that stream (as a new object, since content
 //! streams may be shared): the first operator of the line shows the new text, the others are
 //! dropped, and every positioning operator stays, so the lines after it keep their places
@@ -224,10 +224,19 @@ fn page_dict(doc: &Document, page: usize) -> Result<pdfcraft_model::Page, EditEr
 }
 
 fn fill_color(fill: &[Op]) -> [f64; 3] {
-    let Some(op) = fill.iter().rev().find(|op| matches!(op.op.as_slice(), b"g" | b"rg" | b"k")) else {
+    let Some(op) = fill.iter().rev().find(|op| matches!(op.op.as_slice(), b"g" | b"rg" | b"k" | b"sc" | b"scn")) else {
         return [0.0, 0.0, 0.0];
     };
-    match op.op.as_slice() {
+    let space = match op.op.as_slice() {
+        b"sc" | b"scn" => match op.operands.len() {
+            1 => b"g".as_slice(),
+            3 => b"rg".as_slice(),
+            4 => b"k".as_slice(),
+            _ => return [0.0; 3],
+        },
+        other => other,
+    };
+    match space {
         b"g" => {
             let v = op.operands.first().and_then(Object::as_f64).unwrap_or(0.0).clamp(0.0, 1.0);
             [v, v, v]
@@ -251,6 +260,8 @@ fn fill_color(fill: &[Op]) -> [f64; 3] {
 /// The text-showing operators of one stream with their text, font, box and baseline.
 struct Shown {
     op: usize,
+    /// Advance in text space, including spacing and TJ adjustments.
+    advance: f64,
     /// The text matrix where it starts (text space), and the state there and at its `BT`.
     tm: Matrix,
     tlm: Matrix,
@@ -447,6 +458,7 @@ fn interpret(
                 }
                 out.push(Shown {
                     op: i,
+                    advance: x_text,
                     tm: Matrix([tm.0[0], tm.0[1], tm.0[2], tm.0[3], tm.0[4] - x_text * tm.0[0], tm.0[5] - x_text * tm.0[1]]),
                     state: ts.clone(),
                     tlm,
@@ -489,19 +501,20 @@ pub fn text_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditErro
     let shown = interpret(doc, &ops, &fonts_res, &mut cache, &mut carry, None);
     let mut last: Option<(usize, usize, f64, f64, f64)> = None; // (piece, bt, baseline, end_x, size)
     for s in shown {
-        // A line belongs to the piece its first operator starts in (lines in different pieces
-        // aren't joined or grouped, as before; editing rewrites every piece an edit touches).
+        // A line belongs to one stream piece. Within it, PDF producers often put every word
+        // in its own BT/ET: geometry and text state, not object boundaries, define a line.
         let si = ops.get(s.op).map_or(0, |op| pieces.pieces_of(op).0);
         let joins = last.is_some_and(|(piece, bt, base, end, size)| {
             piece == si
-                && bt == s.bt
-                && lines.last().is_some_and(|l| l.font.as_bytes() == s.font.as_slice())
-                && lines.last().is_some_and(|l| {
-                    (s.size - l.size).abs() < 0.01 && s.bold == l.bold && s.italic == l.italic && fill_color(&s.state.fill) == l.color
-                })
+                && (bt == s.bt || lines.last().is_some_and(|l| compatible_word(l, &s)))
+                && (s.text.trim().is_empty() || lines.last().is_some_and(|l| l.font.as_bytes() == s.font.as_slice()))
+                && (s.text.trim().is_empty()
+                    || lines.last().is_some_and(|l| {
+                        (s.size - l.size).abs() < 0.01 && s.bold == l.bold && s.italic == l.italic && fill_color(&s.state.fill) == l.color
+                    }))
                 && (s.baseline - base).abs() < size * 0.3
                 && s.start_x > end - size
-                && s.start_x - end < size * 3.0
+                && s.start_x - end < size * if bt == s.bt { 3.0 } else { 1.5 }
         });
         if joins && let Some(l) = lines.last_mut() {
             let gap = s.start_x - last.map_or(s.start_x, |x| x.3);
@@ -512,7 +525,7 @@ pub fn text_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditErro
             l.rect = [l.rect[0].min(s.rect[0]), l.rect[1].min(s.rect[1]), l.rect[2].max(s.rect[2]), l.rect[3].max(s.rect[3])];
             l.ops.push(s.op);
             l.decodable &= s.decodable;
-            l.color = fill_color(&s.state.fill);
+            // Spaces may use a separate subset font; they do not change the visible style.
         } else {
             lines.push(TextLine {
                 text: s.text.clone(),
@@ -546,18 +559,31 @@ pub fn text_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditErro
     Ok(lines)
 }
 
+/// Joining independent text objects is safe only when they use the same text and graphics
+/// transforms and spacing. In particular, a nearby rotated label isn't part of this line.
+fn compatible_word(line: &TextLine, shown: &Shown) -> bool {
+    let same = |a: &[f64], b: &[f64]| a.iter().zip(b).all(|(a, b)| (a - b).abs() < 1e-6);
+    let (a, b) = (&line.origin.state, TextState::of(&shown.state));
+    same(&line.origin.tm[..4], &shown.tm.0[..4])
+        && same(&line.origin.ctm, &shown.state.ctm.0)
+        && same(&[a.char_spacing, a.word_spacing, a.scale, a.rise], &[b.char_spacing, b.word_spacing, b.scale, b.rise])
+        && a.fill.len() == b.fill.len()
+        && a.fill.iter().zip(&b.fill).all(|(a, b)| a.op == b.op && a.operands == b.operands)
+}
+
 /// The line `s` continues, or a new one: `last` is the previous run of the same stream
 /// (`bt`, baseline, end x, size).
 fn add_shown(lines: &mut Vec<TextLine>, last: &mut Option<(usize, f64, f64, f64)>, s: Shown, stream: usize) {
     let joins = last.is_some_and(|(bt, base, end, size)| {
-        bt == s.bt
-            && lines.last().is_some_and(|l| l.font.as_bytes() == s.font.as_slice())
-            && lines
-                .last()
-                .is_some_and(|l| (s.size - l.size).abs() < 0.01 && s.bold == l.bold && s.italic == l.italic && fill_color(&s.state.fill) == l.color)
+        (bt == s.bt || lines.last().is_some_and(|l| compatible_word(l, &s)))
+            && (s.text.trim().is_empty() || lines.last().is_some_and(|l| l.font.as_bytes() == s.font.as_slice()))
+            && (s.text.trim().is_empty()
+                || lines.last().is_some_and(|l| {
+                    (s.size - l.size).abs() < 0.01 && s.bold == l.bold && s.italic == l.italic && fill_color(&s.state.fill) == l.color
+                }))
             && (s.baseline - base).abs() < size * 0.3
             && s.start_x > end - size
-            && s.start_x - end < size * 3.0
+            && s.start_x - end < size * if bt == s.bt { 3.0 } else { 1.5 }
     });
     if joins && let Some(l) = lines.last_mut() {
         let gap = s.start_x - last.map_or(s.start_x, |x| x.2);
@@ -568,7 +594,6 @@ fn add_shown(lines: &mut Vec<TextLine>, last: &mut Option<(usize, f64, f64, f64)
         l.rect = [l.rect[0].min(s.rect[0]), l.rect[1].min(s.rect[1]), l.rect[2].max(s.rect[2]), l.rect[3].max(s.rect[3])];
         l.ops.push(s.op);
         l.decodable &= s.decodable;
-        l.color = fill_color(&s.state.fill);
     } else {
         lines.push(TextLine {
             text: s.text.clone(),
@@ -904,6 +929,69 @@ fn type3_encode(fallback: &Type3Fallback, text: &str) -> Option<Vec<u8>> {
     text.chars().map(|ch| fallback.codes.iter().find(|(c, _, _)| *c == ch).map(|(_, code, _)| *code)).collect()
 }
 
+/// A subset may contain all the letters but no space glyph: producers use another subset
+/// or a positioning operator for spaces. Do the same instead of substituting the whole font.
+fn source_encodes(metrics: &Metrics, text: &str) -> bool {
+    text.split(' ').all(|word| metrics.encode(word).is_some())
+}
+
+fn source_space(doc: &Document, fonts: &Dict, metrics: &Metrics) -> f64 {
+    let width = |m: &Metrics| m.encode(" ").map(|b| m.codes(&b).iter().map(|(c, _)| m.width(*c)).sum::<f64>());
+    if let Some(w) = width(metrics) {
+        return w;
+    }
+    let family = metrics.base_font.rsplit('+').next().unwrap_or(&metrics.base_font);
+    for (_, font) in fonts.iter() {
+        if let Some(dict) = doc.resolve(font).as_dict() {
+            let m = Metrics::from_dict(doc, dict);
+            if m.base_font.rsplit('+').next() == Some(family)
+                && let Some(w) = width(&m)
+            {
+                return w;
+            }
+        }
+    }
+    0.33
+}
+
+fn source_width(metrics: &Metrics, text: &str, size: f64, space: f64, char_spacing: f64, word_spacing: f64) -> f64 {
+    if let Some(bytes) = metrics.encode(text) {
+        // PDF word spacing applies only to single-byte code 32, even for a Unicode space.
+        return metrics
+            .codes(&bytes)
+            .iter()
+            .map(|(c, len)| metrics.width(*c) * size + char_spacing + if metrics.is_space(*c, *len) { word_spacing } else { 0.0 })
+            .sum();
+    }
+    let words: f64 = text
+        .split(' ')
+        .filter_map(|w| metrics.encode(w))
+        .map(|b| metrics.codes(&b).iter().map(|(c, _)| metrics.width(*c) * size + char_spacing).sum::<f64>())
+        .sum();
+    words + text.matches(' ').count() as f64 * (space * size + char_spacing + word_spacing)
+}
+
+fn source_show(metrics: &Metrics, text: &str, size: f64, space: f64, char_spacing: f64, word_spacing: f64) -> Result<Vec<Op>, EditError> {
+    if let Some(bytes) = metrics.encode(text) {
+        return Ok(vec![Op::new("Tj", vec![Object::String(PdfString::literal(bytes))])]);
+    }
+    let adjustment = -1000.0 * (space + (char_spacing + word_spacing) / size);
+    if !adjustment.is_finite() {
+        return Err(EditError::Invalid("the source font's space advance is invalid".into()));
+    }
+    let mut out = Vec::new();
+    for (i, word) in text.split(' ').enumerate() {
+        if i > 0 {
+            out.push(Op::new("TJ", vec![Object::Array(vec![pdfcraft_content::num(adjustment)])]));
+        }
+        if !word.is_empty() {
+            let bytes = metrics.encode(word).ok_or_else(|| EditError::Invalid("the source font cannot show the replacement text".into()))?;
+            out.push(Op::new("Tj", vec![Object::String(PdfString::literal(bytes))]));
+        }
+    }
+    Ok(out)
+}
+
 /// Replace the text of line `line` (an index into [`text_lines`]) on `page` with `text`.
 pub fn replace_line(doc: &mut Document, page: usize, line: usize, text: &str) -> Result<LineEdit, EditError> {
     let text = text.replace(['\n', '\r'], " ");
@@ -918,7 +1006,7 @@ pub fn replace_line(doc: &mut Document, page: usize, line: usize, text: &str) ->
     let first = target.ops.first().copied().filter(|i| *i < ops.len()).ok_or_else(|| EditError::Invalid("the page's content changed".into()))?;
     // The line's own font, when it can show every character.
     let font = fonts_res.get(target.font.as_bytes()).and_then(|f| doc.resolve(f).as_dict().cloned()).map(|d| Metrics::from_dict(doc, &d));
-    let reused = font.as_ref().and_then(|m| m.encode(&text));
+    let reused = font.as_ref().filter(|m| source_encodes(m, &text));
     let mut substituted = None;
     let mut replacement: Vec<Op> = Vec::new();
     // ' and " also move to the next line; keep that.
@@ -932,7 +1020,14 @@ pub fn replace_line(doc: &mut Document, page: usize, line: usize, text: &str) ->
         _ => {}
     }
     match reused {
-        Some(bytes) => replacement.push(Op::new("Tj", vec![Object::String(PdfString::literal(bytes))])),
+        Some(metrics) => replacement.extend(source_show(
+            metrics,
+            &text,
+            target.origin.state.font.as_ref().map_or(target.size, |(_, size)| *size),
+            source_space(doc, &fonts_res, metrics),
+            target.origin.state.char_spacing,
+            target.origin.state.word_spacing,
+        )?),
         None => {
             if needs_type3(&text) {
                 let fallback = type3_font(doc, &mut fonts_res, &text, source_family(&target.base_font), target.bold)?;
@@ -1016,6 +1111,52 @@ fn coincident_ops(lines: &[TextLine], rects: &[[f64; 4]]) -> std::collections::H
 pub fn text_blocks(doc: &Document, page: usize) -> Result<Vec<TextBlock>, EditError> {
     let lines = text_lines(doc, page)?;
     Ok(group_blocks(&lines))
+}
+
+/// Remove a paragraph's glyphs for a temporary editor background. Numeric TJ adjustments
+/// preserve the text matrix, so unselected text positioned relative to it stays in place.
+/// Call this on a clone: it is a preview operation, not a document edit.
+pub fn clear_block(doc: &mut Document, page: usize, block: usize) -> Result<(), EditError> {
+    let lines = text_lines(doc, page)?;
+    let blocks = group_blocks(&lines);
+    let target = blocks.get(block).ok_or_else(|| EditError::Invalid("the paragraph no longer exists".into()))?;
+    let rects: Vec<_> = target.lines.iter().filter_map(|i| lines.get(*i)).map(|l| l.rect).collect();
+    let mut drops = coincident_ops(&lines, &rects);
+    drops.extend(target.lines.iter().filter_map(|i| lines.get(*i)).flat_map(|l| l.ops.iter().copied()));
+    let p = page_dict(doc, page)?;
+    let res = p.dict.get(b"Resources").and_then(|r| doc.resolve(r).as_dict().cloned()).unwrap_or_default();
+    let fonts = res.get(b"Font").and_then(|r| doc.resolve(r).as_dict().cloned()).unwrap_or_default();
+    let streams = content_streams(doc, &p.dict);
+    let pieces = Pieces::join(&streams.iter().map(|(_, d)| d.as_slice()).collect::<Vec<_>>());
+    let ops = pieces.parse().ops;
+    let shown = interpret(doc, &ops, &fonts, &mut HashMap::new(), &mut Carry::new(), None);
+    let mut patches = HashMap::new();
+    for s in shown.into_iter().filter(|s| drops.contains(&s.op)) {
+        if s.state.render_mode >= 4 {
+            return Err(EditError::Invalid("text used as a clipping path cannot be previewed for editing".into()));
+        }
+        let denominator = s.state.size * s.state.scale;
+        let adjustment = if denominator != 0.0 { -1000.0 * s.advance / denominator } else { 0.0 };
+        if !adjustment.is_finite() || (denominator == 0.0 && s.advance != 0.0) {
+            return Err(EditError::Invalid("the paragraph's text advance cannot be previewed".into()));
+        }
+        let mut replacement = Vec::new();
+        if let Some(op) = ops.get(s.op) {
+            if op.is("\"") {
+                replacement.push(Op::new("Tw", vec![op.operands.first().cloned().unwrap_or(Object::Int(0))]));
+                replacement.push(Op::new("Tc", vec![op.operands.get(1).cloned().unwrap_or(Object::Int(0))]));
+            }
+            if op.is("'") || op.is("\"") {
+                replacement.push(Op::new("T*", vec![]));
+            }
+        }
+        replacement.push(Op::new("TJ", vec![Object::Array(vec![pdfcraft_content::num(adjustment)])]));
+        patches.insert(s.op, replacement);
+    }
+    let data = splice(&pieces, &ops, |i| patches.remove(&i).map_or((Vec::new(), true), |v| (v, false)));
+    let contents = rewritten_contents(doc, &streams, data);
+    doc.update_dict(p.obj, |d| d.set(b"Contents".to_vec(), contents))?;
+    Ok(())
 }
 
 /// The paragraphs on a page as a reader sees them, including text drawn by form XObjects
@@ -1171,7 +1312,8 @@ pub fn rewrite_block(doc: &mut Document, page: usize, block: usize, text: Option
     }
     let o_state = ts_state.clone();
     let metrics = fonts_res.get(font_name.as_bytes()).and_then(|f| doc.resolve(f).as_dict().cloned()).map(|d| Metrics::from_dict(doc, &d));
-    let reuse = style.family.is_none() && style.bold.is_none() && metrics.as_ref().is_some_and(|m| m.encode(&text).is_some());
+    let reuse = style.family.is_none() && style.bold.is_none() && metrics.as_ref().is_some_and(|m| source_encodes(m, &text));
+    let space = metrics.as_ref().map_or(0.33, |m| source_space(doc, &fonts_res, m));
     // The chosen style also determines the real Japanese fallback outlines and advances.
     let (family, bold, italic) = style.family.unwrap_or((source_family(&b.base_font), b.bold, b.italic));
     let bold = style.bold.unwrap_or(bold);
@@ -1198,15 +1340,7 @@ pub fn rewrite_block(doc: &mut Document, page: usize, block: usize, text: Option
     };
     let advance = |s: &str| -> f64 {
         let t = match (&metrics, reuse) {
-            (Some(m), true) => m
-                .encode(s)
-                .map(|bytes| {
-                    m.codes(&bytes)
-                        .iter()
-                        .map(|(c, l)| m.width(*c) * size + o_state.char_spacing + if m.is_space(*c, *l) { o_state.word_spacing } else { 0.0 })
-                        .sum::<f64>()
-                })
-                .unwrap_or(0.0),
+            (Some(m), true) => source_width(m, s, size, space, o_state.char_spacing, o_state.word_spacing),
             _ if let Some(fallback) = &type3 => {
                 fallback.codes.iter().map(|(ch, _, width)| s.chars().filter(|c| c == ch).count() as f64 * width * size).sum::<f64>()
                     + s.chars().count() as f64 * o_state.char_spacing
@@ -1301,8 +1435,12 @@ pub fn rewrite_block(doc: &mut Document, page: usize, block: usize, text: Option
             block_ops.push(Op::new("Tw", vec![n(tw)]));
             tw_set = tw;
         }
-        let bytes = encode(line).ok_or_else(|| EditError::Invalid(format!("\"{line}\" can't be shown")))?;
-        block_ops.push(Op::new("Tj", vec![Object::String(PdfString::literal(bytes))]));
+        if let Some(metrics) = metrics.as_ref().filter(|_| reuse) {
+            block_ops.extend(source_show(metrics, line, size, space, o_state.char_spacing, tw)?);
+        } else {
+            let bytes = encode(line).ok_or_else(|| EditError::Invalid(format!("\"{line}\" can't be shown")))?;
+            block_ops.push(Op::new("Tj", vec![Object::String(PdfString::literal(bytes))]));
+        }
         let w = (advance(line) + tw * spaces as f64 * o_state.scale * k) / k;
         underlines.push((dx, dx + w, -(i as f64) * lead - size * 0.12));
     }

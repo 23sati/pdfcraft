@@ -23,10 +23,12 @@ pub mod links;
 pub mod ocr;
 pub mod optimizer;
 pub mod signature_image;
+mod text_preview;
 mod upright_image;
 pub mod xfa;
 
 pub use signature_image::{ImageSignaturePreview, SignatureImage};
+pub use text_preview::TextEditPreview;
 
 pub use pdfcraft_organize::{BoxSpec, PageBox, SplitBy, split_ranges};
 

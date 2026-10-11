@@ -1672,7 +1672,10 @@ fn copying_cutting_and_pasting_pages() {
 }
 
 fn source_font_fixture() -> Vec<u8> {
-    let body = "BT /F1 18 Tf 20 220 Td (Serif) Tj ET BT /F2 18 Tf 20 120 Td (Mono) Tj ET";
+    source_font_fixture_with_text("BT /F1 18 Tf 20 220 Td (Serif) Tj ET BT /F2 18 Tf 20 120 Td (Mono) Tj ET")
+}
+
+fn source_font_fixture_with_text(body: &str) -> Vec<u8> {
     let objs: Vec<String> = vec![
         "<< /Type /Catalog /Pages 2 0 R >>".into(),
         "<< /Type /Pages /Kids [4 0 R] /Count 1 /MediaBox [0 0 300 300] >>".into(),
@@ -1738,6 +1741,109 @@ fn clicking_existing_text_selects_its_source_font_style() {
     let ed = h.state().views[0].line_editor.clone().expect("mono editor opens");
     assert_eq!(ed.look.family, pdfcraft_engine::FontFamily::Courier);
     assert!(!ed.look.bold && ed.look.italic, "source style: {:?}", ed.look);
+}
+
+#[test]
+fn deleting_a_draft_does_not_show_the_original_text_underneath() {
+    let mut h = harness(1, |_| {});
+    assert!(h.state_mut().execute("edit.edit_text"));
+    h.run_steps(2);
+    let r = h.state().views[0].page_screen_rect(0).unwrap();
+    let at = egui::pos2(r.left() + 40.0 / 200.0 * r.width(), r.top() + 142.0 / 300.0 * r.height());
+    h.hover_at(at);
+    h.run_steps(1);
+    h.drag_at(at);
+    h.run_steps(1);
+    h.drop_at(at);
+    h.run_steps(3);
+    h.state_mut().views[0].line_editor.as_mut().unwrap().text.clear();
+    for _ in 0..100 {
+        h.run_steps(2);
+        if !h.state().render_pending() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    let shot = h.render().unwrap();
+    if let Ok(path) = std::env::var("PDFCRAFT_TEXT_PREVIEW_SHOT") {
+        shot.save(path).unwrap();
+    }
+    // The right half of the original glyphs, away from the caret and editor border.
+    let k = r.width() / 200.0;
+    for y in 152..166 {
+        for x in 65..82 {
+            let px = (r.left() + x as f32 * k) as u32;
+            let py = (r.top() + (300 - y) as f32 * k) as u32;
+            let [red, green, blue, alpha] = shot.get_pixel(px, py).0;
+            assert!(
+                !(red < 100 && green < 100 && blue < 100) && alpha == 255,
+                "the deleted source is still visible at {x},{y}: {:?}",
+                [red, green, blue, alpha]
+            );
+        }
+    }
+    assert!(!dirty(&h), "the document is unchanged until the draft is applied");
+    assert_eq!(page_texts(h.state()), ["Page 1"]);
+    h.key_press(egui::Key::Escape);
+    h.run_steps(3);
+    assert_eq!(page_texts(h.state()), ["Page 1"]);
+}
+
+#[test]
+fn switching_from_a_narrow_editor_keeps_one_frame_and_a_wide_heading_on_one_line() {
+    let bytes = source_font_fixture_with_text(
+        "BT /F1 18 Tf 20 220 Td (Editable PDF heading) Tj ET BT /F2 18 Tf 20 120 Td (Mono) Tj ET BT /F2 18 Tf 20 98 Td (Text) Tj ET",
+    );
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("editor.pdf", None, bytes).unwrap();
+        app
+    });
+    h.run_steps(4);
+    assert!(h.state_mut().execute("edit.edit_text"));
+    h.run_steps(2);
+    let page = h.state().views[0].page_screen_rect(0).unwrap();
+    for y in [128.0, 228.0] {
+        let point = egui::pos2(page.left() + 25.0 / 300.0 * page.width(), page.top() + (300.0 - y) / 300.0 * page.height());
+        h.hover_at(point);
+        h.run_steps(1);
+        h.drag_at(point);
+        h.run_steps(1);
+        h.drop_at(point);
+        h.run_steps(4);
+        if y == 128.0 {
+            assert_eq!(h.state().views[0].line_editor.as_ref().unwrap().text, "Mono\nText", "opening a paragraph keeps its source line breaks");
+            h.key_press(Key::Escape);
+            h.run_steps(2);
+        }
+    }
+    let heading = h
+        .output()
+        .shapes
+        .iter()
+        .find_map(|shape| match &shape.shape {
+            egui::Shape::Text(text) if text.galley.text() == "Editable PDF heading" => Some(&text.galley),
+            _ => None,
+        })
+        .expect("the heading editor is painted");
+    assert_eq!(heading.rows.len(), 1, "opening a wider block must not reuse the previous editor's narrow width");
+    let frames = h
+        .output()
+        .shapes
+        .iter()
+        .filter(|shape| {
+            matches!(&shape.shape,
+                egui::Shape::Rect(rect) if rect.stroke.color == egui::Color32::from_rgb(0x14, 0x73, 0xE6)
+                    && rect.rect.width() > 100.0 && page.contains(rect.rect.center())
+            )
+        })
+        .count();
+    assert_eq!(frames, 1, "the active block has only the editor frame");
+    if let Ok(path) = std::env::var("PDFCRAFT_TEXT_FRAME_SHOT") {
+        h.render().unwrap().save(path).unwrap();
+    }
+    assert!(!dirty(&h));
 }
 
 #[test]

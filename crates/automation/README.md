@@ -92,3 +92,7 @@ Exports complete synchronously. `progressToken` and cancellation notifications a
 ignored; no background-job or cancellation behavior is added.
 
 Session resources `pdfcraft://document` and `pdfcraft://commands`, and the refusal of unknown argument keys, are described in [docs/mcp.md](../../docs/mcp.md).
+
+For inline editor previews, `page_render` accepts `hide_text_block` (a 1-based index from
+`text_paragraphs`). It renders the page without that paragraph’s source glyphs and leaves the
+working document unchanged.

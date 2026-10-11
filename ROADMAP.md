@@ -133,6 +133,8 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 ## Progress log
 
+- **2026-10-11 (M7, contributor fork):** Join compatible words across text objects and subset-font spaces; preserve source fonts that lack a space glyph using text positioning; recognize component colour operators. Inline editing uses one editor frame, resets its available width when switching blocks, keeps source line breaks, and renders a COS-clone background without the original glyphs, preserving unselected text advances. `page_render.hide_text_block` exposes the same read-only preview. Mixed-style paragraph grouping, installed-font selection and exact source-font editor rendering remain open.
+
 Newest first: the date, what moved, and the new overall estimate.
 
 - **2026-10-10 (M14, interface size):** Preferences ▸ Interface size scales the whole interface (50–250 %, setting `ui_scale`, control option `ui-scale`); 50 % brings an interface the system draws at 200 % back to 100 % (#456). Auto, the default, follows the desktop's text scaling: on Linux and the BSDs the desktop app reads GNOME's `text-scaling-factor` once at launch, so with Large Text (1.25) on a 1× display the interface no longer draws 13 px labels that show their pixels next to the system's text. The size is egui's zoom factor, so `pixels_per_point` grows with it and page rasters stay one texel per screen pixel; egui's own ⌘+/⌘− interface zoom is turned off so those keys stay page zoom. Still missing: KDE's font DPI and Windows' "Make text bigger" aren't read (both scale only text there), and egui's text is still greyscale-antialiased without the system's gamma, so small text looks rougher than GTK's at 100 %.
