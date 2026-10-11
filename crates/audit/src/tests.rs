@@ -195,3 +195,21 @@ fn audit_fails_closed_on_undecodable_stream() {
     let msg = err.to_string();
     assert!(msg.contains("decoded"), "unexpected error: {msg}");
 }
+
+/// A form XObject that draws itself nests without end. The walk can't follow it to the bottom, so
+/// the audit fails rather than report the page clean with a possible cover left unseen.
+#[test]
+fn self_drawing_form_fails_the_audit() {
+    let mut b = Builder::new();
+    b.add("<< /Type /Catalog /Pages 2 0 R >>");
+    b.add("<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
+    b.add("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 6 0 R >> /XObject << /X 5 0 R >> >> >>");
+    b.add_stream(b"BT /F1 24 Tf 100 700 Td (SECRET) Tj ET\n/X Do\n");
+    b.add_stream_with(
+        b"0 g\n100 688 220 32 re f\n/X Do\n",
+        "/Type /XObject /Subtype /Form /BBox [0 0 612 792] /Resources << /XObject << /X 5 0 R >> >>",
+    );
+    b.add(FONT);
+    let result = audit_redactions(&open(b.build()));
+    assert!(matches!(result, Err(crate::AuditError::TooDeep)), "{result:?}");
+}

@@ -12,10 +12,13 @@
 //! Detection limits (documented, not hidden): only `re` rectangles closed by a fill operator
 //! are considered — arbitrary filled paths, shadings and patterns are not; a rectangle drawn
 //! with a translucent ExtGState (`/ca < 1`) is not flagged; annotation rectangles are compared
-//! in unrotated user space, so pages with `/Rotate` may misalign.
+//! in unrotated user space, so pages with `/Rotate` may misalign; covers inside form XObjects
+//! are found, but only text drawn directly in the page content is checked under them, so text
+//! inside a form XObject is not audited.
 //!
 //! The audit fails closed: any content that cannot be read (an undecodable content stream,
-//! malformed annotations) is an error, never an empty finding list.
+//! malformed annotations, form XObjects nested deeper than 32 or in a cycle) is an error, never
+//! an empty finding list.
 
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
@@ -63,6 +66,8 @@ pub enum AuditError {
     Text(usize, String),
     #[error("content walk exceeded the operator bound")]
     TooManyOps,
+    #[error("form XObjects nest deeper than the audit follows")]
+    TooDeep,
     #[error("page has a malformed /Annots entry")]
     BadAnnots,
     #[error(transparent)]

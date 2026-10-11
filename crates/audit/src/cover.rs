@@ -19,8 +19,9 @@ use pdfcraft_cos::{Dict, Document, Object};
 
 use crate::AuditError;
 
-/// Maximum form-XObject nesting followed (cyclic references are cut by the cap).
-const MAX_DEPTH: usize = 8;
+/// Maximum form-XObject nesting followed. Deeper nesting (including a cycle) fails the audit: a
+/// cover drawn below the cut could otherwise go unseen and the page be reported clean.
+const MAX_DEPTH: usize = 32;
 /// Bound on total operators walked per page, so a hostile stream cannot spin forever.
 /// Hitting it fails the audit: a truncated walk must never report "clean".
 const MAX_OPS: usize = 2_000_000;
@@ -153,9 +154,10 @@ impl<'a> Walker<'a> {
                     pending = None;
                 }
                 b"Do" => {
-                    if depth < MAX_DEPTH
-                        && let Some(name) = op.name(0)
-                    {
+                    if let Some(name) = op.name(0) {
+                        if depth >= MAX_DEPTH {
+                            return Err(AuditError::TooDeep);
+                        }
                         self.walk_xobject(name, gs, resources, depth, pos)?;
                     }
                     pending = None;
