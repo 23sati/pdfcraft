@@ -1738,6 +1738,29 @@ fn encrypted_documents_take_a_document_timestamp() {
     assert!(matches!(pdfcraft_sign::timestamp_document(&print_only, &tsa, "D:20261006120000Z"), Err(SignError::Pdf(_))));
 }
 
+/// A visible signature draws its details in Helvetica: a reason or location it can't draw is
+/// refused with the character and what to do instead, rather than drawn as `?`. An
+/// invisible signature stores the same reason as text and signs.
+#[test]
+fn visible_appearance_text_helvetica_cannot_draw_is_refused() {
+    let id = pkcs12::open(&data("ec-p256.p12"), "test").unwrap();
+    let shown = pdfcraft_sign::Appearance { reason: true, location: true, ..pdfcraft_sign::Appearance::default() };
+    let chinese = SignOptions { reason: Some("同意此文件".into()), appearance: shown.clone(), ..opts() };
+    let err = pdfcraft_sign::sign(&open(&fixture()), &id, &chinese).unwrap_err().to_string();
+    assert!(err.contains("\"同\" (U+540C)") && err.contains("the reason") && err.contains("sign without a visible appearance"), "{err}");
+    let located = SignOptions { location: Some("北京".into()), appearance: shown, ..opts() };
+    assert!(pdfcraft_sign::sign(&open(&fixture()), &id, &located).unwrap_err().to_string().contains("the location"));
+    // Left out of the appearance, or signed invisibly: it signs, and the reason is kept as text.
+    let hidden = SignOptions { reason: Some("同意此文件".into()), ..opts() };
+    assert!(!hidden.appearance.reason, "the default appearance doesn't show the reason");
+    pdfcraft_sign::sign(&open(&fixture()), &id, &hidden).unwrap();
+    let invisible = SignOptions { rect: None, ..chinese };
+    let signed = pdfcraft_sign::sign(&open(&fixture()), &id, &invisible).unwrap();
+    let doc = open(&signed);
+    let s = signatures(&doc, &signed, &TrustStore::default()).into_iter().find(|s| s.signed).unwrap();
+    assert_eq!(s.reason.as_deref(), Some("同意此文件"));
+}
+
 /// Every sentence this crate says about a signature is listed in `WORDINGS`, and every sentence on
 /// that list is one it still says: the details are written as `Detail::plain`/`Detail::of`, the
 /// sentences the modules that read a signature word for themselves are pushed as notes and quirks,

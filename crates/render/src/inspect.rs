@@ -466,6 +466,7 @@ fn inspect_structure(info: &mut DocInfo, fill: impl FnOnce(&mut DocInfo) -> Resu
 
 struct Inspector<'a> {
     doc: &'a dyn Structure,
+    page_ids: Vec<ObjectId>,
     page_index: HashMap<ObjectId, usize>,
     /// Named destinations (`/Names /Dests` tree), keyed by raw string bytes, built once.
     /// Looking each name up by walking the tree was O(links × names): minutes on manuals.
@@ -474,8 +475,9 @@ struct Inspector<'a> {
 
 impl<'a> Inspector<'a> {
     fn new(doc: &'a dyn Structure) -> Self {
-        let page_index = doc.get_pages().into_iter().map(|(n, id)| (id, n as usize - 1)).collect();
-        let mut me = Self { doc, page_index, named: HashMap::new() };
+        let page_ids = doc.page_ids();
+        let page_index = page_ids.iter().copied().enumerate().map(|(index, id)| (id, index)).collect();
+        let mut me = Self { doc, page_ids, page_index, named: HashMap::new() };
         let mut named = HashMap::new();
         if let Some(tree) =
             doc.catalog().ok().and_then(|c| c.get(b"Names").ok()).and_then(|o| me.dict(o)).and_then(|n| n.get(b"Dests").ok()).and_then(|o| me.dict(o))
@@ -523,9 +525,7 @@ impl<'a> Inspector<'a> {
         }
         // Widgets no `/Fields` entry reaches are fields too (Acrobat and the browsers fill them);
         // each is adopted through its topmost unlisted `/Parent`, so a split field stays one.
-        let mut pages: Vec<_> = self.page_index.iter().collect();
-        pages.sort_by_key(|(_, i)| **i);
-        for (&pid, _) in pages {
+        for &pid in &self.page_ids {
             let Ok(page_dict) = self.doc.get_dictionary(pid) else { continue };
             let Ok(Object::Array(annots)) = page_dict.get(b"Annots").map(|o| self.resolve(o)) else { continue };
             for a in annots {
@@ -1185,9 +1185,7 @@ impl<'a> Inspector<'a> {
 
     fn fonts(&self, out: &mut Vec<FontInfo>) {
         let mut seen = HashSet::new();
-        let mut pages: Vec<_> = self.page_index.iter().collect();
-        pages.sort_by_key(|(_, i)| **i);
-        for (&pid, _) in pages {
+        for &pid in &self.page_ids {
             let Ok(fonts) = self.doc.get_page_fonts(pid) else { continue };
             for (_, f) in fonts {
                 let base = f

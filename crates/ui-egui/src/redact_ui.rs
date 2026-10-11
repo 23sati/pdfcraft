@@ -196,7 +196,7 @@ impl PdfCraftApp {
         let mut r = pdfcraft_render::PageRenderer::new(doc.bytes.clone(), config);
         let mut edits = Vec::new();
         let author = self.comment_prefs.author.clone();
-        for page in 0..doc.info.pages.len() {
+        for (page, page_info) in doc.info.pages.iter().enumerate() {
             let out = r.render(pdfcraft_render::RenderRequest { page, kind: pdfcraft_render::RequestKind::Text, scale: 1.0, ..Default::default() });
             let Some(text) = out.text else { continue };
             let hits = match d.mode {
@@ -204,7 +204,7 @@ impl PdfCraftApp {
                 _ => needles.iter().flat_map(|w| text.find(w)).collect(),
             };
             for h in hits {
-                let quads: Vec<[f64; 8]> = text.line_rects(h).into_iter().map(|r| doc.info.pages[page].view_rect_to_quad(r)).collect();
+                let quads: Vec<[f64; 8]> = text.line_rects(h).into_iter().map(|r| page_info.view_rect_to_quad(r)).collect();
                 if !quads.is_empty() {
                     edits.push(self.redact_prefs.mark(page, quads, &author));
                 }

@@ -874,7 +874,14 @@ fn compare_page_with_raster(h: &mut Harness<'static, PdfCraftApp>, pdf: &[u8], z
     let img = h.render().expect("renders");
     let scale = zoom * 96.0 / 72.0 * ppp;
     let mut renderer = pdfcraft_render::PageRenderer::new(std::sync::Arc::new(pdf.to_vec()), pdfcraft_render::RenderConfig::default());
-    let page = renderer.render(pdfcraft_render::RenderRequest { page: 0, kind: pdfcraft_render::RequestKind::Pixels, tile: None, scale, tag: 0 });
+    let page = renderer.render(pdfcraft_render::RenderRequest {
+        page: 0,
+        kind: pdfcraft_render::RequestKind::Pixels,
+        tile: None,
+        scale,
+        tag: 0,
+        preview: false,
+    });
     assert!(page.error.is_none(), "{:?}", page.error);
     // Compare the lined area (page x 40..270 pt, y 60..330 pt from the top), screen against raster.
     let (ox, oy) = ((r.min.x * ppp).round() as i64, (r.min.y * ppp).round() as i64);

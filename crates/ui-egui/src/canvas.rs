@@ -29,6 +29,8 @@ const GRID_TAG: u64 = 1 << 61;
 const STALE_TAG: u64 = u64::MAX;
 /// Pages whose raster would exceed this many device pixels on a side are drawn in tiles.
 const TILE_THRESHOLD: f32 = 4096.0;
+/// Base device-pixel side of a page tile. The actual side grows with the zoom
+/// ([`tile_side`]), so a zoomed viewport is covered by a few tiles instead of many.
 const TILE: u32 = 1024;
 /// Longest side of the backdrop drawn under tiles, and of a live page preview (signature drag).
 pub(crate) const BASE_SIDE: f32 = 2048.0;
@@ -450,6 +452,23 @@ pub struct DocView {
     /// Sharp renders of the pages the grid shows larger than a thumbnail: only those in view,
     /// at the size drawn (device pixels wide).
     grid_pages: HashMap<usize, (u32, TextureHandle)>,
+    /// Zoom-settle debounce for heavy pages: the last requested device scale, and the egui
+    /// time until which sharp whole-page/tile re-renders are held back. While the zoom is
+    /// still moving, every frame would otherwise cancel the in-flight full-page interpret
+    /// (seconds on image-heavy CAD plots) and start it over, so a sharp raster never
+    /// arrives. The stale raster stays on screen stretched meanwhile.
+    last_scale: f32,
+    sharp_hold_until: f64,
+    /// Pan-settle debounce for tiled pages: the scroll offset last frame, and the egui time
+    /// until which sharp tile re-renders are held back. Each tile costs a full page
+    /// interpret, so a drag would otherwise queue a storm of them (one per frame) while the
+    /// in-flight ones cannot be cancelled mid-operator. Older tiles and the backdrop stay
+    /// stretched meanwhile; fresh tiles go out once the pan settles.
+    last_scroll: Vec2,
+    pan_hold_until: f64,
+    /// Pages whose raster proved slow (see `SLOW_MILLIS`): only these get the zoom/pan
+    /// settle holds. Fast pages render straight through, with no added latency.
+    slow_pages: HashSet<usize>,
 }
 
 /// The page grid's zoom range and the step of its buttons and keys.
@@ -480,6 +499,8 @@ pub enum ViewAction {
     InsertFromFile,
     /// Insert files at a gap of the page grid (0 = before the first page).
     InsertFromFileAt(usize),
+    /// Replace the selected pages with pages from another file.
+    ReplacePages,
     /// Save the document as the grid shows it.
     Save,
     Extract,
@@ -618,6 +639,11 @@ impl DocView {
             grid_zoom_request: None,
             grid_anchor: None,
             grid_pages: HashMap::new(),
+            last_scale: 0.0,
+            sharp_hold_until: 0.0,
+            last_scroll: Vec2::ZERO,
+            pan_hold_until: 0.0,
+            slow_pages: HashSet::new(),
             comments: Default::default(),
             measure: Default::default(),
             forms: Default::default(),
@@ -764,6 +790,7 @@ impl DocView {
         self.texts.clear();
         self.text_failed.clear();
         self.errors.clear();
+        self.slow_pages.clear();
         self.waiting_since.clear();
         self.last_queue.clear();
         self.selection = None;
@@ -797,6 +824,7 @@ impl DocView {
                 self.stale_tiles.insert(key);
             }
         }
+        self.slow_pages.remove(&page);
         self.texts.remove(&page);
         self.text_failed.remove(&page);
         self.errors.remove(&page);
@@ -1316,7 +1344,15 @@ impl DocView {
             .filter_map(|(page, _)| {
                 let p = info.pages.get(page)?;
                 let scale = thumbnail_scale(p.width, p.height, density);
-                Some(RenderRequest { page, kind: RequestKind::Pixels, tile: None, scale, tag: THUMB_TAG | u64::from(scale.to_bits()) })
+                Some(RenderRequest {
+                    page,
+                    kind: RequestKind::Pixels,
+                    tile: None,
+                    scale,
+                    tag: THUMB_TAG | u64::from(scale.to_bits()),
+                    // Thumbnails are previews: tiny images are skipped for them.
+                    preview: true,
+                })
             })
             .collect()
     }
@@ -1349,7 +1385,9 @@ impl DocView {
             // decide how much prefetch fits beside it.
             let visible = self.frame_visible.contains(&req.page);
             if let Some(tile) = req.tile {
-                let key = (req.page, req.tag, tile.x / TILE, tile.y / TILE);
+                // Keyed by exact device-pixel origin: the tile side varies with the zoom
+                // (`tile_side`), so grid indices would need the scale to decode.
+                let key = (req.page, req.tag, tile.x, tile.y);
                 let bytes = rgba_bytes(tile.w as usize, tile.h as usize);
                 if (!visible && tile_bytes.saturating_add(bytes) > TILE_BYTES) || !tiles.insert(key) {
                     continue;
@@ -1510,6 +1548,11 @@ impl DocView {
             self.errors.insert(r.request.page, e);
             return 0;
         }
+        // Remember heavy pages: only these get the zoom/pan settle holds, so fast pages
+        // never pay added latency. Stale entries die with the tiles on edits.
+        if r.millis >= SLOW_MILLIS {
+            self.slow_pages.insert(r.request.page);
+        }
         let page = r.request.page;
         let bytes = rgba_bytes(r.width as usize, r.height as usize);
         if bytes != r.rgba.len() || !self.admit_texture(r.request, bytes) {
@@ -1518,7 +1561,7 @@ impl DocView {
         // The length was checked above, so the renderer's buffer becomes the texture data as is.
         let img = texture_image([r.width as usize, r.height as usize], r.rgba);
         if let Some(t) = r.request.tile {
-            let key = (page, r.request.tag, t.x / TILE, t.y / TILE);
+            let key = (page, r.request.tag, t.x, t.y);
             let tex = ctx.load_texture(format!("tile-{:?}-{page}-{}-{}", self.id, t.x, t.y), img, TextureOptions::LINEAR);
             self.tiles.insert(key, tex);
             self.stale_tiles.remove(&key);
@@ -1559,7 +1602,7 @@ impl DocView {
             return true;
         }
         if let Some(t) = req.tile {
-            let key = (req.page, req.tag, t.x / TILE, t.y / TILE);
+            let key = (req.page, req.tag, t.x, t.y);
             self.tiles.remove(&key);
             let retained = self.tiles.values().fold(0usize, |n, tex| n.saturating_add(texture_bytes(tex)));
             visible || bytes <= TILE_BYTES.saturating_sub(retained)
@@ -1670,7 +1713,7 @@ impl DocView {
             let tag = scale_tag(scale) | PRINT_TAG;
             let fresh = self.print_pages.get(&page).is_some_and(|(have, _)| *have == tag);
             if !fresh {
-                self.frame_queue.push(RenderRequest { page, kind: RequestKind::Pixels, tile: None, scale, tag });
+                self.frame_queue.push(RenderRequest { page, kind: RequestKind::Pixels, tile: None, scale, tag, preview: false });
             }
         }
     }
@@ -1686,8 +1729,27 @@ fn tag_scale(tag: u64) -> f32 {
     (tag as f64 / 65536.0) as f32
 }
 
+/// Device-pixel side of a page tile at `scale` for a page `page_max_px` device pixels on
+/// its long side. Each tile costs a full page interpret, so tiles grow with the zoom and
+/// with the page: a zoomed viewport, or a giant sheet shown whole, is covered by a few
+/// large tiles instead of dozens of small ones. Bounded by the render backend (tile sides
+/// above 4096 are clamped there) and kept granular at ordinary zooms.
+fn tile_side(scale: f32, page_max_px: u32) -> u32 {
+    if !scale.is_finite() || scale <= 0.0 {
+        return TILE;
+    }
+    let by_zoom = (TILE as f32 * (scale / 6.0)).clamp(TILE as f32, 4096.0) as u32;
+    // At most four tiles along the long side, so a giant sheet needs a handful of
+    // interprets instead of dozens.
+    by_zoom.max(page_max_px.div_ceil(4).min(4096))
+}
+
 /// Tiles of earlier zooms kept for a page while its current tiles are rendered.
 const OLD_TILES: usize = 64;
+
+/// A page whose raster took at least this long is heavy: zoom/pan holds apply to it,
+/// so gestures stay on stretched surfaces instead of queueing full-page interprets.
+const SLOW_MILLIS: u32 = 500;
 
 /// `r` moved so its corner lies on a whole physical pixel, so that a raster drawn from there
 /// maps texel for texel onto the screen.
@@ -1958,7 +2020,8 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     // The Prepare a form panel is open (or a field tool is picked): fields are edited, not filled.
     let preparing = app.is_preparing();
     // Edit a PDF: added text and images can be selected, moved and edited.
-    let editing_content = (app.left_open && app.left == crate::LeftPanel::Tool("edit")) || app.quick_tool == QuickTool::AddText;
+    let editing_content =
+        (app.left_open && app.left == crate::LeftPanel::Tool("edit")) || matches!(app.quick_tool, QuickTool::AddText | QuickTool::EditText);
     let text_style = app.text_style.clone();
     let view = &mut app.views[index];
     // Opened without the owner password and something is restricted.
@@ -2159,6 +2222,18 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     let ppp = ui.ctx().pixels_per_point();
     let scale = view.render_scale(ppp);
     let tag = scale_tag(scale);
+    // Hold sharp re-renders while the zoom is still moving: a new scale every frame would
+    // cancel the in-flight full-page interpret and restart it, so on a heavy page (a CAD
+    // plot with ~1000 images renders for seconds) the sharp raster never arrives and the
+    // view looks stuck on a soft image. The stale raster stays stretched meanwhile; the
+    // sharp request goes out once the zoom settles.
+    let now_scale = ui.input(|i| i.time);
+    if (scale - view.last_scale).abs() > f32::EPSILON {
+        view.last_scale = scale;
+        view.sharp_hold_until = now_scale + 0.35;
+        ui.ctx().request_repaint_after(std::time::Duration::from_millis(380));
+    }
+    let sharp_held = now_scale < view.sharp_hold_until;
     view.current_scale_tag = tag;
     let hand = app.quick_tool == QuickTool::Hand;
     let tool = app.quick_tool;
@@ -2368,6 +2443,11 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                     // (found by mapping the visible screen corners back into the page). Sides round
                     // up as whole-page rasters do, so the last partial row and column get tiles.
                     let (dw, dh) = (device_pixels(pw_pt, scale), device_pixels(ph_pt, scale));
+                    // Adaptive tile side for this zoom and page, within the GPU texture limit:
+                    // a zoomed viewport or a giant sheet is covered by a few large tiles
+                    // instead of many small ones, and each tile costs one full page interpret.
+                    // Never zero (u32 division below).
+                    let ts = tile_side(scale, dw.max(dh)).min(max_side as u32).max(64);
                     let vis = r.intersect(visible);
                     let corners = [vis.left_top(), vis.right_top(), vis.right_bottom(), vis.left_bottom()].map(|c| xf.screen_to_norm(c));
                     let (u0, u1) = corners.iter().fold((1.0f32, 0.0f32), |(a, b), c| (a.min(c.0), b.max(c.0)));
@@ -2380,34 +2460,46 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                         .tiles
                         .iter()
                         .filter(|((p, t, _, _), _)| *p == i && *t != tag)
-                        .map(|((_, t, tx, ty), tex)| (tag_scale(*t), *tx, *ty, tex))
+                        .map(|((_, t, ox, oy), tex)| (tag_scale(*t), *ox, *oy, tex))
                         .collect();
                     older.sort_by(|a, b| (b.0 / scale).ln().abs().total_cmp(&(a.0 / scale).ln().abs()));
-                    for (s, tx, ty, tex) in older {
+                    for (s, ox, oy, tex) in older {
                         let (ow, oh) = (device_pixels(pw_pt, s) as f32, device_pixels(ph_pt, s) as f32);
                         let [w, h] = tex.size();
-                        let (x, y) = ((tx * TILE) as f32, (ty * TILE) as f32);
+                        let (x, y) = (ox as f32, oy as f32);
                         xf.paint_image(painter, tex.id(), x / ow, y / oh, (x + w as f32) / ow, (y + h as f32) / oh);
                     }
-                    for ty in vy0 / TILE..=(vy1.saturating_sub(1)) / TILE {
-                        for tx in vx0 / TILE..=(vx1.saturating_sub(1)) / TILE {
-                            let (x, y) = (tx * TILE, ty * TILE);
-                            let (w, h) = (TILE.min(dw.saturating_sub(x)), TILE.min(dh.saturating_sub(y)));
-                            if w == 0 || h == 0 {
-                                continue;
-                            }
-                            wanted.push((i, scale, tag, Some(Tile { x, y, w, h })));
-                            if let Some(tex) = view.tiles.get(&(i, tag, tx, ty)) {
-                                let (fw, fh) = (dw as f32, dh as f32);
-                                xf.texel_aligned([dw as usize, dh as usize], ppp).paint_image(
-                                    painter,
-                                    tex.id(),
-                                    x as f32 / fw,
-                                    y as f32 / fh,
-                                    (x + w) as f32 / fw,
-                                    (y + h) as f32 / fh,
-                                );
-                            }
+                    // Visible tiles, nearest the viewport centre first: each tile costs a full
+                    // page interpret, so the workers sharpen what is looked at before the edges.
+                    let (vcx, vcy) = ((vx0 + vx1) as f32 / 2.0, (vy0 + vy1) as f32 / 2.0);
+                    let mut coords: Vec<(u32, u32)> = Vec::new();
+                    for ty in vy0 / ts..=(vy1.saturating_sub(1)) / ts {
+                        for tx in vx0 / ts..=(vx1.saturating_sub(1)) / ts {
+                            coords.push((tx, ty));
+                        }
+                    }
+                    coords.sort_by(|a, b| {
+                        let da = ((a.0 * ts + ts / 2) as f32 - vcx).abs() + ((a.1 * ts + ts / 2) as f32 - vcy).abs();
+                        let db = ((b.0 * ts + ts / 2) as f32 - vcx).abs() + ((b.1 * ts + ts / 2) as f32 - vcy).abs();
+                        da.total_cmp(&db)
+                    });
+                    for (tx, ty) in coords {
+                        let (x, y) = (tx * ts, ty * ts);
+                        let (w, h) = (ts.min(dw.saturating_sub(x)), ts.min(dh.saturating_sub(y)));
+                        if w == 0 || h == 0 {
+                            continue;
+                        }
+                        wanted.push((i, scale, tag, Some(Tile { x, y, w, h })));
+                        if let Some(tex) = view.tiles.get(&(i, tag, x, y)) {
+                            let (fw, fh) = (dw as f32, dh as f32);
+                            xf.texel_aligned([dw as usize, dh as usize], ppp).paint_image(
+                                painter,
+                                tex.id(),
+                                x as f32 / fw,
+                                y as f32 / fh,
+                                (x + w) as f32 / fw,
+                                (y + h) as f32 / fh,
+                            );
                         }
                     }
                 }
@@ -2538,7 +2630,8 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                 crate::content_ui::page_input(ui, &resp, &xf, i, info, &added, tool == QuickTool::AddText, &text_style, view)
                     || tool == QuickTool::AddText
             };
-            let on_edit_text = !on_objects && tool == QuickTool::EditText && can_modify && {
+            // Added content owns its gesture; its source text must not queue a second edit.
+            let on_edit_text = !on_objects && !on_content && tool == QuickTool::EditText && can_modify && {
                 let generation = doc.edit_generation();
                 let lines = match view.edit_lines.get(&i) {
                     Some((g, l)) if *g == generation => l.clone(),
@@ -2558,7 +2651,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                 };
                 // Images first (they can sit under text boxes' corners); then paragraphs.
                 crate::edit_text_ui::image_input(ui, &resp, &xf, i, info, &images, view, &mut image_action)
-                    || crate::edit_text_ui::page_input(ui, &resp, &xf, i, info, &lines, view)
+                    || crate::edit_text_ui::page_input(ui, &resp, &xf, i, doc, &lines, view)
             };
             let on_link = tool == QuickTool::Link && can_modify && crate::link_ui::page_input(ui, &resp, &xf, i, info, &doc_links, view);
             let consumed = on_objects || on_edit_text || on_link || on_content || boxing || on_field || comments::page_input(ui, &resp, &pcx, view);
@@ -2904,6 +2997,19 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     view.auto_scroll.paint(ui, avail);
 
     // Collect all main-page demand, including cached surfaces, for byte admission later.
+    // Pan-settle debounce for tiled pages: each tile costs a full page interpret, so holding
+    // fresh tiles back while the scroll offset is still moving keeps a drag on the stretched
+    // backdrop/older tiles instead of queueing a storm of interprets (one per frame) that
+    // the workers cannot cancel mid-operator. Fresh tiles go out once the pan settles;
+    // pages with nothing on screen yet still queue.
+    let scroll_offset = out.state.offset;
+    let now_settle = ui.input(|i| i.time);
+    if (scroll_offset - view.last_scroll).length() > 2.0 {
+        view.pan_hold_until = now_settle + 0.25;
+        ui.ctx().request_repaint_after(std::time::Duration::from_millis(280));
+    }
+    view.last_scroll = scroll_offset;
+    let pan_held = now_settle < view.pan_hold_until;
     let (mut wanted, visible_now) = out.inner;
     let cur = view.current;
     wanted.sort_by_key(|w| (!visible_now.contains(&w.0), w.0.abs_diff(cur), w.3.is_some()));
@@ -2919,8 +3025,51 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
             view.tiles.remove(&k);
         }
     }
-    let mut queue: Vec<RenderRequest> =
-        wanted.iter().map(|&(page, scale, tag, tile)| RenderRequest { page, kind: RequestKind::Pixels, tile, scale, tag }).collect();
+    let mut queue: Vec<RenderRequest> = wanted
+        .iter()
+        .map(|&(page, wanted_scale, wanted_tag, tile)| RenderRequest {
+            page,
+            kind: RequestKind::Pixels,
+            tile,
+            scale: wanted_scale,
+            tag: wanted_tag,
+            // The low-res backdrop under tiles is a preview: tiny images are skipped for it.
+            // It is the whole-page request whose scale is not the current one; sharp tiles
+            // and whole-page finals always draw everything.
+            preview: tile.is_none() && (wanted_scale != scale || wanted_tag != tag),
+        })
+        .collect();
+    // While the zoom or pan is settling, hold back sharp re-renders of pages that already
+    // show something (a stale whole-page raster or older tiles, drawn stretched): each new
+    // scale would cancel the running full-page interpret and restart it from scratch, and
+    // each pan frame would queue a storm of full-page tile interprets.
+    // Pages with nothing on screen yet still queue, so panning to a fresh page draws it.
+    if sharp_held || pan_held {
+        let main_tag = tag;
+        queue.retain(|req| {
+            // Fast pages render straight through: the hold only protects heavy pages
+            // whose full-page interpret costs seconds.
+            if !view.slow_pages.contains(&req.page) {
+                return true;
+            }
+            if req.tile.is_some() {
+                let has_current_tile = view.tiles.keys().any(|(p, t, _, _)| *p == req.page && *t == req.tag);
+                if has_current_tile {
+                    return false;
+                }
+                let has_any_surface = view.pages.contains_key(&req.page) || view.tiles.keys().any(|(p, _, _, _)| *p == req.page);
+                !has_any_surface
+            } else if req.tag != main_tag {
+                // The low-res backdrop under tiles is zoom-independent: let it through,
+                // it is the stretched surface the hold relies on.
+                true
+            } else {
+                // The stale raster stays stretched until the zoom or pan settles; a page with
+                // nothing on screen yet still renders.
+                !view.pages.contains_key(&req.page)
+            }
+        });
+    }
     // Text layers: visible pages for selection, every page while a search is active.
     let need_text = |p: &usize| !view.texts.contains_key(p) && !view.text_failed.contains(p);
     let mut text_pages: Vec<usize> = if hand { Vec::new() } else { visible_now.iter().copied().filter(need_text).collect() };
@@ -2929,7 +3078,14 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         let rest: Vec<usize> = (0..n).map(|k| (cur + k) % n).filter(need_text).filter(|p| !text_pages.contains(p)).collect();
         text_pages.extend(rest);
     }
-    queue.extend(text_pages.into_iter().map(|page| RenderRequest { page, kind: RequestKind::Text, tile: None, scale: 1.0, tag: TEXT_TAG }));
+    queue.extend(text_pages.into_iter().map(|page| RenderRequest {
+        page,
+        kind: RequestKind::Text,
+        tile: None,
+        scale: 1.0,
+        tag: TEXT_TAG,
+        preview: false,
+    }));
     view.frame_queue = queue;
     view.frame_visible = visible_now.iter().copied().collect();
 
@@ -3651,6 +3807,9 @@ fn organize_toolbar(view: &mut DocView, info: &DocInfo, editable: bool, dirty: b
                 if icons::button(ui, "file-input", 30.0, false, tl!("Insert pages from a file…")).clicked() {
                     view.pending_action = Some(ViewAction::InsertFromFile);
                 }
+                if icons::button(ui, "replace", 30.0, false, tl!("Replace pages…")).clicked() {
+                    view.pending_action = Some(ViewAction::ReplacePages);
+                }
                 if icons::button(ui, "file-output", 30.0, false, tl!("Extract pages to a new document")).clicked() {
                     view.pending_action = Some(ViewAction::Extract);
                 }
@@ -3861,7 +4020,15 @@ fn organize_grid(view: &mut DocView, info: &DocInfo, editable: bool, dirty: bool
                 if !thumb_ok && ui.is_rect_visible(c) {
                     in_view.push((i, want));
                     if !sharp.is_some_and(|(w, _)| sharp_enough(*w, want)) && !view.errors.contains_key(&i) {
-                        sharper.push(RenderRequest { page: i, kind: RequestKind::Pixels, tile: None, scale: want / p.width.max(1.0), tag: GRID_TAG });
+                        sharper.push(RenderRequest {
+                            page: i,
+                            kind: RequestKind::Pixels,
+                            tile: None,
+                            scale: want / p.width.max(1.0),
+                            tag: GRID_TAG,
+                            // Grid cells are previews: tiny images are skipped for them.
+                            preview: true,
+                        });
                     }
                 }
                 if let Some(tex) = sharp.map(|(_, t)| t).or(thumb) {
@@ -3923,12 +4090,21 @@ fn organize_grid(view: &mut DocView, info: &DocInfo, editable: bool, dirty: bool
                 if resp.double_clicked() {
                     open_page = Some(i);
                 }
-                // Right-click: Cut, Copy, Paste (on the selection, or this page).
+                // Right-click: Extract, Replace, Cut, Copy, Paste (on the selection, or this page).
                 resp.context_menu(|ui| {
                     if !view.selected.contains(&i) {
                         view.selected = [i].into();
                         view.current = i;
                     }
+                    if ui.button(tl!("Extract pages")).clicked() {
+                        view.pending_action = Some(ViewAction::Extract);
+                        ui.close();
+                    }
+                    if ui.add_enabled(editable, egui::Button::new(tl!("Replace pages…"))).clicked() {
+                        view.pending_action = Some(ViewAction::ReplacePages);
+                        ui.close();
+                    }
+                    ui.separator();
                     if ui.add_enabled(editable, egui::Button::new(tl!("Cut"))).clicked() {
                         view.pending_action = Some(ViewAction::CopyPages { cut: true });
                         ui.close();
@@ -4078,7 +4254,7 @@ endstream endobj
 trailer << /Root 1 0 R >>
 %%EOF";
         let mut r = pdfcraft_render::PageRenderer::new(Arc::new(pdf.to_vec()), Default::default());
-        let out = r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 1.5, tag: 0 });
+        let out = r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 1.5, tag: 0, preview: false });
         assert!(out.error.is_none(), "{:?}", out.error);
         let size = [out.width as usize, out.height as usize];
         let copied = egui::ColorImage::from_rgba_premultiplied(size, &out.rgba);
@@ -4086,6 +4262,24 @@ trailer << /Root 1 0 R >>
         let img = texture_image(size, out.rgba);
         assert_eq!(img, copied);
         assert_eq!(img.pixels.as_ptr().cast::<u8>(), at, "the renderer's own buffer");
+    }
+
+    #[test]
+    fn tiles_stay_granular_up_close_and_cover_giant_sheets_in_a_handful() {
+        // Ordinary zooms keep 1024 px tiles; degenerate scales fall back to it, never zero.
+        assert_eq!(tile_side(1.0, 2000), TILE);
+        assert_eq!(tile_side(4.0, 2000), TILE);
+        assert_eq!(tile_side(f32::NAN, 2000), TILE);
+        assert_eq!(tile_side(f32::INFINITY, 2000), TILE);
+        assert_eq!(tile_side(0.0, 2000), TILE);
+        // Zoomed viewports need a few large tiles instead of many small ones.
+        assert_eq!(tile_side(12.0, 2000), 2048);
+        assert_eq!(tile_side(20.0, 2000), 3413);
+        assert_eq!(tile_side(100.0, 2000), 4096);
+        // A giant sheet at fit width (6740 px long side) is covered four tiles a side.
+        assert_eq!(tile_side(96.0 / 72.0, 6740), 1685);
+        // The backend clamps tile sides at 4096.
+        assert_eq!(tile_side(20.0, 100_000), 4096);
     }
 
     #[test]
