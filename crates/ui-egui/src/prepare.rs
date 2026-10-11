@@ -1407,8 +1407,8 @@ fn format_tab(ui: &mut egui::Ui, d: &mut FieldDraft, t: &crate::theme::Tokens) {
 
 fn validate_tab(ui: &mut egui::Ui, d: &mut FieldDraft) {
     let mut ranged = matches!(d.validate, Validate::Range { .. });
-    ui.radio_value(&mut ranged, false, tl!("Field value is not validated"));
-    ui.radio_value(&mut ranged, true, tl!("Field value is in range:"));
+    widgets::radio_value(ui, &mut ranged, false, tl!("Field value is not validated"));
+    widgets::radio_value(ui, &mut ranged, true, tl!("Field value is in range:"));
     if !ranged {
         d.validate = Validate::None;
         return;
@@ -1522,8 +1522,8 @@ fn calculate_tab(ui: &mut egui::Ui, d: &mut FieldDraft, t: &crate::theme::Tokens
         Calculate::Notation(_) => Mode::Notation,
     };
     let mut m = mode;
-    ui.radio_value(&mut m, Mode::None, tl!("Value is not calculated"));
-    ui.radio_value(&mut m, Mode::Simple, tl!("Value is the"));
+    widgets::radio_value(ui, &mut m, Mode::None, tl!("Value is not calculated"));
+    widgets::radio_value(ui, &mut m, Mode::Simple, tl!("Value is the"));
     if m != mode {
         d.calculate = match m {
             Mode::None => Calculate::None,
@@ -1558,7 +1558,9 @@ fn calculate_tab(ui: &mut egui::Ui, d: &mut FieldDraft, t: &crate::theme::Tokens
         Calculate::Notation(_) => Mode::Notation,
         _ => m,
     };
-    if ui.radio_value(&mut m2, Mode::Notation, tl!("Simplified field notation:")).clicked() && !matches!(d.calculate, Calculate::Notation(_)) {
+    if widgets::radio_value(ui, &mut m2, Mode::Notation, tl!("Simplified field notation:")).clicked()
+        && !matches!(d.calculate, Calculate::Notation(_))
+    {
         d.calculate = Calculate::Notation(String::new());
     }
     if let Calculate::Notation(expr) = &mut d.calculate {

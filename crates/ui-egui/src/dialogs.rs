@@ -224,8 +224,8 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                                     ui.add(widgets::checkbox(&mut v.full_screen, tl!("Open in Full Screen mode")));
                                     ui.horizontal(|ui| {
                                         ui.label(tl!("Show:"));
-                                        ui.radio_value(&mut v.display_title, false, tl!("File Name"));
-                                        ui.radio_value(&mut v.display_title, true, tl!("Document Title"));
+                                        widgets::radio_value(ui, &mut v.display_title, false, tl!("File Name"));
+                                        widgets::radio_value(ui, &mut v.display_title, true, tl!("Document Title"));
                                     });
                                 });
                             });
@@ -355,8 +355,8 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                                 ui.label(egui::RichText::new(tl!("Binding")).color(t.text_muted));
                                 ui.add_enabled_ui(editable, |ui| {
                                     ui.horizontal(|ui| {
-                                        ui.radio_value(&mut v.right_to_left, false, tl!("Left Edge"));
-                                        ui.radio_value(&mut v.right_to_left, true, tl!("Right Edge"));
+                                        widgets::radio_value(ui, &mut v.right_to_left, false, tl!("Left Edge"));
+                                        widgets::radio_value(ui, &mut v.right_to_left, true, tl!("Right Edge"));
                                     });
                                 });
                                 ui.end_row();
@@ -399,7 +399,7 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 if selected.is_empty() && draft.mode == M::Selection {
                     draft.mode = M::Pages;
                 }
-                ui.radio_value(&mut draft.mode, M::Pages, tl!("Number of pages"));
+                widgets::radio_value(ui, &mut draft.mode, M::Pages, tl!("Number of pages"));
                 ui.add_enabled_ui(draft.mode == M::Pages, |ui| {
                     ui.horizontal(|ui| {
                         ui.add_space(24.0);
@@ -407,7 +407,7 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                         ui.add(egui::DragValue::new(&mut draft.every).range(1..=n.max(1)));
                     });
                 });
-                ui.radio_value(&mut draft.mode, M::Size, tl!("File size"));
+                widgets::radio_value(ui, &mut draft.mode, M::Size, tl!("File size"));
                 ui.add_enabled_ui(draft.mode == M::Size, |ui| {
                     ui.horizontal(|ui| {
                         ui.add_space(24.0);
@@ -416,14 +416,15 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                     });
                 });
                 ui.add_enabled_ui(!marks.is_empty(), |ui| {
-                    ui.radio_value(
+                    widgets::radio_value(
+                        ui,
                         &mut draft.mode,
                         M::Bookmarks,
                         crate::i18n::fmt(tl!("Top-level bookmarks ({n})"), &[("n", &marks.len().to_string())]),
                     )
                 });
                 ui.add_enabled_ui(!selected.is_empty(), |ui| {
-                    ui.radio_value(&mut draft.mode, M::Selection, tl!("Before each selected page (select pages in Organize)"))
+                    widgets::radio_value(ui, &mut draft.mode, M::Selection, tl!("Before each selected page (select pages in Organize)"))
                 });
                 let plan = match draft.mode {
                     M::Pages => crate::SplitPlan::By(pdfcraft_engine::SplitBy::PageCount(draft.every)),
@@ -602,10 +603,10 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                     ui.end_row();
                     ui.label(tl!("Pages:"));
                     ui.vertical(|ui| {
-                        ui.radio_value(&mut d.which, 0, tl!("All"));
-                        ui.radio_value(&mut d.which, 1, tl!("Selection"));
+                        widgets::radio_value(ui, &mut d.which, 0, tl!("All"));
+                        widgets::radio_value(ui, &mut d.which, 1, tl!("Selection"));
                         ui.horizontal(|ui| {
-                            ui.radio_value(&mut d.which, 2, tl!("From"));
+                            widgets::radio_value(ui, &mut d.which, 2, tl!("From"));
                             ui.add_enabled(d.which == 2, egui::DragValue::new(&mut d.from).range(1..=n));
                             ui.label(tl!("to"));
                             ui.add_enabled(d.which == 2, egui::DragValue::new(&mut d.to).range(1..=n));
@@ -662,9 +663,9 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 ui.label(egui::RichText::new(tl!("Duplicate Field")).font(theme::semibold(18.0)));
                 ui.add_space(8.0);
                 ui.label(crate::i18n::fmt(tl!("Duplicate \"{name}\" onto:"), &[("name", &d.name)]));
-                ui.radio_value(&mut d.all, true, tl!("All pages"));
+                widgets::radio_value(ui, &mut d.all, true, tl!("All pages"));
                 ui.horizontal(|ui| {
-                    ui.radio_value(&mut d.all, false, tl!("From"));
+                    widgets::radio_value(ui, &mut d.all, false, tl!("From"));
                     ui.add_enabled(!d.all, egui::DragValue::new(&mut d.from).range(1..=n));
                     ui.label(tl!("to"));
                     ui.add_enabled(!d.all, egui::DragValue::new(&mut d.to).range(1..=n));
@@ -730,7 +731,7 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 ui.label(egui::RichText::new(tl!("Summarize Options")).font(theme::semibold(18.0)));
                 ui.add_space(8.0);
                 ui.label(tl!("Choose a layout:"));
-                let _ = ui.radio(true, tl!("Comments only"));
+                let _ = ui.add(widgets::radio(true, tl!("Comments only")));
                 ui.add_space(6.0);
                 ui.horizontal(|ui| {
                     ui.label(tl!("Sort comments by:"));

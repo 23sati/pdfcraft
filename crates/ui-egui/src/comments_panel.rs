@@ -511,7 +511,7 @@ pub(crate) fn header_controls(ui: &mut egui::Ui, info: &DocInfo, view: &mut DocV
             (SortBy::Type, tl!("Type")),
             (SortBy::Color, tl!("Colour")),
         ] {
-            if ui.radio(cv.sort == s, label).clicked() {
+            if ui.add(widgets::radio(cv.sort == s, label)).clicked() {
                 cv.sort = s;
                 ui.close();
             }

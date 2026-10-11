@@ -206,7 +206,7 @@ fn theme_menu(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
         (ThemePreference::Light, "view.theme.light", "Light gray"),
         (ThemePreference::Dark, "view.theme.dark", "Dark gray"),
     ] {
-        if ui.radio(app.theme_preference == preference, tl!(label)).clicked() {
+        if ui.add(widgets::radio(app.theme_preference == preference, tl!(label))).clicked() {
             app.execute(command);
             ui.close();
         }
@@ -467,7 +467,7 @@ fn main_menu(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     (RightPanel::Search, tl!("Search")),
                     (RightPanel::Compare, tl!("Compare")),
                 ] {
-                    if ui.radio(app.right == Some(p), tl!(label)).clicked() {
+                    if ui.add(widgets::radio(app.right == Some(p), tl!(label))).clicked() {
                         app.choose_right_panel(Some(p));
                     }
                 }
@@ -595,7 +595,7 @@ fn page_display_menu(ui: &mut egui::Ui, view: &DocView) -> Option<&'static str> 
     ui.label(egui::RichText::new(tl!("Page display")).color(t.text_faint).small());
     let mut picked = None;
     for l in PageLayout::ORDER {
-        if ui.radio(view.layout == l, tl!(l.label())).clicked() {
+        if ui.add(widgets::radio(view.layout == l, tl!(l.label()))).clicked() {
             picked = Some(l.command());
         }
     }

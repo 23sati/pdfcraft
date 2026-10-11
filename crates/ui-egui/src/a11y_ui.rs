@@ -87,8 +87,8 @@ pub(crate) fn options_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens)
     });
     group(ui, "Page Range", &mut |ui| {
         ui.horizontal(|ui| {
-            ui.radio_value(&mut o.all_pages, true, tl!("All pages in document"));
-            ui.radio_value(&mut o.all_pages, false, tl!("Pages from"));
+            widgets::radio_value(ui, &mut o.all_pages, true, tl!("All pages in document"));
+            widgets::radio_value(ui, &mut o.all_pages, false, tl!("Pages from"));
             ui.add_enabled(!o.all_pages, egui::DragValue::new(&mut o.from).range(1..=pages));
             ui.label(tl!("to"));
             ui.add_enabled(!o.all_pages, egui::DragValue::new(&mut o.to).range(1..=pages));

@@ -291,7 +291,7 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
             (crate::Mode::Convert, "Convert"),
             (crate::Mode::Sign, "E-Sign"),
         ] {
-            ui.radio_value(&mut app.default_mode, mode, tl!(label));
+            widgets::radio_value(ui, &mut app.default_mode, mode, tl!(label));
         }
     });
     ui.label(
@@ -303,16 +303,16 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
     ui.horizontal(|ui| {
         ui.label(tl!("Default page display"));
         for l in crate::canvas::PageLayout::ORDER {
-            ui.radio_value(&mut defaults.layout, l, tl!(l.label()));
+            widgets::radio_value(ui, &mut defaults.layout, l, tl!(l.label()));
         }
         ui.add(widgets::checkbox(&mut defaults.continuous, tl!("Continuous scrolling")));
     });
     ui.horizontal(|ui| {
         use crate::canvas::Fit;
         ui.label(tl!("Default zoom"));
-        ui.radio_value(&mut defaults.fit, Fit::Width, tl!("Fit to width"));
-        ui.radio_value(&mut defaults.fit, Fit::Page, tl!("Zoom to page level"));
-        ui.radio_value(&mut defaults.fit, Fit::None, tl!("Custom"));
+        widgets::radio_value(ui, &mut defaults.fit, Fit::Width, tl!("Fit to width"));
+        widgets::radio_value(ui, &mut defaults.fit, Fit::Page, tl!("Zoom to page level"));
+        widgets::radio_value(ui, &mut defaults.fit, Fit::None, tl!("Custom"));
         // Editing the percentage selects Custom.
         let mut percent = defaults.zoom * 100.0;
         if ui.add(egui::DragValue::new(&mut percent).range(8.0..=6400.0).max_decimals(0).suffix("%")).changed() {
@@ -327,7 +327,7 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
     ui.horizontal(|ui| {
         ui.label(tl!("Units"));
         for u in crate::units::Unit::ALL {
-            ui.radio_value(&mut app.units, u, u.label());
+            widgets::radio_value(ui, &mut app.units, u, u.label());
         }
     });
     ui.label(egui::RichText::new(tl!("For page sizes and margins.")).small().color(t.text_muted));
@@ -340,7 +340,7 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
     ui.horizontal(|ui| {
         ui.label(tl!("Mouse wheel scroll speed"));
         for speed in crate::scroll_speed::ScrollSpeed::ALL {
-            ui.radio_value(&mut app.scroll_speed, speed, tl_ctx!("scroll speed", speed.label()));
+            widgets::radio_value(ui, &mut app.scroll_speed, speed, tl_ctx!("scroll speed", speed.label()));
         }
     });
     ui.add_space(8.0);

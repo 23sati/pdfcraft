@@ -652,8 +652,8 @@ fn configure(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> bool {
     // Browse… is desktop-only.
     #[cfg_attr(target_arch = "wasm32", allow(unused_mut))]
     let mut browse = false;
-    ui.radio_value(&mut d.new_id.create, false, tl!("Use a Digital ID from a file"));
-    ui.radio_value(&mut d.new_id.create, true, tl!("Create a new Digital ID (self-signed, saved to a password-protected file)"));
+    widgets::radio_value(ui, &mut d.new_id.create, false, tl!("Use a Digital ID from a file"));
+    widgets::radio_value(ui, &mut d.new_id.create, true, tl!("Create a new Digital ID (self-signed, saved to a password-protected file)"));
     ui.add_space(8.0);
     let n = &mut d.new_id;
     if n.create {
@@ -841,14 +841,14 @@ fn sign_as(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> bool {
         // Acrobat: Configure Signature Appearance, Text, Draw or Image.
         ui.horizontal_wrapped(|ui| {
             ui.label(tl!("Graphic"));
-            ui.radio_value(&mut d.graphic, SignGraphic::Name, tl!("Signer's name"));
+            widgets::radio_value(ui, &mut d.graphic, SignGraphic::Name, tl!("Signer's name"));
             ui.add_enabled_ui(app.signature.is_some(), |ui| {
-                if ui.radio(d.graphic == SignGraphic::FillSign, tl!("Fill & Sign signature")).clicked() {
+                if ui.add(widgets::radio(d.graphic == SignGraphic::FillSign, tl!("Fill & Sign signature"))).clicked() {
                     d.graphic = SignGraphic::FillSign;
                 }
             });
             ui.add_enabled_ui(d.image.is_some(), |ui| {
-                if ui.radio(matches!(d.graphic, SignGraphic::Image(_)), tl!("Image")).clicked()
+                if ui.add(widgets::radio(matches!(d.graphic, SignGraphic::Image(_)), tl!("Image"))).clicked()
                     && let Some(image) = &d.image
                 {
                     d.graphic = SignGraphic::Image(image.clone());
