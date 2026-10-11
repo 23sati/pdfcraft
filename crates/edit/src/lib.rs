@@ -491,7 +491,12 @@ pub fn add_watermark(doc: &mut Document, pages: &[usize], wm: &Watermark, replac
     if wm.source.is_none() {
         drawable(text.lines())?;
     }
-    if !(wm.opacity.is_finite() && wm.rotation.is_finite() && wm.font_size.is_finite() && wm.font_size >= 0.0) {
+    if !(wm.opacity.is_finite()
+        && wm.rotation.is_finite()
+        && wm.font_size.is_finite()
+        && wm.font_size >= 0.0
+        && wm.offset.iter().all(|o| o.is_finite()))
+    {
         return Err(EditError::Invalid("invalid watermark settings".into()));
     }
     if replace {

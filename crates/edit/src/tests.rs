@@ -151,6 +151,26 @@ fn watermarks_rotate_fade_and_can_go_behind() {
 }
 
 #[test]
+fn watermark_offset_moves_the_centre_right_and_up() {
+    let mut doc = fixture();
+    let wm = Watermark { text: "DRAFT".into(), rotation: 0.0, offset: [-100.0, 50.0], ..Watermark::default() };
+    add_watermark(&mut doc, &[0], &wm, false).unwrap();
+    let s = streams(&doc, 0);
+    let mark = s.iter().find(|c| c.contains("/PCMark /Watermark")).expect("the watermark stream");
+    assert!(mark.contains("1 0 0 1 200 450 cm"), "{mark}");
+}
+
+#[test]
+fn a_watermark_offset_that_is_not_finite_is_refused() {
+    for offset in [[f64::NAN, 0.0], [0.0, f64::INFINITY], [f64::NEG_INFINITY, 0.0]] {
+        let mut doc = fixture();
+        let wm = Watermark { text: "DRAFT".into(), offset, ..Watermark::default() };
+        assert!(matches!(add_watermark(&mut doc, &[0], &wm, false), Err(EditError::Invalid(_))), "{offset:?}");
+        assert!(!doc.is_modified());
+    }
+}
+
+#[test]
 fn invalid_requests_change_nothing() {
     let mut doc = fixture();
     assert!(matches!(add_header_footer(&mut doc, &[0], &HeaderFooter::default(), false, &cx()), Err(EditError::Invalid(_))));

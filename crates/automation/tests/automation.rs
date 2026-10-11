@@ -1397,6 +1397,40 @@ fn headers_watermarks_and_backgrounds_through_tools() {
 }
 
 #[test]
+fn watermarks_move_from_the_page_centre_through_tools() {
+    let dir = workdir("wm-offset");
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    // The top-left corner of "DRAFT" on page 1, in points (y grows downwards).
+    // Saved and reopened, so the search reads the file as another program would.
+    let mut saved = 0;
+    let mut corner = |a: &mut Automation| -> (f64, f64) {
+        saved += 1;
+        let path = format!("moved{saved}.pdf");
+        ok(a, "doc_save", json!({ "doc": doc, "path": path }));
+        let copy = ok(a, "doc_open", json!({ "path": path }))["doc"].as_u64().unwrap();
+        let found = ok(a, "text_find", json!({ "doc": copy, "query": "DRAFT" }));
+        let rect =
+            found["matches"][0]["rects"][0].as_array().unwrap_or_else(|| panic!("DRAFT is on the page: {found}; text: {:?}", page_text(a, copy)));
+        (rect[0].as_f64().unwrap(), rect[1].as_f64().unwrap())
+    };
+    // Both sit above the fixture's "Page 1" (at the page centre), or their letters would mix.
+    ok(&mut a, "doc_watermark", json!({ "doc": doc, "pages": [1], "text": "DRAFT", "rotation": 0, "font_size": 20, "offset_y": 60 }));
+    let centred = corner(&mut a);
+    ok(
+        &mut a,
+        "doc_watermark",
+        json!({ "doc": doc, "pages": [1], "text": "DRAFT", "rotation": 0, "font_size": 20, "offset_x": 30, "offset_y": 100, "replace": true }),
+    );
+    let moved = corner(&mut a);
+    assert!((moved.0 - centred.0 - 30.0).abs() < 1.0, "right: {centred:?} → {moved:?}");
+    assert!((centred.1 - moved.1 - 40.0).abs() < 1.0, "up is towards the top: {centred:?} → {moved:?}");
+    // Huge offsets are clamped, and a value that isn't a number is refused.
+    ok(&mut a, "doc_watermark", json!({ "doc": doc, "pages": [1], "text": "DRAFT", "offset_y": 1e300, "replace": true }));
+    assert!(matches!(a.call("doc_watermark", &json!({ "doc": doc, "text": "X", "offset_x": "left" })), Err(ToolError::InvalidArgs(_))));
+}
+
+#[test]
 fn exporting_images_and_text_through_tools() {
     let dir = workdir("export");
     let mut a = auto(&dir);
