@@ -462,7 +462,7 @@
 	{verb} Header and Footer	{verb}页眉和页脚
 	{verb} Watermark	{verb}水印
 	{verb} Background	{verb}背景
-	Margins (in)	边距（英寸）
+	Margins	边距
 	Left Header Text	左页眉文本
 	Center Header Text	居中页眉文本
 	Right Header Text	右页眉文本
@@ -1683,7 +1683,12 @@
 	watermark	水印
 	background	背景
 	This document isn't password-protected	本文档未受密码保护
-	Only the document's owner can change its security (open it with the permissions password)	只有文档所有者才能更改安全性（请使用权限密码打开）
+	Enter permissions password…	输入权限密码…
+	Permissions password	权限密码
+	“{name}” has security restrictions. Enter its permissions password to lift them.	“{name}”有安全限制。请输入其权限密码以解除限制。
+	Restrictions lifted	已解除限制
+	Couldn't unlock {name}: {e}	无法解锁 {name}：{e}
+	This document has no restrictions to lift	此文档没有可解除的限制
 	The document's security settings don't allow this change	文档安全设置不允许此更改
 	The document's security settings don't allow copying text and images	文档安全设置不允许复制文本和图像
 	Open a document first	请先打开文档
@@ -2051,6 +2056,10 @@
 	Used when opening PDFs. An explicit launch or control mode takes precedence for the session.	用于打开 PDF 时。如果启动参数或控制通道明确指定了模式，则本次会话优先使用该模式。
 	Used when a PDF doesn't ask for a layout or zoom. Continuous scrolling never snaps between pages.	PDF 未指定布局或缩放时使用。连续滚动时页面不会逐页吸附。
 	Reopen the files that were open when PdfCraft last closed	重新打开上次关闭 PdfCraft 时打开的文件
+	Reload documents when their files change on disk	文件在磁盘上更改时重新加载对应的文档
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	此文件已在磁盘上更改。请重新加载以查看新版本；未保存的更改将会丢失。
+	Reload	重新加载
+	Couldn't reload {name}: {e}	无法重新加载{name}：{e}
 	Write this email?	是否撰写此邮件？
 	{who} in this document wants to open this address in your browser:	此文档中的{who}请求在浏览器中打开以下地址：
 	{who} in this document wants to open your email app with this address:	此文档中的{who}请求打开邮件应用并使用以下地址：
@@ -2090,6 +2099,7 @@
 	Choose a PNG or JPEG image (up to 4 MiB). Transparency is preserved.	选择 PNG 或 JPEG 图像（最大 4 MiB）。透明度会保留。
 	Couldn't import the signature image: {e}	无法导入签名图像：{e}
 	Go to page…	转到页面…
+	For page sizes and margins.	用于页面尺寸和边距。
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	标准字体无法显示“{c}”（{code}）。目前只能添加西欧字符作为文本。
 	Larger pages	放大页面
 	Smaller pages	缩小页面
@@ -2176,6 +2186,17 @@ key	Space	空格
 	Resize panel window	调整面板窗口大小
 	Tools	工具
 	Inspector	检查器
+
+# Architectural print controls (follow-up to #599).
+	PDF page: {size}	PDF 页面：{size}
+	Match page at 100%	匹配页面并设为 100%
+	PDF scale: {scale}%	PDF 缩放：{scale}%
+	Printer paper and scaling may differ. Check driver settings.	打印机纸张和缩放可能不同。请检查驱动程序设置。
+	Drawing scale changes. Use Actual size for full-scale plans.	图纸比例发生变化。按原比例打印图纸时请使用实际大小。
+	Select page {label}	选择页面 {label}
+	Rotate page {label} counterclockwise	逆时针旋转页面 {label}
+	Rotate page {label} clockwise	顺时针旋转页面 {label}
+	Delete page {label}	删除页面 {label}
 	Mouse wheel scroll speed	鼠标滚轮滚动速度
 scroll speed	Slow	慢
 scroll speed	Normal	正常
@@ -2183,3 +2204,7 @@ scroll speed	Fast	快
 	Enhance camera image	增强相机图像
 	Drag the corners onto the document's edges, then choose Enhance page.	将四个角拖到文档边缘，然后选择“增强页面”。
 	Enhance page	增强页面
+	Clean-up	清理
+	Original	原始
+	Greyscale	灰度
+	Black and white	黑白
