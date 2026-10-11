@@ -458,11 +458,7 @@ fn duplicate_xfdf_annotation_flags_do_not_turn_on_unrelated_bits() {
         assert_eq!(import(&mut doc, xfdf.as_bytes()).unwrap().comments, 1);
         let page = pdfcraft_model::pages(&doc)[0].obj;
         let annotations = doc.get(page).as_dict().and_then(|p| p.get(b"Annots")).map(|a| doc.resolve(a)).and_then(|a| a.as_array().cloned()).unwrap();
-        let square = annotations
-            .iter()
-            .filter_map(|a| doc.resolve(a).as_dict().cloned())
-            .find(|d| d.name(b"Subtype") == Some(b"Square"))
-            .unwrap();
+        let square = annotations.iter().filter_map(|a| doc.resolve(a).as_dict().cloned()).find(|d| d.name(b"Subtype") == Some(b"Square")).unwrap();
         assert_eq!(square.get(b"F").and_then(Object::as_int), Some(expected), "flags={flags}");
     }
 }
