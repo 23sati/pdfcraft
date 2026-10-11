@@ -201,6 +201,46 @@ Try-CodeBase '4 folder without spaces' (New-Object Uri((Join-Path $NoSpace 'Link
 Try-CodeBase '5 escaped URI, no version subkey' $uri -DropVersionKey
 Remove-Item $NoSpace -Recurse -Force -ErrorAction SilentlyContinue
 
+# A native COM client (as prevhost.exe is): VBScript CreateObject through IDispatch, 64-bit cscript.
+Say ""
+Say "=== Native client (64-bit cscript CreateObject) ==="
+Say "  prevhost.exe present: $(Test-Path (Join-Path $env:WINDIR 'System32\prevhost.exe'))"
+$vbs = Join-Path $Work 'create.vbs'
+Set-Content -LiteralPath $vbs -Encoding ASCII -Value @(
+  'On Error Resume Next',
+  'Set o = CreateObject("LinkcoPDFEditor.PreviewHandler")',
+  'If Err.Number <> 0 Then WScript.Echo "CreateObject FAILED 0x" & Hex(Err.Number) & " " & Err.Description Else WScript.Echo "CreateObject OK: " & TypeName(o)')
+function Try-Native([string] $label) {
+  $ErrorActionPreference = 'Continue'
+  $o = & (Join-Path $env:WINDIR 'System32\cscript.exe') //nologo $vbs 2>&1 | ForEach-Object { "$_" }
+  $ErrorActionPreference = 'Stop'
+  Say ("  {0,-44} {1}" -f $label, ($o -join ' '))
+}
+Clear-Registration
+$type::RegisterPreviewHandler($Dll, $false)
+Try-Native 'our per-user registration:'
+Clear-Registration
+$type::RegisterPreviewHandler($Dll, $true)
+Try-Native 'our per-user + machine-wide registration:'
+Clear-Registration
+$regasm = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\RegAsm.exe'
+$ErrorActionPreference = 'Continue'
+& $regasm /nologo /codebase $Dll 2>&1 | ForEach-Object { Say "  regasm: $_" }
+$ErrorActionPreference = 'Stop'
+Try-Native 'RegAsm /codebase registration (HKLM):'
+$ErrorActionPreference = 'Continue'
+$o = (& $HostExe $Clsid $Pdf 'inproc' 1 2>&1 | ForEach-Object { "$_" } | Select-String 'CoCreateInstance:' | Select-Object -First 1)
+$ErrorActionPreference = 'Stop'
+Say "  managed host, RegAsm registration, in process: $("$o".Trim())"
+Say "  RegAsm wrote:"
+& reg.exe query "HKLM\Software\Classes\CLSID\$Clsid" /s | ForEach-Object { if ("$_".Trim()) { Say "    $_" } }
+$ErrorActionPreference = 'Continue'
+& $regasm /nologo /unregister $Dll 2>&1 | Out-Null
+$ErrorActionPreference = 'Stop'
+Say "  binding log files:"
+Get-ChildItem $FusionDir -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 12 | ForEach-Object { Say "    $($_.FullName.Substring($FusionDir.Length))" }
+Show-FusionLog
+
 Clear-Registration
 $type::RegisterPreviewHandler($Dll, $false)
 Run-Host 'A per-user registration, out of process (as Explorer)' 'local'
