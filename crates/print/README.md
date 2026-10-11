@@ -39,7 +39,9 @@ piped to `lp` on stdin and never written to a temp file, where another local use
 swap it. On Windows everything happens in-process, with no PowerShell or other program started,
 so printing also works where App Control for Business or AppLocker lock scripts down (#1107):
 the printers come from `EnumPrinters` (local queues and the user's connections) with the default
-from `GetDefaultPrinter`, and the job is drawn by the in-box `Windows.Data.Pdf` with Direct2D into
+from `GetDefaultPrinter`, and whether each driver takes two-sided settings from its
+PrintCapabilities (the Print dialog says when it doesn't, #1154). The job is drawn by the in-box
+`Windows.Data.Pdf` with Direct2D into
 the XPS print API, as vectors, through the `winprint` crate. Copies, collation, two-sided, colour,
 the sheet's paper and orientation and "no scaling" go in a PrintTicket that the driver validates
 first; when it has no such paper, or would change the paper, orientation or scaling, nothing is

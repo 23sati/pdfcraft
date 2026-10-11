@@ -14,6 +14,10 @@ mod windows;
 pub struct Printer {
     pub name: String,
     pub default: bool,
+    /// Whether the driver says it can print two-sided, where the spooler tells (Windows: the
+    /// printer's `Duplex Printing` capability). A driver without it ignores Two-sided and uses
+    /// its own setting. `None` when unknown (CUPS maps `sides` itself).
+    pub two_sided: Option<bool>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -55,7 +59,7 @@ pub fn parse_lpstat(out: &str) -> Vec<Printer> {
     out.lines()
         .filter_map(|l| l.strip_prefix("printer "))
         .filter_map(|l| l.split_whitespace().next())
-        .map(|n| Printer { name: n.to_string(), default: default == Some(n) })
+        .map(|n| Printer { name: n.to_string(), default: default == Some(n), two_sided: None })
         .collect()
 }
 
@@ -335,21 +339,22 @@ pub fn printers_parsed(queues: &str, available: Option<&str>) -> Vec<Printer> {
     if let Some(names) = available {
         for name in parse_lpstat_e(names) {
             if !printers.iter().any(|p| p.name == name) {
-                printers.push(Printer { default: default == Some(name.as_str()), name });
+                printers.push(Printer { default: default == Some(name.as_str()), name, two_sided: None });
             }
         }
     }
     printers
 }
 
-/// The Print dialog's printers from the Windows spooler's queue names: sorted, each once, the
-/// default marked when it is one of them.
+/// The Print dialog's printers from the Windows spooler's queues (name, and whether the driver
+/// takes two-sided settings when that is known): sorted by name, each once, the default marked
+/// when it is one of them.
 #[cfg(any(test, windows))]
-pub(crate) fn printer_list(names: impl IntoIterator<Item = String>, default: Option<&str>) -> Vec<Printer> {
-    let mut names: Vec<String> = names.into_iter().filter(|n| !n.trim().is_empty()).collect();
-    names.sort();
-    names.dedup();
-    names.into_iter().map(|name| Printer { default: default == Some(name.as_str()), name }).collect()
+pub(crate) fn printer_list(queues: impl IntoIterator<Item = (String, Option<bool>)>, default: Option<&str>) -> Vec<Printer> {
+    let mut queues: Vec<(String, Option<bool>)> = queues.into_iter().filter(|(n, _)| !n.trim().is_empty()).collect();
+    queues.sort_by(|a, b| a.0.cmp(&b.0));
+    queues.dedup_by(|a, b| a.0 == b.0);
+    queues.into_iter().map(|(name, two_sided)| Printer { default: default == Some(name.as_str()), name, two_sided }).collect()
 }
 
 /// Send a print-ready PDF to the spooler. Returns the spooler's message (the job id).

@@ -369,6 +369,8 @@ PdfCraft is a clean-room implementation. Its behaviour comes from the ISO 32000 
 
 ## Get started
 
+Building needs Rust 1.95 or later.
+
 ```sh
 git clone https://github.com/storytold/pdfcraft
 cd pdfcraft
@@ -446,14 +448,18 @@ The portable zip runs from any folder, a USB stick included. Its `portable.txt` 
 logs and crash recovery in a `PdfCraftData` folder next to `pdfcraft.exe`, so nothing is written to
 `%APPDATA%`; delete that file to use the normal per-user folders.
 
-The MSI installs for all users and requires administrator privileges. For unattended deployment
-without a desktop shortcut, run from an elevated terminal:
+The MSI installs for all users and requires administrator privileges. It adds "Edit with PdfCraft"
+to the right-click menu of PDF files in File Explorer (on Windows 11, under "Show more options"),
+without changing which app opens PDFs by default. For unattended deployment without a desktop
+shortcut, run from an elevated terminal:
 
 ```powershell
 msiexec /i "pdfcraft-<ver>-windows-x64.msi" /qn /norestart INSTALLDESKTOPSHORTCUT=0
 ```
 
-Use the MSI for your architecture. Per-user installation overrides are not supported.
+Add `INSTALLPDFCONTEXTMENU=0` to leave out the right-click menu entry. Pass both on upgrades too,
+since each install applies its own choices. Use the MSI for your architecture. Per-user
+installation overrides are not supported.
 
 ### macOS
 

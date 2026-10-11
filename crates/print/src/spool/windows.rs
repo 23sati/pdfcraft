@@ -3,7 +3,8 @@
 //! PowerShell in Constrained Language Mode; issue #1107).
 //!
 //! The printers come from `EnumPrinters` (local queues and the user's connections, such as
-//! `\\server\queue`) and the default from `GetDefaultPrinter`. A job is drawn by the in-box
+//! `\\server\queue`), the default from `GetDefaultPrinter`, and whether each driver takes
+//! two-sided settings from its PrintCapabilities. A job is drawn by the in-box
 //! `Windows.Data.Pdf` with Direct2D into the XPS print API, as vectors, and its options (copies,
 //! collation, two-sided, colour, paper, orientation, no driver scaling) travel as a PrintTicket
 //! that the driver validates before anything is sent. `winprint` and `winsafe` wrap the Win32
@@ -29,9 +30,18 @@ fn default_printer() -> Option<String> {
 
 pub(super) fn printers() -> Vec<Printer> {
     match PrinterDevice::all() {
-        Ok(devices) => super::printer_list(devices.iter().map(|d| d.name().to_string()), default_printer().as_deref()),
+        Ok(devices) => super::printer_list(devices.iter().map(|d| (d.name().to_string(), two_sided(d))), default_printer().as_deref()),
         Err(_) => Vec::new(),
     }
+}
+
+/// Whether the printer's driver takes two-sided settings: its PrintCapabilities offer a two-sided
+/// option for the feature the job's ticket sets. `None` when the capabilities can't be read. A
+/// driver without one drops Two-sided from the ticket and prints its own way.
+fn two_sided(device: &PrinterDevice) -> Option<bool> {
+    let capabilities = PrintCapabilities::fetch(device).ok()?;
+    let duplex = OwnedName::qualified("JobDuplexAllDocumentsContiguously", NS_PSK, Some("psk"));
+    Some(capabilities.options_for_feature(duplex).any(|o| o.name.as_ref().is_some_and(|n| n.local_name.starts_with("TwoSided"))))
 }
 
 /// The queue the job goes to: the one asked for, else the default. Never another one: a job

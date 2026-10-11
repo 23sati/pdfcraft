@@ -83,8 +83,7 @@ let form = pdfcraft_xfa::layout_xml(template_xml)?;       // pages of items, for
 ## Deliberately not done (yet)
 
 - **Data binding** is the default one only: explicit `bind ref` expressions, global binding and
-  data descriptions are not followed, and no standalone XML or XDP data file is imported or
-  exported.
+  data descriptions are not followed (a data description is kept as written, not checked).
 - **Scripting.** JavaScript (boa) and FormCalc (a native interpreter, `pdfcraft_js::formcalc`)
   share one object model, one set of effects and one set of budgets. FormCalc covers the
   language and the common built-ins (arithmetic, logical, string, date/time, financial, unit);
@@ -119,7 +118,16 @@ let form = pdfcraft_xfa::layout_xml(template_xml)?;       // pages of items, for
   values of `<items save="1">` as the options; the data holds saved values, several on
   separate lines. Password fields are password text fields. Signature fields are `/Sig` fields
   the app can sign. Image fields show the picture the data or template holds (JPEG, PNG, GIF)
-  but a new picture can't be chosen; barcode fields show their value as text, not as bars.
+  and are buttons that pick a new one, kept in the data as base64 with its `xfa:contentType`
+  (`write_data_image`); barcode fields show their value as text, not as bars.
+- **Data files.** `export_data` writes the data as Acrobat's Export Data does: an XML document
+  holding the data alone (the form's root data node at the root, its namespaces declared) or
+  an XDP holding the whole datasets and a reference to the PDF. `import_data` takes an XDP, a
+  datasets or data element, or a data document whose root is the form's root data node, and
+  makes it the form's whole data, keeping the rest of the datasets (data descriptions). The
+  file's data is held as a tree and written with the packet's own namespace prefix, never as
+  the file's markup, and every rewrite of the packet is parsed back before it is written; the
+  engine then lays a dynamic form out again from it and runs its calculations.
 - Missing: `keep` constraints, `subformSet` relations, `rl-tb` is mirrored `lr-tb`, font
   metrics are the approximate Helvetica ones, and line heights are 1.15 × size.
 - Acrobat cannot be an oracle here (clean-room rules): layout follows the specification, and

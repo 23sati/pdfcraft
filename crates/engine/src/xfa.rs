@@ -693,6 +693,17 @@ pub(crate) fn on_changes(doc: &mut pdfcraft_cos::Document, tpl: &Template, names
     r.finish().map(|_| ())
 }
 
+/// The form's data changed outside its scripts (a data file imported, a picture chosen): lay
+/// the form out again from the data, then, when `calculate`, run every calculation.
+pub(crate) fn on_data_replaced(doc: &mut pdfcraft_cos::Document, tpl: &Template, calculate: bool, run: &mut XfaRun) -> Result<(), String> {
+    let mut r = Runner::new(doc, tpl, run, OPEN_BUDGET_MS);
+    r.relayout()?;
+    if calculate {
+        r.calculates()?;
+    }
+    r.finish().map(|_| ())
+}
+
 /// A button's click script (or any event, by SOM path and activity), then calculations.
 pub(crate) fn on_event(doc: &mut pdfcraft_cos::Document, tpl: &Template, som: &str, activity: &str, run: &mut XfaRun) -> Result<(), String> {
     let mut r = Runner::new(doc, tpl, run, EVENT_BUDGET_MS);

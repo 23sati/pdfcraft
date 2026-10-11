@@ -234,7 +234,10 @@ fn spooler_arguments_and_printer_list() {
     let out = "printer Office_Laser is idle.  enabled since Thu Oct  1 09:00:00 2026\nprinter Label_Writer disabled since …\nsystem default destination: Office_Laser\n";
     assert_eq!(
         parse_lpstat(out),
-        [spool::Printer { name: "Office_Laser".into(), default: true }, spool::Printer { name: "Label_Writer".into(), default: false }]
+        [
+            spool::Printer { name: "Office_Laser".into(), default: true, two_sided: None },
+            spool::Printer { name: "Label_Writer".into(), default: false, two_sided: None }
+        ]
     );
     assert!(parse_lpstat("lpstat: No destinations added.\nno system default destination\n").is_empty());
     let job = Job {
@@ -274,16 +277,19 @@ fn driverless_printers_join_the_list_without_a_queue() {
     let queues = "printer Office_Laser is idle.  enabled since Thu Oct  1 09:00:00 2026\nsystem default destination: Office_Laser\n";
     assert_eq!(
         spool::printers_parsed(queues, Some("Basement_Color\nOffice_Laser\n")),
-        [spool::Printer { name: "Office_Laser".into(), default: true }, spool::Printer { name: "Basement_Color".into(), default: false },],
+        [
+            spool::Printer { name: "Office_Laser".into(), default: true, two_sided: None },
+            spool::Printer { name: "Basement_Color".into(), default: false, two_sided: None },
+        ],
         "queues first, then the driverless destination; the queue listed twice is not doubled"
     );
     // An old spooler without `-e` (CUPS < 1.7) keeps its queues; only the driverless names are lost.
-    assert_eq!(spool::printers_parsed(queues, None), [spool::Printer { name: "Office_Laser".into(), default: true }]);
+    assert_eq!(spool::printers_parsed(queues, None), [spool::Printer { name: "Office_Laser".into(), default: true, two_sided: None }]);
     // The default can itself be driverless (`lpoptions -d` names a destination no queue exists
     // for): it keeps its marker, so the dialog preselects the user's default, not the first queue.
     assert_eq!(
         spool::printers_parsed("system default destination: Basement_Color\n", Some("Basement_Color\n")),
-        [spool::Printer { name: "Basement_Color".into(), default: true }],
+        [spool::Printer { name: "Basement_Color".into(), default: true, two_sided: None }],
         "a default destination without a queue is still the default"
     );
     assert!(spool::parse_lpstat_e("\n \n").is_empty(), "no destinations is empty, not [\"\"]");
@@ -441,20 +447,28 @@ fn the_spoolers_reply_drops_the_file_count_of_a_job_sent_on_stdin() {
 #[test]
 fn windows_printers_are_sorted_once_with_their_default() {
     // Queue names hold spaces, commas, parentheses and non-ASCII letters; a connection can be
-    // listed twice; the default is matched whole, never by prefix.
-    let names = ["Zebra Label", "HP LaserJet 400 (Copy 2)", "Копир Canon iR", r"\\print01\Office, 2nd floor", "Zebra Label", " "];
-    let printers = spool::printer_list(names.map(String::from), Some(r"\\print01\Office, 2nd floor"));
+    // listed twice; the default is matched whole, never by prefix; whether the driver takes
+    // two-sided settings travels with each name (unknown when its capabilities can't be read).
+    let queues = [
+        ("Zebra Label", Some(false)),
+        ("HP LaserJet 400 (Copy 2)", Some(true)),
+        ("Копир Canon iR", None),
+        (r"\\print01\Office, 2nd floor", Some(true)),
+        ("Zebra Label", Some(false)),
+        (" ", None),
+    ];
+    let printers = spool::printer_list(queues.map(|(n, s)| (n.to_string(), s)), Some(r"\\print01\Office, 2nd floor"));
     assert_eq!(
         printers,
         [
-            Printer { name: "HP LaserJet 400 (Copy 2)".into(), default: false },
-            Printer { name: "Zebra Label".into(), default: false },
-            Printer { name: r"\\print01\Office, 2nd floor".into(), default: true },
-            Printer { name: "Копир Canon iR".into(), default: false },
+            Printer { name: "HP LaserJet 400 (Copy 2)".into(), default: false, two_sided: Some(true) },
+            Printer { name: "Zebra Label".into(), default: false, two_sided: Some(false) },
+            Printer { name: r"\\print01\Office, 2nd floor".into(), default: true, two_sided: Some(true) },
+            Printer { name: "Копир Canon iR".into(), default: false, two_sided: None },
         ]
     );
-    assert!(spool::printer_list(["Office".to_string()], Some("Office 2")).iter().all(|p| !p.default));
-    assert!(spool::printer_list(["Office".to_string()], None).iter().all(|p| !p.default));
+    assert!(spool::printer_list([("Office".to_string(), None)], Some("Office 2")).iter().all(|p| !p.default));
+    assert!(spool::printer_list([("Office".to_string(), None)], None).iter().all(|p| !p.default));
 }
 
 /// Windows prints a job on one paper shape: sheets Auto orientation turned for landscape pages
