@@ -133,6 +133,8 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 ## Progress log
 
+- 2026-10-11 — M13: Hot Folder server hardening: isolated bounded task processes, Windows job memory limits, automatic transient retries, durable bounded active journals, crash-safe grouped receipts and deterministic OCR replay. Stable service SID grants preserve custom SCM accounts through repair/upgrade. Added manual real-MSI local/SMB acceptance for Server 2022/2025 and opt-in disposable Server 2019; no untested server certification is claimed.
+
 - 2026-10-11 — M13: optional standalone Hot Folder with durable local/network/FTP/Outlook/open-project processing, calendar schedules, safe source policies, OCR/scan preprocessing, analysis reports, grouped PDF/Office/image/EPUB outputs, headless tools and seven UI languages. Restricted-account boot services and optional Windows/macOS/Linux installers have lifecycle coverage; proprietary ABBYY formats remain incompatible; see [the scope inventory](docs/hot-folder.md).
 
 - **2026-10-11 (M10, OCR languages and defaults):** Fold Dutch, Danish, Norwegian Bokmål, Swedish, Finnish and Portuguese into the scan/OCR work, with save/reopen regressions for accented words. The UI selects the primary system/browser language, independently of UI translations, with English fallback; manual selection remains available. Icelandic stays unclaimed. Overall percentage unchanged.

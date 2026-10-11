@@ -25,8 +25,13 @@
         Message="PdfCraft must be installed for all users. Run setup with administrator privileges and ALLUSERS=1; per-user installation is not supported." />
     <!-- Same-version upgrades let successive pre-releases of one X.Y.Z replace each other
          (MSI versions are numeric, so 1.2.3-rc.1 and 1.2.3-rc.2 are both 1.2.3). -->
-    <MajorUpgrade AllowSameVersionUpgrades="yes"
+    <!-- Keep shared component GUIDs stable: installing over the old product preserves
+         SCM's account and protected password, including an administrator-selected gMSA. -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes" Schedule="afterInstallExecute"
         DowngradeErrorMessage="A newer version of PdfCraft is already installed." />
+    <!-- Preview binaries may share a numeric FileVersion. Replace packaged payload
+         even at equal versions; user tasks/secrets are not installer-owned files. -->
+    <Property Id="REINSTALLMODE" Value="amus" />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
 
     <!-- Windows Installer requires an Icon id ending in .ico or .exe, or advertised shortcuts and
@@ -48,6 +53,16 @@
     <SetProperty Id="INSTALLHOTFOLDER" Value="1" After="AppSearch" Sequence="both"
         Condition="HOTFOLDERPRESENT AND NOT INSTALLHOTFOLDER" />
     <UIRef Id="PdfcraftInstallerUI" />
+
+    <!-- Use the safe service API rather than MSI 5's unreliable ServiceConfig table.
+         The fixed installed executable runs elevated, after service registration and
+         before its first start. No account passwords enter MSI properties or logs. -->
+    <CustomAction Id="PrepareHotFolderService" FileRef="PdfcraftHotFolderExe"
+        ExeCommand="--service-action prepare-account --config &quot;[HotFolderData]tasks.json&quot;"
+        Execute="deferred" Impersonate="no" Return="check" />
+    <InstallExecuteSequence>
+      <Custom Action="PrepareHotFolderService" Before="StartServices" Condition="$PdfcraftHotFolderApp = 3" />
+    </InstallExecuteSequence>
 
     <StandardDirectory Id="ProgramFiles6432Folder">
       <Directory Id="INSTALLFOLDER" Name="PdfCraft">
@@ -85,14 +100,14 @@
             Account="NT AUTHORITY\LocalService"
             Arguments="--service --config &quot;[HotFolderData]tasks.json&quot;">
           <util:ServiceConfig FirstFailureActionType="restart" SecondFailureActionType="restart"
-              ThirdFailureActionType="none" ResetPeriodInDays="1" RestartServiceDelayInSeconds="10" />
+              ThirdFailureActionType="restart" ResetPeriodInDays="1" RestartServiceDelayInSeconds="60" />
         </ServiceInstall>
         <ServiceControl Id="HotFolderServiceControl" Name="PdfCraftHotFolder"
             Start="install" Stop="both" Remove="uninstall" Wait="yes" />
       </Component>
       <Component Id="PdfcraftHotFolderSecrets" Directory="HotFolderSecrets" Guid="4D641968-81D3-474E-867D-C03E18E80584">
         <CreateFolder>
-          <PermissionEx Sddl="D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;S-1-5-19)" />
+          <PermissionEx Sddl="D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;S-1-5-19)(A;OICI;FA;;;S-1-5-80-4013549229-3107762393-4025766903-2826249871-1347187068)" />
         </CreateFolder>
         <RegistryValue Root="HKLM" Key="Software\PdfCraft\HotFolder" Name="SecretsDirectory"
             Type="string" Value="[HotFolderSecrets]" KeyPath="yes" />
@@ -101,7 +116,7 @@
         <!-- An unelevated user may inspect task state, but only administrators and the
              restricted service account can change the configured work. Keep user tasks on uninstall. -->
         <CreateFolder>
-          <PermissionEx Sddl="D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;S-1-5-19)(A;OICI;GRGX;;;BU)" />
+          <PermissionEx Sddl="D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;S-1-5-19)(A;OICI;FA;;;S-1-5-80-4013549229-3107762393-4025766903-2826249871-1347187068)(A;OICI;GRGX;;;BU)" />
         </CreateFolder>
         <RegistryValue Root="HKLM" Key="Software\PdfCraft\HotFolder" Name="TaskFile"
             Type="string" Value="[HotFolderData]tasks.json" KeyPath="yes" />
