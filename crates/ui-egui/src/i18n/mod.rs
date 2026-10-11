@@ -2062,7 +2062,6 @@ mod tests {
         }
     }
 
-    /// Check direct lookups and multiline literals as well as ordinary tl!("literal") calls,
     /// Kazakh translates every registered command and every All tools label.
     #[test]
     fn kazakh_covers_commands_and_catalogue() {
@@ -2119,7 +2118,8 @@ mod tests {
             .collect();
         assert!(unchanged.is_empty(), "untranslated Kazakh catalog entries: {unchanged:#?}");
     }
-    /// following the complete-catalog check for Simplified Chinese.
+    /// Kazakh translates every tl!("literal") in the UI source, including direct lookups and
+    /// multiline literals, following the complete-catalog check for Simplified Chinese.
     #[test]
     fn kazakh_covers_ui_literals() {
         let kk = Lang::from_code("kk").expect("kk registered");
@@ -2168,6 +2168,7 @@ mod tests {
         let missing: Vec<_> = literals.iter().filter(|label| !has(kk, label)).collect();
         assert!(missing.is_empty(), "untranslated Kazakh UI literals: {missing:#?}");
     }
+    /// Check direct lookups and multiline literals as well as ordinary tl!("literal") calls,
     /// following the complete-catalog check for Simplified Chinese.
     #[test]
     fn ukrainian_covers_ui_literals() {
