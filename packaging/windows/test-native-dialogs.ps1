@@ -107,8 +107,11 @@ try {
       $arguments = @('-NoProfile', '-NonInteractive', '-STA', '-File', "`"$childScript`"",
         '-Msi', "`"$copy`"", '-Dialog', $dialog.Id, '-StopFile', "`"$stop`"")
       $title = Resolve-DialogText $dialog.Title $strings $productName
+      # Keep the existing CI console, but allow the native preview to be shown.
+      # WindowStyle Hidden sets STARTUPINFO's first-window state and suppresses
+      # the MSI dialog itself, even though ViewDialog returns successfully.
       $child = Start-Process -FilePath (Join-Path $PSHOME 'powershell.exe') -ArgumentList $arguments `
-        -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+        -NoNewWindow -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
       try {
         $condition = [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty, $child.Id)
         $deadline = [DateTime]::UtcNow.AddSeconds(15)
