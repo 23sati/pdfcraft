@@ -374,9 +374,16 @@ pub fn show(app: &mut crate::PdfCraftApp, ui: &mut egui::Ui) {
         // Availability is a render projection: the saved group, selection and width survive Home.
         let _ = rendered.apply(Action::Close { panel: Panel::Inspector });
     }
+    // A right-to-left interface shows the layout mirrored (Tools on the right, Inspector on the
+    // left); the saved layout and the actions applied to it stay in the left-to-right frame.
+    let mirrored = crate::i18n::current().rtl();
+    let mut shown = rendered.clone();
+    if mirrored && let Some(root) = shown.root.as_mut() {
+        mirror_node(root);
+    }
     let output = DockArea::new(egui::Id::new("pdfcraft-docking")).show_with_limits(
         ui,
-        &rendered,
+        &shown,
         &style,
         |panel| crate::i18n::t(panel.label()).into(),
         permissions,
@@ -402,6 +409,9 @@ pub fn show(app: &mut crate::PdfCraftApp, ui: &mut egui::Ui) {
     publish_visibility(app, &workspace);
     app.docking = workspace;
     for mut action in output.actions {
+        if mirrored {
+            action = unmirror_action(action, shown.root.as_ref());
+        }
         if app.active.is_none()
             && let Action::ResizeSplit { path, .. } = &mut action
         {
@@ -413,6 +423,60 @@ pub fn show(app: &mut crate::PdfCraftApp, ui: &mut egui::Ui) {
         {
             app.notify(format!("Panel move was not applied: {error}"));
         }
+    }
+}
+
+/// `node` flipped left for right: every side-by-side split swaps its children (and which one a
+/// fixed size belongs to). Mirroring twice gives the original.
+fn mirror_node(node: &mut Node<Panel>) {
+    if let Node::Split { axis, size, first, second } = node {
+        if *axis == SplitAxis::Horizontal {
+            std::mem::swap(first, second);
+            *size = mirror_size(*size);
+        }
+        mirror_node(first);
+        mirror_node(second);
+    }
+}
+
+fn mirror_size(size: SplitSize) -> SplitSize {
+    match size {
+        SplitSize::Ratio(ratio) => SplitSize::Ratio(1.0 - ratio),
+        SplitSize::FixedFirst(width) => SplitSize::FixedSecond(width),
+        SplitSize::FixedSecond(width) => SplitSize::FixedFirst(width),
+    }
+}
+
+/// An action the dock area reported on the mirrored layout `shown`, in the saved layout's
+/// left-to-right frame: split paths and sizes through side-by-side splits flip, and a drop on
+/// the left of a panel is a drop on its right.
+fn unmirror_action(action: Action<Panel>, shown: Option<&Node<Panel>>) -> Action<Panel> {
+    match action {
+        Action::ResizeSplit { path, size } => {
+            let mut node = shown;
+            let mut logical = Vec::with_capacity(path.len());
+            let mut horizontal = false;
+            for second_child in path {
+                let Some(Node::Split { axis, first, second, .. }) = node else { break };
+                horizontal = *axis == SplitAxis::Horizontal;
+                logical.push(if horizontal { !second_child } else { second_child });
+                node = Some(if second_child { second.as_ref() } else { first.as_ref() });
+            }
+            // The size belongs to the split at the end of the path.
+            if let Some(Node::Split { axis, .. }) = node {
+                horizontal = *axis == SplitAxis::Horizontal;
+            }
+            Action::ResizeSplit { path: logical, size: if horizontal { mirror_size(size) } else { size } }
+        }
+        Action::Move { panel, anchor, placement } => {
+            let placement = match placement {
+                Placement::Split(Zone::Left) => Placement::Split(Zone::Right),
+                Placement::Split(Zone::Right) => Placement::Split(Zone::Left),
+                other => other,
+            };
+            Action::Move { panel, anchor, placement }
+        }
+        other => other,
     }
 }
 

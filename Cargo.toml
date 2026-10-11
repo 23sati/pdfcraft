@@ -102,3 +102,5 @@ hayro-jbig2 = { path = "vendor/hayro-jbig2" }
 lopdf = { path = "vendor/lopdf" }
 winit = { path = "vendor/winit" }
 egui-wgpu = { path = "vendor/egui-wgpu" }
+epaint = { path = "vendor/epaint" }
+egui = { path = "vendor/egui" }

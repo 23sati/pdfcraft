@@ -31,7 +31,7 @@ add a language: [localization.md](localization.md). Summary in [ROADMAP.md](../R
 | Simplified Chinese | `zh-hans` | 2,088 (97.4%) | dialogs and tooltips through `tl!`; no help | CJK text and IME work, but **release builds have no Hans face**: many characters show as boxes (#826, #688, #728, #758; Flatpak #689) | no | partial | yes | 6–12 |
 | Spanish | `es` | 2,046 (95.5%) | dialogs and tooltips; no help | Latin | no | partial | yes | 2–4 |
 | Hindi | `hi` | 0 | none | Devanagari not tested (egui shapes Telugu conjuncts, so shaping is likely workable); no Devanagari face in craft-fonts | no | none | no | 10–18 |
-| Arabic | `ar` | 2,143 (100%) | dialogs and tooltips; no help | Letters joined and lines reordered at load, but **layout not mirrored**, wrapped lines break at the wrong end, typed text runs left to right (`localization.md` §Arabic) | no | partial | yes (Middle East edition) | 25–45 |
+| Arabic | `ar` | 2,143 (100%) | dialogs and tooltips; no help | Bidirectional text layout (wrapping, typed text) and a mirrored interface; caret moves in logical order, a few painted details still left to right (`localization.md` §Arabic) | no | partial | yes (Middle East edition) | 6–12 |
 | French | `fr` | 2,128 (99.3%) | dialogs and tooltips; no help | Latin | no | partial | yes | 1–2 |
 | Portuguese (Brazil) | `pt-br` | 2,130 (99.4%) | dialogs and tooltips; no help | Latin | community (#288) | partial | yes | 1–2 |
 | Indonesian | `id` | 0 | none | Latin | no | none | no | 3–5 |
@@ -61,7 +61,7 @@ none has translated help.
 | Ukrainian | `uk` | 2,142 (100%) | partial | yes |
 | Italian | `it` | 2,130 (99.4%) | partial | yes |
 | Polish | `pl` | 2,169 entries (≈99%) | partial | yes |
-| Hebrew | `he` | 2,143 (100%) | partial (right to left like Arabic: layout not mirrored; no `Hebr` face in craft-fonts yet, desktop uses an installed font) | yes (Middle East edition) |
+| Hebrew | `he` | 2,143 (100%) | partial (right to left like Arabic, mirrored interface; no `Hebr` face in craft-fonts yet, desktop uses an installed font) | yes (Middle East edition) |
 
 **10 other languages** ship (17 catalogs plus English, 18 interface languages in Preferences).
 Acrobat languages PdfCraft lacks: Danish, Dutch, Finnish, Norwegian, Swedish, Turkish.
@@ -70,5 +70,6 @@ Acrobat languages PdfCraft lacks: Danish, Dutch, Finnish, Norwegian, Swedish, Tu
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Right-to-left: bidirectional text layout and a mirrored interface for Arabic and Hebrew (vendored egui and epaint patches); Arabic's estimate to `full` drops to 6–12 h |
 | 2026-10-11 | minor | Hebrew (`he`) catalog added: 100% of the keys, right to left; Polish (shipped in #782) listed |
 | 2026-10-10 | major | Created. Catalog counts measured from `crates/ui-egui/src/i18n/*.tsv` against the 2,143-key union; Acrobat's localizations from its bundle's `.lproj` and Sequences folder names |

@@ -1180,11 +1180,11 @@ fn heading(ui: &mut egui::Ui, t: &Tokens, key: SortKey, sort: Option<(SortKey, b
     }
     let colour = if arrow.is_some() { t.text } else { t.text_muted };
     let galley = ui.painter().layout_no_wrap(text.to_owned(), theme::medium(12.5), colour);
-    let text_pos = egui::pos2(rect.left() + 4.0, rect.center().y - galley.size().y / 2.0);
+    let text_pos = crate::mirror::rect_at(rect, vec2(4.0, rect.height() / 2.0 - galley.size().y / 2.0), galley.size()).min;
     let text_w = galley.size().x;
     ui.painter().with_clip_rect(rect).galley(text_pos, galley, colour);
     if let Some(ascending) = arrow {
-        let r = Rect::from_center_size(egui::pos2(rect.left() + text_w + 14.0, rect.center().y), vec2(12.0, 12.0));
+        let r = Rect::from_center_size(crate::mirror::start_center(rect, text_w + 14.0), vec2(12.0, 12.0));
         icons::paint(ui, r, if ascending { "chevron-up" } else { "chevron-down" }, 12.0, t.text);
     }
     if response.drag_started() {

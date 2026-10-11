@@ -505,7 +505,7 @@ fn choose(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> bool {
             ui.painter().rect_filled(rect, CornerRadius::same(6), fill);
             // An unusable ID is greyed, with the reason where the issuer would be.
             let (icon, name_color) = if usable { (t.accent, t.text) } else { (t.text_muted, t.text_muted) };
-            icons::paint(ui, Rect::from_min_size(rect.min + vec2(10.0, 15.0), vec2(20.0, 20.0)), "badge-check", 18.0, icon);
+            icons::paint(ui, crate::mirror::rect_at(rect, vec2(10.0, 15.0), vec2(20.0, 20.0)), "badge-check", 18.0, icon);
             // Certificate names can be any length: cut both lines with "…" at the row's edge
             // and show them whole on hover.
             let line = |text: &str, font: egui::FontId, color: Color32| {
@@ -534,8 +534,8 @@ fn choose(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> bool {
             };
             let details = line(&sub, theme::regular(11.5), t.text_muted);
             let elided = name.elided || details.elided;
-            ui.painter().galley(rect.min + vec2(40.0, 9.0), name, name_color);
-            ui.painter().galley(rect.min + vec2(40.0, 28.0), details, t.text_muted);
+            ui.painter().galley(crate::mirror::rect_at(rect, vec2(40.0, 9.0), name.size()).min, name, name_color);
+            ui.painter().galley(crate::mirror::rect_at(rect, vec2(40.0, 28.0), details.size()).min, details, t.text_muted);
             let resp = if elided { resp.on_hover_text(format!("{}\n{sub}", e.name)) } else { resp };
             if !usable {
                 continue;
