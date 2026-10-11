@@ -974,7 +974,9 @@ fn collide(glyphs: &[&TextGlyph], height: &dyn Fn(usize) -> f32, h: f32, sc: &mu
 
 /// Reverses each right-to-left span of `idx` (visual → logical order). A space between two right-to-left glyphs
 /// belongs to the span.
-fn reverse_rtl(glyphs: &[&TextGlyph], idx: &mut [usize]) {
+/// Reverse right-to-left runs of `idx` (visual → logical), and the word gaps between their glyphs
+/// with them: `spaces[w]` is a gap left of `idx[w]` (#1062).
+fn reverse_rtl(glyphs: &[&TextGlyph], idx: &mut [usize], spaces: &mut [bool]) {
     let rtl = |i: usize| glyphs[i].text.chars().any(is_rtl);
     let mut k = 0;
     while k < idx.len() {
@@ -984,6 +986,9 @@ fn reverse_rtl(glyphs: &[&TextGlyph], idx: &mut [usize]) {
                 e += 1;
             }
             idx[k..=e].reverse();
+            if let Some(gaps) = spaces.get_mut(k + 1..=e) {
+                gaps.reverse();
+            }
             k = e + 1;
         } else {
             k += 1;
@@ -1176,9 +1181,9 @@ fn arrange(glyphs: &[TextGlyph]) -> (Vec<usize>, Vec<u32>, Vec<bool>) {
     let mut space_before: Vec<bool> = Vec::with_capacity(n);
     let mut line = 0u32;
     let mut sc = Scratch::default();
-    // Each glyph's place in the output of its segment. Written for a segment before its word gaps are read, so it never
-    // needs clearing between segments.
-    let mut at = vec![0usize; n];
+    // `spaces[w]`: a word gap left of the w-th glyph of the segment, by position on the line, not by drawing order
+    // (#1062). Reused by every segment.
+    let mut spaces: Vec<bool> = Vec::new();
     for b in block_order {
         for &si in &blocks[b].0 {
             place_glyphs(&glyphs, &height, &segs[si], &mut sc);
@@ -1189,42 +1194,32 @@ fn arrange(glyphs: &[TextGlyph]) -> (Vec<usize>, Vec<u32>, Vec<bool>) {
             sc.gaps.sort_by(f32::total_cmp);
             let typical = sc.gaps.get(sc.gaps.len() / 3).copied().unwrap_or(0.0).max(0.0);
             let threshold = (typical + h * WORD_GAP).max(h * WORD_GAP);
-            // Right-to-left spans are reversed (visual → logical), and only then is a second copy made.
-            let has_rtl = sc.placed.iter().any(|&i| glyphs[i].text.chars().any(is_rtl));
-            if has_rtl {
-                sc.logical.clear();
-                sc.logical.extend_from_slice(&sc.placed);
-                reverse_rtl(&glyphs, &mut sc.logical);
-            }
-            let idx: &[usize] = if has_rtl { &sc.logical } else { &sc.placed };
-            for (k, &g) in idx.iter().enumerate() {
-                if let Some(slot) = at.get_mut(g) {
-                    *slot = k;
-                }
-            }
-            let out_start = order.len();
-            order.extend_from_slice(idx);
-            line_of.resize(order.len(), line);
-            space_before.resize(order.len(), false);
-            for w in 1..sc.placed.len() {
-                let (p, c) = (sc.placed[w - 1], sc.placed[w]);
+            spaces.clear();
+            spaces.resize(sc.placed.len(), false);
+            for (w, pair) in sc.placed.windows(2).enumerate() {
+                let &[p, c] = pair else { continue };
                 let gap = glyphs[c].rect[0] - glyphs[p].rect[2];
                 let (pt, ct) = (&glyphs[p].text, &glyphs[c].text);
                 let cjk = pt.chars().any(is_cjk) && ct.chars().any(is_cjk) && gap < h * 0.5;
                 let tight_cluster = (pt.chars().any(is_complex) || ct.chars().any(is_complex)) && gap < h * 0.6;
                 let run_start = sc.breaks.binary_search(&c).is_ok();
-                if (gap > threshold || run_start) && !cjk && !tight_cluster && !pt.trim().is_empty() && !ct.trim().is_empty() {
-                    // Mark the space before glyph `c` wherever it ended up after RTL reversal. The first glyph of a
-                    // segment never takes a space.
-                    let mark = if run_start { c } else { c.max(p) };
-                    if let Some(&pos) = at.get(mark)
-                        && pos > 0
-                        && let Some(slot) = space_before.get_mut(out_start + pos)
-                    {
-                        *slot = true;
-                    }
+                if let Some(space) = spaces.get_mut(w + 1) {
+                    *space = (gap > threshold || run_start) && !cjk && !tight_cluster && !pt.trim().is_empty() && !ct.trim().is_empty();
                 }
             }
+            // Right-to-left spans are reversed (visual → logical) with their gaps, and only then is a second copy made.
+            let has_rtl = sc.placed.iter().any(|&i| glyphs[i].text.chars().any(is_rtl));
+            if has_rtl {
+                sc.logical.clear();
+                sc.logical.extend_from_slice(&sc.placed);
+                reverse_rtl(&glyphs, &mut sc.logical, &mut spaces);
+            }
+            let idx: &[usize] = if has_rtl { &sc.logical } else { &sc.placed };
+            order.extend_from_slice(idx);
+            line_of.resize(order.len(), line);
+            // `spaces[0]` stays false: the first glyph of a segment never takes a space.
+            space_before.extend(spaces.iter().take(idx.len()));
+            space_before.resize(order.len(), false);
             line += 1;
         }
     }
@@ -1521,6 +1516,21 @@ mod tests {
         let mut v = Vec::new();
         word(&mut v, "每个字", 10.0, 10.0, 9.0);
         assert_eq!(layout(v).plain_text(), "每个字");
+    }
+
+    /// #1062: the word gap stays between the runs when the right-hand run is drawn first, and
+    /// between the words of a right-to-left line.
+    #[test]
+    fn word_gaps_follow_position_not_drawing_order() {
+        let mut v = Vec::new();
+        word(&mut v, "19.4", 40.0, 10.0, 6.0);
+        word(&mut v, "20.0", 10.0, 10.0, 6.0);
+        assert_eq!(layout(v).plain_text(), "20.0 19.4");
+        let mut v = Vec::new();
+        // "שלום עולם" drawn visually: עולם reversed on the left, שלום reversed on the right.
+        word(&mut v, "םלוע", 10.0, 10.0, 6.0);
+        word(&mut v, "םולש", 40.0, 10.0, 6.0);
+        assert_eq!(layout(v).plain_text(), "שלום עולם");
     }
 
     /// Two lines, "ab cd" and "e fg": words stop at blank glyphs, word gaps and line ends.

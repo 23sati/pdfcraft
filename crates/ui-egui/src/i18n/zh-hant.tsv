@@ -1046,7 +1046,7 @@
 	Dark gray theme	深灰色主題
 	Light theme	淺色主題
 	Print ({key})	列印（{key}）
-	Save (M4)	儲存（M4）
+	Save ({key})	儲存（{key}）
 	Document properties ({key})	文件內容（{key}）
 	Action Wizard…	動作精靈…
 	Add Bates numbering…	新增 Bates 編號…
@@ -1483,6 +1483,8 @@
 	{file} is too large for a stamp (at most {n} MB)	{file} 對於戳記來說太大了（最大 {n} MB）
 	Sent to {printer}	已傳送到{printer}
 	Sent to {printer}: {msg}	已傳送到{printer}：{msg}
+	Looking for printers…	正在尋找印表機…
+	Sending to {printer}…	正在傳送到{printer}…
 	Choose a folder for the searchable files	選擇可搜尋檔案的資料夾
 	Files are combined from top to bottom. Leave Pages empty to take every page.	檔案將按從上到下的順序合併。頁碼留空表示取全部頁面。
 	Unlock…	解除鎖定…
@@ -1500,16 +1502,16 @@
 	Opened, but its security settings don't allow combining. Enter the permissions password.	已開啟，但其安全性設定不允許合併。請輸入權限密碼。
 	Unlocked: the combined file won't be password-protected	已解除鎖定：合併後的檔案將不受密碼保護
 	Unlocked {n} of {m} files	已解除鎖定 {m} 個檔案中的 {n} 個
-	Drop PDFs or folders here, or choose them.	將 PDF 或資料夾拖放到此處，或選取它們。
+	Drop PDFs, images, text files or folders here, or choose them.	將 PDF、圖片、文字檔案或資料夾拖放到此處，或選取它們。
 	Add folder…	新增資料夾…
 	Add folder and subfolders…	新增資料夾及子資料夾…
 	More ways to add files	更多新增檔案的方式
-	Every PDF in the folder	資料夾中的所有 PDF
-	Every PDF in the folder and the folders inside it	資料夾及其子資料夾中的所有 PDF
+	Every PDF, image and text file in the folder	資料夾中的所有 PDF、圖片和文字檔案
+	Every PDF, image and text file in the folder and the folders inside it	資料夾及其子資料夾中的所有 PDF、圖片和文字檔案
 	Add folder	新增資料夾
 	Add folder and subfolders	新增資料夾及子資料夾
-	No PDFs found in {folder}	在 {folder} 中找不到 PDF
-	Added the first {n} PDFs in {folder}	已新增 {folder} 中的前 {n} 個 PDF
+	No PDFs, images or text files found in {folder}	在 {folder} 中找不到 PDF、圖片或文字檔案
+	Added the first {n} files in {folder}	已新增 {folder} 中的前 {n} 個檔案
 	Click to sort, drag to move the column. Drag its edge to resize it.	按一下以排序，拖曳以移動欄。拖曳欄邊緣可調整寬度。
 	Reset columns	重設欄
 	Remove {n} files	刪除 {n} 個檔案
@@ -1527,7 +1529,7 @@
 	{n} files need attention	{n} 個檔案需要處理
 	{name} can't be combined: {why}	無法合併 {name}：{why}
 	Check the pages of {name}: {why}	請檢查 {name} 的頁碼：{why}
-	Add the PDFs to combine	新增要合併的 PDF
+	Add the files to combine	新增要合併的檔案
 	File name	檔案名稱
 	Warnings	警告
 	Drag to reorder	拖曳以重新排序
@@ -1540,6 +1542,10 @@
 	Password-protected	受密碼保護
 	Its security settings don't allow copying pages	其安全性設定不允許複製頁面
 	Can't be read: {e}	無法讀取：{e}
+	Leave out files that can't be read?	要排除無法讀取的檔案嗎？
+	These files can't be read, so they won't be in the combined PDF:	這些檔案無法讀取，因此不會包含在合併後的 PDF 中：
+	Combine the rest	合併其餘檔案
+	and {n} more	以及另外 {n} 個
 	Includes unsaved changes	包含未儲存的變更
 	Pages of {name} to combine, e.g. 1-3, 6	要合併的{name}的頁面，例如 1-3、6
 	Remove {name}	刪除{name}
@@ -2070,3 +2076,13 @@ key	Space	空格
 	Collapse all	全部摺疊
 	Remove page	刪除頁面
 	Remove {n} pages	刪除 {n} 頁
+
+# Shared panel docking
+	Reset panel layout	重設面板配置
+	Float panel	浮動面板
+	Move to group	移至群組
+	Panels	面板
+	Resize panels	調整面板大小
+	Resize panel window	調整面板視窗大小
+	Tools	工具
+	Inspector	檢查器

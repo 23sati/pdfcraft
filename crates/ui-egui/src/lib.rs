@@ -29,6 +29,7 @@ mod chrome;
 mod combine_grid;
 pub use combine_grid::ThumbState as CombineThumb;
 mod combine_ui;
+pub mod docking;
 pub use combine_ui::{Columns as CombineColumns, CombineView, Lock as CombineLock, SortKey};
 mod commands;
 mod comment_props;
@@ -85,7 +86,7 @@ mod pickers;
 pub mod prepare;
 mod print_ui;
 mod signature_drag;
-pub use print_ui::{Handling as PrintHandling, PrintDraft, Which as PrintWhich};
+pub use print_ui::{Handling as PrintHandling, PrintDraft, PrinterSource, Which as PrintWhich, system_printers};
 mod redact_ui;
 pub use redact_ui::{HiddenDraft, PagesDraft as RedactPagesDraft, RedactPrefs, SearchDraft as RedactSearchDraft, SearchMode as RedactSearchMode};
 pub mod i18n;
@@ -158,7 +159,7 @@ pub enum LeftPanel {
 }
 
 /// Right-hand panels, opened from the rail.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum RightPanel {
     Comments,
     Bookmarks,
@@ -367,6 +368,9 @@ pub struct PasswordPrompt {
     /// The bytes are a recovery snapshot: once the document is open it takes the snapshot's
     /// path and recovery entry. Cancelling the prompt drops the association with it (#813).
     recovered: Option<RecoveryMeta>,
+    /// The tool that asked for this file (a tool chosen with no document open): it runs once
+    /// the document is unlocked.
+    then: Option<&'static str>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -378,6 +382,8 @@ pub struct RecentFile {
 }
 
 pub struct PdfCraftApp {
+    pub docking: docking::Workspace,
+    pub(crate) pending_panel_reveals: Vec<docking::Panel>,
     pub session: Session,
     pub views: Vec<DocView>,
     /// `None` shows the Home tab.
@@ -427,6 +433,12 @@ pub struct PdfCraftApp {
     /// How to ask for the latest release (the desktop app sets it; see `updates`).
     pub update_source: Option<updates::UpdateSource>,
     pub(crate) updates: updates::Updates,
+    /// Lists the Print dialog's printers in the background (the desktop app sets it; see
+    /// [`PrinterSource`]).
+    pub printer_source: Option<PrinterSource>,
+    // A browser has no background print work: the type is empty there.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+    pub(crate) print_tasks: print_ui::PrintTasks,
     pub palette_open: bool,
     pub palette_query: String,
     pub all_tools_expanded: bool,
@@ -707,6 +719,8 @@ impl PdfCraftApp {
             date_format_draft: None,
             mode_override: None,
             left: LeftPanel::AllTools,
+            docking: docking::Workspace::default(),
+            pending_panel_reveals: Vec::new(),
             left_open: true,
             right: None,
             comments_panel_closed: false,
@@ -725,6 +739,8 @@ impl PdfCraftApp {
             dialog: None,
             update_source: None,
             updates: updates::Updates::default(),
+            printer_source: None,
+            print_tasks: print_ui::PrintTasks::default(),
             palette_open: false,
             palette_query: String::new(),
             all_tools_expanded: false,
@@ -924,7 +940,7 @@ impl PdfCraftApp {
             Err(e @ (OpenError::NeedsPassword | OpenError::WrongPassword)) => {
                 let error = matches!(e, OpenError::WrongPassword).then(|| "Incorrect password. Try again.".to_string());
                 self.password_prompt =
-                    Some(PasswordPrompt { name: name.to_string(), path, bytes, input: String::new(), error, activate, recovered: None });
+                    Some(PasswordPrompt { name: name.to_string(), path, bytes, input: String::new(), error, activate, recovered: None, then: None });
                 return Ok(());
             }
             Err(e) => return Err(e.to_string()),
@@ -1120,11 +1136,16 @@ impl PdfCraftApp {
                 if let Some(meta) = &p.recovered {
                     self.finish_recovery(meta);
                 }
+                if let Some(command) = p.then {
+                    self.execute(command);
+                }
             }
-            // Wrong password: the new prompt is for the same bytes, so it keeps the snapshot.
+            // Wrong password: the new prompt is for the same bytes, so it keeps the snapshot
+            // and the tool waiting for it.
             Ok(()) => {
                 if let Some(prompt) = self.password_prompt.as_mut() {
                     prompt.recovered = p.recovered;
+                    prompt.then = p.then;
                 }
             }
         }
@@ -1154,14 +1175,16 @@ impl PdfCraftApp {
         }
     }
 
+    /// The File ▸ Open picker: PDFs, and images and text that become PDFs.
+    #[cfg(not(target_arch = "wasm32"))]
+    fn open_picker() -> rfd::AsyncFileDialog {
+        rfd::AsyncFileDialog::new().add_filter("PDF", &["pdf"]).add_filter(tl!("Images and text (converted to PDF)"), &create_ui::CONVERTIBLE)
+    }
+
     pub fn open_dialog(&mut self) {
         self.startup_superseded = true;
         #[cfg(not(target_arch = "wasm32"))]
-        self.pick(
-            pickers::PickFor::Open,
-            rfd::AsyncFileDialog::new().add_filter("PDF", &["pdf"]).add_filter(tl!("Images and text (converted to PDF)"), &create_ui::CONVERTIBLE),
-            false,
-        );
+        self.pick(pickers::PickFor::Open, Self::open_picker(), false);
         // Browsers pick files asynchronously; the bytes arrive through `inbox`.
         #[cfg(target_arch = "wasm32")]
         {
@@ -1311,7 +1334,19 @@ impl PdfCraftApp {
 
     /// Run a catalogue command. Commands that aren't implemented yet say which milestone ships them.
     pub fn run_command(&mut self, command: &str) {
-        if pdfcraft_engine::commands::command(command).is_some() {
+        if let Some(spec) = pdfcraft_engine::commands::command(command) {
+            use pdfcraft_engine::commands::Needs;
+            // A tool that needs a document, chosen with none open, asks for the file and then
+            // runs on it, instead of only saying to open one first.
+            let needs_document = !matches!(spec.needs, Needs::Nothing | Needs::Undo | Needs::Redo);
+            let is_tool = pdfcraft_engine::catalog::TOOL_GROUPS
+                .iter()
+                .flat_map(|g| g.sections.iter().flat_map(|s| s.items.iter()))
+                .any(|i| i.command == spec.id);
+            if self.active.is_none() && needs_document && is_tool && !self.command_enabled(spec) {
+                self.open_then_run(spec);
+                return;
+            }
             self.execute(command);
             return;
         }
@@ -1329,16 +1364,47 @@ impl PdfCraftApp {
         self.notify_fmt("`{command}` {when}", &[("command", command), ("when", &when)]);
     }
 
+    /// Ask for a file to open, then run `spec` on it once it is open (or unlocked). Nothing runs
+    /// when the picker is cancelled or the file doesn't open.
+    #[cfg(not(target_arch = "wasm32"))]
+    fn open_then_run(&mut self, spec: &'static pdfcraft_engine::commands::CommandSpec) {
+        self.startup_superseded = true;
+        let dialog = Self::open_picker().set_title(tl!(spec.label).trim_end_matches('…'));
+        let command = spec.id;
+        self.ask_one(pickers::Ask::File(dialog), None, move |app, path| {
+            let path = path.to_string_lossy().into_owned();
+            let before = app.views.len();
+            app.open_path(&path);
+            if let Some(prompt) = app.password_prompt.as_mut().filter(|p| p.path.as_deref() == Some(path.as_str())) {
+                // Encrypted: the tool runs once the password is in.
+                prompt.then = Some(command);
+            } else if app.views.len() > before && app.active.is_some() {
+                app.execute(command);
+            }
+        });
+    }
+
+    /// Browsers read the picked file asynchronously; it opens, and the tool can be chosen again.
+    #[cfg(target_arch = "wasm32")]
+    fn open_then_run(&mut self, _spec: &'static pdfcraft_engine::commands::CommandSpec) {
+        self.open_dialog();
+    }
+
     /// Today in `fmt` (or Preferences ▸ Date format), with month and weekday names in the date
     /// language, or the interface language when it follows that.
     pub fn date_text(&self, fmt: Option<&str>) -> Result<String, String> {
         date_text(&self.session, fmt)
     }
 
+    pub(crate) fn reveal_tools(&mut self) {
+        self.left_open = true;
+        self.pending_panel_reveals.push(docking::Panel::Tools);
+    }
+
     /// Select the workspace and its matching tool panel, just like the mode bar.
     pub(crate) fn select_mode(&mut self, mode: Mode) {
         self.mode = mode;
-        self.left_open = true;
+        self.reveal_tools();
         self.left = match mode {
             Mode::Edit => LeftPanel::Tool("edit"),
             Mode::Convert => LeftPanel::Tool("export"),
@@ -1356,12 +1422,18 @@ impl PdfCraftApp {
             self.comments_panel_closed = true;
         }
         self.right = panel;
+        if panel.is_some() {
+            self.pending_panel_reveals.push(docking::Panel::Inspector);
+        }
     }
 
     /// Serialize the user's persistent state (recent files, theme). Local only.
     pub fn persist(&self) -> String {
         let trusted: Vec<String> = self.session.trusted_certificates().iter().map(pdfcraft_engine::sign::x509::to_pem).collect();
         serde_json::json!({
+            "docking": self.docking,
+            "docking_left_open": self.left_open,
+            "docking_right": self.right,
             "recent": self.recent,
             "reopen_last_session": self.reopen_last_session,
             // Kept only while the preference is on.
@@ -1415,6 +1487,15 @@ impl PdfCraftApp {
     /// Restore state written by `persist`. Unknown or malformed data is ignored.
     pub fn restore(&mut self, json: &str) {
         let Ok(v) = serde_json::from_str::<serde_json::Value>(json) else { return };
+        if let Some(saved) = v.get("docking")
+            && let Ok(workspace) = serde_json::from_value::<docking::Workspace>(saved.clone())
+            && workspace.validate().is_ok()
+        {
+            self.docking = workspace;
+            self.left_open =
+                v.get("docking_left_open").and_then(serde_json::Value::as_bool).unwrap_or(self.docking.layout.contains(&docking::Panel::Tools));
+            self.right = v.get("docking_right").and_then(|value| serde_json::from_value(value.clone()).ok()).flatten();
+        }
         self.combine_columns = combine_ui::Columns::from_json(&v["combine_columns"]);
         if let Some(view) = v["combine_view"].as_str().and_then(combine_ui::CombineView::parse) {
             self.combine_view = view;
@@ -1583,7 +1664,7 @@ impl PdfCraftApp {
             ("tool", _) => {
                 let g = pdfcraft_engine::catalog::group(value).ok_or_else(|| format!("unknown tool {value}"))?;
                 self.left = LeftPanel::Tool(g.id);
-                self.left_open = true;
+                self.reveal_tools();
             }
             ("left", _) => self.left_open = value != "closed",
             ("home", _) => self.active = None,
@@ -1777,6 +1858,12 @@ impl PdfCraftApp {
                 return Err(format!("`{k}` needs an open document"));
             }
             (other, _) => return Err(format!("unknown option {other}")),
+        }
+        if key == "panel" && self.right.is_some() {
+            self.pending_panel_reveals.push(docking::Panel::Inspector);
+        }
+        if key == "left" && self.left_open {
+            self.pending_panel_reveals.push(docking::Panel::Tools);
         }
         Ok(())
     }
@@ -1982,6 +2069,7 @@ impl eframe::App for PdfCraftApp {
             }
         }
         self.poll_updates();
+        self.poll_print();
         // Shortcuts deferred last frame: the text field has taken that frame's typing since.
         let deferred = std::mem::take(&mut self.deferred_commands);
         self.shortcuts(ctx);
@@ -2057,18 +2145,18 @@ impl eframe::App for PdfCraftApp {
         chrome::mode_bar(self, ui);
         if self.active.is_some() {
             chrome::right_rail(self, ui);
-            if self.right.is_some() && self.mode != Mode::Read {
-                panels::right_panel(self, ui);
-            }
-        }
-        if self.left_open && self.mode != Mode::Read {
-            panels::left_panel(self, ui);
         }
         let t = theme::Tokens::get(&ctx);
-        egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.pasteboard)).show(ui, |ui| match self.active {
-            None if self.combine_showing() => combine_ui::page(self, ui),
-            None => home::show(self, ui),
-            Some(i) => canvas::document_area(self, i, ui),
+        egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.pasteboard)).show(ui, |ui| {
+            if self.mode == Mode::Read {
+                match self.active {
+                    None if self.combine_showing() => combine_ui::page(self, ui),
+                    None => home::show(self, ui),
+                    Some(index) => canvas::document_area(self, index, ui),
+                }
+            } else {
+                docking::show(self, ui);
+            }
         });
         self.process_pending_edits();
         palette::show(self, &ctx);
