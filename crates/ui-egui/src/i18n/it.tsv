@@ -2208,3 +2208,10 @@ key	Space	Spazio
 	Panels	Pannelli
 	Resize panels	Ridimensiona pannelli
 	Resize panel window	Ridimensiona finestra pannello
+
+# Architectural print controls (follow-up to #599).
+	PDF page: {w} × {h} in	Pagina PDF: {w} × {h} pollici
+	Match page at 100%	Adatta il foglio alla pagina al 100%
+	PDF scale: {scale}%	Scala PDF: {scale}%
+	Printer paper and scaling may differ. Check driver settings.	Carta e scala della stampante possono differire. Controlla le impostazioni del driver.
+	Drawing scale changes. Use Actual size for full-scale plans.	La scala del disegno cambia. Usa Dimensioni effettive per le planimetrie in scala.

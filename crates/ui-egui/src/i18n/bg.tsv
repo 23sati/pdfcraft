@@ -2163,3 +2163,10 @@ key	Space	Интервал
 	Resize panel window	Преоразмери прозореца на панела
 	Tools	Инструменти
 	Inspector	Инспектор
+
+# Architectural print controls (follow-up to #599).
+	PDF page: {w} × {h} in	PDF страница: {w} × {h} инча
+	Match page at 100%	Хартия по страницата, мащаб 100%
+	PDF scale: {scale}%	Мащаб на PDF: {scale}%
+	Printer paper and scaling may differ. Check driver settings.	Хартията и мащабът на принтера може да се различават. Проверете настройките на драйвера.
+	Drawing scale changes. Use Actual size for full-scale plans.	Мащабът на чертежа се променя. Използвайте Действителен размер за планове в оригинален мащаб.
