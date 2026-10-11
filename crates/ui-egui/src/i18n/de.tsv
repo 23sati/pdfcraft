@@ -29,7 +29,7 @@
 	Create PDF from images…	PDF aus Bildern erstellen…
 	Create PDF from multiple files…	PDF aus mehreren Dateien erstellen…
 	Create PDF from clipboard	PDF aus Zwischenablage erstellen
-	Combine files…	Dateien kombinieren…
+	Combine files…	Dateien zusammenführen…
 	Save	Speichern
 	Save as…	Speichern unter…
 	Close file	Datei schließen
@@ -54,7 +54,7 @@
 	Comments panel	Kommentarbereich
 	Form fields panel	Formularfeldbereich
 	Clear form	Formular zurücksetzen
-	Find tools and commands…	Tools und Befehle suchen…
+	Find tools and commands…	Werkzeuge und Befehle suchen…
 	Zoom	Zoom
 	Actual size	Originalgröße
 	Zoom to page level	Ganze Seite
@@ -96,7 +96,7 @@
 	Print ({key})	Drucken ({key})
 	Save ({key})	Speichern ({key})
 	Document properties ({key})	Dokumenteigenschaften ({key})
-	Find tools and commands	Tools und Befehle suchen
+	Find tools and commands	Werkzeuge und Befehle suchen
 	Fit to height	Seitenhöhe
 	Zoom in	Vergrößern
 	Zoom out	Verkleinern
@@ -322,9 +322,9 @@
 	Images	Bilder
 	Clipboard	Zwischenablage
 	Blank page	Leere Seite
-	Combine files	Dateien kombinieren
-	Combine	Kombinieren
-	Add files to combine	Dateien zum Kombinieren hinzufügen
+	Combine files	Dateien zusammenführen
+	Combine	Zusammenführen
+	Add files to combine	Dateien zum Zusammenführen hinzufügen
 	Page options	Seitenoptionen
 	Page grid	Seitenraster
 	Rotate	Drehen
@@ -337,7 +337,7 @@
 	Set page boxes	Seitenrahmen festlegen
 	Page labels	Seitenbeschriftungen
 	Page transitions	Seitenübergänge
-	Add comments	Kommentieren
+	Add comments	Kommentare hinzufügen
 	Markup	Markierungen
 	Sticky note	Notiz
 	Underline	Unterstreichen
@@ -678,10 +678,14 @@
 	Centre	Zentriert
 	Align right	Rechtsbündig
 	Justify	Blocksatz
-	Standard fonts; text outside Windows-1252 isn't supported yet.	Standardschriften; Text außerhalb von Windows-1252 wird noch nicht unterstützt.
+	Thai and Arabic use regular fallback fonts when available.	Thai und Arabisch verwenden, falls verfügbar, Ersatzschriften im normalen Schriftschnitt.
 	Edit image	Bild bearbeiten
 	Rotate counterclockwise	Gegen den Uhrzeigersinn drehen
 	Rotate clockwise	Im Uhrzeigersinn drehen
+	Select page {label}	Seite {label} auswählen
+	Rotate page {label} counterclockwise	Seite {label} gegen den Uhrzeigersinn drehen
+	Rotate page {label} clockwise	Seite {label} im Uhrzeigersinn drehen
+	Delete page {label}	Seite {label} löschen
 	Flip horizontal	Horizontal spiegeln
 	Flip vertical	Vertikal spiegeln
 	Replace image	Bild ersetzen
@@ -829,6 +833,10 @@
 	The signature will be invisible.	Die Signatur wird unsichtbar sein.
 	Distinguished name	Distinguished Name
 	Labels	Beschriftungen
+	Graphic	Grafik
+	Signer's name	Name des Unterzeichners
+	Fill & Sign signature	Unterschrift aus „Ausfüllen und unterschreiben“
+	Choose image…	Bild auswählen…
 	Permitted actions after certifying	Erlaubte Aktionen nach dem Zertifizieren
 	No changes allowed	Keine Änderungen erlaubt
 	Annotations, form fill-in, and digital signatures	Anmerkungen, Ausfüllen von Formularen und digitale Signaturen
@@ -1199,6 +1207,8 @@
 	Searchable Image (Exact)	Durchsuchbares Bild (exakt)
 	Adds invisible text over each word; the page image is not changed	Legt unsichtbaren Text über jedes Wort; das Seitenbild bleibt unverändert
 	Downsample to	Herunterrechnen auf
+	Also recognize pages that already have text	Auch Seiten erkennen, die bereits Text enthalten
+	Pictures on those pages are recognized too; words already in the page's text are not added again	Bilder auf diesen Seiten werden ebenfalls erkannt; Wörter, die schon im Text der Seite stehen, werden nicht erneut hinzugefügt
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	Die Texterkennung ist nicht installiert: ihre Modelldateien fehlen. Installiere PdfCraft neu oder setze PDFCRAFT_MODELS auf den Ordner, der sie enthält.
 	Settings	Einstellungen
 	Optional	Optional
@@ -1640,8 +1650,14 @@
 	watermark	Wasserzeichen
 	background	Hintergrund
 	This document isn't password-protected	Dieses Dokument ist nicht passwortgeschützt
-	Only the document's owner can change its security (open it with the permissions password)	Nur der Eigentümer des Dokuments kann die Sicherheit ändern (öffne es mit dem Berechtigungspasswort)
+	Enter permissions password…	Berechtigungspasswort eingeben…
+	Permissions password	Berechtigungspasswort
+	“{name}” has security restrictions. Enter its permissions password to lift them.	„{name}“ hat Sicherheitseinschränkungen. Gib das Berechtigungspasswort ein, um sie aufzuheben.
+	Restrictions lifted	Einschränkungen aufgehoben
+	Couldn't unlock {name}: {e}	{name} konnte nicht entsperrt werden: {e}
+	This document has no restrictions to lift	Dieses Dokument hat keine Einschränkungen, die aufgehoben werden können
 	The document's security settings don't allow this change	Die Sicherheitseinstellungen des Dokuments erlauben diese Änderung nicht
+	The document's security settings don't allow copying text and images	Die Sicherheitseinstellungen des Dokuments erlauben kein Kopieren von Text und Bildern
 	Open a document first	Öffne zuerst ein Dokument
 	Security will be removed when you save	Die Sicherheit wird beim Speichern entfernt
 	Click text or an image to edit it	Klicke auf Text oder ein Bild, um es zu bearbeiten
@@ -2121,7 +2137,10 @@ action wizard	Start	Starten
 	Clear Recent Files	Liste „Zuletzt geöffnet“ leeren
 	Remove from Recent	Aus „Zuletzt geöffnet“ entfernen
 	Remove {name} from Recent	{name} aus „Zuletzt geöffnet“ entfernen
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	Die PDF-Textschriften können „{c}“ ({code}) nicht darstellen. Wählen Sie unterstützten Text.
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Die Standardschriften können „{c}“ ({code}) nicht darstellen. Derzeit lassen sich nur westeuropäische Zeichen als Text hinzufügen.
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Die Schrift dieses Felds kann „{c}“ ({code}) nicht darstellen, daher zeigt PdfCraft an dieser Stelle ? an. Der Wert ist gespeichert, und andere PDF-Viewer zeichnen das Feld anhand des Werts neu.
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Die Schriften, mit denen PdfCraft schreibt, können „{c}“ ({code}) nicht darstellen, daher erscheint es in jedem PDF-Viewer als ?. Der Text ist gespeichert.
 	Larger pages	Größere Seiten
 	Smaller pages	Kleinere Seiten
 	Reset page size	Seitengröße zurücksetzen
@@ -2138,6 +2157,8 @@ action wizard	Start	Starten
 	Printer properties	Druckereigenschaften
 	Reset to printer defaults	Auf Druckerstandard zurücksetzen
 	This printer offers no settings of its own.	Dieser Drucker bietet keine eigenen Einstellungen.
+	Margins	Ränder
+	For page sizes and margins.	Für Seitengrößen und Ränder.
 	Scroll tabs left	Tabs nach links scrollen
 	Scroll tabs right	Tabs nach rechts scrollen
 
@@ -2207,6 +2228,17 @@ key	Space	Leertaste
 	Resize panel window	Größe des Bereichsfensters ändern
 	Tools	Werkzeuge
 	Inspector	Inspektor
+
+# Architectural print controls (follow-up to #599).
+	PDF page: {size}	PDF-Seite: {size}
+	Match page at 100%	Papier an Seite anpassen, 100%
+	PDF scale: {scale}%	PDF-Maßstab: {scale}%
+	Printer paper and scaling may differ. Check driver settings.	Druckerpapier und Skalierung können abweichen. Treibereinstellungen prüfen.
+	Drawing scale changes. Use Actual size for full-scale plans.	Der Zeichnungsmaßstab ändert sich. Für maßstabsgetreue Pläne Tatsächliche Größe verwenden.
+	Reload documents when their files change on disk	Dokumente neu laden, wenn sich ihre Dateien auf dem Datenträger ändern
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Diese Datei wurde auf dem Datenträger geändert. Lade sie neu, um die neue Version zu sehen; deine nicht gespeicherten Änderungen gehen dabei verloren.
+	Reload	Neu laden
+	Couldn't reload {name}: {e}	{name} konnte nicht neu geladen werden: {e}
 	Mouse wheel scroll speed	Scrollgeschwindigkeit des Mausrads
 scroll speed	Slow	Langsam
 scroll speed	Normal	Normal
@@ -2214,3 +2246,12 @@ scroll speed	Fast	Schnell
 	Enhance camera image	Kamerafoto verbessern
 	Drag the corners onto the document's edges, then choose Enhance page.	Ziehen Sie die Ecken auf die Kanten des Dokuments und wählen Sie dann Seite verbessern.
 	Enhance page	Seite verbessern
+	Done adding text	Texteingabe abschließen
+	Discard this text (Esc)	Diesen Text verwerfen (Esc)
+	Clean-up	Bereinigung
+	Original	Original
+	Greyscale	Graustufen
+	Black and white	Schwarzweiß
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Der Treiber dieses Druckers übernimmt keine Einstellungen für beidseitigen Druck von anderen Programmen, daher gilt seine eigene Einstellung. Ändern unter Eigenschaften…
+	Tools panel side	Seite des Werkzeugbereichs
+	Add comment	Kommentar hinzufügen

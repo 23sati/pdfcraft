@@ -55,6 +55,7 @@ pdfcraft-cli combine <a.pdf> <b.pdf> … --out combined.pdf
 pdfcraft-cli extract <in.pdf> --pages 1,3,5 --out out.pdf
 pdfcraft-cli split   <in.pdf> (--every N | --before 3,7) [--out-dir DIR]
 pdfcraft-cli check  <files or dirs…> [--timeout 20] [--dpi 36] [--json out.json]
+pdfcraft-cli audit  <file.pdf> [--password PW]            find faux redactions (fails when found)
 pdfcraft-cli tools                                       automation tools and their JSON Schemas
 pdfcraft-cli run    <tool> [key=value …] [--root DIR] [--out image.png]
 pdfcraft-cli run    --script steps.json [--root DIR]      [{\"tool\": \"doc_open\", \"args\": {…}}, …]
@@ -85,6 +86,7 @@ fn main() -> ExitCode {
         Some("split") => split(&args[1..]),
         Some("check") => check(&args[1..]),
         Some("check-one") => check_one(&args[1..]),
+        Some("audit") => audit(&args[1..]),
         Some("tools") => tools(),
         Some("run") => run(&args[1..]),
         Some("ui") => ui(&args[1..]),
@@ -144,6 +146,28 @@ fn version() -> Result<(), CliError> {
     stdout_line(format_args!("Web:     {}", pdfcraft_engine::links::APP_PAGE))?;
     stdout_line(format_args!("Source:  {}", pdfcraft_engine::links::GITHUB))?;
     Ok(())
+}
+
+/// Audit a document for faux redactions. Prints the findings as JSON; fails when any are
+/// found so scripts and CI can gate on it, and when the audit itself cannot run.
+fn audit(args: &[String]) -> Result<(), CliError> {
+    let path = *positional(args).first().ok_or("audit: missing file")?;
+    let bytes = read(path)?;
+    let doc = pdfcraft_cos::Document::open_with_password(bytes, flag(args, "--password")).map_err(|e| format!("{path}: {e}"))?;
+    let findings = pdfcraft_audit::audit_redactions(&doc).map_err(|e| format!("{path}: {e}"))?;
+    let items: Vec<serde_json::Value> = findings
+        .into_iter()
+        .map(|f| {
+            serde_json::json!({
+                "page": f.page + 1,
+                "kind": f.kind.id(),
+                "rect": f.rect,
+                "covered_text": f.covered_text,
+            })
+        })
+        .collect();
+    println!("{}", serde_json::json!({ "file": path, "findings": items, "count": items.len() }));
+    if items.is_empty() { Ok(()) } else { Err(format!("audit: {} faux redaction(s) found", items.len()).into()) }
 }
 
 fn flag<'a>(args: &'a [String], name: &str) -> Option<&'a str> {
@@ -316,7 +340,7 @@ fn text(args: &[String]) -> Result<(), CliError> {
     };
     let mut failed: Vec<usize> = Vec::new();
     for (n, p) in pages.iter().enumerate() {
-        let out = r.render(RenderRequest { page: *p, kind: RequestKind::Text, tile: None, scale: 1.0, tag: 0 });
+        let out = r.render(RenderRequest { page: *p, kind: RequestKind::Text, tile: None, scale: 1.0, tag: 0, preview: false });
         if let Some(e) = out.error {
             let _ = writeln!(std::io::stderr().lock(), "page {}: {e}", p + 1);
             failed.push(p + 1);
@@ -479,7 +503,7 @@ fn render(args: &[String]) -> Result<(), CliError> {
         read(path)?,
         RenderConfig { password: flag(args, "--password").map(Arc::from), reject_oversize: true, ..Default::default() },
     );
-    let p = r.render(RenderRequest { page: page_index, kind: RequestKind::Pixels, tile: None, scale: dpi / 72.0, tag: 0 });
+    let p = r.render(RenderRequest { page: page_index, kind: RequestKind::Pixels, tile: None, scale: dpi / 72.0, tag: 0, preview: false });
     if let Some(e) = p.error {
         return Err(e.into());
     }
@@ -517,8 +541,8 @@ fn check_one(args: &[String]) -> Result<(), CliError> {
             let mut r = PageRenderer::new(bytes, RenderConfig::default());
             let mut failed = Vec::new();
             for i in 0..info.pages.len().min(500) {
-                let p = r.render(RenderRequest { page: i, kind: RequestKind::Pixels, tile: None, scale: dpi / 72.0, tag: 0 });
-                if let Some(e) = r.render(RenderRequest { page: i, kind: RequestKind::Text, tile: None, scale: 1.0, tag: 0 }).error {
+                let p = r.render(RenderRequest { page: i, kind: RequestKind::Pixels, tile: None, scale: dpi / 72.0, tag: 0, preview: false });
+                if let Some(e) = r.render(RenderRequest { page: i, kind: RequestKind::Text, tile: None, scale: 1.0, tag: 0, preview: false }).error {
                     failed.push(format!("p{} text: {e}", i + 1));
                 }
                 if let Some(e) = p.error {

@@ -234,6 +234,58 @@ fn flattening_keeps_a_note_whose_appearance_is_missing() {
     assert!(flat.contains("q 1 0 0 1 10 10 cm /PCFl0 Do Q"), "{flat}");
 }
 
+/// Flattening never makes a `?` permanent: it refuses, changing nothing, a text box without an
+/// appearance whose text Helvetica can't draw (another program's), and a comment or form field
+/// whose appearance PdfCraft drew with `?` (marked `PCUndrawn`). A comment another program drew
+/// with a font that has those characters (an appearance, no mark) flattens as before.
+#[test]
+fn flattening_refuses_what_would_bake_in_question_marks() {
+    let page = stream("", " ");
+    let refused = |annot: &str, comments: bool, fields: bool, what: &str| {
+        let mut doc = build(&[
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << >> /Contents 4 0 R /Annots [5 0 R] >>",
+            &page,
+            annot,
+            "<< /Type /XObject /Subtype /Form /BBox [0 0 140 30] /Length 0 >>\nstream\n\nendstream",
+        ]);
+        let before = write_incremental(&doc, &SaveOptions::default()).unwrap();
+        let err = flatten(&mut doc, &[0], comments, fields).unwrap_err().to_string();
+        assert!(err.contains(what) && err.contains("page 1") && err.contains("\"欢\" (U+6B22)") && err.contains("nothing was flattened"), "{err}");
+        assert_eq!(write_incremental(&doc, &SaveOptions::default()).unwrap(), before, "a refused flatten changes nothing");
+        assert!(pdfcraft_model::pages(&doc)[0].dict.contains(b"Annots"), "the annotation is still there");
+    };
+    refused(
+        "<< /Type /Annot /Subtype /FreeText /Rect [10 10 150 40] /DA (0 g /Helv 12 Tf) /Contents <FEFF6B228FCE> /F 4 >>",
+        true,
+        false,
+        "a comment",
+    );
+    refused(
+        "<< /Type /Annot /Subtype /FreeText /Rect [10 10 150 40] /DA (0 g /Helv 12 Tf) /Contents <FEFF6B228FCE> /F 4 /AP << /N 6 0 R >> /PCUndrawn <FEFF6B22> >>",
+        true,
+        false,
+        "a comment",
+    );
+    refused(
+        "<< /Type /Annot /Subtype /Widget /FT /Tx /T (name) /V <FEFF6B228FCE> /Rect [10 10 150 40] /F 4 /AP << /N 6 0 R >> /PCUndrawn <FEFF6B22> >>",
+        false,
+        true,
+        "a form field",
+    );
+    // Drawn by another program, with a font that has 欢: no mark, so it flattens.
+    let mut doc = build(&[
+        "<< /Type /Catalog /Pages 2 0 R >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << >> /Contents 4 0 R /Annots [5 0 R] >>",
+        &page,
+        "<< /Type /Annot /Subtype /FreeText /Rect [10 10 150 40] /DA (0 g /Helv 12 Tf) /Contents <FEFF6B228FCE> /F 4 /AP << /N 6 0 R >> >>",
+        "<< /Type /XObject /Subtype /Form /BBox [0 0 140 30] /Length 0 >>\nstream\n\nendstream",
+    ]);
+    assert_eq!(flatten(&mut doc, &[0], true, false).unwrap(), 1);
+}
+
 /// Display space is in points, so on a `/UserUnit 2` page an item's box maps to half as many
 /// user-space units. Items record the `/UserUnit` they were written for; one without it was
 /// written when display space was in user-space units, and reads back scaled to points.
@@ -265,6 +317,170 @@ fn added_items_follow_the_page_user_unit() {
     legacy.set(on(2).obj, Object::Stream(s));
     let Content::Text(old) = &list_added(&legacy).into_iter().find(|a| a.page == 2).unwrap().content else { panic!() };
     assert_eq!((old.rect[0], old.rect[2], old.rect[3], old.size), (144.0, 600.0, 1400.0, 28.0), "scaled to points");
+}
+
+fn tagged_dictionary(tag: &str, added: Option<Object>) -> Dict {
+    let mut dict = Dict::new();
+    dict.set(b"PCMark".to_vec(), Object::name(tag));
+    if let Some(added) = added {
+        dict.set(b"PCAdded".to_vec(), added);
+    }
+    dict
+}
+
+fn tagged_stream(doc: &mut Document, tag: &str, added: Option<Object>) -> Object {
+    Object::Ref(doc.add(Object::Stream(Stream::from_raw(tagged_dictionary(tag, added), Vec::new()))))
+}
+
+fn added_text_params() -> Dict {
+    let mut params = Dict::new();
+    params.set(b"Rect".to_vec(), Object::Array([10, 20, 110, 40].into_iter().map(Object::Int).collect()));
+    params.set(b"Kind".to_vec(), Object::name("Text"));
+    params.set(b"Text".to_vec(), Object::String(pdfcraft_cos::PdfString::text("Added text")));
+    params.set(b"Size".to_vec(), Object::Int(12));
+    params
+}
+
+fn added_image_params(image: pdfcraft_cos::ObjRef) -> Dict {
+    let mut params = Dict::new();
+    params.set(b"Rect".to_vec(), Object::Array([10, 20, 110, 70].into_iter().map(Object::Int).collect()));
+    params.set(b"Kind".to_vec(), Object::name("Image"));
+    params.set(b"Image".to_vec(), Object::Ref(image));
+    params
+}
+
+fn set_page_contents(doc: &mut Document, contents: Object, user_unit: Option<Object>) {
+    let page = pdfcraft_model::pages(doc)[0].obj;
+    doc.update_dict(page, |dict| {
+        dict.set(b"Contents".to_vec(), contents);
+        if let Some(user_unit) = user_unit {
+            dict.set(b"UserUnit".to_vec(), user_unit);
+        }
+    })
+    .unwrap();
+}
+
+fn assert_marker_scan_matches_legacy(doc: &Document, label: &str, marks: &[MarkKind], added: usize) -> MarkerScan {
+    let expected_marks = marks_present(doc);
+    let expected_added = list_added(doc);
+    let scan = scan_markers(doc);
+    assert_eq!(scan.marks, expected_marks, "{label}: marks differ from the independent scan");
+    assert_eq!(scan.added, expected_added, "{label}: added content differs from the independent scan");
+    assert_eq!(scan.marks, marks, "{label}: fixture's mark order or deduplication is wrong");
+    assert_eq!(scan.added.len(), added, "{label}: fixture's added-item count is wrong");
+    scan
+}
+
+#[test]
+fn combined_marker_scan_matches_the_independent_scans() {
+    let empty = build(&["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", "<< /Type /Page /Parent 2 0 R >>"]);
+    assert_marker_scan_matches_legacy(&empty, "empty page", &[], 0);
+    assert_marker_scan_matches_legacy(&fixture(), "ordinary streams and a page without contents", &[], 0);
+
+    for (tag, kind) in [("HeaderFooter", MarkKind::HeaderFooter), ("Watermark", MarkKind::Watermark), ("Background", MarkKind::Background)] {
+        let mut doc = fixture();
+        let marker = tagged_stream(&mut doc, tag, None);
+        set_page_contents(&mut doc, marker, None);
+        assert_marker_scan_matches_legacy(&doc, tag, &[kind], 0);
+    }
+
+    let mut all_marks = fixture();
+    let background = tagged_stream(&mut all_marks, "Background", None);
+    let watermark = tagged_stream(&mut all_marks, "Watermark", None);
+    let header = tagged_stream(&mut all_marks, "HeaderFooter", None);
+    set_page_contents(
+        &mut all_marks,
+        Object::Array(vec![background.clone(), watermark.clone(), header.clone(), watermark, header, background]),
+        None,
+    );
+    assert_marker_scan_matches_legacy(&all_marks, "all mark kinds repeated", &[MarkKind::Background, MarkKind::Watermark, MarkKind::HeaderFooter], 0);
+
+    let mut single_reference = fixture();
+    let marker = tagged_stream(&mut single_reference, "Watermark", None);
+    set_page_contents(&mut single_reference, marker, None);
+    assert_marker_scan_matches_legacy(&single_reference, "contents as one reference", &[MarkKind::Watermark], 0);
+
+    let mut text_only = fixture();
+    let text = tagged_stream(&mut text_only, "Added", Some(Object::Dict(added_text_params())));
+    set_page_contents(&mut text_only, text, None);
+    let text_scan = assert_marker_scan_matches_legacy(&text_only, "one added text item", &[], 1);
+    assert!(matches!(&text_scan.added[0].content, Content::Text(text) if text.text == "Added text"));
+
+    let mut indirect_params = fixture();
+    let params = indirect_params.add(Object::Dict(added_text_params()));
+    let text = tagged_stream(&mut indirect_params, "Added", Some(Object::Ref(params)));
+    set_page_contents(&mut indirect_params, text, None);
+    let indirect_scan = assert_marker_scan_matches_legacy(&indirect_params, "indirect PCAdded dictionary", &[], 1);
+    assert!(matches!(&indirect_scan.added[0].content, Content::Text(text) if text.text == "Added text"));
+
+    let mut image_only = fixture();
+    let image = image_only.add(Object::Stream(Stream::from_raw(Dict::new(), vec![0])));
+    let image_item = tagged_stream(&mut image_only, "Added", Some(Object::Dict(added_image_params(image))));
+    set_page_contents(&mut image_only, image_item, None);
+    let image_scan = assert_marker_scan_matches_legacy(&image_only, "one added image item", &[], 1);
+    assert!(matches!(&image_scan.added[0].content, Content::Image(item) if item.image == image));
+
+    let mut interleaved = fixture();
+    let text = tagged_stream(&mut interleaved, "Added", Some(Object::Dict(added_text_params())));
+    let watermark = tagged_stream(&mut interleaved, "Watermark", None);
+    let image = interleaved.add(Object::Stream(Stream::from_raw(Dict::new(), vec![0])));
+    let image_item = tagged_stream(&mut interleaved, "Added", Some(Object::Dict(added_image_params(image))));
+    let header = tagged_stream(&mut interleaved, "HeaderFooter", None);
+    set_page_contents(&mut interleaved, Object::Array(vec![text, watermark, image_item, header]), None);
+    let interleaved_scan =
+        assert_marker_scan_matches_legacy(&interleaved, "marks and added content interleaved", &[MarkKind::Watermark, MarkKind::HeaderFooter], 2);
+    assert!(matches!(&interleaved_scan.added[0].content, Content::Text(_)));
+    assert!(matches!(&interleaved_scan.added[1].content, Content::Image(_)));
+
+    let mut array_contents = fixture();
+    let background = tagged_stream(&mut array_contents, "Background", None);
+    let array_ref = array_contents.add(Object::Array(vec![background]));
+    set_page_contents(&mut array_contents, Object::Ref(array_ref), None);
+    assert_marker_scan_matches_legacy(&array_contents, "contents as an indirect array", &[MarkKind::Background], 0);
+
+    let mut malformed = fixture();
+    let indirect_mark = malformed.add(Object::Dict(tagged_dictionary("HeaderFooter", None)));
+    let missing_added = tagged_stream(&mut malformed, "Added", None);
+    let invalid_added = tagged_stream(&mut malformed, "Added", Some(Object::String(pdfcraft_cos::PdfString::text("bad params"))));
+    let unknown = tagged_stream(&mut malformed, "FutureKind", None);
+    let direct_watermark = Object::Dict(tagged_dictionary("Watermark", None));
+    let direct_added = Object::Dict(tagged_dictionary("Added", Some(Object::Dict(added_text_params()))));
+    set_page_contents(
+        &mut malformed,
+        Object::Array(vec![
+            Object::Null,
+            Object::Int(7),
+            Object::name("not-a-stream"),
+            direct_watermark,
+            Object::Ref(indirect_mark),
+            missing_added,
+            invalid_added,
+            unknown,
+            direct_added,
+        ]),
+        None,
+    );
+    assert_marker_scan_matches_legacy(
+        &malformed,
+        "malformed, non-stream, unknown and direct entries",
+        &[MarkKind::Watermark, MarkKind::HeaderFooter],
+        0,
+    );
+
+    let mut shared = fixture();
+    let added = tagged_stream(&mut shared, "Added", Some(Object::Dict(added_text_params())));
+    let mark = tagged_stream(&mut shared, "Background", None);
+    set_page_contents(&mut shared, Object::Array(vec![added.clone(), mark.clone(), added.clone(), mark]), None);
+    let shared_scan = assert_marker_scan_matches_legacy(&shared, "repeated shared stream references", &[MarkKind::Background], 2);
+    assert_eq!(shared_scan.added[0].obj, shared_scan.added[1].obj);
+
+    let mut user_unit = fixture();
+    let added = tagged_stream(&mut user_unit, "Added", Some(Object::Dict(added_text_params())));
+    set_page_contents(&mut user_unit, added, Some(Object::Int(2)));
+    let unit_scan = assert_marker_scan_matches_legacy(&user_unit, "non-1.0 UserUnit", &[], 1);
+    let Content::Text(text) = &unit_scan.added[0].content else { panic!() };
+    assert_eq!(text.rect, [20.0, 40.0, 220.0, 80.0]);
+    assert_eq!(text.size, 24.0);
 }
 
 #[test]
@@ -1615,6 +1831,148 @@ fn the_graphics_state_carries_over_between_content_streams() {
     assert!(close(l.rect[0], 100.0) && close(l.size, 10.0), "{l:?}");
 }
 
+/// One page whose font draws a few Hebrew letters (ToUnicode): A ב, B ד, C י, D ו, E ק, F ש,
+/// G ל, H ם. Content streams draw Hebrew in visual order, so "בדיוק" is `(EDCBA)`.
+fn hebrew_page(content: &str) -> Document {
+    let cmap = "/CIDInit /ProcSet findresource begin 12 dict begin begincmap /CMapType 2 def \
+                1 begincodespacerange <00> <FF> endcodespacerange 9 beginbfchar \
+                <20> <0020> <41> <05D1> <42> <05D3> <43> <05D9> <44> <05D5> <45> <05E7> <46> <05E9> <47> <05DC> <48> <05DD> \
+                endbfchar endcmap CMapName currentdict /CMap defineresource pop end end";
+    // Widths for codes 32..=72: a space, then the eight letters at 65..=72.
+    let widths: Vec<&str> = (32..=72)
+        .map(|c| {
+            if c == 32 {
+                "250"
+            } else if c >= 65 {
+                "500"
+            } else {
+                "0"
+            }
+        })
+        .collect();
+    let objs: Vec<String> = vec![
+        "<< /Type /Catalog /Pages 2 0 R >>".into(),
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".into(),
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 800] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>".into(),
+        format!("<< /Length {} >>\nstream\n{content}\nendstream", content.len()),
+        format!(
+            "<< /Type /Font /Subtype /Type1 /BaseFont /ABCDEF+FakeHebrew /FirstChar 32 /LastChar 72 /Widths [{}] /ToUnicode 6 0 R >>",
+            widths.join(" ")
+        ),
+        format!("<< /Length {} >>\nstream\n{cmap}\nendstream", cmap.len()),
+    ];
+    let mut out = b"%PDF-1.7\n".to_vec();
+    let mut offs = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offs.push(out.len());
+        out.extend_from_slice(format!("{} 0 obj\n{o}\nendobj\n", i + 1).as_bytes());
+    }
+    let x = out.len();
+    out.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+    for o in offs {
+        out.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+    }
+    out.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{x}\n%%EOF\n", objs.len() + 1).as_bytes());
+    Document::open(Arc::new(out)).unwrap()
+}
+
+/// The report: Edit text showed "בדיוק" (exactly) reversed, because the line was read in the
+/// order the page draws it.
+#[test]
+fn hebrew_lines_read_in_typing_order() {
+    let doc = hebrew_page("BT /F1 12 Tf 300 700 Td (EDCBA) Tj ET BT /F1 12 Tf 300 600 Td (EDCBA HDGF) Tj ET");
+    let lines: Vec<String> = text::text_lines(&doc, 0).unwrap().into_iter().map(|l| l.text).collect();
+    assert_eq!(lines, ["בדיוק", "שלום בדיוק"]);
+    let blocks: Vec<String> = text::text_blocks(&doc, 0).unwrap().into_iter().map(|b| b.text).collect();
+    assert_eq!(blocks, ["בדיוק", "שלום בדיוק"]);
+}
+
+/// Text the page's own font can show is written back in drawing order, right-aligned to where
+/// the line ended, and reads back as typed.
+#[test]
+fn hebrew_edits_are_drawn_right_to_left_and_keep_their_right_edge() {
+    let mut doc = hebrew_page("BT /F1 12 Tf 300 700 Td (EDCBA) Tj ET");
+    let before = text::text_lines(&doc, 0).unwrap()[0].rect;
+    // One line: the bytes are the visual order of the typed text.
+    assert_eq!(text::replace_line(&mut doc, 0, 0, "שלום בדיוק").unwrap().substituted, None);
+    let content = String::from_utf8_lossy(&page_content_bytes(&doc, 0)).into_owned();
+    assert!(content.contains("(EDCBA HDGF)"), "{content}");
+    assert_eq!(text::text_lines(&reopen(&doc), 0).unwrap()[0].text, "שלום בדיוק");
+
+    // A paragraph: shorter text stays right-aligned at the old right edge.
+    let mut doc = hebrew_page("BT /F1 12 Tf 300 700 Td (EDCBA) Tj ET");
+    assert_eq!(text::replace_block(&mut doc, 0, 0, "דוב").unwrap().substituted, None);
+    let content = String::from_utf8_lossy(&page_content_bytes(&doc, 0)).into_owned();
+    assert!(content.contains("(ADB)"), "{content}");
+    let doc = reopen(&doc);
+    let line = text::text_lines(&doc, 0).unwrap().swap_remove(0);
+    assert_eq!(line.text, "דוב");
+    assert!((line.rect[2] - before[2]).abs() < 0.5, "right edge {} → {}", before[2], line.rect[2]);
+    assert!(line.rect[0] > before[0] + 1.0, "shorter text starts further right: {:?} vs {before:?}", line.rect);
+
+    // Longer text grows to the left, not off the right edge.
+    let mut doc = hebrew_page("BT /F1 12 Tf 300 700 Td (EDCBA) Tj ET");
+    text::replace_block(&mut doc, 0, 0, "שלום בדיוק שלום").unwrap();
+    let doc = reopen(&doc);
+    let line = text::text_lines(&doc, 0).unwrap().swap_remove(0);
+    assert_eq!(line.text, "שלום בדיוק שלום");
+    assert!((line.rect[2] - before[2]).abs() < 0.5, "right edge {} → {}", before[2], line.rect[2]);
+    assert!(line.rect[0] < before[0] - 1.0, "longer text grows left: {:?} vs {before:?}", line.rect);
+
+    // An alignment asked for still wins.
+    let mut doc = hebrew_page("BT /F1 12 Tf 300 700 Td (EDCBA) Tj ET");
+    let left = text::BlockStyle { align: Some(Align::Left), ..Default::default() };
+    text::rewrite_block(&mut doc, 0, 0, Some("דוב"), &left).unwrap();
+    let line = text::text_lines(&reopen(&doc), 0).unwrap().swap_remove(0);
+    assert!((line.rect[0] - before[0]).abs() < 0.5, "left-aligned: {:?} vs {before:?}", line.rect);
+}
+
+/// Letters the page's font lacks are drawn with the Hebrew face from craft-fonts; a build
+/// without it says so and changes nothing. Hebrew points are refused, not misdrawn.
+#[test]
+fn hebrew_letters_the_page_font_lacks_use_the_hebrew_face() {
+    let mut doc = hebrew_page("BT /F1 12 Tf 300 700 Td (EDCBA) Tj ET");
+    let before = page_content_bytes(&doc, 0);
+    let pointed = text::replace_line(&mut doc, 0, 0, "שָׁלוֹם עוֹלָם");
+    let Err(EditError::Invalid(msg)) = pointed else { panic!("expected a clear error, got {pointed:?}") };
+    assert!(msg.contains("niqqud"), "{msg}");
+    assert_eq!(page_content_bytes(&doc, 0), before);
+
+    // ע and ה aren't in the page's font.
+    let typed = "שלום עולם, עמוד 12 (PDF)";
+    let line = text::replace_line(&mut doc, 0, 0, typed);
+    if pdfcraft_fonts::document_hebrew_font(false).is_none() {
+        let Err(EditError::Invalid(msg)) = line else { panic!("expected a clear error, got {line:?}") };
+        assert!(msg.contains("Hebrew fallback font") && msg.contains("CRAFT_FONTS_DIR"), "{msg}");
+        assert_eq!(page_content_bytes(&doc, 0), before);
+        eprintln!("built without a craft-fonts Hebrew face: the Type 3 path is checked with CRAFT_FONTS_DIR");
+        return;
+    }
+    assert_eq!(line.unwrap().substituted.as_deref(), Some("Noto Sans Hebrew Type3"));
+    let content = String::from_utf8_lossy(&page_content_bytes(&doc, 0)).into_owned();
+    assert!(content.contains("/PCHe"), "{content}");
+    let reopened = reopen(&doc);
+    assert_eq!(text::text_lines(&reopened, 0).unwrap()[0].text, typed);
+    // Every glyph has an outline, so nothing is drawn as a box.
+    let p = pdfcraft_model::pages(&reopened).swap_remove(0);
+    let res = reopened.resolve(p.dict.get(b"Resources").unwrap());
+    let fonts = reopened.resolve(res.as_dict().unwrap().get(b"Font").unwrap());
+    let font = reopened.resolve(fonts.as_dict().unwrap().get(b"PCHe").unwrap());
+    let procs = reopened.resolve(font.as_dict().unwrap().get(b"CharProcs").unwrap());
+    let procs = procs.as_dict().unwrap();
+    assert_eq!(procs.iter().count(), typed.chars().collect::<std::collections::HashSet<_>>().len());
+    for (_, glyph) in procs.iter() {
+        let pdfcraft_cos::Object::Stream(s) = &*reopened.resolve(glyph) else { panic!("glyph stream") };
+        let path = String::from_utf8(s.decoded().unwrap()).unwrap();
+        assert!(path.starts_with(|c: char| c.is_ascii_digit()) && path.contains(" d1"), "{path}");
+    }
+
+    // A whole paragraph too, right-aligned.
+    let mut doc = hebrew_page("BT /F1 12 Tf 300 700 Td (EDCBA) Tj ET");
+    assert_eq!(text::replace_block(&mut doc, 0, 0, "עברית מלאה").unwrap().substituted.as_deref(), Some("Noto Sans Hebrew Type3"));
+    assert_eq!(text::text_blocks(&reopen(&doc), 0).unwrap()[0].text, "עברית מלאה");
+}
+
 /// #125: page-content tools refuse text the standard fonts can't draw instead of writing `?`,
 /// and leave the document untouched.
 #[test]
@@ -1885,6 +2243,37 @@ fn hostile_form_xobjects_are_read_once() {
     let texts: Vec<String> = text::reading_blocks(&doc, 0).unwrap().into_iter().map(|b| b.text).collect();
     assert_eq!(texts, ["once", "from b", "from a", "inherited", "bad matrix"]);
     assert!(images::reading_images(&doc, 0).unwrap().is_empty());
+}
+
+#[test]
+fn added_thai_text_wraps_clusters_and_survives_reopen() {
+    let mut doc = fixture();
+    let t = AddedText {
+        rect: [20.0, 100.0, 250.0, 300.0], text: "สวัสดี น้ำ ผู้ใช้ ปู่ ๑๒๓ Hello 123".into(), size: 16.0, ..AddedText::default()
+    };
+    if pdfcraft_fonts::document_thai_font().is_none() {
+        assert_eq!(first_undrawable(&t), Some('ส'));
+        let before = list_added(&doc);
+        let err = add_content(&mut doc, 0, &Content::Text(t)).unwrap_err().to_string();
+        assert!(err.contains("Thai") && err.contains("CRAFT_FONTS_DIR"), "{err}");
+        assert_eq!(list_added(&doc), before);
+        return;
+    }
+    assert_eq!(first_undrawable(&t), None);
+    add_content(&mut doc, 0, &Content::Text(t.clone())).unwrap();
+    let reopened = reopen(&doc);
+    assert_eq!(list_added(&reopened)[0].content, Content::Text(AddedText { rect: super::added::text_rect(&t), ..t.clone() }));
+    let narrow = AddedText { rect: [0.0, 0.0, 16.0, 200.0], text: "กิ่กิ่กิ่".into(), ..t.clone() };
+    assert_eq!(super::added::lines(&narrow), ["กิ่", "กิ่", "กิ่"]);
+    update_content(&mut doc, 0, 0, &Content::Text(AddedText { text: "แก้ไข น้ำ".into(), ..t.clone() })).unwrap();
+    assert!(!own(&doc, 0).is_empty());
+    let bad = Content::Text(AddedText { text: "ไทย 日".into(), ..t });
+    let before = list_added(&doc);
+    assert!(update_content(&mut doc, 0, 0, &bad).is_err());
+    assert_eq!(list_added(&doc), before);
+    delete_content(&mut doc, 0, 0).unwrap();
+    assert!(list_added(&doc).is_empty());
+    assert!(arabic_font_names(&doc, 0).is_empty());
 }
 
 #[test]

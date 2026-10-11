@@ -5,7 +5,7 @@ use egui::{Align2, CornerRadius, Rect, Sense, Stroke, vec2};
 use pdfcraft_engine::catalog::{Availability, TOOL_GROUPS};
 
 use crate::theme::{self, Tokens};
-use crate::{LeftPanel, PdfCraftApp, icons};
+use crate::{PdfCraftApp, icons};
 
 struct Hit {
     /// The tool panel to open (tools and catalogue items); `None` for plain commands.
@@ -163,8 +163,19 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                     let shown_detail = tl!(&h.detail).to_string();
                     resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, h.ready, &shown));
                     let fg = if h.ready { t.text } else { t.text_faint };
-                    ui.painter().text(rect.left_center() + vec2(36.0, 0.0), Align2::LEFT_CENTER, shown, theme::regular(13.5), fg);
-                    ui.painter().text(rect.right_center() - vec2(10.0, 0.0), Align2::RIGHT_CENTER, shown_detail, theme::regular(12.0), t.text_faint);
+                    let detail_font = theme::regular(12.0);
+                    let detail_max = (rect.width() * 0.42).clamp(0.0, 220.0);
+                    let detail = crate::widgets::fit_line(&shown_detail, detail_max, |s| crate::widgets::text_width(ui, s, &detail_font));
+                    let detail_w = crate::widgets::text_width(ui, &detail, &detail_font);
+                    ui.painter().text(rect.right_center() - vec2(10.0, 0.0), Align2::RIGHT_CENTER, detail, detail_font, t.text_faint);
+                    crate::widgets::paint_left(
+                        ui,
+                        rect.left_center() + vec2(36.0, 0.0),
+                        &shown,
+                        theme::regular(13.5),
+                        fg,
+                        (rect.width() - 36.0 - detail_w - 24.0).max(0.0),
+                    );
                     if resp.clicked() {
                         chosen = Some((h.command, h.group));
                     }
@@ -185,8 +196,7 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
         app.palette_open = false;
         app.palette_query.clear();
         if let Some(g) = group {
-            app.left_open = true;
-            app.left = LeftPanel::Tool(g);
+            app.select_tool(g);
         }
         if let Some(c) = command {
             app.run_command(c);

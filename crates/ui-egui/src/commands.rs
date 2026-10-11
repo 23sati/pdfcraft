@@ -123,16 +123,19 @@ impl PdfCraftApp {
                     };
                     crate::i18n::fmt(tl!("This document has no {kind} to change"), &[("kind", kind)])
                 }
+                // Restricted documents ask for their permissions password instead, so only an
+                // unprotected or a read-only document gets here.
                 commands::Needs::Security | commands::Needs::ProtectedSecurity if self.active.is_some() => {
-                    if self.active_ids().and_then(|(_, id)| self.session.get(id)).is_some_and(|d| d.allows_security_change()) {
-                        tl!("This document isn't password-protected").to_string()
-                    } else {
-                        tl!("Only the document's owner can change its security (open it with the permissions password)").to_string()
+                    match self.active_ids().and_then(|(_, id)| self.session.get(id)) {
+                        Some(d) if !d.allows_security_change() => crate::i18n::fmt(tl!("{name} is read-only"), &[("name", &d.name)]),
+                        _ => tl!("This document isn't password-protected").to_string(),
                     }
                 }
+                commands::Needs::Unlock if self.active.is_some() => tl!("This document has no restrictions to lift").to_string(),
                 commands::Needs::Assembly | commands::Needs::Modification | commands::Needs::Annotate if self.active.is_some() => {
                     tl!("The document's security settings don't allow this change").to_string()
                 }
+                commands::Needs::Copying if self.active.is_some() => crate::copy_refused().to_string(),
                 commands::Needs::TwoPageView if self.active.is_some() => tl!("Switch to two-page view first to show the cover page").to_string(),
                 _ => tl!("Open a document first").to_string(),
             };
@@ -172,6 +175,12 @@ impl PdfCraftApp {
             "file.revert" => self.dialog = Some(Dialog::Revert),
             "file.properties" => self.dialog = Some(Dialog::Properties(PropsTab::Description)),
             "protect.properties" => self.dialog = Some(Dialog::Properties(PropsTab::Security)),
+            // A restricted document's security changes once its permissions password is entered.
+            "protect.password" | "protect.remove" if self.active_ids().and_then(|(_, id)| self.session.get(id)).is_some_and(|d| d.can_unlock()) => {
+                let then = if id == "protect.password" { "protect.password" } else { "protect.remove" };
+                self.request_unlock(Some(then));
+            }
+            "protect.unlock" => self.request_unlock(None),
             "protect.password" => {
                 self.protect_draft = Default::default();
                 self.dialog = Some(Dialog::Protect);
@@ -221,6 +230,13 @@ impl PdfCraftApp {
                     self.views[i].set_layout(layout);
                 }
             }
+            // The Continuous scrolling checkbox (an independent toggle over the base layout).
+            "view.continuous" => {
+                if let Some(i) = active {
+                    let v = &mut self.views[i];
+                    v.set_continuous(!v.continuous());
+                }
+            }
             "view.layout.cover" => {
                 if let Some(i) = active {
                     let v = &mut self.views[i];
@@ -229,9 +245,10 @@ impl PdfCraftApp {
             }
             "view.fit_width_scrolling" | "view.fit_one_page" => {
                 use crate::canvas::{Fit, PageLayout};
-                let (layout, fit) = if id == "view.fit_one_page" { (PageLayout::Single, Fit::Page) } else { (PageLayout::Continuous, Fit::Width) };
+                // Fit one full page shows a single page on its own; fit width scrolls it.
+                let (continuous, fit) = if id == "view.fit_one_page" { (false, Fit::Page) } else { (true, Fit::Width) };
                 if let Some(i) = active {
-                    self.views[i].set_layout(layout);
+                    self.views[i].set_display(PageLayout::Single, continuous);
                     self.views[i].set_fit(fit);
                 }
             }

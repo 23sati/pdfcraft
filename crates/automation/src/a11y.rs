@@ -31,7 +31,18 @@ pub(crate) fn report_json(r: &Report) -> Value {
         .results
         .iter()
         .map(|x| {
-            let findings: Vec<Value> = x.findings.iter().map(|f| json!({ "page": f.page.map(|p| p + 1), "message": f.message })).collect();
+            let findings: Vec<Value> = x
+                .findings
+                .iter()
+                .map(|f| {
+                    json!({
+                        "page": f.page.map(|p| p + 1),
+                        "object": f.object.map(|r| r.num),
+                        "object_generation": f.object.map(|r| r.generation),
+                        "message": f.message,
+                    })
+                })
+                .collect();
             json!({ "rule": x.rule.id(), "name": x.rule.name(), "category": category_id(x.rule.category()), "status": status_id(x.status), "findings": findings })
         })
         .collect();
@@ -84,7 +95,9 @@ impl Automation {
         let r = doc.accessibility_check(&o).ok_or_else(|| failed("the document can't be read for checking"))?;
         let path = self.resolve(a.str("path")?, true)?;
         let (y, m, d) = self.session.today();
-        let html = pdfcraft_engine::a11y::report_html(&r, &doc.name, &format!("{y}-{m:02}-{d:02}"));
+        // A script's report is in English, like the rest of what the tools say and answer with.
+        let words = pdfcraft_engine::a11y::in_english;
+        let html = pdfcraft_engine::a11y::report_html(&r, &doc.name, &format!("{y}-{m:02}-{d:02}"), "en", &words);
         write_atomic(&path, html.as_bytes())?;
         let mut out = report_json(&r);
         out["path"] = json!(path.to_string_lossy());
@@ -193,7 +206,7 @@ impl Automation {
             .iter()
             .map(|p| match &p.skipped {
                 Some(why) => json!({ "page": p.page + 1, "skipped": why }),
-                None => json!({ "page": p.page + 1, "words": p.words.len(), "text": p.text() }),
+                None => json!({ "page": p.page + 1, "words": p.words.len(), "already_on_page": p.already_on_page, "text": p.text() }),
             })
             .collect();
         Ok(json!({ "words": found.iter().map(|p| p.words.len()).sum::<usize>(), "pages": list }))
@@ -271,7 +284,7 @@ impl Automation {
         let ext = path.extension().map(|e| e.to_string_lossy().into_owned()).unwrap_or_default();
         let format = pdfcraft_engine::compare::OfficeFormat::from_extension(&ext)
             .ok_or_else(|| ToolError::InvalidArgs(format!("unsupported extension {ext:?} (docx, html or rtf)")))?;
-        let bytes = self.doc(a)?.export_office(format);
+        let bytes = self.doc_to_copy(a)?.export_office(format);
         write_atomic(&path, &bytes)?;
         Ok(json!({ "path": path.to_string_lossy(), "bytes": bytes.len(), "format": format.extension() }))
     }
