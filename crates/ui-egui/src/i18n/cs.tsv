@@ -2234,3 +2234,27 @@ certificate	Subject	Subjekt
 	Enhance camera image	Vylepšit snímek z kamery
 	Enhance page	Vylepšit stránku
 	Save ({key})	Uložit ({key})
+
+# Digital ID errors, the Signatures panel and the certificate viewer.
+	Enter a name.	Zadejte jméno.
+	The password must have at least 6 characters.	Heslo musí mít alespoň 6 znaků.
+	The passwords do not match.	Hesla se neshodují.
+	There is no folder to save the digital ID in.	Není k dispozici složka, do které by se digitální ID uložilo.
+	The password is incorrect.	Heslo není správné.
+	Choose a digital ID.	Vyberte digitální ID.
+	Unsigned signature field: {name}	Nepodepsané podpisové pole: {name}
+	Rev. {rev}: Signed by {name}	Rev. {rev}: Podepsáno – {name}
+	Rev. {rev}: Signed by an unknown signer	Rev. {rev}: Podepsáno – neznámý podepisující
+	Rev. {rev}: Certified by {name}	Rev. {rev}: Certifikováno – {name}
+	Rev. {rev}: Certified by an unknown signer	Rev. {rev}: Certifikováno – neznámý podepisující
+	{who}, certificate issued by {issuer}.	{who}, certifikát vydal {issuer}.
+	{who}, certificate issued by an unknown issuer.	{who}, certifikát vydal neznámý vydavatel.
+	Digital Signature	Digitální podpis
+	Non-Repudiation	Nepopiratelnost
+	Key Encipherment	Šifrování klíčů
+	Data Encipherment	Šifrování dat
+	Key Agreement	Dohoda o klíči
+	Certificate Signing	Podepisování certifikátů
+	CRL Signing	Podepisování CRL
+	Encipher Only	Pouze šifrování
+	Decipher Only	Pouze dešifrování
