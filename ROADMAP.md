@@ -2,7 +2,7 @@
 
 **Stage: alpha** · next: beta, ~26% (ready for real work 49% → 75%) and ~400–700 h away
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-10 · **Change:** minor (localized shortcut labels, #496; readiness table with hours per audience; full number as weighted sum 49%; earlier: second look: ready 40% → 47%, mainstream 55% added; core-workflow gate applied → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (closed issues synced: #774, #756 and the #799–#821 batch; earlier: localized shortcut labels, #496; readiness table with hours per audience; full number as weighted sum 49%; earlier: second look: ready 40% → 47%, mainstream 55% added; core-workflow gate applied → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
 PdfCraft's one-page summary: how close it is to Adobe Acrobat Pro's offline feature set, and what
 comes next. Adobe's cloud services (Document Cloud, Acrobat Sign requests, shared review, the AI
@@ -40,17 +40,17 @@ and add a line to the [progress log](#progress-log); when a gap closes, remove i
 **Why alpha:** all six of Acrobat Pro's everyday workflows can be completed end to end on macOS
 (the [alpha gate](docs/roadmap.md#alpha-gate)), and users praise them (7.6k stars, ≈ 217k downloads
 of 0.4–0.5, switching reports such as #179). Two are only partial: editing (no CJK/RTL) and convert
-and share (password-protected files we write don't open in Acrobat or Reader, #774; no in-app
-Office→PDF; Word export loses layout, #773). Those, unmeasured quality against Acrobat, the borrowed
-`hayro` renderer, no printing on Windows (#756) and 245 open issues keep it far from beta.
+and share (no in-app Office→PDF; Word export loses layout, #773; password-protected files open in
+Acrobat since #836, #774). Those, unmeasured quality against Acrobat, the borrowed `hayro` renderer,
+no printing on the web and 245 open issues keep it far from beta.
 
 ### Readiness by audience
 
 | Audience | Ready | Opus 5.5 agent-hours to ≈ 95% | Work that dominates |
 |---|---|---|---|
 | Full Acrobat Pro (ready for real work) | ≈ 49% | ≈ 780–1,400 h (≈ 300–550 h wall clock with 3–5 agents; 60–70% parallelizes) | Own renderer and fidelity harness, editing existing content, OCR and Office conversion, Preflight and PDF/A/X/UA, accessibility tagging, signatures for institutions |
-| Mainstream practitioner | ≈ 55% | ≈ 500–900 h (≈ 200–400 h wall clock; ≈ 60% parallelizes) | Rendering fidelity, editing existing text (CJK, RTL, subsets), conversion (Word layout, Excel, PowerPoint, Office→PDF), OCR languages, Windows printing, the bug backlog |
-| Essentials user | ≈ 66% | ≈ 180–330 h (≈ 90–180 h wall clock; ≈ 50% parallelizes) | Rendering fidelity on everyday files, Windows printing, launch and GPU stability, encrypted output Acrobat opens (#774), simple text fixes, Word export layout, Chinese UI glyphs |
+| Mainstream practitioner | ≈ 55% | ≈ 500–900 h (≈ 200–400 h wall clock; ≈ 60% parallelizes) | Rendering fidelity, editing existing text (CJK, RTL, subsets), conversion (Word layout, Excel, PowerPoint, Office→PDF), OCR languages, the bug backlog |
+| Essentials user | ≈ 66% | ≈ 180–330 h (≈ 90–180 h wall clock; ≈ 50% parallelizes) | Rendering fidelity on everyday files, launch and GPU stability, simple text fixes, Word export layout, Chinese UI glyphs |
 
 Hours are calibrated as in [Effort and calibration](docs/target-app-parity.md#effort-and-calibration) (≈ 1k kept lines per agent-hour for new features, 3–10× slower for hardening and fidelity). The audiences are nested subsets, so essentials ≤ mainstream ≤ full.
 
@@ -121,8 +121,8 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 | Rank | Milestone | Estimate (h) |
 |---|---|---|
-| 0 | Convert and share: encrypted output opens in Acrobat (#774), Create PDF from Office, Word export that keeps layout (#773) | 40–70 |
-| 1 | Backlog and platform: crash and wrong-result reports, Windows printing (#756), Chinese UI face (#826) | 65–120 |
+| 0 | Convert and share: Create PDF from Office, Word export that keeps layout (#773) | 32–55 |
+| 1 | Backlog and platform: crash and wrong-result reports, web printing, Chinese UI face (#826) | 65–120 |
 | 2 | Fidelity harness against Acrobat and the renderer decision (M2; owner decision on #841) | 110–190 |
 | 3 | Editing existing content (M7) | 100–180 |
 | 4 | OCR languages and Office export/import (M10) | 95–175 |
@@ -135,6 +135,9 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 Newest first: the date, what moved, and the new overall estimate.
 
+- **2026-10-11 (M14, absolute interface sizes):** A chosen Interface size is now absolute, as PhotoCraft's UI Scale is: "100%" is one screen pixel per point whatever scale the display reports, so on a 1080p screen whose system reports 200 % it draws at a true 100 % (#456, reported after the first change). Auto still keeps the display's scale and adds GNOME's text scaling, and its menu entry shows the size it draws at. The menu offers PhotoCraft's sizes (75–300 %).
+- **2026-10-11 (automation, #971):** `text_find` reads pages in growing batches (8, doubling to 128) and stops once `limit` is reached, so a bounded search on a long document no longer extracts and caches every page first. Results say `complete`, and a capped one gives `next` (`start_page`, `skip`) to continue. Still open from #971: a byte budget for the automation text cache and per-page warnings for pages whose text can't be extracted.
+- **2026-10-11 (docs, closed issues):** The progress docs caught up with issues closed on 2026-10-10: encrypted output opens in Acrobat (#774, #836; gap 1 closed, rank 0 is 32–55 h), Windows prints (#756, #847), column select (#740), 1:1 touchpad scrolling (#759), same-page multi-object move (#844), and the #799–#821 batch of wrong-result fixes including the #816 panic. Scores and readiness not re-judged; overall estimate unchanged.
 - **2026-10-11 (M7, watermark placement):** A watermark can be moved from the page centre by a horizontal and a vertical offset in points: Add/Update Watermark has an "Offset from centre" row (the preview follows it, for text and for pictures) and `doc_watermark` takes `offset_x` and `offset_y`. A non-finite offset is refused instead of written into the page. `edit.watermark-appearance` stays partial: no offset from the page edge or in page units, no print/screen-only variants, no repeat. Image and PDF watermarks, already shipped, no longer appear as missing. The overall estimate is unchanged.
 - **2026-10-11 (M12, XFA script time limits):** An XFA script's time limit (1 s for scripts that run unasked, on open and on every change) counted the engine's start-up too: the script's thread, a new context and, for the first script in a process, the engine's own set-up (≈ 60–170 ms when idle). On a busy machine a trivial initialize script could pass the limit, be abandoned and turn the form's scripts off; that made `xfa_buttons_run_their_scripts_in_the_app` and `messages_from_scripts_run_on_open_show_right_away` flaky (under full CPU load 25 of 40 runs of the test binary failed, with "ran longer than 1.0 s and was abandoned" in the console). The limit now runs from when the engine is ready; start-up has its own 10 s cap, so nothing waits forever, and a trivial warm-up script takes the first-in-process set-up. Under the same load none of 40 runs fails, and runaway scripts are abandoned as before. The two UI tests print the script console when they fail. Overall unchanged.
 - **2026-10-11 (M4, #569):** Combine files takes images and text files as well as PDFs. PNG, JPEG, TIFF, GIF, BMP, JPEG 2000 and .txt files become PDFs as they are added (Add files…, drops, folder scans), so each is an ordinary row with its pages, thumbnails and page range; a file that can't be read (a damaged image or PDF, a type that can't be converted) stays in the list with why in its Warnings, and Combine asks before leaving such files out (Cancel changes nothing); password-protected files still have to be unlocked first. `doc_combine` accepts the same types, and a converted file's bookmark drops its extension. A PNG whose header claims more than 2 GiB of pixels is now refused before its buffer is allocated (the png crate's limits don't cover it), as TIFF already was. Office documents and HTML are still not converted. Overall estimate unchanged.

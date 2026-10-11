@@ -920,3 +920,66 @@ trailer << /Root 1 0 R >>
     let first = detail(&mut h);
     assert!(first * 10 > sharp * 7, "the first frame after zooming lost its detail: {first} against {sharp}");
 }
+
+#[test]
+fn sidebar_collapse_and_resize_preserves_scroll_position() {
+    use pdfcraft_ui_egui::canvas::Fit;
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(|_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("pages.pdf", None, PAGES.to_vec()).expect("opens");
+        app.set_option("left", "closed").unwrap();
+        app.set_option("panel", "bookmarks").unwrap();
+        app.set_option("layout", "continuous").unwrap();
+        app
+    });
+    let mut width = 0.0;
+    for _ in 0..400 {
+        h.run_steps(1);
+        let w = h.state().views[0].viewport_rect().width();
+        if w == width {
+            break;
+        }
+        width = w;
+    }
+    h.state_mut().views[0].go_to_page(2);
+    h.run_steps(6);
+
+    let v = &h.state().views[0];
+    assert_eq!(v.current, 2);
+    assert_eq!(v.fit, Fit::Width);
+    let zoom_before = v.zoom;
+    let rect_before = v.page_screen_rect(2).expect("page 2 on screen");
+    let vp_before = v.viewport_rect();
+    let rel_y_before = rect_before.min.y - vp_before.min.y;
+
+    // Collapse bookmarks panel: available width increases, so fit-width zoom increases.
+    h.state_mut().set_option("panel", "none").unwrap();
+    h.run_steps(6);
+
+    let v = &h.state().views[0];
+    let zoom_after = v.zoom;
+    assert!(zoom_after > zoom_before, "zoom increased when panel collapsed: {zoom_after} vs {zoom_before}");
+    assert_eq!(v.current, 2, "still on page 2 after panel collapsed");
+    let rect_after = v.page_screen_rect(2).expect("page 2 still on screen");
+    let vp_after = v.viewport_rect();
+    let rel_y_after = rect_after.min.y - vp_after.min.y;
+    assert!((rel_y_after - rel_y_before).abs() < 1.0, "page 2 scroll position preserved: before {rel_y_before}, after {rel_y_after}");
+
+    // Reopen bookmarks panel: available width decreases, so fit-width zoom decreases.
+    h.state_mut().set_option("panel", "bookmarks").unwrap();
+    for _ in 0..400 {
+        h.run_steps(1);
+        let w = h.state().views[0].viewport_rect().width();
+        if w == width {
+            break;
+        }
+        width = w;
+    }
+    let v = &h.state().views[0];
+    assert_eq!(v.current, 2, "still on page 2 after panel reopened");
+    let rect_reopened = v.page_screen_rect(2).expect("page 2 still on screen");
+    let vp_reopened = v.viewport_rect();
+    let rel_y_reopened = rect_reopened.min.y - vp_reopened.min.y;
+    assert!((rel_y_reopened - rel_y_before).abs() < 1.0, "page 2 scroll position preserved on reopen: before {rel_y_before}, after {rel_y_reopened}");
+}

@@ -87,6 +87,12 @@ comment menu	Edit	సవరించు
 	Open a PDF ({key})	PDFను తెరువు ({key})
 	Dark gray theme	ముదురు బూడిద రంగు థీమ్
 	Light theme	లేత థీమ్
+	Appearance mode	రూపం మోడ్
+	Light	లైట్
+	Dark	డార్క్
+	Active	సక్రియం
+	Dark theme	డార్క్ థీమ్
+	Appearance settings…	రూపం సెట్టింగ్‌లు…
 	All tools	అన్ని సాధనాలు
 	Read	చదవడం
 	Convert	మార్పిడి
@@ -2130,6 +2136,10 @@ key	Space	స్పేస్
 	Resize panel window	ప్యానెల్ విండో పరిమాణం మార్చు
 	Tools	సాధనాలు
 	Inspector	పరిశీలకుడు
+	Mouse wheel scroll speed	మౌస్ వీల్ స్క్రోల్ వేగం
+scroll speed	Slow	నెమ్మదిగా
+scroll speed	Normal	సాధారణం
+scroll speed	Fast	వేగంగా
 	Enhance camera image	కెమెరా చిత్రాన్ని మెరుగుపరచు
 	Drag the corners onto the document's edges, then choose Enhance page.	మూలలను పత్రం అంచుల వరకు లాగి, ఆపై పేజీని మెరుగుపరచు ఎంచుకోండి.
 	Enhance page	పేజీని మెరుగుపరచు

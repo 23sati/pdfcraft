@@ -1803,7 +1803,27 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     let avail = ui.available_rect_before_wrap();
     view.viewport_w = avail.width();
     view.viewport_h = avail.height();
+    let old_zoom = view.zoom;
     view.fit_zoom(info);
+    if view.shown && view.zoom_anchor.is_none() && view.goto.is_none() && view.goto_point.is_none() && (view.zoom - old_zoom).abs() > 1e-4 {
+        let prev_viewport = view.viewport_screen;
+        let top_y = prev_viewport.min.y;
+        let anchor = view
+            .screen_rects
+            .iter()
+            .find(|(_, r)| r.min.y <= top_y && r.max.y > top_y)
+            .map(|(p, r)| {
+                let fy = if r.height() > 0.0 { ((top_y - r.min.y) / r.height()).clamp(0.0, 1.0) } else { 0.0 };
+                (*p, fy, 0.0f32)
+            })
+            .or_else(|| view.screen_rects.iter().find(|(_, r)| r.min.y >= top_y).map(|(p, r)| (*p, 0.0f32, (r.min.y - top_y).max(0.0))))
+            .or_else(|| view.screen_rects.last().map(|(p, r)| (*p, 1.0f32, (r.max.y - top_y).max(0.0))));
+        if let Some((page, fy, rel_y)) = anchor {
+            view.zoom_anchor = Some((page, 0.5, fy, vec2(avail.width() / 2.0, rel_y)));
+        } else {
+            view.zoom_anchor = Some((view.current, 0.5, 0.0, vec2(avail.width() / 2.0, MARGIN)));
+        }
+    }
 
     // Pinch / ctrl+scroll zoom, anchored on the current page.
     let zoom_delta = ui.input(|i| i.zoom_delta());
