@@ -14,6 +14,7 @@
 
 pub mod actions;
 pub mod camera;
+pub mod camera_clean;
 pub mod camera_edges;
 pub mod catalog;
 pub mod commands;
@@ -96,6 +97,13 @@ pub fn typed_signature_shape(at: [f64; 2], text: &str, height: f64, rotation: i6
     let contours = o.contours.iter().map(|c| c.iter().map(|p| to_user((p[0] - left) / width, (p[1] - bottom) / span)).collect()).collect();
     Some(Shape::TypedSignature { rect, contours })
 }
+/// `text` in the script font as the graphic of a visible digital signature, as Fill & Sign types
+/// it. `None` for text with no outlines.
+pub fn typed_signature_graphic(text: &str) -> Option<pdfcraft_sign::Graphic> {
+    let o = script_outline(text);
+    o.contours.iter().any(|c| c.len() > 2).then_some(pdfcraft_sign::Graphic::Outlines(o.contours))
+}
+
 /// Comment geometry helpers (text-box line breaking) for frontends.
 pub use pdfcraft_annot::appearance as annot_text;
 pub use pdfcraft_annot::links::{Highlight as LinkHighlight, LinkAction, LinkItem, LinkStyle};
@@ -305,6 +313,7 @@ impl Document {
 
     /// Save image as: image `index` on `page` as a file (extension, bytes).
     pub fn page_image_file(&self, page: usize, index: usize) -> Result<(&'static str, Vec<u8>), String> {
+        self.check_copying().map_err(|e| e.to_string())?;
         let editor = self.editor.as_ref().ok_or("the document can't be read")?;
         let img = self.page_images(page).into_iter().nth(index).ok_or_else(|| format!("page {} has no image {}", page + 1, index + 1))?;
         if img.is_form {
@@ -420,6 +429,18 @@ impl Document {
         self.permissions().is_none_or(|p| p.print())
     }
 
+    /// Copying or otherwise extracting text and images is allowed (Table 22, bit 5): copying
+    /// selected text, snapshots, Save Image As, exporting. Assistive technology may read the
+    /// content regardless (§7.6.4.2), so reading aloud and accessibility tools don't ask.
+    pub fn allows_copying(&self) -> bool {
+        self.permissions().is_none_or(|p| p.copy())
+    }
+
+    /// [`Self::allows_copying`], as the error to report when it isn't.
+    pub fn check_copying(&self) -> Result<(), EditError> {
+        if self.allows_copying() { Ok(()) } else { Err(EditError::NotPermitted("copying text and images")) }
+    }
+
     /// Page changes (insert, delete, rotate, move, extract) are allowed.
     pub fn allows_assembly(&self) -> bool {
         self.editable() && self.permissions().is_none_or(|p| p.assemble())
@@ -492,6 +513,14 @@ impl Document {
     /// Remove Hidden Information: what each category would remove.
     pub fn hidden_info(&self) -> Vec<(Hidden, usize)> {
         self.editor.as_ref().map(|e| pdfcraft_redact::sanitize::scan(&e.cos)).unwrap_or_default()
+    }
+
+    /// Verification: faux redactions (opaque covers over extractable text) and redaction
+    /// marks that were never applied. Fails closed: any read error is returned, never an
+    /// empty list.
+    pub fn audit_redactions(&self) -> Result<Vec<pdfcraft_audit::AuditFinding>, String> {
+        let editor = self.editor.as_ref().ok_or("the document can't be read")?;
+        pdfcraft_audit::audit_redactions(&editor.cos).map_err(|e| e.to_string())
     }
 
     /// Every page's media, crop, bleed, trim and art boxes (user space), for Set Page Boxes.
@@ -2408,8 +2437,13 @@ impl Session {
             };
             e.cos.note_repair(line);
         }
-        let marks = editor.as_ref().map(|e| pdfcraft_edit::marks_present(&e.cos)).unwrap_or_default();
-        let added = editor.as_ref().map(|e| pdfcraft_edit::list_added(&e.cos)).unwrap_or_default();
+        let (marks, added) = editor
+            .as_ref()
+            .map(|e| {
+                let scan = pdfcraft_edit::scan_markers(&e.cos);
+                (scan.marks, scan.added)
+            })
+            .unwrap_or_default();
         let links = editor.as_ref().map(|e| pdfcraft_annot::links::list(&e.cos)).unwrap_or_default();
         let sig_cache = Arc::new(pdfcraft_sign::DigestCache::default());
         let signatures = editor.as_ref().map(|e| signatures_of(&e.cos, &bytes, &self.trust, &sig_cache)).unwrap_or_default();
@@ -2642,8 +2676,15 @@ impl Session {
             Scope::Metadata => return Ok(()),
             Scope::Comments => doc.info.annotations = comment_list(&editor.cos),
             Scope::Form => {
+                // PERF: keystroke path, index once. A linear find per field is O(F^2);
+                // forms reach 10k fields.
+                let mut by_name = std::collections::HashMap::with_capacity(form.len());
+                for x in form.iter() {
+                    // First match wins (do not simplify to collect: it keeps the last).
+                    by_name.entry(x.name.as_str()).or_insert(x);
+                }
                 for f in &mut doc.info.fields {
-                    if let Some(ff) = form.iter().find(|x| x.name == f.name) {
+                    if let Some(ff) = by_name.get(f.name.as_str()) {
                         f.value = match ff.kind {
                             pdfcraft_forms::FieldKind::CheckBox | pdfcraft_forms::FieldKind::Radio => {
                                 Some(ff.value.first().cloned().unwrap_or_else(|| "Off".into()))
@@ -2695,8 +2736,9 @@ impl Session {
         let mut form = pdfcraft_forms::fields(&editor.cos);
         xfa::mark_script_buttons(&editor.cos, &mut form);
         doc.form = Arc::new(form);
-        doc.marks = pdfcraft_edit::marks_present(&editor.cos);
-        doc.added = pdfcraft_edit::list_added(&editor.cos);
+        let marker_scan = pdfcraft_edit::scan_markers(&editor.cos);
+        doc.marks = marker_scan.marks;
+        doc.added = marker_scan.added;
         doc.links = pdfcraft_annot::links::list(&editor.cos);
         doc.signatures = signatures_of(&editor.cos, &bytes, &doc.trust, &doc.sig_cache);
         doc.display = display_bytes(Some(editor), &bytes);
@@ -2770,6 +2812,29 @@ impl Session {
         doc.dirty = false;
         doc.generation += 1;
         Self::refresh(doc)
+    }
+
+    /// The document's file changed on disk (a LaTeX or Typst build rewrote it, #431): open
+    /// `bytes`, the file as it is now, in its place. Everything opening does runs again (XFA
+    /// layout and scripts, signatures, repairs), but the document keeps its id, name and path,
+    /// so its tab and view stay with it. Undo history goes, as with Revert. The password it was
+    /// opened with is tried; on any failure the document is left as it was.
+    pub fn reload(&mut self, id: DocId, bytes: Arc<Vec<u8>>) -> Result<(), OpenError> {
+        let old = self.docs.iter().position(|d| d.id == id).ok_or_else(|| OpenError::Invalid("the document is not open".into()))?;
+        let doc = &self.docs[old];
+        let (name, path, generation) = (doc.name.clone(), doc.path.clone(), doc.generation);
+        let password = doc.editor.as_ref().and_then(|e| e.keys.reopen.clone()).or_else(|| doc.password.clone());
+        let new_id = self.open(name, path, bytes, password.as_deref())?;
+        let at = self.docs.iter().position(|d| d.id == new_id).ok_or_else(|| OpenError::Invalid("the new version was not kept".into()))?;
+        let mut doc = self.docs.remove(at);
+        doc.id = id;
+        // Caches keyed by the edit generation (edit lines, images, measurements) must see a new
+        // one; there is nothing new to autosave.
+        doc.generation = generation + 1;
+        doc.snapshot_generation = doc.generation;
+        // `open` pushed the new version last, so the old one is still at `old`.
+        *self.docs.get_mut(old).ok_or_else(|| OpenError::Invalid("the document is not open".into()))? = doc;
+        Ok(())
     }
 
     /// The page count of another PDF (Replace Pages, Insert Pages dialogs).

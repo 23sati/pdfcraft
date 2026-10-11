@@ -852,6 +852,10 @@
 	The signature will be invisible.	La firma sarà invisibile.
 	Distinguished name	Nome distinto
 	Labels	Etichette
+	Graphic	Grafica
+	Signer's name	Nome del firmatario
+	Fill & Sign signature	Firma di Compila e firma
+	Choose image…	Scegli immagine…
 	Permitted actions after certifying	Azioni consentite dopo la certificazione
 	No changes allowed	Nessuna modifica consentita
 	Annotations, form fill-in, and digital signatures	Annotazioni, compilazione moduli e firme digitali
@@ -1716,6 +1720,7 @@
 	This document isn't password-protected	Questo documento non è protetto da password
 	Only the document's owner can change its security (open it with the permissions password)	Solo il proprietario del documento può modificarne la protezione (aprilo con la password delle autorizzazioni)
 	The document's security settings don't allow this change	Le impostazioni di sicurezza del documento non consentono questa modifica
+	The document's security settings don't allow copying text and images	Le impostazioni di sicurezza del documento non consentono di copiare testo e immagini
 	Open a document first	Apri prima un documento
 	Security will be removed when you save	La protezione verrà rimossa al salvataggio
 	Click text or an image to edit it	Fai clic su un testo o un'immagine per modificarlo
@@ -2214,6 +2219,21 @@ key	Space	Spazio
 	Panels	Pannelli
 	Resize panels	Ridimensiona pannelli
 	Resize panel window	Ridimensiona finestra pannello
+
+# Architectural print controls (follow-up to #599).
+	PDF page: {w} × {h} in	Pagina PDF: {w} × {h} pollici
+	Match page at 100%	Adatta il foglio alla pagina al 100%
+	PDF scale: {scale}%	Scala PDF: {scale}%
+	Printer paper and scaling may differ. Check driver settings.	Carta e scala della stampante possono differire. Controlla le impostazioni del driver.
+	Drawing scale changes. Use Actual size for full-scale plans.	La scala del disegno cambia. Usa Dimensioni effettive per le planimetrie in scala.
+	Reload documents when their files change on disk	Ricarica i documenti quando i loro file cambiano sul disco
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Questo file è cambiato sul disco. Ricaricalo per vedere la nuova versione; le modifiche non salvate andranno perse.
+	Reload	Ricarica
+	Couldn't reload {name}: {e}	Impossibile ricaricare {name}: {e}
+	Select page {label}	Seleziona pagina {label}
+	Rotate page {label} counterclockwise	Ruota pagina {label} in senso antiorario
+	Rotate page {label} clockwise	Ruota pagina {label} in senso orario
+	Delete page {label}	Elimina pagina {label}
 	Mouse wheel scroll speed	Velocità di scorrimento della rotellina del mouse
 scroll speed	Slow	Lenta
 scroll speed	Normal	Normale
@@ -2221,3 +2241,7 @@ scroll speed	Fast	Veloce
 	Enhance camera image	Migliora foto della fotocamera
 	Drag the corners onto the document's edges, then choose Enhance page.	Trascina gli angoli sui bordi del documento, poi scegli Migliora la pagina.
 	Enhance page	Migliora la pagina
+	Clean-up	Pulizia
+	Original	Originale
+	Greyscale	Scala di grigi
+	Black and white	Bianco e nero
