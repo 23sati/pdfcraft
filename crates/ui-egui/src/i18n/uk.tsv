@@ -696,6 +696,14 @@
 	of the following fields:	таких полів:
 	Simplified field notation:	Спрощений запис полів:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Назви полів із + - * / та дужками; перед пробілами в назвах ставте \\.
+
+# Document font selection
+	Finding document fonts…	Пошук шрифтів для документа…
+	Installed fonts…	Встановлені шрифти…
+	Keep source fonts	Зберегти початкові шрифти
+	Load font…	Завантажити шрифт…
+	No openly licensed document fonts found. Load a font file.	Шрифтів із відкритою ліцензією не знайдено. Завантажте файл шрифту.
+
 	Format text	Форматувати текст
 	Bold	Напівжирний
 	Italic	Курсив
@@ -2233,13 +2241,14 @@ key	Space	Пробіл
 	Panels	Панелі
 	Resize panels	Змінити розмір панелей
 	Resize panel window	Змінити розмір вікна панелі
-
-# Document font selection
-	Finding document fonts…	Пошук шрифтів для документа…
-	Installed fonts…	Встановлені шрифти…
-	Keep source fonts	Зберегти початкові шрифти
-	Load font…	Завантажити шрифт…
-	No openly licensed document fonts found. Load a font file.	Шрифтів із відкритою ліцензією не знайдено. Завантажте файл шрифту.
+	Reload documents when their files change on disk	Перезавантажувати документи, коли їхні файли змінюються на диску
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Цей файл змінено на диску. Перезавантажте його, щоб побачити нову версію; незбережені зміни буде втрачено.
+	Reload	Перезавантажити
+	Couldn't reload {name}: {e}	Не вдалося перезавантажити {name}: {e}
+	Select page {label}	Вибрати сторінку {label}
+	Rotate page {label} counterclockwise	Повернути сторінку {label} проти годинникової стрілки
+	Rotate page {label} clockwise	Повернути сторінку {label} за годинниковою стрілкою
+	Delete page {label}	Видалити сторінку {label}
 	Mouse wheel scroll speed	Швидкість прокручування коліщатком миші
 scroll speed	Slow	Повільна
 scroll speed	Normal	Звичайна

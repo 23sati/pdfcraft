@@ -668,6 +668,14 @@
 	of the following fields:	a következő mezőkből:
 	Simplified field notation:	Egyszerűsített mezőjelölés:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Mezőnevek + - * / jelekkel és zárójelekkel; a nevekben lévő szóköz elé tegyél \\ jelet.
+
+# Document font selection
+	Finding document fonts…	Dokumentumbetűtípusok keresése…
+	Installed fonts…	Telepített betűtípusok…
+	Keep source fonts	Eredeti betűtípusok megtartása
+	Load font…	Betűtípus betöltése…
+	No openly licensed document fonts found. Load a font file.	Nem található nyílt licencű betűtípus. Töltsön be egy betűtípusfájlt.
+
 	Format text	Szöveg formázása
 	Bold	Félkövér
 	Italic	Dőlt
@@ -2210,13 +2218,14 @@ key	Space	Szóköz
 	Resize panel window	Panelablak átméretezése
 	Tools	Eszközök
 	Inspector	Tulajdonságvizsgáló
-
-# Document font selection
-	Finding document fonts…	Dokumentumbetűtípusok keresése…
-	Installed fonts…	Telepített betűtípusok…
-	Keep source fonts	Eredeti betűtípusok megtartása
-	Load font…	Betűtípus betöltése…
-	No openly licensed document fonts found. Load a font file.	Nem található nyílt licencű betűtípus. Töltsön be egy betűtípusfájlt.
+	Reload documents when their files change on disk	Dokumentumok újratöltése, ha a fájljuk megváltozik a lemezen
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Ez a fájl megváltozott a lemezen. Töltsd újra az új változat megtekintéséhez; a nem mentett módosításaid elvesznek.
+	Reload	Újratöltés
+	Couldn't reload {name}: {e}	{name} újratöltése nem sikerült: {e}
+	Select page {label}	{label}. oldal kijelölése
+	Rotate page {label} counterclockwise	{label}. oldal elforgatása az óramutató járásával ellentétesen
+	Rotate page {label} clockwise	{label}. oldal elforgatása az óramutató járásával megegyezően
+	Delete page {label}	{label}. oldal törlése
 	Mouse wheel scroll speed	Egérgörgő görgetési sebessége
 scroll speed	Slow	Lassú
 scroll speed	Normal	Normál

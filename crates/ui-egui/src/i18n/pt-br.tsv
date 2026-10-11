@@ -330,6 +330,14 @@
 	of the following fields:	dos seguintes campos:
 	Simplified field notation:	Notação simplificada de campo:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Nomes de campos com + - * / e parênteses; coloque \\ antes de espaços em nomes.
+
+# Document font selection
+	Finding document fonts…	Buscando fontes para o documento…
+	Installed fonts…	Fontes instaladas…
+	Keep source fonts	Manter fontes originais
+	Load font…	Carregar fonte…
+	No openly licensed document fonts found. Load a font file.	Nenhuma fonte com licença aberta encontrada. Carregue um arquivo de fonte.
+
 	Format text	Formatar texto
 	Bold	Negrito
 	Italic	Itálico
@@ -2213,13 +2221,14 @@ key	Space	Espaço
 	Resize panel window	Redimensionar janela do painel
 	Tools	Ferramentas
 	Inspector	Inspetor
-
-# Document font selection
-	Finding document fonts…	Buscando fontes para o documento…
-	Installed fonts…	Fontes instaladas…
-	Keep source fonts	Manter fontes originais
-	Load font…	Carregar fonte…
-	No openly licensed document fonts found. Load a font file.	Nenhuma fonte com licença aberta encontrada. Carregue um arquivo de fonte.
+	Reload documents when their files change on disk	Recarregar documentos quando os arquivos mudarem no disco
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Este arquivo foi alterado no disco. Recarregue-o para ver a nova versão; suas alterações não salvas serão perdidas.
+	Reload	Recarregar
+	Couldn't reload {name}: {e}	Não foi possível recarregar {name}: {e}
+	Select page {label}	Selecionar página {label}
+	Rotate page {label} counterclockwise	Girar página {label} no sentido anti-horário
+	Rotate page {label} clockwise	Girar página {label} no sentido horário
+	Delete page {label}	Excluir página {label}
 calendar date	January	janeiro
 calendar date	February	fevereiro
 calendar date	March	março

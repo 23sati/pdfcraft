@@ -384,6 +384,14 @@
 	of the following fields:	以下字段的：
 	Simplified field notation:	简化字段表示法：
 	Field names with + - * / and parentheses; put \\ before spaces in names.	字段名支持 + - * / 和括号；名称中的空格前加 \\。
+
+# Document font selection
+	Finding document fonts…	正在查找文档字体…
+	Installed fonts…	已安装字体…
+	Keep source fonts	保留原始字体
+	Load font…	加载字体…
+	No openly licensed document fonts found. Load a font file.	未找到采用开放许可证的字体。请加载字体文件。
+
 	Format text	设置文本格式
 	Bold	粗体
 	Italic	斜体
@@ -2051,6 +2059,10 @@
 	Used when opening PDFs. An explicit launch or control mode takes precedence for the session.	用于打开 PDF 时。如果启动参数或控制通道明确指定了模式，则本次会话优先使用该模式。
 	Used when a PDF doesn't ask for a layout or zoom. Continuous scrolling never snaps between pages.	PDF 未指定布局或缩放时使用。连续滚动时页面不会逐页吸附。
 	Reopen the files that were open when PdfCraft last closed	重新打开上次关闭 PdfCraft 时打开的文件
+	Reload documents when their files change on disk	文件在磁盘上更改时重新加载对应的文档
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	此文件已在磁盘上更改。请重新加载以查看新版本；未保存的更改将会丢失。
+	Reload	重新加载
+	Couldn't reload {name}: {e}	无法重新加载{name}：{e}
 	Write this email?	是否撰写此邮件？
 	{who} in this document wants to open this address in your browser:	此文档中的{who}请求在浏览器中打开以下地址：
 	{who} in this document wants to open your email app with this address:	此文档中的{who}请求打开邮件应用并使用以下地址：
@@ -2176,13 +2188,10 @@ key	Space	空格
 	Resize panel window	调整面板窗口大小
 	Tools	工具
 	Inspector	检查器
-
-# Document font selection
-	Finding document fonts…	正在查找文档字体…
-	Installed fonts…	已安装字体…
-	Keep source fonts	保留原始字体
-	Load font…	加载字体…
-	No openly licensed document fonts found. Load a font file.	未找到采用开放许可证的字体。请加载字体文件。
+	Select page {label}	选择页面 {label}
+	Rotate page {label} counterclockwise	逆时针旋转页面 {label}
+	Rotate page {label} clockwise	顺时针旋转页面 {label}
+	Delete page {label}	删除页面 {label}
 	Mouse wheel scroll speed	鼠标滚轮滚动速度
 scroll speed	Slow	慢
 scroll speed	Normal	正常

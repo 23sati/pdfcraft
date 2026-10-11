@@ -72,6 +72,8 @@ pub mod bulk_fields;
 mod dialogs;
 mod edit_text_ui;
 mod editing;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod file_watch;
 mod files;
 pub mod fill_sign;
 pub mod folders_ui;
@@ -474,6 +476,11 @@ pub struct PdfCraftApp {
     pub last_session: last_session::LastSession,
     /// Quitting closes unsaved tabs one by one: what was open when the quit began.
     quit_session: Option<last_session::LastSession>,
+    /// Preferences: reload a document when its file changes on disk (#431).
+    pub reload_changed_files: bool,
+    /// Open documents' files, watched for changes on disk.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) watch: file_watch::FileWatch,
     /// Folders pinned to Home, and what they held when last listed.
     pub pinned: folders_ui::PinnedFolders,
     pub toast: Option<(String, f64)>,
@@ -777,6 +784,9 @@ impl PdfCraftApp {
             reopen_last_session: false,
             last_session: Default::default(),
             quit_session: None,
+            reload_changed_files: true,
+            #[cfg(not(target_arch = "wasm32"))]
+            watch: Default::default(),
             pinned: Default::default(),
             toast: None,
             integrated_titlebar: false,
@@ -916,12 +926,15 @@ impl PdfCraftApp {
         match v.layout {
             // The view opened in Default page display already.
             L::Default => {}
-            L::SinglePage => view.layout = canvas::PageLayout::Single,
-            L::SinglePageContinuous => view.layout = canvas::PageLayout::Continuous,
-            L::TwoUp | L::TwoUpContinuous => view.layout = canvas::PageLayout::TwoUp,
-            L::TwoUpCoverPage | L::TwoUpContinuousCoverPage => {
-                view.layout = canvas::PageLayout::TwoUp;
-                view.cover = true;
+            L::SinglePage => (view.layout, view.continuous) = (canvas::PageLayout::Single, false),
+            L::SinglePageContinuous => (view.layout, view.continuous) = (canvas::PageLayout::Single, true),
+            L::TwoUp => (view.layout, view.continuous) = (canvas::PageLayout::TwoUp, false),
+            L::TwoUpContinuous => (view.layout, view.continuous) = (canvas::PageLayout::TwoUp, true),
+            L::TwoUpCoverPage => {
+                (view.layout, view.continuous, view.cover) = (canvas::PageLayout::TwoUp, false, true);
+            }
+            L::TwoUpContinuousCoverPage => {
+                (view.layout, view.continuous, view.cover) = (canvas::PageLayout::TwoUp, true, true);
             }
         }
         match v.magnification {
@@ -997,6 +1010,13 @@ impl PdfCraftApp {
             self.active = Some(self.views.len() - 1);
         }
         self.apply_initial_view(self.views.len() - 1, &initial);
+        if activate
+            && self.left_open
+            && self.left == LeftPanel::Tool("organize")
+            && let Some(view) = self.views.last_mut()
+        {
+            view.organize = true;
+        }
         if activate && let Some(mode) = self.mode_override {
             // Explicit mode options do not reset independent --tool / --left choices.
             self.mode = mode;
@@ -1201,10 +1221,17 @@ impl PdfCraftApp {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn open_path(&mut self, path: &str) {
         let name = std::path::Path::new(path).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| path.to_string());
+        // Taken before reading: a build that rewrites the file meanwhile still counts as a change.
+        let stamp = file_watch::Stamp::at(path);
+        let tabs = self.views.len();
         match std::fs::read(path) {
             Ok(bytes) => {
                 if let Err(e) = self.open_bytes(&name, Some(path.to_string()), bytes) {
                     self.notify_fmt("Couldn't open {name}: {e}", &[("name", &name), ("e", &e.to_string())]);
+                } else if self.views.len() > tabs
+                    && let Some(doc) = self.views.last().map(|v| v.id)
+                {
+                    self.watch.known_as(doc, stamp);
                 }
             }
             Err(e) => self.notify_fmt("Couldn't read {name}: {e}", &[("name", &name), ("e", &e.to_string())]),
@@ -1220,7 +1247,11 @@ impl PdfCraftApp {
     pub fn open_dialog(&mut self) {
         self.startup_superseded = true;
         #[cfg(not(target_arch = "wasm32"))]
-        self.pick(pickers::PickFor::Open, Self::open_picker(), false);
+        self.pick(
+            pickers::PickFor::Open,
+            rfd::AsyncFileDialog::new().add_filter("PDF", &["pdf"]).add_filter(tl!("Images and text (converted to PDF)"), &create_ui::CONVERTIBLE),
+            true,
+        );
         // Browsers pick files asynchronously; the bytes arrive through `inbox`.
         #[cfg(target_arch = "wasm32")]
         {
@@ -1437,10 +1468,23 @@ impl PdfCraftApp {
         self.pending_panel_reveals.push(docking::Panel::Tools);
     }
 
+    /// Enter a tool from the catalogue, Home, palette or control channel. Organize is a
+    /// workspace, so opening its panel also opens the page grid (without toggling it off).
+    pub(crate) fn select_tool(&mut self, id: &'static str) {
+        self.left = LeftPanel::Tool(id);
+        self.reveal_tools();
+        if let Some(view) = self.active.and_then(|i| self.views.get_mut(i)) {
+            view.organize = id == "organize";
+        }
+    }
+
     /// Select the workspace and its matching tool panel, just like the mode bar.
     pub(crate) fn select_mode(&mut self, mode: Mode) {
         self.mode = mode;
         self.reveal_tools();
+        if let Some(view) = self.active.and_then(|i| self.views.get_mut(i)) {
+            view.organize = false;
+        }
         self.left = match mode {
             Mode::Edit => LeftPanel::Tool("edit"),
             Mode::Convert => LeftPanel::Tool("export"),
@@ -1501,11 +1545,12 @@ impl PdfCraftApp {
             "reopen_last_session": self.reopen_last_session,
             // Kept only while the preference is on.
             "last_session": self.reopen_last_session.then(|| self.session_to_save()),
+            "reload_changed_files": self.reload_changed_files,
             "pinned_folders": self.pinned.folders,
             "theme": self.theme_preference,
             "scroll_speed": self.scroll_speed,
             "default_mode": self.default_mode,
-            "default_layout": self.view_defaults.layout.as_str(),
+            "default_layout": canvas::display_token(self.view_defaults.layout, self.view_defaults.continuous),
             "default_zoom": self.view_defaults.zoom_name(),
             "highlight_fields": self.view_defaults.highlight_fields,
             "language": self.language,
@@ -1578,6 +1623,9 @@ impl PdfCraftApp {
             self.reopen_last_session = on;
         }
         self.last_session = last_session::LastSession::from_json(&v["last_session"]);
+        if let Some(on) = v["reload_changed_files"].as_bool() {
+            self.reload_changed_files = on;
+        }
         self.pinned.restore(&v["pinned_folders"]);
         if let Ok(preference) = serde_json::from_value::<ThemePreference>(v["theme"].clone()) {
             self.set_theme_preference(preference);
@@ -1588,8 +1636,8 @@ impl PdfCraftApp {
         if let Ok(mode) = serde_json::from_value::<Mode>(v["default_mode"].clone()) {
             self.default_mode = mode;
         }
-        if let Some(layout) = v["default_layout"].as_str().and_then(canvas::PageLayout::try_parse) {
-            self.view_defaults.layout = layout;
+        if let Some((layout, continuous)) = v["default_layout"].as_str().and_then(canvas::parse_display_token) {
+            (self.view_defaults.layout, self.view_defaults.continuous) = (layout, continuous);
         }
         if let Some(on) = v["highlight_fields"].as_bool() {
             self.view_defaults.highlight_fields = on;
@@ -1736,8 +1784,7 @@ impl PdfCraftApp {
             ("date-language", _) => self.session.set_date_language(Some(value).filter(|v| *v != "auto"))?,
             ("tool", _) => {
                 let g = pdfcraft_engine::catalog::group(value).ok_or_else(|| format!("unknown tool {value}"))?;
-                self.left = LeftPanel::Tool(g.id);
-                self.reveal_tools();
+                self.select_tool(g.id);
             }
             ("left", _) => self.left_open = value != "closed",
             ("home", _) => self.active = None,
@@ -1789,7 +1836,15 @@ impl PdfCraftApp {
             }
             ("page", Some(v)) => v.go_to_page(value.parse::<usize>().map_err(|e| e.to_string())?.saturating_sub(1)),
             ("zoom", Some(v)) => v.set_zoom(value.trim_end_matches('%').parse::<f32>().map_err(|e| e.to_string())? / 100.0),
-            ("layout", Some(v)) => v.set_layout(canvas::PageLayout::try_parse(value).ok_or("layout must be continuous, single or two-up")?),
+            ("layout", Some(v)) => {
+                let (layout, continuous) = canvas::parse_display_token(value).ok_or("layout must be single, continuous, two-up or two-page")?;
+                v.set_display(layout, continuous);
+            }
+            ("continuous", Some(v)) => match value {
+                "on" => v.set_continuous(true),
+                "off" => v.set_continuous(false),
+                _ => return Err("continuous must be on or off".into()),
+            },
             ("cover", Some(v)) => {
                 let on = match value {
                     "on" => true,
@@ -1802,7 +1857,16 @@ impl PdfCraftApp {
                 v.set_cover(on);
             }
             ("default-layout", _) => {
-                self.view_defaults.layout = canvas::PageLayout::try_parse(value).ok_or("default-layout must be continuous, single or two-up")?;
+                let (layout, continuous) =
+                    canvas::parse_display_token(value).ok_or("default-layout must be single, continuous, two-up or two-page")?;
+                (self.view_defaults.layout, self.view_defaults.continuous) = (layout, continuous);
+            }
+            ("default-continuous", _) => {
+                self.view_defaults.continuous = match value {
+                    "on" => true,
+                    "off" => false,
+                    _ => return Err("default-continuous must be on or off".into()),
+                };
             }
             ("default-zoom", _) => {
                 self.view_defaults =
@@ -1926,8 +1990,22 @@ impl PdfCraftApp {
                 self.set_combine_zoom(percent / 100.0);
             }
             (k, None)
-                if ["page", "zoom", "layout", "cover", "organize", "grid-zoom", "fields", "find", "rotate", "select", "notice", "comment"]
-                    .contains(&k) =>
+                if [
+                    "page",
+                    "zoom",
+                    "layout",
+                    "continuous",
+                    "cover",
+                    "organize",
+                    "grid-zoom",
+                    "fields",
+                    "find",
+                    "rotate",
+                    "select",
+                    "notice",
+                    "comment",
+                ]
+                .contains(&k) =>
             {
                 return Err(format!("`{k}` needs an open document"));
             }
@@ -2172,6 +2250,9 @@ impl eframe::App for PdfCraftApp {
         self.guard_quit(ctx);
         let now = ctx.input(|i| i.time);
         self.autosave_tick(now);
+        // Reload documents whose files a build rewrote (#431).
+        #[cfg(not(target_arch = "wasm32"))]
+        self.watch_files();
         if self.host_dirty.is_some() {
             let dirty = self.first_dirty().is_some();
             if let Some(report) = self.host_dirty.as_mut() {

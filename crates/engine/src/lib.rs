@@ -517,6 +517,14 @@ impl Document {
         self.editor.as_ref().map(|e| pdfcraft_redact::sanitize::scan(&e.cos)).unwrap_or_default()
     }
 
+    /// Verification: faux redactions (opaque covers over extractable text) and redaction
+    /// marks that were never applied. Fails closed: any read error is returned, never an
+    /// empty list.
+    pub fn audit_redactions(&self) -> Result<Vec<pdfcraft_audit::AuditFinding>, String> {
+        let editor = self.editor.as_ref().ok_or("the document can't be read")?;
+        pdfcraft_audit::audit_redactions(&editor.cos).map_err(|e| e.to_string())
+    }
+
     /// Every page's media, crop, bleed, trim and art boxes (user space), for Set Page Boxes.
     pub fn page_boxes(&self) -> Vec<[[f64; 4]; 5]> {
         self.editor.as_ref().and_then(|e| pdfcraft_organize::page_boxes(&e.cos).ok()).unwrap_or_default()
@@ -2446,8 +2454,13 @@ impl Session {
             };
             e.cos.note_repair(line);
         }
-        let marks = editor.as_ref().map(|e| pdfcraft_edit::marks_present(&e.cos)).unwrap_or_default();
-        let added = editor.as_ref().map(|e| pdfcraft_edit::list_added(&e.cos)).unwrap_or_default();
+        let (marks, added) = editor
+            .as_ref()
+            .map(|e| {
+                let scan = pdfcraft_edit::scan_markers(&e.cos);
+                (scan.marks, scan.added)
+            })
+            .unwrap_or_default();
         let links = editor.as_ref().map(|e| pdfcraft_annot::links::list(&e.cos)).unwrap_or_default();
         let sig_cache = Arc::new(pdfcraft_sign::DigestCache::default());
         let signatures = editor.as_ref().map(|e| signatures_of(&e.cos, &bytes, &self.trust, &sig_cache)).unwrap_or_default();
@@ -2733,8 +2746,9 @@ impl Session {
         let mut form = pdfcraft_forms::fields(&editor.cos);
         xfa::mark_script_buttons(&editor.cos, &mut form);
         doc.form = Arc::new(form);
-        doc.marks = pdfcraft_edit::marks_present(&editor.cos);
-        doc.added = pdfcraft_edit::list_added(&editor.cos);
+        let marker_scan = pdfcraft_edit::scan_markers(&editor.cos);
+        doc.marks = marker_scan.marks;
+        doc.added = marker_scan.added;
         doc.links = pdfcraft_annot::links::list(&editor.cos);
         doc.signatures = signatures_of(&editor.cos, &bytes, &doc.trust, &doc.sig_cache);
         doc.display = display_bytes(Some(editor), &bytes);
@@ -2808,6 +2822,29 @@ impl Session {
         doc.dirty = false;
         doc.generation += 1;
         Self::refresh(doc)
+    }
+
+    /// The document's file changed on disk (a LaTeX or Typst build rewrote it, #431): open
+    /// `bytes`, the file as it is now, in its place. Everything opening does runs again (XFA
+    /// layout and scripts, signatures, repairs), but the document keeps its id, name and path,
+    /// so its tab and view stay with it. Undo history goes, as with Revert. The password it was
+    /// opened with is tried; on any failure the document is left as it was.
+    pub fn reload(&mut self, id: DocId, bytes: Arc<Vec<u8>>) -> Result<(), OpenError> {
+        let old = self.docs.iter().position(|d| d.id == id).ok_or_else(|| OpenError::Invalid("the document is not open".into()))?;
+        let doc = &self.docs[old];
+        let (name, path, generation) = (doc.name.clone(), doc.path.clone(), doc.generation);
+        let password = doc.editor.as_ref().and_then(|e| e.keys.reopen.clone()).or_else(|| doc.password.clone());
+        let new_id = self.open(name, path, bytes, password.as_deref())?;
+        let at = self.docs.iter().position(|d| d.id == new_id).ok_or_else(|| OpenError::Invalid("the new version was not kept".into()))?;
+        let mut doc = self.docs.remove(at);
+        doc.id = id;
+        // Caches keyed by the edit generation (edit lines, images, measurements) must see a new
+        // one; there is nothing new to autosave.
+        doc.generation = generation + 1;
+        doc.snapshot_generation = doc.generation;
+        // `open` pushed the new version last, so the old one is still at `old`.
+        *self.docs.get_mut(old).ok_or_else(|| OpenError::Invalid("the document is not open".into()))? = doc;
+        Ok(())
     }
 
     /// The page count of another PDF (Replace Pages, Insert Pages dialogs).
