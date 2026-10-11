@@ -1325,6 +1325,84 @@ fn extract_button_copies_selected_pages_to_a_new_tab() {
 }
 
 #[test]
+fn replace_button_replaces_selected_pages_in_organize() {
+    let dir = temp_path("replace-btn");
+    std::fs::create_dir_all(&dir).unwrap();
+    let other = dir.join("other.pdf");
+    std::fs::write(&other, fixture(5)).unwrap();
+
+    let mut h = organize(3);
+    h.get_by_label("Page 2").click();
+    h.run_steps(1);
+    h.get_by_label("Page 3").click_modifiers(Modifiers::COMMAND);
+    h.run_steps(2);
+    h.state_mut().pick_override = Some(vec![other.to_string_lossy().into_owned()]);
+    h.get_by_label("Replace pages…").click();
+    h.run_steps(3);
+    egui_kittest::kittest::Queryable::get_by_label(&h, "Replace Pages");
+    assert_eq!(h.state().replace_draft.as_ref().unwrap().from, 2);
+    assert_eq!(h.state().replace_draft.as_ref().unwrap().to, 3);
+    egui_kittest::kittest::Queryable::get_by_label(&h, "OK").click();
+    h.run_steps(3);
+    let s = h.state();
+    let doc = s.session.get(s.views[0].id).unwrap();
+    assert_eq!(doc.info.pages.len(), 3);
+    assert_eq!(doc.can_undo(), Some("Replace pages"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn replace_pages_from_thumbnail_context_menu() {
+    let dir = temp_path("replace-ctx");
+    std::fs::create_dir_all(&dir).unwrap();
+    let other = dir.join("other.pdf");
+    std::fs::write(&other, fixture(5)).unwrap();
+
+    let mut h = organize(3);
+    h.state_mut().pick_override = Some(vec![other.to_string_lossy().into_owned()]);
+    h.get_by_label("Page 2").click_button(egui::PointerButton::Secondary);
+    h.run_steps(2);
+    h.get_all_by_label("Replace pages…").last().unwrap().click();
+    h.run_steps(3);
+    egui_kittest::kittest::Queryable::get_by_label(&h, "Replace Pages");
+    assert_eq!(h.state().replace_draft.as_ref().unwrap().from, 2);
+    assert_eq!(h.state().replace_draft.as_ref().unwrap().to, 2);
+    egui_kittest::kittest::Queryable::get_by_label(&h, "OK").click();
+    h.run_steps(3);
+    let s = h.state();
+    let doc = s.session.get(s.views[0].id).unwrap();
+    assert_eq!(doc.info.pages.len(), 3);
+    assert_eq!(doc.can_undo(), Some("Replace page"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn replace_pages_from_pages_panel_context_menu() {
+    let dir = temp_path("replace-panel-ctx");
+    std::fs::create_dir_all(&dir).unwrap();
+    let other = dir.join("other.pdf");
+    std::fs::write(&other, fixture(5)).unwrap();
+
+    let mut h = harness(4, |app| app.right = Some(pdfcraft_ui_egui::RightPanel::Pages));
+    h.state_mut().pick_override = Some(vec![other.to_string_lossy().into_owned()]);
+    let thumb = h.get_all_by_label("Page 2").max_by(|a, b| a.rect().left().total_cmp(&b.rect().left())).unwrap();
+    thumb.click_button(egui::PointerButton::Secondary);
+    h.run_steps(2);
+    h.get_all_by_label("Replace pages…").last().unwrap().click();
+    h.run_steps(3);
+    egui_kittest::kittest::Queryable::get_by_label(&h, "Replace Pages");
+    assert_eq!(h.state().replace_draft.as_ref().unwrap().from, 2);
+    assert_eq!(h.state().replace_draft.as_ref().unwrap().to, 2);
+    egui_kittest::kittest::Queryable::get_by_label(&h, "OK").click();
+    h.run_steps(3);
+    let s = h.state();
+    let doc = s.session.get(s.views[0].id).unwrap();
+    assert_eq!(doc.info.pages.len(), 4);
+    assert_eq!(doc.can_undo(), Some("Replace page"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn inserting_a_file_goes_after_the_selection_and_undoes() {
     let mut h = organize(2);
     h.get_by_label("Page 1").click();
@@ -2269,7 +2347,7 @@ fn dragging_a_paragraph_moves_it_and_its_edge_rewraps_it() {
     assert_eq!(moved.text, "Page 1");
     let near = |a: f64, b: f64| (a - b).abs() < 1.5;
     assert!(near(moved.rect[0], before.rect[0] + 30.0) && near(moved.rect[1], before.rect[1] + 50.0), "{:?} → {:?}", before.rect, moved.rect);
-    assert_eq!(h.state().session.get(h.state().views[0].id).unwrap().can_undo(), Some("Edit text"));
+    assert_eq!(h.state().session.get(h.state().views[0].id).unwrap().can_undo(), Some("Move object"));
     // Drag the handle on its right edge in to about 45 pt wide: "Page" and "1" rewrap onto two lines.
     let edge = screen(moved.rect[2], (moved.rect[1] + moved.rect[3]) / 2.0) + egui::vec2(2.0, 0.0);
     let narrower = (moved.rect[2] - moved.rect[0] - 45.0) as f32 * k;
@@ -2279,7 +2357,391 @@ fn dragging_a_paragraph_moves_it_and_its_edge_rewraps_it() {
     let lines: Vec<String> = doc.text_lines(0).iter().map(|l| l.text.clone()).collect();
     assert_eq!(lines, ["Page", "1"], "rewrapped to the narrower box");
     assert!(near(doc.text_lines(0)[0].rect[0], moved.rect[0]), "it keeps its place");
+    assert_eq!(doc.can_undo(), Some("Edit text"), "edge drags still rewrap text");
     assert!(h.state().views[0].line_editor.is_none());
+}
+
+/// Contributor-original text, with an off-origin CropBox. Keep the moving paragraph last in
+/// source order so an ordinary hit picks it again when two independent boxes fully overlap.
+fn paragraph_drag_fixture(content: &str, rotation: i64, unit: i64) -> Vec<u8> {
+    use pdfcraft_cos::{Dict, Document, Object, Stream};
+    let mut doc = Document::open(std::sync::Arc::new(fixture(1))).unwrap();
+    let page = pdfcraft_model::pages(&doc)[0].obj;
+    let contents = doc.add(Object::Stream(Stream::flate(Dict::new(), content.as_bytes())));
+    doc.update_dict(page, |d| {
+        d.set(b"Contents".to_vec(), Object::Ref(contents));
+        d.set(b"MediaBox".to_vec(), Object::Array([0, 0, 400, 500].map(Object::Int).to_vec()));
+        d.set(b"CropBox".to_vec(), Object::Array([20, 30, 380, 470].map(Object::Int).to_vec()));
+        d.set(b"Rotate".to_vec(), Object::Int(rotation));
+        d.set(b"UserUnit".to_vec(), Object::Int(unit));
+    })
+    .unwrap();
+    pdfcraft_cos::write_incremental(&doc, &Default::default()).unwrap()
+}
+
+fn paragraph_drag_harness(bytes: Vec<u8>, view_rotation: u16) -> Harness<'static, PdfCraftApp> {
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 1100.0)).build_eframe(move |_cc| {
+        let mut app = PdfCraftApp::new();
+        app.session = pdfcraft_engine::Session::new().with_clock(|| 1_700_000_000);
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("paragraphs.pdf", None, bytes).unwrap();
+        app.set_option("zoom", "75").unwrap();
+        app.views[0].rotation = view_rotation;
+        assert!(app.execute("edit.edit_text"));
+        app
+    });
+    h.run_steps(4);
+    h
+}
+
+fn dragged_paragraphs(h: &Harness<'static, PdfCraftApp>) -> Vec<pdfcraft_engine::TextBlock> {
+    let app = h.state();
+    app.session.get(app.views[0].id).unwrap().text_blocks(0)
+}
+
+/// Resolve the current inventory and transform for every gesture, never an old block index
+/// or cached screen position. With identical labels, choose the last (topmost) source box.
+fn paragraph_drag_points(h: &Harness<'static, PdfCraftApp>, text: &str, offset: [f64; 2]) -> (egui::Pos2, egui::Pos2) {
+    let app = h.state();
+    let view = &app.views[0];
+    let doc = app.session.get(view.id).unwrap();
+    let b = doc.text_blocks(0).into_iter().rfind(|b| b.text == text).unwrap();
+    let xf = pdfcraft_ui_egui::canvas::PageXform {
+        rect: view.page_screen_rect(0).unwrap(),
+        rot: view.rotation,
+        pw: doc.info.pages[0].width,
+        ph: doc.info.pages[0].height,
+    };
+    let moved = std::array::from_fn(|i| (b.rect[i] + offset[i % 2]) as f32);
+    (xf.user_rect(&doc.info, 0, b.rect.map(|v| v as f32)).center(), xf.user_rect(&doc.info, 0, moved).center())
+}
+
+fn drag_paragraph(h: &mut Harness<'static, PdfCraftApp>, text: &str, offset: [f64; 2]) {
+    let (from, to) = paragraph_drag_points(h, text, offset);
+    h.get_by_label("Shift-click to select several objects. Drag empty space to select an area.");
+    assert!(h.state().views[0].line_editor.is_none());
+    drag(h, from, to);
+    assert!(h.state().views[0].line_editor.is_none(), "a body drag must not open the typing editor");
+    h.get_by_label("Shift-click to select several objects. Drag empty space to select an area.");
+}
+
+fn assert_dragged_paragraphs(actual: &[pdfcraft_engine::TextBlock], expected: &[pdfcraft_engine::TextBlock]) {
+    assert_eq!(actual.len(), expected.len(), "independent paragraphs must survive");
+    // Source order is itself an invariant, including when text and geometry are identical.
+    for (a, e) in actual.iter().zip(expected) {
+        assert_eq!((&a.text, &a.base_font, a.size, a.bold, a.italic, a.color), (&e.text, &e.base_font, e.size, e.bold, e.italic, e.color));
+        assert_eq!(a.lines.len(), e.lines.len(), "moving must not rewrap");
+        assert!(a.rect.iter().zip(e.rect).all(|(a, e)| (a - e).abs() < 0.01), "{a:?} != {e:?}");
+    }
+}
+
+/// Read only the current page contents, not stale revisions or the renderer's deduplicated
+/// text layer. These synthetic fixtures contain each literal exactly once per source draw.
+fn paragraph_drag_content(h: &Harness<'static, PdfCraftApp>) -> String {
+    let app = h.state();
+    let doc = pdfcraft_cos::Document::open(app.session.get(app.views[0].id).unwrap().bytes.clone()).unwrap();
+    let page = pdfcraft_model::pages(&doc)[0].clone();
+    let contents = doc.resolve(page.dict.get(b"Contents").unwrap());
+    let pieces = match contents.as_array() {
+        Some(a) => a.clone(),
+        None => vec![contents.as_ref().clone()],
+    };
+    let mut bytes = Vec::new();
+    for piece in pieces {
+        let object = doc.resolve(&piece);
+        let pdfcraft_cos::Object::Stream(stream) = object.as_ref() else { panic!("fixture content must be a stream") };
+        bytes.extend(stream.decoded().unwrap());
+    }
+    String::from_utf8(bytes).unwrap()
+}
+
+fn save_paragraph_drag(h: &mut Harness<'static, PdfCraftApp>, name: &str, original: &[u8]) -> Vec<u8> {
+    let out = temp_path(name);
+    let id = h.state().views[0].id;
+    h.state_mut().save_override = Some(out.to_string_lossy().into_owned());
+    h.key_press_modifiers(Modifiers::COMMAND, Key::S);
+    h.run_steps(4);
+    let saved = std::fs::read(&out).unwrap();
+    assert!(saved.starts_with(original), "Save keeps the opened/saved revisions");
+    assert!(!h.state().session.get(id).unwrap().dirty);
+    assert_eq!(h.state().session.get(id).unwrap().bytes.as_slice(), saved.as_slice());
+    std::fs::remove_file(out).unwrap();
+    saved
+}
+
+fn paragraph_drag_shot(h: &mut Harness<'static, PdfCraftApp>, name: &str) {
+    if let Ok(directory) = std::env::var("PDFCRAFT_PARAGRAPH_DRAG_SHOTS") {
+        for _ in 0..60 {
+            h.run_steps(2);
+            if !h.state().render_pending() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert!(!h.state().render_pending(), "the screenshot must show the current document generation");
+        let directory = std::path::Path::new(&directory);
+        std::fs::create_dir_all(directory).unwrap();
+        h.render().unwrap().save(directory.join(name)).unwrap();
+    }
+}
+
+fn check_paragraph_overlap_drag(identical: bool, reopen_between: bool) {
+    let (stationary, moving) = if identical { ("Repeated", "Repeated") } else { ("Stationary beta", "Moving alpha") };
+    let content =
+        format!("BT /F1 12 Tf 60 220 Td ({stationary}) Tj ET BT /F1 12 Tf 250 100 Td (Keep here) Tj ET BT /F1 12 Tf 60 320 Td ({moving}) Tj ET");
+    let mut saved_base = paragraph_drag_fixture(&content, 0, 1);
+    let mut h = paragraph_drag_harness(saved_base.clone(), 0);
+    let before = dragged_paragraphs(&h);
+    assert_eq!(before.len(), 3);
+    paragraph_drag_shot(&mut h, &format!("before-{identical}-{reopen_between}.png"));
+    let moving_index = before.iter().rposition(|b| b.text == moving).unwrap();
+    let mut overlap = before.clone();
+    for i in [1, 3] {
+        overlap[moving_index].rect[i] -= 100.0;
+    }
+    drag_paragraph(&mut h, moving, [0.0, -100.0]);
+    assert_dragged_paragraphs(&dragged_paragraphs(&h), &overlap);
+    paragraph_drag_shot(&mut h, &format!("overlap-{identical}-{reopen_between}.png"));
+    h.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+    h.run_steps(4);
+    assert_dragged_paragraphs(&dragged_paragraphs(&h), &before);
+    assert!(h.state().session.get(h.state().views[0].id).unwrap().can_undo().is_none(), "the first release was exactly one step");
+    h.key_press_modifiers(Modifiers::COMMAND | Modifiers::SHIFT, Key::Z);
+    h.run_steps(4);
+    assert_dragged_paragraphs(&dragged_paragraphs(&h), &overlap);
+
+    if reopen_between {
+        let bytes = save_paragraph_drag(&mut h, &format!("paragraph-overlap-{identical}.pdf"), &saved_base);
+        saved_base = bytes.clone();
+        h = paragraph_drag_harness(bytes, 0);
+        assert_dragged_paragraphs(&dragged_paragraphs(&h), &overlap);
+    }
+    // A rewrite here used to remove the stationary box, even if its text was different.
+    drag_paragraph(&mut h, moving, [150.0, 0.0]);
+    let mut after = overlap.clone();
+    for i in [0, 2] {
+        after[moving_index].rect[i] += 150.0;
+    }
+    assert_dragged_paragraphs(&dragged_paragraphs(&h), &after);
+    paragraph_drag_shot(&mut h, &format!("after-{identical}-{reopen_between}.png"));
+    let current = paragraph_drag_content(&h);
+    assert_eq!(current.matches(&format!("({stationary})")).count(), if identical { 2 } else { 1 });
+    assert_eq!(current.matches(&format!("({moving})")).count(), if identical { 2 } else { 1 });
+    assert_eq!(current.matches("(Keep here)").count(), 1);
+    assert_eq!(h.state().session.get(h.state().views[0].id).unwrap().can_undo(), Some("Move object"));
+    h.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+    h.run_steps(4);
+    assert_dragged_paragraphs(&dragged_paragraphs(&h), &overlap);
+    if !reopen_between {
+        h.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+        h.run_steps(4);
+        assert_dragged_paragraphs(&dragged_paragraphs(&h), &before);
+    }
+    assert!(h.state().session.get(h.state().views[0].id).unwrap().can_undo().is_none(), "each release was exactly one step");
+    if !reopen_between {
+        h.key_press_modifiers(Modifiers::COMMAND | Modifiers::SHIFT, Key::Z);
+        h.run_steps(4);
+        assert_dragged_paragraphs(&dragged_paragraphs(&h), &overlap);
+    }
+    h.key_press_modifiers(Modifiers::COMMAND | Modifiers::SHIFT, Key::Z);
+    h.run_steps(4);
+    assert_dragged_paragraphs(&dragged_paragraphs(&h), &after);
+    assert!(h.state().session.get(h.state().views[0].id).unwrap().can_redo().is_none());
+    let bytes = save_paragraph_drag(&mut h, &format!("paragraph-separated-{identical}-{reopen_between}.pdf"), &saved_base);
+    let reopened = paragraph_drag_harness(bytes, 0);
+    assert_dragged_paragraphs(&dragged_paragraphs(&reopened), &after);
+    assert_eq!(paragraph_drag_content(&reopened), current);
+}
+
+#[test]
+fn ordinary_paragraph_drags_preserve_overlapping_text_and_history() {
+    check_paragraph_overlap_drag(false, false);
+}
+
+#[test]
+fn ordinary_paragraph_drags_preserve_identical_overlapping_labels() {
+    check_paragraph_overlap_drag(true, false);
+}
+
+#[test]
+fn ordinary_paragraph_drags_preserve_overlap_after_save_and_reopen() {
+    check_paragraph_overlap_drag(false, true);
+    check_paragraph_overlap_drag(true, true);
+}
+
+#[test]
+fn ordinary_paragraph_drags_preserve_partial_overlap_and_touching_labels() {
+    let content = "BT /F1 12 Tf 60 220 Td (Repeated) Tj ET BT /F1 12 Tf 60 320 Td (Repeated) Tj ET";
+    for fraction in [0.25, 0.75, 1.0] {
+        let mut h = paragraph_drag_harness(paragraph_drag_fixture(content, 0, 1), 0);
+        let mut expected = dragged_paragraphs(&h);
+        assert_eq!(expected.len(), 2);
+        let width = expected[1].rect[2] - expected[1].rect[0];
+        // 75% overlap, 25% overlap, then exact touching of the original source rectangles.
+        for offset in [[width * fraction, -100.0], [150.0, -40.0]] {
+            drag_paragraph(&mut h, "Repeated", offset);
+            for (i, coordinate) in expected[1].rect.iter_mut().enumerate() {
+                *coordinate += offset[i % 2];
+            }
+            assert_dragged_paragraphs(&dragged_paragraphs(&h), &expected);
+            assert_eq!(paragraph_drag_content(&h).matches("(Repeated)").count(), 2);
+        }
+    }
+}
+
+#[test]
+fn ordinary_paragraph_drags_preserve_multiline_kerning_strings() {
+    let content =
+        concat!("BT /F1 12 Tf 60 220 Td (Keep here) Tj ET ", "BT /F1 12 Tf 14 TL 60 320 Td [(First) -120 ( line)] TJ T* (Second line) Tj ET");
+    let mut h = paragraph_drag_harness(paragraph_drag_fixture(content, 0, 1), 0);
+    let mut expected = dragged_paragraphs(&h);
+    assert_eq!(expected.len(), 2);
+    assert_eq!(expected[1].lines.len(), 2);
+    let text = expected[1].text.clone();
+    for offset in [[0.0, -100.0], [150.0, 0.0]] {
+        drag_paragraph(&mut h, &text, offset);
+        for (i, coordinate) in expected[1].rect.iter_mut().enumerate() {
+            *coordinate += offset[i % 2];
+        }
+        assert_dragged_paragraphs(&dragged_paragraphs(&h), &expected);
+        let current = paragraph_drag_content(&h);
+        assert!(current.contains("[(First) -120 ( line)] TJ"), "original encoded strings and kerning stay byte-identical");
+        for literal in ["(Keep here)", "(Second line)"] {
+            assert_eq!(current.matches(literal).count(), 1);
+        }
+    }
+}
+
+#[test]
+fn ordinary_paragraph_drag_respects_rotations_crop_and_user_unit() {
+    let content = "BT /F1 12 Tf 60 220 Td (Keep here) Tj ET BT /F1 12 Tf 60 320 Td (Moving alpha) Tj ET";
+    for rotation in [0, 90, 180, 270] {
+        for view_rotation in [0, 90, 180, 270] {
+            let mut h = paragraph_drag_harness(paragraph_drag_fixture(content, rotation, 2), view_rotation);
+            let mut expected = dragged_paragraphs(&h);
+            let moving = expected.iter_mut().find(|b| b.text == "Moving alpha").unwrap();
+            for (i, coordinate) in moving.rect.iter_mut().enumerate() {
+                *coordinate += [35.0, -27.0][i % 2];
+            }
+            drag_paragraph(&mut h, "Moving alpha", [35.0, -27.0]);
+            assert_dragged_paragraphs(&dragged_paragraphs(&h), &expected);
+        }
+    }
+}
+
+#[test]
+fn an_ordinary_added_text_drag_keeps_its_content_edit() {
+    for panel_open in [true, false] {
+        check_added_text_drag(panel_open);
+    }
+}
+
+fn check_added_text_drag(panel_open: bool) {
+    let content = "BT /F1 12 Tf 60 220 Td (Keep here) Tj ET";
+    let mut h = paragraph_drag_harness(paragraph_drag_fixture(content, 0, 1), 0);
+    let id = h.state().views[0].id;
+    h.state_mut()
+        .session
+        .apply(
+            id,
+            pdfcraft_engine::Edit::AddText {
+                page: 0,
+                text: pdfcraft_engine::AddedText { text: "Added note".into(), rect: [100.0, 330.0, 230.0, 354.0], ..Default::default() },
+            },
+        )
+        .unwrap();
+    let original = h.state().session.save_bytes(id).unwrap();
+    h = paragraph_drag_harness(original.as_ref().clone(), 0);
+    h.state_mut().left_open = panel_open;
+    h.run_steps(4);
+    let added = |h: &Harness<'static, PdfCraftApp>| {
+        let app = h.state();
+        app.session.get(app.views[0].id).unwrap().added.clone()
+    };
+    let before_added = added(&h);
+    assert_eq!(before_added.len(), 1);
+    let before = dragged_paragraphs(&h);
+    assert_eq!(before.len(), 2, "added text is also visible in the raw paragraph list");
+    let mut expected = before.clone();
+    let moved = expected.iter_mut().find(|b| b.text == "Added note").unwrap();
+    for (i, coordinate) in moved.rect.iter_mut().enumerate() {
+        *coordinate += [30.0, -20.0][i % 2];
+    }
+    // The same pointer hits added content and its source glyphs. Only content_ui may own it:
+    // a Text target would be excluded from MoveObjects and overwrite the valid UpdateContent.
+    let (from, to) = paragraph_drag_points(&h, "Added note", [30.0, -20.0]);
+    drag(&mut h, from, to);
+    assert!(h.state().views[0].line_editor.is_none());
+    assert!(h.state().views[0].block_drag.is_none());
+    assert_dragged_paragraphs(&dragged_paragraphs(&h), &expected);
+    let after_added = added(&h);
+    assert_eq!(after_added.len(), 1);
+    let (old_rect, new_rect) = (before_added[0].content.rect(), after_added[0].content.rect());
+    for i in 0..4 {
+        assert!((new_rect[i] - old_rect[i] - [30.0, -20.0][i % 2]).abs() < 0.01);
+    }
+    assert_eq!(after_added[0].content, before_added[0].content.with_rect(new_rect));
+    assert_eq!(h.state().session.get(h.state().views[0].id).unwrap().can_undo(), Some("Edit content"));
+    h.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+    h.run_steps(4);
+    assert_eq!(added(&h), before_added);
+    assert_dragged_paragraphs(&dragged_paragraphs(&h), &before);
+    assert!(h.state().session.get(h.state().views[0].id).unwrap().can_undo().is_none(), "one content edit, no paragraph rewrite");
+    h.key_press_modifiers(Modifiers::COMMAND | Modifiers::SHIFT, Key::Z);
+    h.run_steps(4);
+    assert_eq!(added(&h), after_added);
+    assert_dragged_paragraphs(&dragged_paragraphs(&h), &expected);
+    let bytes = save_paragraph_drag(&mut h, &format!("paragraph-added-content-{panel_open}.pdf"), original.as_slice());
+    let reopened = paragraph_drag_harness(bytes, 0);
+    assert_eq!(added(&reopened), after_added);
+    assert_dragged_paragraphs(&dragged_paragraphs(&reopened), &expected);
+}
+
+#[test]
+fn an_ordinary_paragraph_drag_refusal_never_rewrites_the_text() {
+    let content = "q BT 4 Tr /F1 12 Tf 60 320 Td (Clipping text) Tj ET Q";
+    let mut h = paragraph_drag_harness(paragraph_drag_fixture(content, 0, 1), 0);
+    let before = dragged_paragraphs(&h);
+    let id = h.state().views[0].id;
+    let bytes = h.state().session.get(id).unwrap().bytes.clone();
+    let generation = h.state().session.get(id).unwrap().edit_generation();
+    drag_paragraph(&mut h, "Clipping text", [30.0, -20.0]);
+    let doc = h.state().session.get(id).unwrap();
+    assert_eq!(doc.bytes, bytes);
+    assert_eq!(doc.edit_generation(), generation);
+    assert!(doc.can_undo().is_none());
+    assert!(!doc.dirty);
+    assert_dragged_paragraphs(&dragged_paragraphs(&h), &before);
+    assert!(h.state().toast.as_ref().unwrap().0.contains("Text used as a clipping path cannot be moved with this selection."));
+}
+
+#[test]
+fn an_ordinary_paragraph_drag_cannot_reuse_an_index_after_an_edit() {
+    let content = "BT /F1 12 Tf 60 120 Td (Discard) Tj ET BT /F1 12 Tf 60 320 Td (Moving alpha) Tj ET BT /F1 12 Tf 60 220 Td (Keep here) Tj ET";
+    let mut h = paragraph_drag_harness(paragraph_drag_fixture(content, 0, 1), 0);
+    let (from, to) = paragraph_drag_points(&h, "Moving alpha", [30.0, -20.0]);
+    h.hover_at(from);
+    h.run_steps(1);
+    h.drag_at(from);
+    h.run_steps(1);
+    h.hover_at(to);
+    h.run_steps(2);
+    assert!(h.state().views[0].block_drag.is_some());
+    let id = h.state().views[0].id;
+    h.state_mut()
+        .session
+        .apply(id, pdfcraft_engine::Edit::EditTextBlock { page: 0, block: 0, text: String::new(), style: Default::default() })
+        .unwrap();
+    let after_edit = dragged_paragraphs(&h);
+    assert_eq!(after_edit.len(), 2, "the surviving paragraphs get different indexes");
+    assert_eq!(after_edit[1].text, "Keep here", "the old target index now names an unrelated paragraph");
+    let generation = h.state().session.get(id).unwrap().edit_generation();
+    h.run_steps(2);
+    h.drop_at(to);
+    h.run_steps(4);
+    assert!(h.state().views[0].block_drag.is_none());
+    assert_eq!(h.state().session.get(id).unwrap().edit_generation(), generation, "the stale release adds no edit");
+    assert_dragged_paragraphs(&dragged_paragraphs(&h), &after_edit);
 }
 
 /// A quick flick: press at `from`, and the next frame already finds the pointer at `to`.

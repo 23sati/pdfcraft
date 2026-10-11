@@ -345,7 +345,7 @@ pub fn tools() -> Vec<ToolDef> {
                 }),
                 &["doc", "page", "path", "at"],
             )),
-        t("form_set_image", "Set an image field's picture", "Show an image file (PNG, JPEG, TIFF, GIF or BMP) in an image field or button, scaled to fit and centred (what clicking an image field does). Undoable.")
+        t("form_set_image", "Set an image field's picture", "Show an image file (PNG, JPEG, TIFF, GIF or BMP) in an image field or button, scaled to fit and centred (what clicking an image field does). On an XFA form the picture is kept in its data too (base64, as Designer saves it) and the form shows it from there. Undoable.")
             .with(schema(json!({ "doc": doc(), "field": { "type": "string" }, "path": { "type": "string" } }), &["doc", "field", "path"])),
         t(
             "form_set_props",
@@ -388,10 +388,10 @@ pub fn tools() -> Vec<ToolDef> {
                 json!({ "doc": doc(), "order": { "type": "string", "enum": ["row", "column", "structure", "annotations"] }, "pages": pages("to set (default: all)"), "field": { "type": "string" }, "move": { "type": "string", "enum": ["earlier", "later"] } }),
                 &["doc"],
             )),
-        t("doc_export_data", "Export comments or form data", "Write comments and/or form data to path; the extension picks the format: .xfdf or .fdf (comments and/or fields), .xml, .csv or .txt (form data). what: all (default), comments, fields.")
+        t("doc_export_data", "Export comments or form data", "Write comments and/or form data to path; the extension picks the format: .xfdf or .fdf (comments and/or fields), .xml, .csv or .txt (form data). For an XFA form, .xml is its data alone (rooted at the form's root data node, as Acrobat exports it) and .xdp an XML Data Package holding the whole datasets. what: all (default), comments, fields.")
             .destructive()
             .with(schema(json!({ "doc": doc(), "path": { "type": "string" }, "what": { "type": "string", "enum": ["all", "comments", "fields"] } }), &["doc", "path"])),
-        t("doc_import_data", "Import comments or form data", "Import comments and/or field values from an XFDF, FDF, XML, CSV or tab-delimited text file (detected from its content). Comments with the same name are replaced; values go through the form's formats and validation. Undoable.")
+        t("doc_import_data", "Import comments or form data", "Import comments and/or field values from an XFDF, FDF, XML, CSV or tab-delimited text file (detected from its content). Comments with the same name are replaced; values go through the form's formats and validation. For an XFA form, an XDP, datasets or data XML file replaces the form's data: a laid-out form is laid out again from it (rows included) and its calculations run. Undoable.")
             .with(schema(json!({ "doc": doc(), "path": { "type": "string" } }), &["doc", "path"])),
         t("form_delete_field", "Delete a field", "Delete a form field and all its widgets. Undoable.")
             .destructive()

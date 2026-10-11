@@ -1045,6 +1045,10 @@ fn pages(ui: &mut egui::Ui, t: &Tokens, info: &DocInfo, view: &mut crate::DocVie
                     view.pending_action = Some(crate::canvas::ViewAction::Extract);
                     ui.close();
                 }
+                if ui.add_enabled(editable, egui::Button::new(tl!("Replace pages…"))).clicked() {
+                    view.pending_action = Some(crate::canvas::ViewAction::ReplacePages);
+                    ui.close();
+                }
                 ui.separator();
                 if ui.add_enabled(editable, egui::Button::new(tl!("Cut"))).clicked() {
                     view.pending_action = Some(crate::canvas::ViewAction::CopyPages { cut: true });

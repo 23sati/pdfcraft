@@ -1639,7 +1639,10 @@ impl Automation {
             let texts = self.page_texts(id, &pages)?;
             for (p, text) in pages.iter().zip(&texts) {
                 let skip_here = if *p == start { skip } else { 0 };
-                for (k, r) in text.find(query).into_iter().enumerate().skip(skip_here) {
+                // One extra match proves that the caller needs a continuation. Include skipped
+                // matches on the starting page when bounding the temporary per-page result.
+                let needed = limit.saturating_sub(matches.len()).saturating_add(skip_here).saturating_add(1);
+                for (k, r) in text.find_opts_limited(query, false, false, needed).into_iter().enumerate().skip(skip_here) {
                     if matches.len() == limit {
                         next = Some(json!({ "start_page": p + 1, "skip": k }));
                         break 'search;
