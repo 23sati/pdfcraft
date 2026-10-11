@@ -314,7 +314,32 @@ namespace LinkcoPreviewHostTest
             Say("  CoCreateInstance: 0x" + hr.ToString("X8") + (hr == 0 ? " S_OK" : " FAILED (" + new System.ComponentModel.Win32Exception(hr).Message + ")") +
                 " in " + clock.ElapsedMilliseconds + " ms");
             if (hr != 0 || instance == null)
+            {
+                // CoCreateInstance only returns an HRESULT: ask the CLR in this process for the full
+                // exception (which file it could not find or load, and the binding log).
+                try
+                {
+                    Type t = Type.GetTypeFromCLSID(clsid, null, true);
+                    object o = Activator.CreateInstance(t);
+                    Say("  in-process Activator.CreateInstance: OK (" + o.GetType().AssemblyQualifiedName + ")");
+                }
+                catch (Exception ex)
+                {
+                    Exception e = ex;
+                    while (e is System.Reflection.TargetInvocationException && e.InnerException != null)
+                        e = e.InnerException;
+                    Say("  in-process Activator.CreateInstance: " + e.GetType().FullName + " 0x" + Marshal.GetHRForException(e).ToString("X8"));
+                    foreach (string l in e.ToString().Split('\n'))
+                        Say("    " + l.TrimEnd());
+                    System.IO.FileNotFoundException fnf = e as System.IO.FileNotFoundException;
+                    if (fnf != null)
+                        Say("    FileName: " + fnf.FileName + "\n    FusionLog: " + fnf.FusionLog);
+                    System.IO.FileLoadException fle = e as System.IO.FileLoadException;
+                    if (fle != null)
+                        Say("    FileName: " + fle.FileName + "\n    FusionLog: " + fle.FusionLog);
+                }
                 return 1;
+            }
 
             List<int> newHosts = HostPids();
             newHosts.RemoveAll(delegate(int p) { return hostsBefore.Contains(p); });

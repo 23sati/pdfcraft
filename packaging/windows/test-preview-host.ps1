@@ -43,7 +43,10 @@ trap {
 }
 
 $Work = Join-Path ([IO.Path]::GetTempPath()) ('linkco-host-' + [Guid]::NewGuid().ToString('N').Substring(0, 8))
-$App = Join-Path $Work 'Linkco PDF Editor'
+$IsAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+# Where the installers put it (Program Files) when we may write there; else a temp folder.
+$App = if ($IsAdmin) { Join-Path $env:ProgramFiles 'Linkco Preview Test\Linkco PDF Editor' } else { Join-Path $Work 'Linkco PDF Editor' }
+if (Test-Path $App) { Remove-Item $App -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $App | Out-Null
 
 $Csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
@@ -73,6 +76,29 @@ $Pdf = Join-Path $Work 'sample.pdf'
 [IO.File]::WriteAllText($Pdf, $sb.ToString(), [Text.Encoding]::ASCII)
 
 $type = [Reflection.Assembly]::Load([IO.File]::ReadAllBytes($Dll)).GetType('LinkcoPdfPreview.LinkcoPdfPreviewHandler')
+
+# .NET assembly binding log (Fusion), so a failed load says which file and where it looked.
+$FusionDir = 'C:\LinkcoFusionLog'
+if ($IsAdmin) {
+  if (Test-Path $FusionDir) { Remove-Item $FusionDir -Recurse -Force }
+  New-Item -ItemType Directory -Force -Path $FusionDir | Out-Null
+  & icacls.exe $FusionDir /grant '*S-1-1-0:(OI)(CI)F' /setintegritylevel '(OI)(CI)low' | Out-Null
+  $fk = 'HKLM:\SOFTWARE\Microsoft\Fusion'
+  if (-not (Test-Path $fk)) { New-Item $fk -Force | Out-Null }
+  Set-ItemProperty $fk -Name ForceLog -Value 1 -Type DWord
+  Set-ItemProperty $fk -Name LogFailures -Value 1 -Type DWord
+  Set-ItemProperty $fk -Name LogPath -Value ($FusionDir + '\') -Type String
+}
+function Show-FusionLog {
+  if (-not (Test-Path $FusionDir)) { return }
+  $logs = @(Get-ChildItem $FusionDir -Recurse -Filter *.htm -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'LinkcoPdfPreview' } | Sort-Object LastWriteTime | Select-Object -Last 2)
+  foreach ($f in $logs) {
+    Say "  binding log $($f.Directory.Name)\$($f.Name):"
+    $t = (Get-Content -LiteralPath $f.FullName -Raw) -replace '<[^>]+>', '' -replace '&gt;', '>' -replace '&lt;', '<' -replace '&amp;', '&'
+    foreach ($l in ($t -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -First 40)) { Say "    $($l.Trim())" }
+  }
+  Get-ChildItem $FusionDir -Recurse -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+}
 function Internal([string] $method, [object[]] $arguments) {
   $m = $type.GetMethod($method, [Reflection.BindingFlags] 'NonPublic, Public, Static')
   try { return $m.Invoke($null, $arguments) } catch { return "($method failed: $($_.Exception.InnerException.Message))" }
@@ -89,7 +115,7 @@ function Clear-Registration {
     if (Test-Path $k) { Remove-Item $k -Recurse -Force }
   }
 }
-function Run-Host([string] $name, [string] $mode) {
+function Run-Host([string] $name, [string] $mode, [switch] $AsAdmin) {
   Stop-Hosts
   $logBefore = if (Test-Path $LogPath) { (Get-Item $LogPath).Length } else { 0 }
   Say ""
@@ -100,14 +126,14 @@ function Run-Host([string] $name, [string] $mode) {
   $shot = Join-Path $Work "shot-$letter.png"
   $outFile = Join-Path $Work "out-$letter.txt"
   $code = $null
-  if ($Elevated -and -not $NoDemote) {
+  if ($Elevated -and -not $NoDemote -and -not $AsAdmin) {
     # Explorer runs un-elevated (medium integrity), and COM ignores per-user registrations for
     # elevated callers: run the host as a normal user, like Explorer.
     $bat = Join-Path $Work "run-$letter.cmd"
     Set-Content -LiteralPath $bat -Encoding ASCII -Value @(
       '@echo off',
       ('"' + $HostExe + '" ' + $Clsid + ' "' + $Pdf + '" ' + $mode + ' ' + $Seconds + ' "' + $shot + '" > "' + $outFile + '" 2>&1'),
-      ('echo %ERRORLEVEL%> "' + $outFile + '.done"'))
+      ('>"' + $outFile + '.done" echo %ERRORLEVEL%'))
     $ErrorActionPreference = 'Continue'
     & runas.exe /trustlevel:0x20000 $bat 2>&1 | ForEach-Object { Say "  runas: $_" }
     $ErrorActionPreference = 'Stop'
@@ -128,6 +154,7 @@ function Run-Host([string] $name, [string] $mode) {
   }
   if (Test-Path $outFile) { Say ((Get-Content -LiteralPath $outFile -Raw) -replace '\s+$', '') }
   Say "  exit code $code"
+  Show-FusionLog
   if (Test-Path $LogPath) {
     $fs = [IO.File]::Open($LogPath, 'Open', 'Read', 'ReadWrite')
     try {
@@ -149,6 +176,8 @@ Clear-Registration
 $type::RegisterPreviewHandler($Dll, $false)
 Run-Host 'A per-user registration, out of process (as Explorer)' 'local'
 Run-Host 'B per-user registration, in process' 'inproc'
+Run-Host 'E per-user registration, in process, elevated (for comparison)' 'inproc' -AsAdmin
+Run-Host 'F per-user registration, out of process, elevated (for comparison)' 'local' -AsAdmin
 
 Set-ItemProperty -Path "HKCU:\Software\Classes\CLSID\$Clsid" -Name AppID -Value $SharedHost
 Run-Host 'C per-user registration, shared prevhost AppID (before 1.0.0)' 'local'
@@ -171,5 +200,9 @@ foreach ($e in $events) { Say ("  [$($e.ProviderName) $($e.Id)] " + (($e.Message
 
 Stop-Hosts
 Clear-Registration
+if ($IsAdmin) {
+  Remove-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Fusion' -Name ForceLog, LogFailures, LogPath -ErrorAction SilentlyContinue
+  Remove-Item (Split-Path -Parent $App) -Recurse -Force -ErrorAction SilentlyContinue
+}
 [IO.File]::WriteAllLines($Report, $lines)
 Write-Output "Report: $Report"
