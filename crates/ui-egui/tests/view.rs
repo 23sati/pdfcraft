@@ -148,13 +148,110 @@ fn continuous_layout_stacks_pages_vertically() {
 
 #[test]
 fn two_up_layout_places_pages_side_by_side() {
-    let mut h = harness(&[("layout", "two-up"), ("zoom", "50")]);
+    let mut h = harness(&[("layout", "two-up-continuous"), ("zoom", "50")]);
     h.run_steps(4);
     let (a, b) = (rect(&h, 0).expect("page 1"), rect(&h, 1).expect("page 2"));
     assert!((a.min.y - b.min.y).abs() < 1.0, "same row: {a:?} {b:?}");
     assert!(b.min.x > a.max.x, "page 2 right of page 1");
     let c = rect(&h, 2).expect("page 3 on the next row");
     assert!(c.min.y > a.max.y);
+}
+
+#[test]
+fn two_up_layout_shows_only_the_current_spread() {
+    let mut h = harness(&[("layout", "two-up"), ("zoom", "50")]);
+    assert!(rect(&h, 0).is_some() && rect(&h, 1).is_some(), "the first spread is shown");
+    assert!(rect(&h, 2).is_none(), "the next spread must not appear with continuous scrolling off");
+    h.state_mut().set_option("page", "3").unwrap();
+    h.run_steps(4);
+    assert!(rect(&h, 0).is_none() && rect(&h, 1).is_none());
+    assert!(rect(&h, 2).is_some(), "an odd final page is its own spread");
+}
+
+#[test]
+fn continuous_scrolling_toggles_without_changing_page_columns() {
+    let mut h = harness(&[("layout", "two-up"), ("zoom", "50")]);
+    h.state_mut().execute("view.layout.continuous");
+    h.run_steps(4);
+    let (a, b) = (rect(&h, 0).unwrap(), rect(&h, 1).unwrap());
+    assert!((a.top() - b.top()).abs() < 1.0, "enabling scrolling keeps two-page view");
+    assert!(rect(&h, 2).is_some(), "scrolling displays the following spread");
+    h.state_mut().execute("view.layout.continuous");
+    h.run_steps(4);
+    assert!(rect(&h, 0).is_some() && rect(&h, 1).is_some());
+    assert!(rect(&h, 2).is_none(), "disabling scrolling shows only the current spread");
+}
+
+#[test]
+fn pdf_initial_view_distinguishes_fixed_and_scrolling_spreads() {
+    for (name, expected, cover) in [
+        ("TwoPageLeft", "two-up", false),
+        ("TwoPageRight", "two-up", true),
+        ("TwoColumnLeft", "two-up-continuous", false),
+        ("TwoColumnRight", "two-up-continuous", true),
+    ] {
+        let mut app = PdfCraftApp::new();
+        let pdf = String::from_utf8(PAGES.to_vec()).unwrap().replace("/Type /Catalog", &format!("/Type /Catalog /PageLayout /{name}"));
+        app.open_bytes("initial-view.pdf", None, pdf.into_bytes()).unwrap();
+        assert_eq!(app.views[0].layout.as_str(), expected, "{name}");
+        assert_eq!(app.views[0].cover, cover, "{name}");
+    }
+}
+
+#[test]
+fn two_page_cover_wheel_and_keyboard_turn_whole_spreads() {
+    for cover in [false, true] {
+        let mut h = harness(&[("layout", "two-up"), ("zoom", "50")]);
+        h.state_mut().views[0].set_cover(cover);
+        h.run_steps(4);
+        assert_eq!(rect(&h, 1).is_some(), !cover, "a cover appears alone");
+        let next = if cover { 1 } else { 2 };
+        let at = h.state().views[0].viewport_rect().center();
+        h.hover_at(at);
+        h.run_steps(2);
+        h.event(wheel(MouseWheelUnit::Line, -1.0, TouchPhase::Move));
+        h.run_steps(4);
+        assert_eq!(h.state().views[0].current, next, "one notch turns a spread");
+        assert!(rect(&h, 0).is_none() && rect(&h, 2).is_some());
+        h.key_press(Key::PageUp);
+        h.run_steps(4);
+        assert_eq!(h.state().views[0].current, 0);
+        h.key_press(Key::PageDown);
+        h.run_steps(4);
+        assert_eq!(h.state().views[0].current, next);
+        h.key_press(Key::ArrowUp);
+        h.run_steps(4);
+        assert_eq!(h.state().views[0].current, 0, "at the top, the up arrow turns back a spread");
+    }
+}
+
+#[test]
+fn two_page_wheel_pans_a_zoomed_spread() {
+    let mut h = harness(&[("layout", "two-up"), ("zoom", "200")]);
+    let before = rect(&h, 0).unwrap();
+    let at = h.state().views[0].viewport_rect().center();
+    h.hover_at(at);
+    h.run_steps(1);
+    h.event(wheel(MouseWheelUnit::Point, -60.0, TouchPhase::Move));
+    h.run_steps(4);
+    assert_eq!(h.state().views[0].current, 0, "a large spread pans before turning");
+    assert!(rect(&h, 0).unwrap().top() < before.top());
+    assert!(rect(&h, 2).is_none(), "panning cannot expose the following spread");
+}
+
+#[test]
+fn scrolling_two_page_default_is_saved_and_used_for_new_documents() {
+    let mut app = PdfCraftApp::new();
+    app.set_option("default-layout", "two-up-continuous").unwrap();
+    let saved = app.persist();
+    let mut fresh = PdfCraftApp::new();
+    fresh.restore(&saved);
+    fresh.open_bytes("pages.pdf", None, PAGES.to_vec()).unwrap();
+    assert_eq!(fresh.views[0].layout.as_str(), "two-up-continuous");
+    fresh.execute("view.layout.single");
+    assert_eq!(fresh.views[0].layout.as_str(), "continuous");
+    fresh.execute("view.layout.two_up");
+    assert_eq!(fresh.views[0].layout.as_str(), "two-up-continuous");
 }
 
 #[test]
@@ -240,7 +337,7 @@ fn precise_touchpad_wheel_scrolls_one_to_one() {
 
 #[test]
 fn page_display_commands_switch_layouts() {
-    let mut h = harness(&[]);
+    let mut h = harness(&[("layout", "single")]);
     h.state_mut().execute("view.layout.single");
     assert_eq!(h.state().views[0].layout, pdfcraft_ui_egui::canvas::PageLayout::Single);
     // The cover toggle refuses outside two-page view instead of arming a hidden flag.
@@ -255,7 +352,11 @@ fn page_display_commands_switch_layouts() {
     assert!(!h.state().views[0].cover, "toggling twice restores");
     h.state_mut().execute("view.layout.continuous");
     h.run_steps(3);
-    assert_eq!(h.state().views[0].layout, pdfcraft_ui_egui::canvas::PageLayout::Continuous);
+    assert_eq!(h.state().views[0].layout, pdfcraft_ui_egui::canvas::PageLayout::TwoUpContinuous);
+    h.state_mut().execute("view.layout.single");
+    assert_eq!(h.state().views[0].layout, pdfcraft_ui_egui::canvas::PageLayout::Continuous, "changing columns preserves scrolling");
+    h.state_mut().execute("view.layout.continuous");
+    assert_eq!(h.state().views[0].layout, pdfcraft_ui_egui::canvas::PageLayout::Single);
 }
 
 #[test]
@@ -344,6 +445,26 @@ fn default_zoom_is_used_for_new_documents() {
 }
 
 #[test]
+fn preferences_change_page_columns_and_scrolling_independently() {
+    use egui_kittest::kittest::Queryable;
+    let mut h = harness(&[]);
+    h.state_mut().execute("app.preferences");
+    h.run_steps(3);
+    h.get_by_label("Two-page view").click();
+    h.run_steps(2);
+    assert_eq!(h.state().view_defaults.layout.as_str(), "two-up-continuous");
+    h.get_by_label("Continuous scrolling").click();
+    h.run_steps(2);
+    assert_eq!(h.state().view_defaults.layout.as_str(), "two-up");
+    h.get_by_label("Single page").click();
+    h.run_steps(2);
+    assert_eq!(h.state().view_defaults.layout.as_str(), "single");
+    h.get_by_label("Continuous scrolling").click();
+    h.run_steps(2);
+    assert_eq!(h.state().view_defaults.layout.as_str(), "continuous");
+}
+
+#[test]
 fn preferences_set_the_default_zoom() {
     use egui_kittest::kittest::Queryable;
     let mut h = harness(&[]);
@@ -394,6 +515,11 @@ fn rail_page_display_button_switches_layouts() {
     h.run_steps(3);
     h.get_by_label("Single page").click();
     h.run_steps(4);
+    assert_eq!(h.state().views[0].layout, pdfcraft_ui_egui::canvas::PageLayout::Continuous, "selecting single page preserves scrolling");
+    h.get_by_label_contains("Page display").click();
+    h.run_steps(3);
+    h.get_by_label("Continuous scrolling").click();
+    h.run_steps(4);
     assert_eq!(h.state().views[0].layout, pdfcraft_ui_egui::canvas::PageLayout::Single);
 }
 
@@ -408,6 +534,13 @@ fn view_menu_page_display_uses_the_same_commands() {
     h.run_steps(3);
     h.get_by_label("Single page").click();
     h.run_steps(4);
+    assert_eq!(h.state().views[0].layout, pdfcraft_ui_egui::canvas::PageLayout::Continuous);
+    h.get_by_label("Menu").click();
+    h.run_steps(2);
+    h.get_by_label("View ⏵").hover();
+    h.run_steps(3);
+    h.get_by_label("Continuous scrolling").click();
+    h.run_steps(4);
     assert_eq!(h.state().views[0].layout, pdfcraft_ui_egui::canvas::PageLayout::Single);
 }
 
@@ -421,7 +554,7 @@ fn palette_runs_page_display_commands_from_the_keyboard() {
     h.key_press(Key::Enter);
     h.run_steps(3);
     assert!(!h.state().palette_open, "Enter runs the top hit and closes the palette");
-    assert_eq!(h.state().views[0].layout, pdfcraft_ui_egui::canvas::PageLayout::Single);
+    assert_eq!(h.state().views[0].layout, pdfcraft_ui_egui::canvas::PageLayout::Continuous);
 }
 
 #[test]

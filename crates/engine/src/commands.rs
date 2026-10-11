@@ -188,7 +188,7 @@ pub const COMMANDS: &[CommandSpec] = &[
     c("edit.find", "Find…", EDIT, Some(Shortcut::cmd("F")), Document, "search"),
     c("edit.advanced_search", "Advanced search…", EDIT, Some(Shortcut::cmd_shift("F")), Document, "search"),
     c("view.palette", "Find tools and commands…", VIEW, Some(Shortcut::cmd("K")), Nothing, "search"),
-    // Page display: View ▸ Page display and the rail's button list these as radios, so
+    // Page display: radios for page columns and an independent scrolling checkbox, so
     // `menu = None` keeps them out of the generated menus. The palette still runs them.
     c("view.layout.continuous", "Continuous scrolling", None, None, Document, "arrow-up-down"),
     c("view.layout.single", "Single page", None, None, Document, "file-text"),

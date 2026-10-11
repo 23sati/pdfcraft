@@ -831,7 +831,7 @@ status = "shipped"
 commands = ["view.layout.continuous"]
 tools = []
 evidence = ["crates/ui-egui/tests/view.rs::continuous_layout_stacks_pages_vertically", "crates/ui-egui/tests/view.rs::page_display_commands_switch_layouts", "crates/ui-egui/tests/view.rs::default_page_display_is_used_for_new_documents", "crates/ui-egui/src/canvas.rs::fit_page_and_height_hold_still_while_mixed_page_sizes_scroll_past"]
-notes = "the default for PDFs that don't ask for a layout (Preferences ▸ Default page display); pages stack with no snapping. Fit page and Fit height fit the largest page, so the zoom holds still across mixed page sizes"
+notes = "the default for PDFs that don't ask for a layout (Preferences ▸ Default page display); pages stack with no snapping. Continuous scrolling is an independent checkbox for single-page and two-page views. Fit page and Fit height fit the largest page, so the zoom holds still across mixed page sizes"
 
 [[feature]]
 id = "view.layout-single-page"
@@ -854,8 +854,8 @@ milestone = "M3"
 status = "shipped"
 commands = ["view.layout.two_up"]
 tools = []
-evidence = ["crates/ui-egui/tests/view.rs::two_up_layout_places_pages_side_by_side", "crates/ui-egui/tests/viewer.rs::two_page_view_steps_a_spread_at_a_time"]
-notes = "next/previous page step a spread at a time"
+evidence = ["crates/ui-egui/tests/view.rs::two_up_layout_shows_only_the_current_spread", "crates/ui-egui/tests/view.rs::two_page_cover_wheel_and_keyboard_turn_whole_spreads", "crates/ui-egui/tests/view.rs::two_page_wheel_pans_a_zoomed_spread", "crates/ui-egui/tests/viewer.rs::two_page_view_steps_a_spread_at_a_time"]
+notes = "with continuous scrolling off, only the current spread is shown, including an optional cover and an odd final page. Next/previous page, wheel notches and paging keys step a spread at a time; a zoomed spread pans. Changing single/two-page columns preserves the scrolling setting"
 
 [[feature]]
 id = "view.layout-two-up-scrolling"
@@ -864,10 +864,10 @@ area = "B"
 tier = "P1"
 milestone = "M3"
 status = "shipped"
-commands = []
+commands = ["view.layout.two_up", "view.layout.continuous"]
 tools = []
-evidence = ["crates/ui-egui/tests/viewer.rs::layouts_fit_height_labels_and_system_theme"]
-notes = "the two-page view scrolls continuously"
+evidence = ["crates/ui-egui/tests/view.rs::two_up_layout_places_pages_side_by_side", "crates/ui-egui/tests/view.rs::continuous_scrolling_toggles_without_changing_page_columns", "crates/ui-egui/tests/view.rs::scrolling_two_page_default_is_saved_and_used_for_new_documents", "crates/ui-egui/tests/view.rs::pdf_initial_view_distinguishes_fixed_and_scrolling_spreads", "crates/ui-egui/tests/control.rs::scrolling_and_page_columns_are_independent_through_control"]
+notes = "the independent Continuous scrolling checkbox stacks spreads vertically; disabling it keeps the current spread and page columns. Preferences and the two-up-continuous view option persist this combination. PDF TwoColumn and TwoPage initial views retain their distinct scrolling behavior"
 
 [[feature]]
 id = "view.cover-page"

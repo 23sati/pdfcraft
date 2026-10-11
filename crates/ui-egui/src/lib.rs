@@ -884,9 +884,14 @@ impl PdfCraftApp {
             L::Default => {}
             L::SinglePage => view.layout = canvas::PageLayout::Single,
             L::SinglePageContinuous => view.layout = canvas::PageLayout::Continuous,
-            L::TwoUp | L::TwoUpContinuous => view.layout = canvas::PageLayout::TwoUp,
-            L::TwoUpCoverPage | L::TwoUpContinuousCoverPage => {
+            L::TwoUp => view.layout = canvas::PageLayout::TwoUp,
+            L::TwoUpContinuous => view.layout = canvas::PageLayout::TwoUpContinuous,
+            L::TwoUpCoverPage => {
                 view.layout = canvas::PageLayout::TwoUp;
+                view.cover = true;
+            }
+            L::TwoUpContinuousCoverPage => {
+                view.layout = canvas::PageLayout::TwoUpContinuous;
                 view.cover = true;
             }
         }
@@ -1668,7 +1673,9 @@ impl PdfCraftApp {
             }
             ("page", Some(v)) => v.go_to_page(value.parse::<usize>().map_err(|e| e.to_string())?.saturating_sub(1)),
             ("zoom", Some(v)) => v.set_zoom(value.trim_end_matches('%').parse::<f32>().map_err(|e| e.to_string())? / 100.0),
-            ("layout", Some(v)) => v.set_layout(canvas::PageLayout::try_parse(value).ok_or("layout must be continuous, single or two-up")?),
+            ("layout", Some(v)) => {
+                v.set_layout(canvas::PageLayout::try_parse(value).ok_or("layout must be continuous, single, two-up or two-up-continuous")?)
+            }
             ("cover", Some(v)) => {
                 let on = match value {
                     "on" => true,
@@ -1681,7 +1688,8 @@ impl PdfCraftApp {
                 v.set_cover(on);
             }
             ("default-layout", _) => {
-                self.view_defaults.layout = canvas::PageLayout::try_parse(value).ok_or("default-layout must be continuous, single or two-up")?;
+                self.view_defaults.layout =
+                    canvas::PageLayout::try_parse(value).ok_or("default-layout must be continuous, single, two-up or two-up-continuous")?;
             }
             ("default-zoom", _) => {
                 self.view_defaults =

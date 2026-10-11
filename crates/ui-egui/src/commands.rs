@@ -216,9 +216,15 @@ impl PdfCraftApp {
                 }
             }
             "view.palette" => self.palette_open = !self.palette_open,
+            "view.layout.continuous" => {
+                if let Some(v) = active.and_then(|i| self.views.get_mut(i)) {
+                    v.set_layout(v.layout.with_continuous(!v.layout.continuous()));
+                }
+            }
             layout if crate::canvas::PageLayout::from_command(layout).is_some() => {
                 if let (Some(i), Some(layout)) = (active, crate::canvas::PageLayout::from_command(layout)) {
-                    self.views[i].set_layout(layout);
+                    let v = &mut self.views[i];
+                    v.set_layout(layout.with_continuous(v.layout.continuous()));
                 }
             }
             "view.layout.cover" => {

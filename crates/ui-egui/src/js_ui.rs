@@ -299,9 +299,15 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
     ui.horizontal(|ui| {
         ui.label(tl!("Default page display"));
         for l in crate::canvas::PageLayout::ORDER {
-            ui.radio_value(&mut defaults.layout, l, tl!(l.label()));
+            if ui.radio(defaults.layout.two_up() == l.two_up(), tl!(l.label())).clicked() {
+                defaults.layout = l.with_continuous(defaults.layout.continuous());
+            }
         }
     });
+    let mut continuous = defaults.layout.continuous();
+    if ui.checkbox(&mut continuous, tl!("Continuous scrolling")).changed() {
+        defaults.layout = defaults.layout.with_continuous(continuous);
+    }
     ui.horizontal(|ui| {
         use crate::canvas::Fit;
         ui.label(tl!("Default zoom"));

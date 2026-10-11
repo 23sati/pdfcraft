@@ -182,7 +182,7 @@ fn layouts_fit_height_labels_and_system_theme() {
     assert!(r.height() > vp.height() * 0.85 && r.top() >= vp.top() && r.bottom() <= vp.bottom() + 1.0, "page {r:?} in {vp:?}");
     // Two-page view scrolls continuously; a cover puts page 1 alone on the right.
     h.state_mut().views[0].fit = Fit::Width;
-    h.state_mut().views[0].layout = PageLayout::TwoUp;
+    h.state_mut().views[0].layout = PageLayout::TwoUpContinuous;
     h.run_steps(4);
     let (a, b) = (h.state().views[0].page_screen_rect(0).unwrap(), h.state().views[0].page_screen_rect(1).unwrap());
     assert!((a.top() - b.top()).abs() < 1.0 && b.left() > a.right(), "side by side");
@@ -700,6 +700,52 @@ fn sized_fixture(sizes: &[(u32, u32)]) -> Vec<u8> {
 }
 
 #[test]
+fn fixed_spread_fit_width_uses_both_actual_page_widths() {
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(|_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("mixed.pdf", None, sized_fixture(&[(300, 400), (600, 400), (1200, 400)])).unwrap();
+        app.set_option("layout", "two-up").unwrap();
+        app.set_option("left", "closed").unwrap();
+        app.set_option("panel", "none").unwrap();
+        app
+    });
+    h.run_steps(6);
+    let v = &h.state().views[0];
+    let a = v.page_screen_rect(0).unwrap();
+    let b = v.page_screen_rect(1).unwrap();
+    assert!((b.width() / a.width() - 2.0).abs() < 0.01);
+    assert!((b.right() - a.left() - (v.viewport_rect().width() - 140.0)).abs() < 2.0, "the spread fills the width between side gutters");
+    assert!(v.page_screen_rect(2).is_none());
+}
+
+#[test]
+fn search_in_a_short_page_beside_a_tall_page_keeps_the_match_visible() {
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(|_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("mixed.pdf", None, sized_fixture(&[(300, 6000), (300, 300)])).unwrap();
+        app.set_option("layout", "two-up").unwrap();
+        app.set_option("zoom", "100").unwrap();
+        app
+    });
+    h.state_mut().views[0].open_find();
+    h.state_mut().views[0].find.as_mut().unwrap().query = "Page".into();
+    h.state_mut().views[0].rerun_find();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    while std::time::Instant::now() < deadline && h.state().views[0].find.as_ref().unwrap().matches.len() < 2 {
+        h.run_steps(2);
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    assert_eq!(h.state().views[0].find.as_ref().unwrap().matches.len(), 2);
+    h.state_mut().views[0].go_to_match(1);
+    h.run_steps(6);
+    let v = &h.state().views[0];
+    let position = v.glyph_screen_pos(1, 0).expect("the matching page is on screen");
+    assert!(v.viewport_rect().contains(position), "the match at {position:?} must be inside {:?}", v.viewport_rect());
+}
+
+#[test]
 fn page_down_steps_every_spread_when_several_fit_on_screen() {
     // #188: in two-page view with a cover page, ⌘Page Down skipped spreads (or stuck) once more
     // than one spread fit on screen: the current page was whichever wholly visible page rounding
@@ -721,7 +767,7 @@ fn page_down_steps_every_spread_when_several_fit_on_screen() {
         h.run_steps(6);
         h.state_mut().active = Some(0);
         let v = &mut h.state_mut().views[0];
-        (v.fit, v.layout, v.cover) = (fit, PageLayout::TwoUp, true);
+        (v.fit, v.layout, v.cover) = (fit, PageLayout::TwoUpContinuous, true);
         h.run_steps(6);
         let mut step = |key| {
             h.key_press_modifiers(Modifiers::COMMAND, key);

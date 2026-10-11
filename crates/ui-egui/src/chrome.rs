@@ -540,9 +540,13 @@ fn page_display_menu(ui: &mut egui::Ui, view: &DocView) -> Option<&'static str> 
     ui.label(egui::RichText::new(tl!("Page display")).color(t.text_faint).small());
     let mut picked = None;
     for l in PageLayout::ORDER {
-        if ui.radio(view.layout == l, tl!(l.label())).clicked() {
+        if ui.radio(view.layout.two_up() == l.two_up(), tl!(l.label())).clicked() {
             picked = Some(l.command());
         }
+    }
+    let mut continuous = view.layout.continuous();
+    if ui.checkbox(&mut continuous, tl!("Continuous scrolling")).changed() {
+        picked = Some("view.layout.continuous");
     }
     let mut cover = view.cover;
     if ui.add_enabled(view.cover_applies(), egui::Checkbox::new(&mut cover, tl!("Show cover page in two-page view"))).changed() {

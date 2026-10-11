@@ -78,44 +78,60 @@ pub enum Fit {
 pub enum PageLayout {
     Continuous,
     TwoUp,
+    TwoUpContinuous,
     Single,
 }
 
 impl PageLayout {
-    /// Every page display, in the order the View menu, the rail's Page display button and
-    /// Preferences list them.
-    pub const ORDER: [Self; 3] = [Self::Continuous, Self::Single, Self::TwoUp];
+    /// Page column choices. Continuous scrolling is an independent checkbox.
+    pub const ORDER: [Self; 2] = [Self::Single, Self::TwoUp];
 
-    /// The name settings and view options use: `continuous`, `single` or `two-up`.
+    pub fn continuous(self) -> bool {
+        matches!(self, Self::Continuous | Self::TwoUpContinuous)
+    }
+
+    pub fn two_up(self) -> bool {
+        matches!(self, Self::TwoUp | Self::TwoUpContinuous)
+    }
+
+    pub fn with_continuous(self, continuous: bool) -> Self {
+        match (self.two_up(), continuous) {
+            (false, false) => Self::Single,
+            (false, true) => Self::Continuous,
+            (true, false) => Self::TwoUp,
+            (true, true) => Self::TwoUpContinuous,
+        }
+    }
+
+    /// The name settings and view options use, including the scrolling variants.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Continuous => "continuous",
             Self::Single => "single",
             Self::TwoUp => "two-up",
+            Self::TwoUpContinuous => "two-up-continuous",
         }
     }
 
     /// The layout an [`as_str`](Self::as_str) name stands for, in any case. `None` for
     /// anything else, so callers can reject a typo rather than switch layouts silently.
     pub fn try_parse(value: &str) -> Option<Self> {
-        Self::ORDER.into_iter().find(|l| l.as_str().eq_ignore_ascii_case(value.trim()))
+        [Self::Single, Self::Continuous, Self::TwoUp, Self::TwoUpContinuous].into_iter().find(|l| l.as_str().eq_ignore_ascii_case(value.trim()))
     }
 
     /// Rail icon for this layout.
     pub fn icon(self) -> &'static str {
         match self {
-            Self::Continuous => "arrow-up-down",
-            Self::Single => "file-text",
-            Self::TwoUp => "columns-2",
+            Self::Continuous | Self::Single => "file-text",
+            Self::TwoUp | Self::TwoUpContinuous => "columns-2",
         }
     }
 
-    /// Registry command that switches to this layout (`PdfCraftApp::execute`).
+    /// Registry command that selects these page columns, preserving continuous scrolling.
     pub fn command(self) -> &'static str {
         match self {
-            Self::Continuous => "view.layout.continuous",
-            Self::Single => "view.layout.single",
-            Self::TwoUp => "view.layout.two_up",
+            Self::Continuous | Self::Single => "view.layout.single",
+            Self::TwoUp | Self::TwoUpContinuous => "view.layout.two_up",
         }
     }
 
@@ -127,9 +143,8 @@ impl PageLayout {
     /// Menu label: the label of [`command`](Self::command), which the catalogs translate.
     pub fn label(self) -> &'static str {
         match self {
-            Self::Continuous => "Continuous scrolling",
-            Self::Single => "Single page",
-            Self::TwoUp => "Two-page view",
+            Self::Continuous | Self::Single => "Single page",
+            Self::TwoUp | Self::TwoUpContinuous => "Two-page view",
         }
     }
 }
@@ -924,7 +939,7 @@ impl DocView {
     pub fn step_page(&mut self, forward: bool) {
         let c = self.current;
         let target = match self.layout {
-            PageLayout::TwoUp => {
+            PageLayout::TwoUp | PageLayout::TwoUpContinuous => {
                 // Spreads are [0, 1], [2, 3], … or, with a cover page, [0], [1, 2], [3, 4], ….
                 let first = if self.cover { c.saturating_sub((c + 1) % 2) } else { c - c % 2 };
                 match (forward, self.cover && c == 0) {
@@ -1018,14 +1033,14 @@ impl DocView {
 
     /// Whether the cover page setting applies: only two-page view has a cover page.
     pub fn cover_applies(&self) -> bool {
-        self.layout == PageLayout::TwoUp
+        self.layout.two_up()
     }
 
-    /// One wheel event in single-page view (the rules are in `wheel_pager`): `dy` is its
+    /// One wheel event in a fixed page/spread view (the rules are in `wheel_pager`): `dy` is its
     /// vertical delta (negative scrolls down) and `now` is egui time. With `can_turn` false
     /// the gesture is followed but the page stays. Returns whether the page turned.
     pub fn single_page_wheel(&mut self, unit: egui::MouseWheelUnit, dy: f32, phase: egui::TouchPhase, now: f64, can_turn: bool) -> bool {
-        if self.layout != PageLayout::Single {
+        if self.layout.continuous() {
             return false;
         }
         let Some(forward) = self.wheel.feed(unit, dy, phase, now, can_turn) else { return false };
@@ -1382,21 +1397,54 @@ impl DocView {
         }
     }
 
+    /// Pages drawn in the document area: all pages when scrolling, otherwise the current
+    /// page or spread. Cover pages and an odd final page are single-page spreads.
+    fn displayed_pages(&self, count: usize) -> Range<usize> {
+        if self.layout.continuous() {
+            return 0..count;
+        }
+        let current = self.current.min(count.saturating_sub(1));
+        if !self.layout.two_up() || (self.cover && current == 0) {
+            return current..current.saturating_add(1).min(count);
+        }
+        let first = if self.cover { current.saturating_sub(current.saturating_add(1) % 2) } else { current - current % 2 };
+        first..first.saturating_add(2).min(count)
+    }
+
+    fn displayed_bounds(&self, rects: &[Rect]) -> Option<Rect> {
+        self.displayed_pages(rects.len()).filter_map(|i| rects.get(i)).copied().reduce(Rect::union)
+    }
+
+    /// Width/height in PDF points and the number of inter-page gaps. Cover pages reserve
+    /// the blank left column. Continuous views keep document-wide dimensions stable.
+    fn display_extent(&self, info: &DocInfo) -> (f32, f32, f32) {
+        // Fixed views fit the current page/spread; scrolling views fit the document's largest
+        // page so the zoom holds still while pages of other sizes scroll past.
+        let shown = self.displayed_pages(info.pages.len());
+        let (w, h, count) = info
+            .pages
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| shown.contains(i))
+            .map(|(_, p)| self.display_size(p))
+            .fold((0.0_f32, 1.0_f32, 0usize), |(w, h, count), (pw, ph)| {
+                (if self.layout.continuous() { w.max(pw) } else { w + pw }, h.max(ph), count.saturating_add(1))
+            });
+        let columns = if self.layout.two_up() { 2.0 } else { 1.0 };
+        if self.layout.continuous() || (self.layout.two_up() && self.cover && self.current == 0) {
+            (w.max(1.0) * columns, h, columns - 1.0)
+        } else {
+            (w.max(1.0), h, count.saturating_sub(1) as f32)
+        }
+    }
+
     fn fit_zoom(&mut self, info: &DocInfo) {
-        let largest = |side: fn((f32, f32)) -> f32| info.pages.iter().map(|p| side(self.display_size(p))).fold(1.0, f32::max);
-        let max_w = largest(|s| s.0);
-        // Single-page view fits the page it shows. The scrolling views fit their largest page,
-        // so the zoom holds still while pages of other sizes scroll past.
-        let (w, h) = match self.layout {
-            PageLayout::Single => info.pages.get(self.current).map_or_else(|| (max_w, largest(|s| s.1)), |p| self.display_size(p)),
-            PageLayout::Continuous | PageLayout::TwoUp => (max_w, largest(|s| s.1)),
-        };
+        let (w, h, gaps) = self.display_extent(info);
         let avail_w = (self.viewport_w - 2.0 * SIDE).max(100.0);
-        let per_row = if self.layout == PageLayout::TwoUp { 2.0 } else { 1.0 };
         match self.fit {
-            Fit::Width => self.zoom = (avail_w - GAP * (per_row - 1.0)) / (w * PT * per_row),
+            Fit::Width => self.zoom = (avail_w - GAP * gaps) / (w * PT),
             Fit::Page => {
-                let zw = (avail_w - GAP * (per_row - 1.0)) / (w * PT * per_row);
+                let zw = (avail_w - GAP * gaps) / (w * PT);
                 let zh = (self.viewport_h - 2.0 * MARGIN) / (h * PT);
                 self.zoom = zw.min(zh);
             }
@@ -1406,14 +1454,11 @@ impl DocView {
         self.zoom = self.zoom.clamp(0.08, 64.0);
     }
 
-    /// Width of the scroll content. Single-page view sizes it to the page it shows, so a
-    /// wider page elsewhere in the document can't push the shown one off-centre.
+    /// Width of the scroll content. Fixed views size it to the current page/spread, so a
+    /// wider page elsewhere in the document can't push the shown pages off-centre.
     fn content_width(&self, info: &DocInfo, avail_w: f32) -> f32 {
-        let single = (self.layout == PageLayout::Single).then(|| self.current.min(info.pages.len().saturating_sub(1)));
-        let shown = info.pages.iter().enumerate().filter(|&(i, _)| single.is_none_or(|c| c == i));
-        let max_w = shown.map(|(_, p)| self.display_size(p).0).fold(0.0, f32::max);
-        let per_row = if self.layout == PageLayout::TwoUp { 2.0 } else { 1.0 };
-        (max_w * self.zoom * PT * per_row + 2.0 * SIDE).max(avail_w)
+        let (w, _, gaps) = self.display_extent(info);
+        (w * self.zoom * PT + GAP * gaps + 2.0 * SIDE).max(avail_w)
     }
 
     /// Page rects in content coordinates (origin at the scroll content's top-left).
@@ -1430,7 +1475,7 @@ impl DocView {
                     y += size.y + GAP;
                 }
             }
-            PageLayout::TwoUp => {
+            PageLayout::TwoUp | PageLayout::TwoUpContinuous => {
                 // With a cover page, the first page sits alone on the right.
                 let rows: Vec<&[pdfcraft_render::PageInfo]> = if self.cover && !info.pages.is_empty() {
                     std::iter::once(&info.pages[..1]).chain(info.pages[1..].chunks(2)).collect()
@@ -1690,9 +1735,9 @@ pub fn shortcuts(view: &mut DocView, ctx: &egui::Context) {
         view.go_to_page(usize::MAX);
     }
     // As in Acrobat: → / ← go to the next / previous page in every layout (#185), and so do
-    // ⌘Page Down / ⌘Page Up, or plain Page Down / Page Up in single-page view.
+    // ⌘Page Down / ⌘Page Up, or plain Page Down / Page Up with continuous scrolling off.
     let command = ctx.input(|i| i.modifiers.command);
-    let scrolls = view.layout != PageLayout::Single;
+    let scrolls = view.layout.continuous();
     if key(Key::ArrowRight) || (key(Key::PageDown) && (command || !scrolls)) {
         view.step_page(true);
     }
@@ -1806,14 +1851,14 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     let content_w = view.content_width(info, avail.width());
     let rects = view.layout(info, content_w);
     let middle_gesture = view.auto_scroll.blocks_input();
-    // Single page: when the whole page fits, the wheel would do nothing, so it turns pages
+    // Fixed page/spread: when it fits, the wheel would do nothing, so it turns pages/spreads
     // instead; zoomed in far enough to pan, it pans. Touch drags are untouched: with nothing
     // to pan, touch users turn pages with the rail buttons, the page box and the arrow keys.
     // Runs before `visible_pages` so the frame that turns the page draws it.
     let mut single_paging = false;
-    if view.layout == PageLayout::Single {
+    if !view.layout.continuous() {
         // Within a point, so layout rounding can't stop a fitting page from turning.
-        let fits = rects.get(view.current.min(rects.len().saturating_sub(1))).is_some_and(|r| r.height() + 2.0 * MARGIN <= avail.height() + 1.0);
+        let fits = view.displayed_bounds(&rects).is_some_and(|r| r.height() + 2.0 * MARGIN <= avail.height() + 1.0);
         let can_turn = fits && !middle_gesture && unobstructed && ui.rect_contains_pointer(avail);
         single_paging = can_turn;
         // Every wheel event goes to the pager, so it follows each trackpad touch to its end
@@ -1873,17 +1918,10 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     } else {
         precise_scroll = Vec2::ZERO;
     }
-    let visible_pages: Vec<usize> = match view.layout {
-        PageLayout::Single => vec![view.current.min(rects.len() - 1)],
-        _ => (0..rects.len()).collect(),
-    };
-    let (y_shift, content_h) = match view.layout {
-        PageLayout::Single => {
-            let r = rects[visible_pages[0]];
-            (r.top() - MARGIN, r.height() + 2.0 * MARGIN)
-        }
-        _ => (0.0, rects.last().map(|r| r.bottom() + MARGIN).unwrap_or(0.0)),
-    };
+    let visible_pages: Vec<usize> = view.displayed_pages(rects.len()).collect();
+    let fixed_bounds = (!view.layout.continuous()).then(|| view.displayed_bounds(&rects)).flatten();
+    let (y_shift, content_h) = fixed_bounds
+        .map_or_else(|| (0.0, rects.last().map(|r| r.bottom() + MARGIN).unwrap_or(0.0)), |r| (r.top() - MARGIN, r.height() + 2.0 * MARGIN));
 
     let mut scroll = egui::ScrollArea::both().auto_shrink([false, false]).scroll_source(egui::scroll_area::ScrollSource {
         drag: if middle_gesture {
@@ -1909,6 +1947,8 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         scroll = scroll.scroll_offset(vec2((point.x - rel.x).max(0.0), (point.y - rel.y).max(0.0)));
     } else if let Some((page, frac)) = view.goto.take() {
         let page = page.min(rects.len() - 1);
+        // Find results express `frac` in the target page's coordinates, including when that
+        // page is shorter than its spread partner. Content bounds still cover the full spread.
         let r = rects[page];
         scroll = scroll.vertical_scroll_offset((r.top() - y_shift - GAP + frac * r.height()).max(0.0));
     }
@@ -2541,7 +2581,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         if current_overlap >= best_overlap - TIE || current_overlap >= current_height - TIE {
             current = view.current;
         }
-        if view.layout != PageLayout::Single {
+        if view.layout.continuous() {
             view.current = current;
             if !ui.memory(|m| m.has_focus(egui::Id::new("page-input"))) {
                 view.page_input = (current + 1).to_string();
@@ -2600,12 +2640,12 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         });
         (wanted, visible_now)
     });
-    view.single_edges = visible_pages.first().copied().filter(|_| view.layout == PageLayout::Single).map(|page| {
+    view.single_edges = (!view.layout.continuous()).then(|| {
         // At the top once the page's top edge shows where going to a page puts it (a gap
         // below the window's top). Within a point, as for wheel paging, so layout rounding
         // can't hide an edge.
         let max_y = (out.content_size.y - out.inner_rect.height()).max(0.0);
-        (page, out.state.offset.y <= MARGIN - GAP + 1.0, out.state.offset.y >= max_y - 1.0)
+        (view.current, out.state.offset.y <= MARGIN - GAP + 1.0, out.state.offset.y >= max_y - 1.0)
     });
 
     view.auto_scroll.paint(ui, avail);
@@ -4177,8 +4217,8 @@ trailer << /Root 1 0 R >>
     }
 
     #[test]
-    fn wheel_is_single_page_only() {
-        for layout in [PageLayout::Continuous, PageLayout::TwoUp] {
+    fn wheel_paging_is_disabled_in_continuous_views() {
+        for layout in [PageLayout::Continuous, PageLayout::TwoUpContinuous] {
             let mut v = view(3, layout);
             assert!(!notch(&mut v, -1.0, 1.0), "{layout:?} ignores the wheel");
             assert_eq!(v.current, 0);
@@ -4265,6 +4305,8 @@ trailer << /Root 1 0 R >>
             assert_eq!(PageLayout::try_parse(l.as_str()), Some(l));
         }
         assert_eq!(PageLayout::try_parse(" Two-Up "), Some(PageLayout::TwoUp));
+        assert_eq!(PageLayout::try_parse(" Two-Up-Continuous "), Some(PageLayout::TwoUpContinuous));
+        assert_eq!(PageLayout::try_parse("continuous"), Some(PageLayout::Continuous));
         assert_eq!(PageLayout::try_parse("facing"), None);
     }
 

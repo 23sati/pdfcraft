@@ -933,6 +933,29 @@ fn inspect_and_click_by_label_and_id() {
 }
 
 #[test]
+fn scrolling_and_page_columns_are_independent_through_control() {
+    let (mut h, c) = harness();
+    ok(&mut h, &c, "ui.set", json!({ "key": "zoom", "value": "50" }));
+    ok(&mut h, &c, "ui.set", json!({ "key": "layout", "value": "two-up" }));
+    let state = ok(&mut h, &c, "ui.state", json!({}));
+    assert_eq!(state["active"]["layout"], "TwoUp");
+    assert_eq!(state["active"]["continuous_scrolling"], false);
+    assert_eq!(state["active"]["pages_on_screen"].as_array().unwrap().len(), 2);
+    ok(&mut h, &c, "ui.command", json!({ "id": "view.layout.continuous" }));
+    let state = ok(&mut h, &c, "ui.state", json!({}));
+    assert_eq!(state["active"]["layout"], "TwoUpContinuous");
+    assert_eq!(state["active"]["continuous_scrolling"], true);
+    assert!(state["active"]["pages_on_screen"].as_array().unwrap().len() > 2);
+    ok(&mut h, &c, "ui.command", json!({ "id": "view.layout.single" }));
+    let state = ok(&mut h, &c, "ui.state", json!({}));
+    assert_eq!(state["active"]["layout"], "Continuous");
+    ok(&mut h, &c, "ui.command", json!({ "id": "view.layout.continuous" }));
+    let state = ok(&mut h, &c, "ui.state", json!({}));
+    assert_eq!(state["active"]["layout"], "Single");
+    assert_eq!(state["active"]["pages_on_screen"].as_array().unwrap().len(), 1);
+}
+
+#[test]
 fn cover_page_command_needs_two_page_view() {
     // Agents see the cover toggle as disabled, and get an error, until two-page view.
     let (mut h, c) = harness();
