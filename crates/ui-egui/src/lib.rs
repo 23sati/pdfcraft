@@ -455,10 +455,11 @@ pub struct PdfCraftApp {
     /// Resolved colours, including the current OS theme when following the system.
     pub theme: ThemeKind,
     pub theme_preference: ThemePreference,
-    /// The desktop's light/dark choice, watched while the app runs (Linux has no winit answer).
-    desktop_theme: pdfcraft_platform::desktop_theme::DesktopTheme,
-    /// The last answer [`desktop_theme`] gave, so a frame that asks costs nothing.
-    desktop_dark: Option<bool>,
+    /// The Linux portal is enabled only by the native host, and starts on the first System choice.
+    #[cfg(target_os = "linux")]
+    desktop_theme: Option<pdfcraft_platform::desktop_theme::DesktopTheme>,
+    #[cfg(target_os = "linux")]
+    desktop_theme_enabled: bool,
     /// How far a mouse-wheel notch scrolls.
     pub scroll_speed: scroll_speed::ScrollSpeed,
     /// Interface language preference: `auto` (follow the system) or a code from [`i18n::LANGUAGES`].
@@ -734,12 +735,6 @@ impl Default for PdfCraftApp {
     }
 }
 
-/// What the operating system says about light and dark, as "draw dark". `None` means nobody
-/// answered, not a preference, so the caller keeps what it chose.
-fn system_theme(ctx: &egui::Context, desktop_dark: Option<bool>) -> Option<bool> {
-    ctx.system_theme().map(|theme| theme == egui::Theme::Dark).or(desktop_dark)
-}
-
 /// A restored colour: an `[r, g, b]` array of finite numbers, each clamped to 0–1 (restored
 /// settings are untrusted). Anything else (a string, a wrong length, a null or a non-finite
 /// number) is refused whole, so the caller keeps its default.
@@ -782,8 +777,10 @@ impl PdfCraftApp {
             comment_prefs: Default::default(),
             theme: ThemeKind::Light,
             theme_preference: ThemePreference::Light,
-            desktop_theme: pdfcraft_platform::desktop_theme::DesktopTheme::start(),
-            desktop_dark: None,
+            #[cfg(target_os = "linux")]
+            desktop_theme: None,
+            #[cfg(target_os = "linux")]
+            desktop_theme_enabled: false,
             scroll_speed: scroll_speed::ScrollSpeed::default(),
             language: i18n::AUTO.to_string(),
             ui_scale: None,
@@ -1424,12 +1421,19 @@ impl PdfCraftApp {
 
     pub fn set_theme_preference(&mut self, preference: ThemePreference) {
         self.theme_preference = preference;
-        // Before the first frame there is no context to ask, so the last choice stands.
-        let system = self.ctx.as_ref().and_then(|ctx| system_theme(ctx, self.desktop_dark));
-        self.theme = preference.resolve(system, self.theme);
-        if let Some(ctx) = &self.ctx {
-            theme::apply(ctx, self.theme);
+        if let Some(ctx) = self.ctx.clone() {
+            self.sync_theme(&ctx);
+            theme::apply(&ctx, self.theme);
+        } else {
+            self.theme = preference.resolve(None, ThemeKind::Light);
         }
+    }
+
+    /// Enable the Linux desktop portal in a native window. Headless contexts keep
+    /// their supplied input and never connect to the user's session bus.
+    #[cfg(target_os = "linux")]
+    pub fn enable_desktop_theme(&mut self) {
+        self.desktop_theme_enabled = true;
     }
 
     /// Draw the running job's progress card and pass a Cancel click on to the job.
@@ -1440,10 +1444,23 @@ impl PdfCraftApp {
     }
 
     fn sync_theme(&mut self, ctx: &egui::Context) {
-        if let Some(dark) = self.desktop_theme.take_change() {
-            self.desktop_dark = Some(dark);
+        #[cfg_attr(not(target_os = "linux"), expect(unused_mut))]
+        let mut system = ctx.system_theme().map(|theme| theme == egui::Theme::Dark);
+        #[cfg(target_os = "linux")]
+        {
+            let active = self.theme_preference == ThemePreference::System;
+            if self.desktop_theme_enabled && active && self.desktop_theme.is_none() {
+                let ctx = ctx.clone();
+                self.desktop_theme = Some(pdfcraft_platform::desktop_theme::DesktopTheme::start(move || ctx.request_repaint()));
+            }
+            if let Some(desktop) = &self.desktop_theme {
+                desktop.set_active(active);
+                // The standard portal supplies Linux desktop appearance. No preference
+                // must clear an earlier answer rather than retaining stale dark chrome.
+                system = desktop.get().map(|appearance| appearance == pdfcraft_platform::desktop_theme::DesktopAppearance::Dark);
+            }
         }
-        let kind = self.theme_preference.resolve(system_theme(ctx, self.desktop_dark), self.theme);
+        let kind = self.theme_preference.resolve(system, ThemeKind::Light);
         if kind != self.theme {
             self.theme = kind;
             theme::apply(ctx, kind);
