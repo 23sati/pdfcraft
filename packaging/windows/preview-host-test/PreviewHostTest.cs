@@ -351,6 +351,16 @@ namespace LinkcoPreviewHostTest
             IPreviewHandler handler = instance as IPreviewHandler;
             if (handler == null)
             {
+                if (!Marshal.IsComObject(instance))
+                {
+                    // In process, the CLR hands a .NET host the handler's .NET object itself rather than a COM
+                    // wrapper, so this host's own copy of the interface does not match. Explorer never does this
+                    // (it uses prevhost.exe, the out-of-process mode), so creating it is the whole test here.
+                    Say("  created as a .NET object (" + instance.GetType().FullName + "); a .NET host cannot call it");
+                    Say("  through its own interface copy in process - the out-of-process mode is what Explorer uses");
+                    Say("RESULT: created in process");
+                    return 0;
+                }
                 Say("  QueryInterface(IPreviewHandler): FAILED");
                 return 1;
             }

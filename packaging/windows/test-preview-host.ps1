@@ -258,6 +258,10 @@ Say "  binding log files:"
 Get-ChildItem $FusionDir -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 12 | ForEach-Object { Say "    $($_.FullName.Substring($FusionDir.Length))" }
 Show-FusionLog
 
+Say ""
+Say "Note: when the test account's un-elevated token is still high integrity (an unfiltered admin, as on CI"
+Say "runners), COM ignores per-user registrations for it and A-C/E/F fail with 0x80070002 regardless of the"
+Say "handler; scenario U (a real standard user) is the faithful per-user test."
 Clear-Registration
 $type::RegisterPreviewHandler($Dll, $false)
 Run-Host 'A per-user registration, out of process (as Explorer)' 'local'
