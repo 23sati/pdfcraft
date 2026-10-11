@@ -820,7 +820,7 @@ fn spaces_in_another_subset_do_not_split_a_line() {
 #[test]
 fn editor_background_removes_glyphs_but_preserves_following_text_advance() {
     for show in ["(Hello) Tj", "[(He) -20 (llo)] TJ", "(Hello) '", "2 1 (Hello) \""] {
-        let mut doc = text_page(&format!("BT /F1 12 Tf 14 TL 72 700 Td {show} /F2 12 Tf (ab) Tj ET"));
+        let mut doc = text_page(&format!("BT /F1 12 Tf 14 TL 72 700 Td {show} [-3000] TJ /F2 12 Tf (ab) Tj ET"));
         let before = text::text_lines(&doc, 0).unwrap();
         assert_eq!(before.len(), 2);
         text::clear_block(&mut doc, 0, 0).unwrap();
@@ -2109,5 +2109,116 @@ fn group_move_budget_refusals_keep_the_original_page_selectable() {
         assert!(error.to_string().contains("too many content operations") || error.to_string().contains("nested too deeply"), "{error}");
         assert_eq!(pdfcraft_cos::write_full(&doc, &SaveOptions::default()).unwrap(), before);
         assert_eq!(editable_objects(&doc, 0).unwrap(), objects, "refusal retains a usable inventory");
+    }
+}
+
+fn mixed_region_page() -> Document {
+    let mut doc = text_page(
+        "BT /F2 1 Tf 18 0 0 18 123 700 Tm (TITLE) Tj ET \
+         BT /F2 1 Tf 12 0 0 12 117.6 676 Tm (two lines) Tj ET \
+         BT /F2 1 Tf 12 0 0 12 135.6 652 Tm (last) Tj ET \
+         BT 0 0.2 0.5 rg /F2 10 Tf 72 600 Td (About) Tj ET \
+         BT 0 g /F1 10 Tf 72 582 Td (Plain ) Tj /F2 10 Tf 0 0.2 0.5 rg (bold) Tj /F1 10 Tf 0 g ( text.) Tj ET \
+         BT 0.2 0.4 0.7 rg /F3 8 Tf 72 566 Td (Italic footer) Tj ET \
+         BT 0 g /F1 10 Tf 400 600 Td (Other column) Tj ET",
+    );
+    for (obj, base) in [(5, "Courier"), (6, "Courier-Bold")] {
+        let mut f = Dict::new();
+        f.set(b"Type".to_vec(), Object::name("Font"));
+        f.set(b"Subtype".to_vec(), Object::name("Type1"));
+        f.set(b"BaseFont".to_vec(), Object::name(base));
+        f.set(b"Encoding".to_vec(), Object::name("WinAnsiEncoding"));
+        doc.set(pdfcraft_cos::ObjRef::new(obj, 0), Object::Dict(f));
+    }
+    let mut f = Dict::new();
+    f.set(b"Type".to_vec(), Object::name("Font"));
+    f.set(b"Subtype".to_vec(), Object::name("Type1"));
+    f.set(b"BaseFont".to_vec(), Object::name("Courier-Oblique"));
+    f.set(b"Encoding".to_vec(), Object::name("WinAnsiEncoding"));
+    let font = doc.add(Object::Dict(f));
+    let page = pdfcraft_model::pages(&doc)[0].clone();
+    let mut resources = doc.resolve(page.dict.get(b"Resources").unwrap()).as_dict().unwrap().clone();
+    let mut fonts = doc.resolve(resources.get(b"Font").unwrap()).as_dict().unwrap().clone();
+    fonts.set(b"F3".to_vec(), Object::Ref(font));
+    resources.set(b"Font".to_vec(), Object::Dict(fonts));
+    doc.update_dict(page.obj, |d| d.set(b"Resources".to_vec(), Object::Dict(resources))).unwrap();
+    doc
+}
+
+#[test]
+fn mixed_styles_and_matrix_sizes_form_visual_regions_without_merging_columns() {
+    let doc = mixed_region_page();
+    let blocks = text::text_blocks(&doc, 0).unwrap();
+    assert_eq!(blocks.len(), 3);
+    assert_eq!(blocks[0].editor_text, "TITLE\ntwo lines\nlast");
+    assert_eq!(blocks[0].rows.len(), 3);
+    assert_eq!(blocks[1].editor_text, "About\nPlain bold text.\nItalic footer");
+    assert_eq!(blocks[1].rows.len(), 3);
+    assert_eq!(blocks[1].lines.len(), 5);
+    assert_eq!(blocks[2].text, "Other column");
+}
+
+#[test]
+fn explicit_editor_rows_survive_single_run_edit_and_reopen() {
+    let mut doc = text_page("BT /F1 12 Tf 72 700 Td (Original heading) Tj ET");
+    let text = "First row\nSecond row\nLast row";
+    let layout = text::text_edit_layout(&doc, 0, 0, text, &text::BlockStyle::default()).unwrap();
+    text::replace_block(&mut doc, 0, 0, text).unwrap();
+    let blocks = text::text_blocks(&reopen(&doc), 0).unwrap();
+    assert_eq!(blocks[0].editor_text, text);
+    assert_eq!(blocks[0].rows.len(), 3);
+    assert_eq!(Some(blocks[0].rect), layout.draft_rect);
+}
+
+#[test]
+fn rich_region_edits_preserve_styles_positions_and_delete_all_runs_after_reopen() {
+    let original = mixed_region_page();
+    let before = text::text_lines(&original, 0).unwrap();
+    let block = text::text_blocks(&original, 0).unwrap()[1].clone();
+    let mut doc = original.clone();
+    text::replace_block(&mut doc, 0, 1, &block.editor_text.replace("Plain", "Other")).unwrap();
+    let reopened = reopen(&doc);
+    let blocks = text::text_blocks(&reopened, 0).unwrap();
+    assert_eq!(blocks.len(), 3);
+    assert_eq!(blocks[1].editor_text, "About\nOther bold text.\nItalic footer");
+    let lines = text::text_lines(&reopened, 0).unwrap();
+    for word in ["About", "bold", "Italic footer"] {
+        let source = before.iter().find(|l| l.text == word).unwrap();
+        let after = lines.iter().find(|l| l.text == word).unwrap();
+        assert_eq!(
+            (after.base_font.as_str(), after.size, after.color, after.bold, after.italic),
+            (source.base_font.as_str(), source.size, source.color, source.bold, source.italic)
+        );
+        assert!((after.origin_baseline() - source.origin_baseline()).abs() < 0.001);
+    }
+    for i in [0, 2] {
+        assert_eq!(blocks[i].editor_text, text::text_blocks(&original, 0).unwrap()[i].editor_text);
+        assert_eq!(blocks[i].rect, text::text_blocks(&original, 0).unwrap()[i].rect);
+    }
+    let mut removed = original.clone();
+    text::replace_block(&mut removed, 0, 1, "").unwrap();
+    let after = text::text_blocks(&reopen(&removed), 0).unwrap();
+    assert_eq!(after.len(), 2);
+    assert_eq!(after[0].editor_text, "TITLE\ntwo lines\nlast");
+    assert_eq!(after[1].text, "Other column");
+    let mut preview = original.clone();
+    text::clear_block(&mut preview, 0, 1).unwrap();
+    assert_eq!(text::text_blocks(&reopen(&preview), 0).unwrap().len(), 2);
+    assert_eq!(text::text_blocks(&original, 0).unwrap().len(), 3);
+}
+
+#[test]
+fn centered_mixed_size_title_keeps_three_rows_when_changed() {
+    let mut doc = mixed_region_page();
+    let title = text::text_blocks(&doc, 0).unwrap()[0].clone();
+    text::replace_block(&mut doc, 0, 0, &title.editor_text.replace("last", "tail")).unwrap();
+    let reopened = reopen(&doc);
+    let blocks = text::text_blocks(&reopened, 0).unwrap();
+    assert_eq!(blocks[0].editor_text, "TITLE\ntwo lines\ntail");
+    assert_eq!(blocks[0].rows.len(), 3);
+    let lines = text::text_lines(&reopened, 0).unwrap();
+    for row in &blocks[0].rows {
+        let line = &lines[row[0]];
+        assert!(((line.rect[0] + line.rect[2]) / 2.0 - 150.0).abs() < 0.01);
     }
 }

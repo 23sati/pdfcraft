@@ -4,6 +4,9 @@
 //! it to a new width. Click an image to select it: drag to move, drag a corner to resize (keeping
 //! its proportions), right-click for rotate, flip, replace, save and delete; Delete removes it.
 
+use std::collections::BTreeMap;
+use std::sync::Arc;
+
 use egui::{Color32, CornerRadius, FontFamily, FontId, Pos2, Rect, Stroke};
 use pdfcraft_engine::Edit;
 use pdfcraft_render::DocInfo;
@@ -21,6 +24,8 @@ pub(crate) struct TextBackground {
     texture: Option<egui::TextureHandle>,
     tag: Option<u64>,
     received: Option<u64>,
+    draft_key: Option<(String, pdfcraft_engine::BlockStyle)>,
+    draft_rect: Option<[f64; 4]>,
 }
 
 impl TextBackground {
@@ -34,6 +39,13 @@ impl TextBackground {
             *self = Self { key, ..Default::default() };
             if let Some((_, page, block)) = key {
                 self.renderer = doc.text_edit_preview(page, block).ok().map(|p| p.renderer());
+            }
+        }
+        if let Some(ed) = editor {
+            let draft_key = (ed.text.clone(), ed.style());
+            if self.draft_key.as_ref() != Some(&draft_key) {
+                self.draft_rect = doc.text_edit_layout(ed.page, ed.block, &ed.text, &draft_key.1).ok().and_then(|layout| layout.draft_rect);
+                self.draft_key = Some(draft_key);
             }
         }
         let (Some((_, page, _)), Some(renderer)) = (self.key, self.renderer.as_ref()) else { return };
@@ -91,8 +103,11 @@ pub struct LineEditor {
     /// stays attached while the page is zoomed, scrolled, or rotated.
     source_rect: [f32; 4],
     multiline: bool,
-    /// How far the editor box may grow to the right (screen pixels): a single-line paragraph
-    /// rewraps growing to the page's edge, a multi-line one keeps its width.
+    source: Option<(pdfcraft_engine::TextBlock, Vec<pdfcraft_engine::TextLine>)>,
+    fonts: BTreeMap<String, String>,
+    /// The draft extends outside the source container; its frame follows the live draft bounds.
+    pub overflow: bool,
+    /// The initial source container width in screen pixels.
     max_width: f32,
     /// Current screen-space size. Recomputed from the current page transform before painting.
     size: f32,
@@ -152,8 +167,7 @@ impl LineEditor {
         self.text != self.original || self.look != self.look0 || self.extras != self.extras0
     }
 
-    /// How far the box may grow to the right, when the paragraph is a single line (a multi-line
-    /// paragraph rewraps to its own width and the box doesn't grow).
+    /// Extra width permitted by the editor. Source containers now remain fixed.
     pub fn growth(&self) -> Option<f32> {
         (self.max_width > self.rect.width()).then_some(self.max_width)
     }
@@ -189,9 +203,12 @@ impl LineEditor {
     }
 
     /// Adopt the rewritten paragraph's current geometry before the next overlay frame.
-    pub(crate) fn refresh_source(&mut self, block: &pdfcraft_engine::TextBlock) {
+    pub(crate) fn refresh_source(&mut self, block: &pdfcraft_engine::TextBlock, lines: Vec<pdfcraft_engine::TextLine>) {
         self.source_rect = block.rect.map(|v| v as f32);
-        self.multiline = block.lines.len() > 1;
+        self.multiline = block.rows.len() > 1;
+        self.source = Some((block.clone(), lines));
+        self.text = block.editor_text.clone();
+        self.original = self.text.clone();
     }
 }
 
@@ -562,14 +579,13 @@ pub(crate) fn page_input(
     if resp.clicked() {
         let l = &lines[hit];
         let source_lines = doc.text_lines(page);
-        let text = l.lines.iter().filter_map(|i| source_lines.get(*i)).map(|line| line.text.as_str()).collect::<Vec<_>>().join("\n");
-        let text = if text.is_empty() { l.text.clone() } else { text };
+        let text = l.editor_text.clone();
         // Screen pixels per point, from the box's width.
         let scale = (boxes[hit].width() - 4.0) / ((l.rect[2] - l.rect[0]).max(1.0) as f32);
         // How far the editor box may grow: a single-line paragraph's rewrite grows to the
         // page's right edge, a multi-line paragraph rewraps to its own width.
         let right = xf.rect.right().min(view.viewport_rect().right()) - 6.0;
-        let max_width = if l.lines.len() == 1 { (right - boxes[hit].left()).max(boxes[hit].width()) } else { boxes[hit].width() };
+        let max_width = if l.rows.len() == 1 { (right - boxes[hit].left()).max(boxes[hit].width()) } else { boxes[hit].width() };
         view.line_editor = Some(LineEditor {
             page,
             block: hit,
@@ -577,7 +593,10 @@ pub(crate) fn page_input(
             original: text,
             rect: boxes[hit],
             source_rect: l.rect.map(|v| v as f32),
-            multiline: l.lines.len() > 1,
+            multiline: l.rows.len() > 1,
+            source: Some((l.clone(), source_lines)),
+            fonts: install_source_fonts(ui.ctx(), doc, page),
+            overflow: false,
             max_width,
             size: (l.size as f32 * scale).clamp(8.0, 72.0),
             focus: true,
@@ -590,45 +609,236 @@ pub(crate) fn page_input(
     true
 }
 
+/// One TextEdit lays out all source runs; its caret and selection span the whole region.
+fn install_source_fonts(ctx: &egui::Context, doc: &pdfcraft_engine::Document, page: usize) -> BTreeMap<String, String> {
+    let programs = doc.text_editor_fonts(page);
+    let mut definitions = ctx.fonts(|f| f.definitions().clone());
+    // Only the current editor's document fonts live in the atlas. Never accumulate the
+    // programs of previously opened files or add them to the interface's default families.
+    definitions.font_data.retain(|name, _| !name.starts_with("pdf-source-"));
+    definitions.families.retain(|family, _| !matches!(family, FontFamily::Name(name) if name.starts_with("pdf-source-")));
+    let mut families = BTreeMap::new();
+    for (index, program) in programs.iter().enumerate() {
+        let name = format!("pdf-source-{index}");
+        definitions.font_data.insert(name.clone(), Arc::new(egui::FontData::from_owned(program.bytes.clone())));
+        families.insert(program.resource.clone(), name);
+    }
+    for program in &programs {
+        let Some(name) = families.get(&program.resource) else { continue };
+        // Word-created PDFs often split one face into several subsets. Use all of the
+        // document's matching subsets before falling back for newly inserted characters.
+        let mut stack = vec![name.clone()];
+        stack.extend(
+            programs.iter().filter(|p| p.face == program.face && p.resource != program.resource).filter_map(|p| families.get(&p.resource).cloned()),
+        );
+        if let Some(fallback) = definitions.families.get(&FontFamily::Proportional) {
+            stack.extend(fallback.iter().cloned());
+        }
+        definitions.families.insert(FontFamily::Name(name.clone().into()), stack);
+    }
+    if !families.is_empty() {
+        ctx.set_fonts(definitions);
+    }
+    families
+}
+
+fn editor_job(ui: &egui::Ui, ed: &LineEditor, text: &str, scale: f32, width: f32) -> egui::text::LayoutJob {
+    let mut job = egui::text::LayoutJob::default();
+    // An unchanged PDF row already has an authoritative line break. Do not rewrap it
+    // because font rounding or a fallback face measures a fraction of a pixel wider.
+    job.wrap.max_width = if text == ed.original && ed.look == ed.look0 && ed.extras == ed.extras0 { f32::INFINITY } else { width };
+    if let Some((block, lines)) = &ed.source {
+        let lefts: Vec<_> = block.rows.iter().filter_map(|r| r.first().and_then(|i| lines.get(*i)).map(|l| l.rect[0])).collect();
+        let left_span = lefts.iter().copied().fold(f64::NEG_INFINITY, f64::max) - lefts.iter().copied().fold(f64::INFINITY, f64::min);
+        let centered = block.rows.len() > 1
+            && left_span > block.size * 0.5
+            && block.rows.iter().all(|row| {
+                let rect = row
+                    .iter()
+                    .filter_map(|i| lines.get(*i))
+                    .map(|l| l.rect)
+                    .reduce(|a, b| [a[0].min(b[0]), a[1].min(b[1]), a[2].max(b[2]), a[3].max(b[3])]);
+                rect.is_some_and(|r| ((r[0] + r[2] - block.rect[0] - block.rect[2]) / 2.0).abs() < block.size)
+            });
+        if centered {
+            job.halign = egui::Align::Center;
+        }
+        for (range, index) in block.edited_spans(text) {
+            let Some(line) = lines.get(index) else { continue };
+            let mut look = source_look(&line.base_font, line.size, line.color, line.bold, line.italic);
+            look.size = line.size;
+            if ed.look.family != ed.look0.family {
+                look.family = ed.look.family;
+            }
+            if ed.look.bold != ed.look0.bold {
+                look.bold = ed.look.bold;
+            }
+            if ed.look.italic != ed.look0.italic {
+                look.italic = ed.look.italic;
+            }
+            if ed.look.color != ed.look0.color {
+                look.color = ed.look.color;
+            }
+            if ed.look.size != ed.look0.size {
+                look.size = ed.look.size;
+            }
+            let mut font = editor_font(&look, (look.size as f32 * scale).clamp(1.0, 300.0));
+            let original_face = ed.look.family == ed.look0.family && ed.look.bold == ed.look0.bold && ed.look.italic == ed.look0.italic;
+            let embedded = original_face && ed.fonts.contains_key(&line.font);
+            if embedded && let Some(name) = ed.fonts.get(&line.font) {
+                font.family = FontFamily::Name(name.clone().into());
+            }
+            let native_width = ui.fonts_mut(|f| f.layout_no_wrap(line.text.clone(), font.clone(), Color32::BLACK).size().x);
+            let target_width = ((line.rect[2] - line.rect[0]) * look.size / line.size.max(0.01)) as f32 * scale;
+            let spacing = if original_face { (target_width - native_width) / line.text.chars().count().saturating_sub(1).max(1) as f32 } else { 0.0 };
+            job.append(
+                text.get(range).unwrap_or_default(),
+                0.0,
+                egui::TextFormat {
+                    font_id: font,
+                    extra_letter_spacing: spacing + ed.extras.char_spacing as f32 * scale,
+                    color: color32(look.color),
+                    italics: look.italic && !embedded,
+                    ..Default::default()
+                },
+            );
+        }
+    } else {
+        job.append(
+            text,
+            0.0,
+            egui::TextFormat {
+                font_id: editor_font(&ed.look, ed.size),
+                color: color32(ed.look.color),
+                italics: ed.look.italic,
+                ..Default::default()
+            },
+        );
+    }
+    job
+}
+
+/// Align the editable galley's baselines to the source rows instead of egui's interface
+/// leading. Glyphs, meshes, caret and selection receive the same transform.
+fn editor_galley(ui: &egui::Ui, ed: &LineEditor, text: &str, scale: f32, width: f32) -> Arc<egui::Galley> {
+    let mut job = editor_job(ui, ed, text, scale, width);
+    let centered = job.halign == egui::Align::Center;
+    job.halign = egui::Align::LEFT;
+    let mut galley = ui.fonts_mut(|fonts| fonts.layout_job(job));
+    let Some((block, lines)) = &ed.source else { return galley };
+    let sources: Vec<_> = block
+        .rows
+        .iter()
+        .filter_map(|row| {
+            let first = row.first().and_then(|i| lines.get(*i))?;
+            let rect = row
+                .iter()
+                .filter_map(|i| lines.get(*i))
+                .map(|l| l.rect)
+                .reduce(|a, b| [a[0].min(b[0]), a[1].min(b[1]), a[2].max(b[2]), a[3].max(b[3])])?;
+            Some((first.baseline()[1], rect))
+        })
+        .collect();
+    let Some((first_baseline, first_rect)) = sources.first().copied() else { return galley };
+    let leading = if ed.extras.line_spacing > 0.0 {
+        ed.extras.line_spacing * ed.look.size
+    } else {
+        let fallback = if block.lines.len() == 1 && !text.contains('\n') {
+            block.lines.first().and_then(|i| lines.get(*i)).map_or(block.size * 1.2, |line| line.wrap_leading())
+        } else {
+            block.size * 1.5
+        };
+        sources.windows(2).map(|r| (r[0].0 - r[1].0).abs()).rfind(|v| *v > 0.0).unwrap_or(fallback)
+    };
+    let g = Arc::make_mut(&mut galley);
+    let mut bounds = Rect::NOTHING;
+    let mut meshes = Rect::NOTHING;
+    for (index, placed) in g.rows.iter_mut().enumerate() {
+        let (last_baseline, last_rect) = sources.last().copied().unwrap_or((first_baseline, first_rect));
+        let (baseline, source_rect) = sources
+            .get(index)
+            .copied()
+            .unwrap_or((last_baseline - index.saturating_add(1).saturating_sub(sources.len()) as f64 * leading, last_rect));
+        let changed_size = ed.look.size != ed.look0.size;
+        let ratio = if changed_size { ed.look.size / ed.look0.size.max(0.01) } else { 1.0 };
+        let ascent = (source_rect[3] - sources.get(index).map_or(last_baseline, |s| s.0)) as f32 * scale * ratio as f32;
+        let descent = (sources.get(index).map_or(last_baseline, |s| s.0) - source_rect[1]) as f32 * scale * ratio as f32;
+        let base_y = (block.rect[3] - baseline) as f32 * scale;
+        let row = Arc::make_mut(&mut placed.row);
+        placed.pos.y = base_y - ascent;
+        placed.pos.x = if centered { (width - row.size.x) / 2.0 } else { (source_rect[0] - block.rect[0]) as f32 * scale };
+        for glyph in &mut row.glyphs {
+            let dy = ascent - glyph.pos.y;
+            glyph.pos.y = ascent;
+            glyph.font_ascent = ascent;
+            glyph.font_height = ascent + descent;
+            glyph.line_height = ascent + descent;
+            if !glyph.uv_rect.is_nothing() {
+                for vertex in row.visuals.mesh.vertices.iter_mut().skip(glyph.first_vertex as usize).take(4) {
+                    vertex.pos.y += dy;
+                }
+            }
+        }
+        row.size.y = (ascent + descent).max(1.0);
+        row.visuals.mesh_bounds = row.visuals.mesh.vertices.iter().fold(Rect::NOTHING, |r, v| r.union(Rect::from_min_max(v.pos, v.pos)));
+        bounds = bounds.union(Rect::from_min_size(placed.pos, row.size));
+        meshes = meshes.union(row.visuals.mesh_bounds.translate(placed.pos.to_vec2()));
+    }
+    g.rect = Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(bounds.right().max(0.0), bounds.bottom().max(0.0)));
+    g.mesh_bounds = meshes;
+    galley
+}
+
 /// The inline editor; returns the edit once the text is applied.
 pub(crate) fn overlay(ctx: &egui::Context, view: &mut DocView, info: &DocInfo) -> Option<Edit> {
     // Clicks outside the document (the Format text panel) keep the paragraph open.
     let outside = ctx.input(|i| i.pointer.latest_pos()).is_some_and(|p| !view.viewport_rect().contains(p));
     let page = view.line_editor.as_ref()?.page;
     let xf = view.page_xform(page)?;
-    let viewport_right = view.viewport_rect().right();
     let hold = view.objects.hold_editor;
     let background_ready = view.line_editor.as_ref().is_some_and(|ed| view.text_background.ready(ed.page, ed.block));
+    let draft_rect = view.text_background.draft_rect.map(|r| xf.user_rect(info, page, r.map(|v| v as f32)));
     let ed = view.line_editor.as_mut()?;
     if hold {
         ed.focus = true;
     }
     // Reproject the source box every frame. The page may have been zoomed, scrolled or rotated
     // while the format panel was open.
-    ed.rect = xf.user_rect(info, ed.page, ed.source_rect).expand(2.0);
-    let right = xf.rect.right().min(viewport_right) - 6.0;
-    ed.max_width = if ed.multiline { ed.rect.width() } else { (right - ed.rect.left()).max(ed.rect.width()) };
-    let scale = (ed.rect.width() / (ed.source_rect[2] - ed.source_rect[0]).abs().max(1.0)).max(0.01);
-    ed.size = (ed.look.size as f32 * scale).clamp(8.0, 72.0);
+    // A font definition becomes active at the start of the next egui pass. Keep the source
+    // raster visible until then instead of flashing an unrelated interface face.
+    if !ctx.fonts(|f| ed.fonts.values().all(|name| f.definitions().families.contains_key(&FontFamily::Name(name.clone().into())))) {
+        ctx.request_repaint();
+        return None;
+    }
+    ed.rect = xf.user_rect(info, ed.page, ed.source_rect);
+    ed.max_width = ed.rect.width();
+    let scale = (ed.rect.width() / (ed.source_rect[2] - ed.source_rect[0]).abs().max(0.01)).max(0.01);
+    ed.size = (ed.look.size as f32 * scale).clamp(1.0, 300.0);
     let font = editor_font(&ed.look, ed.size);
     let text_color = color32(ed.look.color);
     let mut done = None;
     egui::Area::new(egui::Id::new("edit-text-line")).order(egui::Order::Foreground).fixed_pos(Pos2::new(ed.rect.left(), ed.rect.top())).show(
         ctx,
         |ui| {
-            // The box follows the text as you type: as wide as the longest drafted line needs
-            // (up to what the rewrite allows), so new content grows the box instead of wrapping
-            // inside the old one.
-            let mut width = ed.rect.width().max(120.0);
-            if ed.max_width > width {
-                let needed = ui.fonts_mut(|f| {
-                    ed.text.lines().map(|l| f.layout_no_wrap(l.to_owned(), font.clone(), text_color).size().x).fold(0.0_f32, f32::max)
-                }) + 8.0;
-                width = width.max(needed).min(ed.max_width);
-            }
-            // An Area remembers its previous size. Reset the available width explicitly so
-            // opening a wider block cannot inherit the previous editor's narrow layout.
-            ui.set_width(width + 4.0);
+            // The editor opens at the source size. Once text changes, show the real draft
+            // extent: single rows grow toward the page edge, paragraphs rewrap at their
+            // source width, and the visible frame grows/shrinks vertically with their rows.
+            let single_run = ed.source.as_ref().is_some_and(|(block, _)| block.lines.len() == 1);
+            let width = if !ed.multiline && single_run && !ed.text.contains('\n') && ed.has_changes() {
+                let job = editor_job(ui, ed, &ed.text, scale, f32::INFINITY);
+                let natural = ui.fonts_mut(|f| f.layout_job(job)).size().x;
+                natural.max(ed.size * 0.4).min((xf.rect.right() - ed.rect.left() - 36.0 * scale).max(ed.rect.width()))
+            } else {
+                ed.rect.width().max(1.0)
+            };
+            ui.set_width(width);
+            let measured = editor_galley(ui, ed, &ed.text, scale, width);
+            ed.overflow = ed.has_changes() && (measured.rect.width() > ed.rect.width() + 1.5 || measured.rect.height() > ed.rect.height() + 1.5);
+            let visible = Rect::from_min_size(ed.rect.min, measured.rect.size().max(egui::vec2(1.0, 1.0)));
+            // Unsupported source programs use an interface fallback whose glyph advances
+            // can differ from the PDF's. Keep every visible row inside the growing frame.
+            let live = draft_rect.map_or(visible, |bounds| bounds.union(visible));
+            ui.painter().rect_stroke(live.expand(2.0), CornerRadius::ZERO, Stroke::new(1.5, ACCENT), egui::StrokeKind::Outside);
             // White, unless the text is too pale to read on white (white text from a coloured
             // banner, #913): then a dark box, with a caret that shows on it.
             let fill = if background_ready { Color32::TRANSPARENT } else { editor_fill(text_color) };
@@ -637,18 +847,27 @@ pub(crate) fn overlay(ctx: &egui::Context, view: &mut DocView, info: &DocInfo) -
             if !background_ready {
                 ui.painter().rect_filled(ed.rect.expand(1.0), CornerRadius::ZERO, fill);
             }
-            egui::Frame::NONE.fill(fill).stroke(Stroke::new(1.5, ACCENT)).inner_margin(egui::Margin::symmetric(2, 0)).show(ui, |ui| {
+            egui::Frame::NONE.fill(fill).show(ui, |ui| {
                 ui.visuals_mut().text_cursor.stroke.color = if luminance(text_color) < 0.5 { Color32::BLACK } else { Color32::WHITE };
-                let rows = ed.text.lines().count().max(1);
+                let rows = 1;
+                let snapshot = ed.clone();
+                let mut layouter =
+                    |ui: &egui::Ui, text: &dyn egui::TextBuffer, wrap_width: f32| editor_galley(ui, &snapshot, text.as_str(), scale, wrap_width);
                 let r = ui.add(
                     egui::TextEdit::multiline(&mut ed.text)
                         .id(egui::Id::new("edit-text-line-input"))
                         .font(font.clone())
+                        .margin(egui::Margin::ZERO)
+                        .layouter(&mut layouter)
                         .text_color(text_color)
                         .frame(egui::Frame::NONE)
                         .desired_width(width)
                         .desired_rows(rows),
                 );
+                if r.changed() {
+                    // The next pass measures the updated draft with the Apply/Save rewrite.
+                    ctx.request_repaint();
+                }
                 if ed.focus {
                     r.request_focus();
                     ed.focus = false;
@@ -698,7 +917,10 @@ mod tests {
             original: block.text.clone(),
             rect: Rect::NOTHING,
             source_rect: block.rect.map(|v| v as f32),
-            multiline: block.lines.len() > 1,
+            multiline: block.rows.len() > 1,
+            source: None,
+            fonts: BTreeMap::new(),
+            overflow: false,
             max_width: 400.0,
             size: block.size as f32,
             focus: true,

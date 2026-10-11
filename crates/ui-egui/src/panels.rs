@@ -321,7 +321,7 @@ fn format_section(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens) {
                 if let Some(doc) = app.session.get(app.views[i].id)
                     && let Some(block) = doc.text_blocks(ed.page).get(ed.block)
                 {
-                    ed.refresh_source(block);
+                    ed.refresh_source(block, doc.text_lines(ed.page));
                 }
             }
             app.views[i].line_editor = Some(ed);

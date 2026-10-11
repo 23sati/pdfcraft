@@ -421,6 +421,8 @@ impl Automation {
                         json!({
                             "paragraph": i + 1,
                             "text": b.text,
+                            "editor_text": b.editor_text,
+                            "rows": b.rows.iter().map(|row| row.iter().map(|i| i + 1).collect::<Vec<_>>()).collect::<Vec<_>>(),
                             "lines": b.lines.iter().map(|l| l + 1).collect::<Vec<_>>(),
                             "rect": [r(u[0].min(v[0])), r(u[1].min(v[1])), r(u[0].max(v[0])), r(u[1].max(v[1]))],
                             "font": b.base_font,
@@ -429,6 +431,28 @@ impl Automation {
                     })
                     .collect();
                 json!({ "page": page + 1, "count": blocks.len(), "paragraphs": blocks })
+            }
+            "text_edit_layout" => {
+                let page = self.page(&a)?;
+                let doc = self.doc(&a)?;
+                let k = a.int("paragraph")?;
+                let blocks = doc.text_blocks(page);
+                if k < 1 || k as usize > blocks.len() {
+                    return Err(ToolError::InvalidArgs("paragraph is out of range".into()));
+                }
+                let source = &blocks[k as usize - 1];
+                let text = a.opt_str("text")?.unwrap_or(&source.editor_text);
+                let style = pdfcraft_engine::BlockStyle { size: a.opt_num("size")?, width: a.opt_num("width")?, ..Default::default() };
+                let layout = doc.text_edit_layout(page, k as usize - 1, text, &style).map_err(failed)?;
+                let info = &doc.info.pages[page];
+                let view_rect = |r: [f64; 4]| {
+                    let a = info.user_to_view(r[0] as f32, r[1] as f32);
+                    let b = info.user_to_view(r[2] as f32, r[3] as f32);
+                    [a[0].min(b[0]), a[1].min(b[1]), a[0].max(b[0]), a[1].max(b[1])]
+                };
+                let fonts: Vec<_> = doc.text_editor_fonts(page).into_iter().map(|f| json!({"resource": f.resource, "face": f.face})).collect();
+                json!({ "page": page + 1, "paragraph": k, "source_rect": view_rect(layout.source_rect),
+                    "draft_rect": layout.draft_rect.map(view_rect), "overflow": layout.overflow, "embedded_fonts": fonts })
             }
             "text_edit" if a.get("paragraph").is_some() => {
                 let page = self.page(&a)?;

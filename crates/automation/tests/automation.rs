@@ -3941,3 +3941,62 @@ fn text_extract_with_a_rect_takes_one_column() {
         assert!(matches!(e, ToolError::InvalidArgs(_)), "{bad}: {e}");
     }
 }
+
+#[test]
+fn mixed_visual_region_edit_preview_save_reopen_and_undo_through_tools() {
+    use pdfcraft_cos::{Dict, Document, Object, Stream, write_incremental};
+    let dir = workdir("mixed-region");
+    let mut cos = Document::open(std::sync::Arc::new(fixture(1))).unwrap();
+    let page = pdfcraft_model::pages(&cos)[0].clone();
+    let mut font = Dict::new();
+    font.set(b"Type".to_vec(), Object::name("Font"));
+    font.set(b"Subtype".to_vec(), Object::name("Type1"));
+    font.set(b"BaseFont".to_vec(), Object::name("Helvetica-Bold"));
+    let bold = cos.add(Object::Dict(font));
+    let mut resources = cos.resolve(page.dict.get(b"Resources").unwrap()).as_dict().unwrap().clone();
+    let mut fonts = cos.resolve(resources.get(b"Font").unwrap()).as_dict().unwrap().clone();
+    fonts.set(b"F2".to_vec(), Object::Ref(bold));
+    resources.set(b"Font".to_vec(), Object::Dict(fonts));
+    let stream = cos.add(Object::Stream(Stream::flate(Dict::new(),
+        b"BT /F2 1 Tf 18 0 0 18 20 240 Tm (Heading) Tj ET BT /F1 12 Tf 0 g 20 217 Td (Body ) Tj /F2 12 Tf 0 0.2 0.5 rg (bold) Tj /F1 12 Tf 0 g ( text) Tj ET")));
+    cos.update_dict(page.obj, |d| {
+        d.set(b"Resources".to_vec(), Object::Dict(resources));
+        d.set(b"Contents".to_vec(), Object::Ref(stream));
+    })
+    .unwrap();
+    std::fs::write(dir.join("mixed.pdf"), write_incremental(&cos, &Default::default()).unwrap()).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({"path":"mixed.pdf"}))["doc"].as_u64().unwrap();
+    let before = ok(&mut a, "text_paragraphs", json!({"doc":doc,"page":1}));
+    assert_eq!(before["count"], 1);
+    assert_eq!(before["paragraphs"][0]["editor_text"], "Heading\nBody bold text");
+    assert_eq!(before["paragraphs"][0]["rows"].as_array().unwrap().len(), 2);
+    assert_eq!(before["paragraphs"][0]["lines"].as_array().unwrap().len(), 4);
+    let unchanged = ok(&mut a, "text_edit_layout", json!({"doc":doc,"page":1,"paragraph":1}));
+    assert_eq!(unchanged["overflow"], false);
+    assert_eq!(unchanged["source_rect"], unchanged["draft_rect"]);
+    let growing = ok(&mut a, "text_edit_layout", json!({"doc":doc,"page":1,"paragraph":1,"text":"Heading\nBody bold text\nExtra row\nAnother row"}));
+    assert_eq!(growing["overflow"], true);
+    assert_eq!(ok(&mut a, "text_paragraphs", json!({"doc":doc,"page":1})), before, "measuring does not apply a draft");
+    let normal = a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap();
+    let preview = a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72,"hide_text_block":1})).unwrap();
+    assert_ne!(normal, preview);
+    assert_eq!(ok(&mut a, "text_paragraphs", json!({"doc":doc,"page":1})), before, "preview is read-only");
+    ok(&mut a, "text_edit", json!({"doc":doc,"page":1,"paragraph":1,"text":"Heading\nText bold text"}));
+    ok(&mut a, "doc_save", json!({"doc":doc,"path":"out/mixed-edited.pdf"}));
+    let re = ok(&mut a, "doc_open", json!({"path":"out/mixed-edited.pdf"}))["doc"].as_u64().unwrap();
+    let after = ok(&mut a, "text_paragraphs", json!({"doc":re,"page":1}));
+    assert_eq!(after["count"], 1);
+    assert_eq!(after["paragraphs"][0]["editor_text"], "Heading\nText bold text");
+    let saved = Document::open(std::sync::Arc::new(std::fs::read(dir.join("out/mixed-edited.pdf")).unwrap())).unwrap();
+    let mut session = pdfcraft_engine::Session::new();
+    let id = session.open("saved.pdf", None, std::sync::Arc::new(write_incremental(&saved, &Default::default()).unwrap()), None).unwrap();
+    let runs = session.get(id).unwrap().text_lines(0);
+    let preserved = runs.iter().find(|l| l.text == "bold").unwrap();
+    assert!(preserved.bold);
+    assert_eq!(preserved.color, [0.0, 0.2, 0.5]);
+    ok(&mut a, "text_edit", json!({"doc":re,"page":1,"paragraph":1,"text":""}));
+    assert_eq!(ok(&mut a, "text_paragraphs", json!({"doc":re,"page":1}))["count"], 0);
+    ok(&mut a, "edit_undo", json!({"doc":re}));
+    assert_eq!(ok(&mut a, "text_paragraphs", json!({"doc":re,"page":1})), after);
+}

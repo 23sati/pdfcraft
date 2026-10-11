@@ -1862,8 +1862,8 @@ fn editing_existing_text_in_place() {
     h.run_steps(3);
     let ed = h.state().views[0].line_editor.clone().expect("the line opens for editing");
     assert_eq!((ed.page, ed.block, ed.text.as_str()), (0, 0, "Page 1"));
-    // A single-line paragraph's box may grow to the page's edge as the text does.
-    assert!(ed.growth().is_some(), "the editor box may grow");
+    // The source container stays visible while added text can overflow it.
+    assert!(ed.growth().is_none(), "opening the editor preserves the source container");
     h.state_mut().views[0].line_editor.as_mut().unwrap().text = "Chapter One".into();
     h.run_steps(1);
     h.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::Enter);
@@ -2359,4 +2359,309 @@ fn host_dirty_hears_when_unsaved_work_appears_and_goes() {
     h.run_steps(3);
     assert_eq!(reports.lock().unwrap().last(), Some(&false), "saving clears it");
     let _ = std::fs::remove_file(out);
+}
+
+#[test]
+fn one_editor_contains_mixed_styles_and_visual_rows() {
+    let bytes = source_font_fixture_with_text(
+        "BT 0 0.2 0.5 rg /F1 1 Tf 18 0 0 18 20 240 Tm (Heading) Tj ET \
+         BT 0 g /F2 12 Tf 20 215 Td (Plain ) Tj /F1 12 Tf 0 0.2 0.5 rg (bold) Tj /F2 12 Tf 0 g ( words) Tj ET \
+         BT /F2 10 Tf 20 195 Td (Last row) Tj ET",
+    );
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("mixed.pdf", None, bytes).unwrap();
+        app
+    });
+    h.run_steps(4);
+    assert!(h.state_mut().execute("edit.edit_text"));
+    h.run_steps(2);
+    let page = h.state().views[0].page_screen_rect(0).unwrap();
+    let point = egui::pos2(page.left() + 30.0 / 300.0 * page.width(), page.top() + 55.0 / 300.0 * page.height());
+    h.hover_at(point);
+    h.run_steps(1);
+    h.drag_at(point);
+    h.run_steps(1);
+    h.drop_at(point);
+    h.run_steps(6);
+    assert_eq!(h.state().views[0].line_editor.as_ref().unwrap().text, "Heading\nPlain bold words\nLast row");
+    let galley = h
+        .output()
+        .shapes
+        .iter()
+        .find_map(|shape| match &shape.shape {
+            egui::Shape::Text(t) if t.galley.text().starts_with("Heading\n") => Some(&t.galley),
+            _ => None,
+        })
+        .expect("one galley contains the whole region");
+    assert_eq!(galley.rows.len(), 3);
+    assert!(galley.job.sections.iter().any(|s| s.format.color == egui::Color32::BLACK));
+    assert!(galley.job.sections.iter().any(|s| s.format.color == egui::Color32::from_rgb(0, 51, 128)));
+    assert!(galley.job.sections.iter().any(|s| s.format.font_id.size > galley.job.sections.last().unwrap().format.font_id.size));
+    let original_text = h.state().views[0].line_editor.as_ref().unwrap().text.clone();
+    h.state_mut().views[0].line_editor.as_mut().unwrap().text.push_str("\nAdditional row\nAnother row");
+    h.run_steps(3);
+    let visible = h
+        .output()
+        .shapes
+        .iter()
+        .find_map(|s| match &s.shape {
+            egui::Shape::Text(t) if t.galley.text().ends_with("Another row") => Some(t.galley.rect.translate(t.pos.to_vec2())),
+            _ => None,
+        })
+        .unwrap();
+    let frame = h
+        .output()
+        .shapes
+        .iter()
+        .find_map(|s| match &s.shape {
+            egui::Shape::Rect(r) if r.stroke.color == egui::Color32::from_rgb(0x14, 0x73, 0xE6) && r.rect.width() > 50.0 => Some(r.rect),
+            _ => None,
+        })
+        .unwrap();
+    assert!(frame.contains_rect(visible), "fallback font rows remain inside the growing frame");
+    h.state_mut().views[0].line_editor.as_mut().unwrap().text = original_text;
+    h.run_steps(3);
+    if let Ok(path) = std::env::var("PDFCRAFT_RICH_FRAME_SHOT") {
+        h.render().unwrap().save(path).unwrap();
+    }
+    h.state_mut().views[0].line_editor.as_mut().unwrap().text.clear();
+    h.run_steps(3);
+    h.key_press_modifiers(Modifiers::COMMAND, Key::Enter);
+    h.run_steps(4);
+    assert!(h.state().session.get(h.state().views[0].id).unwrap().text_blocks(0).is_empty());
+    assert!(dirty(&h));
+    h.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+    h.run_steps(3);
+    assert_eq!(h.state().session.get(h.state().views[0].id).unwrap().text_blocks(0)[0].rows.len(), 3);
+}
+
+/// Opt-in private-document regression. This never captures images or saves the source file.
+/// Run with PDFCRAFT_TEXT_REGRESSION_PDF=/path/to/document.pdf and --ignored.
+#[test]
+#[ignore = "requires an explicitly supplied local PDF"]
+fn private_document_regions_open_as_one_editor() {
+    let path = std::env::var("PDFCRAFT_TEXT_REGRESSION_PDF").expect("supply a local PDF path");
+    let bytes = std::fs::read(&path).unwrap();
+    let original = bytes.clone();
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 1100.0)).build_eframe(move |_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("private.pdf", None, bytes).unwrap();
+        app
+    });
+    h.run_steps(4);
+    assert!(h.state_mut().execute("edit.edit_text"));
+    h.run_steps(2);
+    h.state_mut().views[0].fit = pdfcraft_ui_egui::canvas::Fit::Page;
+    assert!(h.state_mut().execute("view.layout.single"));
+    h.run_steps(3);
+    let page_count = h.state().session.get(h.state().views[0].id).unwrap().info.pages.len();
+    let mut checked = 0;
+    for page_index in 0..page_count {
+        h.state_mut().views[0].go_to_page(page_index);
+        h.run_steps(4);
+        let blocks = h.state().session.get(h.state().views[0].id).unwrap().text_blocks(page_index);
+        let page = h.state().views[0].page_screen_rect(page_index).unwrap();
+        let info = h.state().session.get(h.state().views[0].id).unwrap().info.pages[page_index].clone();
+        let source_lines = h.state().session.get(h.state().views[0].id).unwrap().text_lines(page_index);
+        let programs = h.state().session.get(h.state().views[0].id).unwrap().text_editor_fonts(page_index);
+        assert!(!programs.is_empty(), "source sfnt fonts must be usable in the editor");
+        let scale = page.width() / info.width;
+        for (index, block) in blocks.iter().enumerate().filter(|(_, b)| b.rows.len() >= 3) {
+            let line = &source_lines[block.lines[0]];
+            let v = info.user_to_view((line.rect[0] + 3.0) as f32, (line.rect[1] + line.rect[3]) as f32 / 2.0);
+            let point = egui::pos2(page.left() + v[0] * scale, page.top() + v[1] * scale);
+            h.hover_at(point);
+            h.run_steps(1);
+            h.drag_at(point);
+            h.run_steps(1);
+            h.drop_at(point);
+            h.run_steps(8);
+            let editor = h.state().views[0].line_editor.as_ref().unwrap();
+            assert_eq!(editor.block, index);
+            assert_eq!(editor.text, block.editor_text);
+            assert!(!editor.overflow, "unchanged source region must fit (page {}, region {})", page_index + 1, index + 1);
+            let text_shape = h
+                .output()
+                .shapes
+                .iter()
+                .find_map(|s| match &s.shape {
+                    egui::Shape::Text(t) if t.galley.text() == block.editor_text => Some(t),
+                    _ => None,
+                })
+                .expect("the whole source region is editable");
+            assert!(
+                text_shape.galley.job.sections.iter().all(|section| matches!(&section.format.font_id.family,
+                egui::FontFamily::Name(name) if name.starts_with("pdf-source-"))),
+                "editing uses source faces, not an interface face"
+            );
+            assert_eq!(text_shape.galley.rows.len(), block.rows.len(), "source rows stay in place");
+            for (row, source_row) in text_shape.galley.rows.iter().zip(&block.rows) {
+                let source = &source_lines[source_row[0]];
+                let baseline = text_shape.pos.y + row.pos.y + row.glyphs[0].pos.y;
+                let expected = page.top() + info.user_to_view(0.0, source.baseline()[1] as f32)[1] * scale;
+                assert!((baseline - expected).abs() < 1.5, "editor baseline stays on the source baseline");
+            }
+            let frames = h
+                .output()
+                .shapes
+                .iter()
+                .filter(|s| {
+                    matches!(&s.shape,
+                egui::Shape::Rect(r) if r.stroke.color==egui::Color32::from_rgb(0x14,0x73,0xE6)
+                    && r.rect.width()>50.0 && page.contains(r.rect.center()))
+                })
+                .count();
+            assert_eq!(frames, 1, "one stable editor frame");
+            h.state_mut().views[0].line_editor.as_mut().unwrap().text.push_str("\nAdditional text\nAdditional text");
+            h.run_steps(3);
+            let editor = h.state().views[0].line_editor.as_ref().unwrap();
+            assert!(editor.overflow, "extra rows extend the block");
+            let draft =
+                h.state().session.get(h.state().views[0].id).unwrap().text_edit_layout(page_index, index, &editor.text, &editor.style()).unwrap();
+            let bounds = draft.draft_rect.unwrap();
+            assert!((bounds[3] - block.rect[3]).abs() < 0.5, "draft bounds exclude untouched neighboring regions");
+            h.key_press(Key::Escape);
+            h.run_steps(2);
+            checked += 1;
+        }
+    }
+    assert!(checked > 0, "the supplied PDF must contain a multiline region");
+    assert!(!dirty(&h));
+    assert_eq!(std::fs::read(path).unwrap(), original);
+}
+
+#[test]
+fn inline_editor_preserves_source_font_and_previews_live_bounds() {
+    use pdfcraft_cos::{Dict, Document, Object, Stream, write_incremental};
+    use skrifa::MetadataProvider as _;
+    let mut cos = Document::open(std::sync::Arc::new(source_font_fixture_with_text(
+        "BT /F1 18 Tf 20 220 Td (Stable source text) Tj ET BT /F1 12 Tf 20 194 Td (The second row stays here) Tj ET",
+    )))
+    .unwrap();
+    let bytes = include_bytes!("../../../assets/fonts/Inter-Regular.ttf");
+    let face = skrifa::FontRef::new(bytes).unwrap();
+    let metrics = face.metrics(skrifa::instance::Size::unscaled(), skrifa::instance::LocationRef::default());
+    let glyphs = face.glyph_metrics(skrifa::instance::Size::unscaled(), skrifa::instance::LocationRef::default());
+    let units = 1000.0 / f64::from(metrics.units_per_em);
+    let program = cos.add(Object::Stream(Stream::flate(Dict::new(), bytes)));
+    let mut descriptor = Dict::new();
+    descriptor.set(b"FontFile2".to_vec(), Object::Ref(program));
+    descriptor.set(b"Ascent".to_vec(), Object::Real(f64::from(metrics.ascent) * units));
+    descriptor.set(b"Descent".to_vec(), Object::Real(f64::from(metrics.descent) * units));
+    let mut font = Dict::new();
+    font.set(b"Type".to_vec(), Object::name("Font"));
+    font.set(b"Subtype".to_vec(), Object::name("TrueType"));
+    font.set(b"BaseFont".to_vec(), Object::name("Inter-Regular"));
+    font.set(b"Encoding".to_vec(), Object::name("WinAnsiEncoding"));
+    font.set(b"FirstChar".to_vec(), Object::Int(32));
+    font.set(b"LastChar".to_vec(), Object::Int(126));
+    font.set(
+        b"Widths".to_vec(),
+        Object::Array(
+            (32..=126u8)
+                .map(|c| {
+                    let id = face.charmap().map(char::from(c)).unwrap();
+                    Object::Real(f64::from(glyphs.advance_width(id).unwrap()) * units)
+                })
+                .collect(),
+        ),
+    );
+    font.set(b"FontDescriptor".to_vec(), Object::Dict(descriptor));
+    cos.update_dict(pdfcraft_cos::ObjRef::new(3, 0), |d| *d = font).unwrap();
+    let bytes = write_incremental(&cos, &Default::default()).unwrap();
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("stable.pdf", None, bytes).unwrap();
+        app
+    });
+    h.run_steps(4);
+    assert!(h.state_mut().execute("edit.edit_text"));
+    h.run_steps(2);
+    let source = h.state().session.get(h.state().views[0].id).unwrap().text_blocks(0)[0].clone();
+    let lines = h.state().session.get(h.state().views[0].id).unwrap().text_lines(0);
+    let page = h.state().views[0].page_screen_rect(0).unwrap();
+    let scale = page.width() / 300.0;
+    let point = egui::pos2(page.left() + 30.0 * scale, page.top() + 75.0 * scale);
+    h.hover_at(point);
+    h.run_steps(1);
+    h.drag_at(point);
+    h.run_steps(1);
+    h.drop_at(point);
+    h.run_steps(8);
+    assert!(!h.state().views[0].line_editor.as_ref().unwrap().overflow);
+    let shape = h
+        .output()
+        .shapes
+        .iter()
+        .find_map(|s| match &s.shape {
+            egui::Shape::Text(t) if t.galley.text() == source.editor_text => Some(t),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(shape.galley.rows.len(), 2);
+    for (row, source_row) in shape.galley.rows.iter().zip(&source.rows) {
+        let line = &lines[source_row[0]];
+        let y = shape.pos.y + row.pos.y + row.glyphs[0].pos.y;
+        assert!((y - (page.top() + (300.0 - line.baseline()[1] as f32) * scale)).abs() < 1.0);
+    }
+    for section in &shape.galley.job.sections {
+        assert!(matches!(&section.format.font_id.family,egui::FontFamily::Name(name) if name.starts_with("pdf-source-")));
+    }
+    let frame = |h: &Harness<'_, PdfCraftApp>| {
+        h.output()
+            .shapes
+            .iter()
+            .find_map(|s| match &s.shape {
+                egui::Shape::Rect(r) if r.stroke.color == egui::Color32::from_rgb(0x14, 0x73, 0xE6) && r.rect.width() > 100.0 => Some(r.rect),
+                _ => None,
+            })
+            .unwrap()
+    };
+    let original_frame = frame(&h);
+    h.state_mut().views[0].line_editor.as_mut().unwrap().text.push_str("\nExtra row that does not fit\nAnother row");
+    h.run_steps(3);
+    assert!(h.state().views[0].line_editor.as_ref().unwrap().overflow);
+    let expanded = frame(&h);
+    assert!(expanded.bottom() > original_frame.bottom() + 20.0, "the frame visibly expands around the extra rows");
+    assert_eq!(expanded.left(), original_frame.left());
+    assert_eq!(expanded.top(), original_frame.top());
+    h.state_mut().views[0].line_editor.as_mut().unwrap().text = "Stable source text".into();
+    h.run_steps(3);
+    let reduced = frame(&h);
+    assert!(reduced.bottom() < original_frame.bottom() - 20.0, "deleting a row visibly shrinks the block");
+    h.state_mut().views[0].line_editor.as_mut().unwrap().text.push_str("\nExtra row that does not fit\nAnother row");
+    h.run_steps(3);
+    if let Ok(path) = std::env::var("PDFCRAFT_OVERFLOW_FRAME_SHOT") {
+        h.render().unwrap().save(path).unwrap();
+    }
+    let id = h.state().views[0].id;
+    let editor = h.state().views[0].line_editor.as_ref().unwrap();
+    let draft_text = editor.text.clone();
+    let measured = h.state().session.get(id).unwrap().text_edit_layout(0, 0, &draft_text, &editor.style()).unwrap().draft_rect.unwrap();
+    let expected_frame = egui::Rect::from_min_max(
+        egui::pos2(page.left() + measured[0] as f32 * scale, page.top() + (300.0 - measured[3] as f32) * scale),
+        egui::pos2(page.left() + measured[2] as f32 * scale, page.top() + (300.0 - measured[1] as f32) * scale),
+    )
+    .expand(2.0);
+    let live = frame(&h);
+    assert!(
+        (live.min - expected_frame.min).length() < 0.1 && (live.max - expected_frame.max).length() < 0.1,
+        "the live frame shows the same PDF geometry as Apply/Save"
+    );
+    assert!(!dirty(&h), "draft measurement does not modify the document");
+    h.key_press_modifiers(Modifiers::COMMAND, Key::Enter);
+    h.run_steps(3);
+    assert!(dirty(&h));
+    assert_eq!(h.state().session.get(id).unwrap().text_blocks(0)[0].rect, measured);
+    let bytes = h.state().session.save_bytes(id).unwrap();
+    let mut reopened = pdfcraft_engine::Session::new();
+    let reopened_id = reopened.open("again.pdf", None, bytes, None).unwrap();
+    assert_eq!(reopened.get(reopened_id).unwrap().text_blocks(0)[0].rect, measured);
+    h.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+    h.run_steps(3);
+    assert_eq!(h.state().session.get(h.state().views[0].id).unwrap().text_blocks(0)[0], source);
 }

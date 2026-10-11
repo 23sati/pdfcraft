@@ -33,6 +33,26 @@ impl TextEditPreview {
 }
 
 impl Document {
+    /// Measure a draft without changing bytes, dirty state, or undo history.
+    pub fn text_edit_layout(
+        &self,
+        page: usize,
+        block: usize,
+        text: &str,
+        style: &pdfcraft_edit::BlockStyle,
+    ) -> Result<pdfcraft_edit::text::TextEditLayout, String> {
+        guard(|| {
+            let editor = self.editor.as_ref().ok_or("the document can't be read")?;
+            pdfcraft_edit::text::text_edit_layout(&editor.cos, page, block, text, style).map_err(|e| e.to_string())
+        })?
+    }
+
+    /// Embedded source faces for a text editor, bounded and validated as sfnt programs.
+    /// This is read-only; no source font is installed or exported.
+    pub fn text_editor_fonts(&self, page: usize) -> Vec<pdfcraft_edit::text::TextEditorFont> {
+        self.editor.as_ref().and_then(|e| pdfcraft_edit::text::text_editor_fonts(&e.cos, page).ok()).unwrap_or_default()
+    }
+
     /// Preparing the background never changes working bytes, dirty state or undo history.
     pub fn text_edit_preview(&self, page: usize, block: usize) -> Result<TextEditPreview, String> {
         guard(|| {

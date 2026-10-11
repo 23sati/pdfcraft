@@ -1,6 +1,6 @@
 # Where PdfCraft falls short of Acrobat Pro
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (recorded first text-editing fixes in the contributor fork; estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (recorded geometry-based mixed-style regions and real-file validation in the contributor fork; estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
 Every known shortfall, one entry each, ranked by what it costs users. This is the work list: agents
 choose from the top unless the owner says otherwise, and prefer these over new P2/P3 checklist
@@ -85,8 +85,14 @@ update the numbers.
 
 - **Fork progress (2026-10-11):** compatible words and subset-font spaces form lines;
   source fonts lacking a space glyph remain reusable; inline editing previews remove source
-  glyphs on a clone. Mixed-style paragraph grouping, installed-font selection and a glyph-exact
-  inline editor remain unresolved. This does not change the readiness estimate.
+  glyphs on a clone. Aligned visual rows now form mixed-style regions (including matrix-scaled headings),
+  with source-run styles preserved during editing and delete/save/reopen regressions. A private
+  real-file acceptance check and opt-in UI regression supplement synthetic coverage.
+  Embedded sfnt faces now render in the editor, including Mac format-6 subsets adapted in memory
+  through the PDF Unicode map. Source baselines remain stable; draft frames expand/shrink with
+  visible text, and `text_edit_layout` measures saved draft bounds without applying them.
+  Installed-font selection, unsupported source font programs, arbitrary multi-range style edits and
+  reliable semantic grouping on every PDF remain unresolved. This does not change the readiness estimate.
 
 - **Missing:** robust in-place editing of text PdfCraft didn't write: subset fonts without the
   needed glyphs, CJK and right-to-left text, rotated text, lists, superscript/subscript, keeping
@@ -307,7 +313,7 @@ update the numbers.
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-11 | minor | Contributor fork: compatible word/subset-space grouping, source-font space reuse and a read-only textless editor background. Mixed-style paragraphs and installed fonts remain open; estimates unchanged |
+| 2026-10-11 | minor | Contributor fork: mixed-style visual regions, source-font space reuse and a read-only textless background. Embedded sfnt source faces and Mac subset Unicode mappings keep edit baselines stable; live frames follow Apply/Save geometry as text grows or shrinks. Engine/tool/UI regressions and private all-page checks cover the changes; installed-font selection and unsupported source programs remain open; estimates unchanged |
 | 2026-10-10 | minor | Removed the alpha markers: with the cross-app gate rule, gaps 1 and 8 are partial sub-cases, not blockers; stage alpha |
 | 2026-10-10 | minor | Marked the alpha blockers (gap 1 and the Office part of gap 8) after the core-workflow gate put the stage at pre-alpha |
 | 2026-10-10 | major | Created. Ranked 24 gaps from the 2026-10-10 re-measure, the open GitHub issues and the former ROADMAP.md §Where we're lacking and where we're going (renderer, hardening, fidelity, editing, Pro workflows, 1.0 polish), which this file replaces |
