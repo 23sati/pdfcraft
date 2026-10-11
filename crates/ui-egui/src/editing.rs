@@ -151,10 +151,17 @@ impl PdfCraftApp {
             Some(crate::canvas::ViewAction::EnhanceCamera) => self.enhance_camera(i),
             Some(crate::canvas::ViewAction::CancelCamera) => self.leave_camera(i),
             Some(crate::canvas::ViewAction::CameraRotate { clockwise }) => {
-                if let Some(page) = self.views.get(i).and_then(|v| v.camera_done) {
-                    self.apply_edit(Edit::RotatePages { pages: vec![page], degrees: if clockwise { 90 } else { -90 } });
+                if let Some(done) = self.views.get(i).and_then(|v| v.camera_done) {
+                    let degrees = if clockwise { 90 } else { -90 };
+                    if self.apply_edit(Edit::RotatePages { pages: vec![done.page], degrees })
+                        && let Some(d) = self.views.get_mut(i).and_then(|v| v.camera_done.as_mut())
+                    {
+                        d.turns += degrees;
+                        d.steps += 1;
+                    }
                 }
             }
+            Some(crate::canvas::ViewAction::CameraLevel) => self.camera_level(i),
             Some(crate::canvas::ViewAction::CameraNext(command)) => {
                 self.leave_camera(i);
                 self.execute(command);
@@ -162,6 +169,60 @@ impl PdfCraftApp {
             None => {}
         }
         applied
+    }
+
+    /// Enhance ▸ Camera image ▸ clean-up slider: undo the enhancement (and the turns made since)
+    /// and enhance again from the photo at the new level, turning it as before. Only when the
+    /// top of the undo history is still those steps; otherwise the slider goes back.
+    fn camera_level(&mut self, i: usize) {
+        let Some(view) = self.views.get(i) else { return };
+        let (id, Some(done)) = (view.id, view.camera_done) else { return };
+        let ours = |s: &pdfcraft_engine::Session, k: usize| {
+            let label = s.get(id).and_then(|d| d.can_undo().map(str::to_owned));
+            let want = if k + 1 == done.steps { "Enhance camera image" } else { "Rotate page" };
+            label.as_deref() == Some(want)
+        };
+        // Undo the run this tool applied, checking each step's label first. If the run was
+        // broken (another edit came in between), redo what was undone and leave the page alone:
+        // enhancing a page that is still straightened would warp it a second time.
+        let restore = |app: &mut Self| {
+            if let Some(d) = app.views.get_mut(i).and_then(|v| v.camera_done.as_mut()) {
+                (d.look, d.level) = d.applied;
+            }
+        };
+        let mut undone = 0;
+        while undone < done.steps && ours(&self.session, undone) && self.session.undo(id).is_ok() {
+            undone += 1;
+        }
+        if undone < done.steps {
+            for _ in 0..undone {
+                if self.session.redo(id).is_err() {
+                    break;
+                }
+            }
+            restore(self);
+            return;
+        }
+        let result = self.session.enhance_camera_page_at(id, done.page, done.corners, done.look, done.level).and_then(|()| {
+            let turn = done.turns.rem_euclid(360);
+            if turn == 0 { Ok(1) } else { self.session.apply(id, Edit::RotatePages { pages: vec![done.page], degrees: turn }).map(|()| 2) }
+        });
+        if let (Some(doc), Some(view)) = (self.session.get(id), self.views.get_mut(i)) {
+            view.document_changed(&doc.info);
+            if let Some(d) = view.camera_done.as_mut() {
+                match result {
+                    Ok(steps) => {
+                        d.applied = (d.look, d.level);
+                        d.steps = steps;
+                    }
+                    Err(_) => (d.look, d.level) = d.applied,
+                }
+            }
+        }
+        if let Err(e) = result {
+            let label = crate::i18n::action_label("Enhance camera image");
+            self.notify_fmt("{label} failed: {e}", &[("label", &label), ("e", &e.to_string())]);
+        }
     }
 
     /// Leave Enhance ▸ Camera image on tab `i`.
@@ -186,13 +247,15 @@ impl PdfCraftApp {
             let [u, v] = page.view_to_user(x, y);
             [u as f64, v as f64]
         });
-        match self.session.enhance_camera_page(id, q.page, corners) {
+        let (look, level) = (crate::camera_ui::Look::Colour, crate::camera_ui::DEFAULT_LEVEL);
+        match self.session.enhance_camera_page_at(id, q.page, corners, look, level) {
             Ok(()) => {
-                // The tool stays open with rotate, crop and organize for the enhanced page.
+                // The tool stays open with the clean-up slider, rotate, crop and organize.
                 if let (Some(doc), Some(view)) = (self.session.get(id), self.views.get_mut(i)) {
                     view.document_changed(&doc.info);
                     view.camera = None;
-                    view.camera_done = Some(q.page);
+                    view.camera_done =
+                        Some(crate::camera_ui::CameraDone { page: q.page, corners, look, level, applied: (look, level), turns: 0, steps: 1 });
                 }
             }
             Err(e) => {
