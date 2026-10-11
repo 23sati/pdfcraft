@@ -1,11 +1,11 @@
 //! Fill & Sign (Acrobat's Fill & Sign tool, execution plan M5.7): type text onto the page, place
-//! ✓ ✕ ● ─ marks and today's date, and sign with a drawn signature. Everything is an annotation
-//! (typewriter text, PdfCraft-drawn stamps, ink), so it can be moved, deleted and undone like
-//! any comment.
+//! ✓ ✕ ● ─ marks and today's date (in Preferences ▸ Date format), and sign with a drawn
+//! signature. Everything is an annotation (typewriter text, PdfCraft-drawn stamps, ink), so it
+//! can be moved, deleted and undone like any comment.
 
 use egui::{Color32, CornerRadius, Pos2, Sense, Stroke, pos2, vec2};
 use pdfcraft_engine::{Edit, FillMark, NewAnnotation, Shape, SignatureImage, Style};
-use pdfcraft_render::DocInfo;
+use pdfcraft_render::{DocInfo, PageInfo};
 
 use crate::canvas::{DocView, PageXform};
 use crate::theme::Tokens;
@@ -34,7 +34,21 @@ pub enum SavedSig {
     Image(#[serde(with = "image_data")] SignatureImage),
 }
 
-mod image_data {
+impl SavedSig {
+    /// This signature as the graphic of a visible digital signature. `None` for typed text the
+    /// script font has nothing to draw for.
+    pub fn graphic(&self) -> Option<pdfcraft_engine::sign::Graphic> {
+        match self {
+            SavedSig::Drawn(strokes) => Some(pdfcraft_engine::sign::Graphic::Strokes(
+                strokes.iter().map(|s| s.iter().map(|p| [f64::from(p[0]), f64::from(p[1])]).collect()).collect(),
+            )),
+            SavedSig::Typed(text) => pdfcraft_engine::typed_signature_graphic(text),
+            SavedSig::Image(image) => Some(image.graphic()),
+        }
+    }
+}
+
+pub(crate) mod image_data {
     use base64::Engine as _;
     use pdfcraft_engine::{SignatureImage, signature_image::MAX_SIGNATURE_IMAGE_BYTES};
     use serde::{Deserialize, Deserializer, Serializer};
@@ -190,38 +204,50 @@ pub fn typed(page: usize, at: [f64; 2], text: &str, author: &str) -> Edit {
 }
 
 /// Place a saved signature (strokes normalised to a 0–1 box, y up) with its left edge at `at`,
-/// 150 pt wide.
-pub fn signature_at(page: usize, at: [f64; 2], strokes: &[Vec<[f32; 2]>], author: &str) -> Option<Edit> {
+/// 150 pt wide. Left, centred and upright are as displayed on a page turned by `rotation` (its
+/// `/Rotate`), so the strokes are turned back into user space.
+pub fn signature_at(page: usize, at: [f64; 2], strokes: &[Vec<[f32; 2]>], rotation: i64, author: &str) -> Option<Edit> {
     let w = 150.0;
     let (min_y, max_y) = strokes.iter().flatten().fold((f32::MAX, f32::MIN), |(a, b), p| (a.min(p[1]), b.max(p[1])));
     if !min_y.is_finite() {
         return None;
     }
     let h = f64::from(max_y - min_y).max(0.05) * w;
+    // Displayed right and up as user-space unit vectors (the identity on an unturned page).
+    let [a, b, c, d, ..] = pdfcraft_model::view_matrix_for(rotation, [0.0; 4]);
     let strokes: Vec<Vec<[f64; 2]>> = strokes
         .iter()
         .filter(|s| !s.is_empty())
-        .map(|s| s.iter().map(|p| [at[0] + f64::from(p[0]) * w, at[1] - h / 2.0 + f64::from(p[1] - min_y) * w]).collect())
+        .map(|s| {
+            s.iter()
+                .map(|p| {
+                    let (dx, dy) = (f64::from(p[0]) * w, f64::from(p[1] - min_y) * w - h / 2.0);
+                    [at[0] + a * dx + c * dy, at[1] + b * dx + d * dy]
+                })
+                .collect()
+        })
         .collect();
     (!strokes.is_empty()).then(|| new(page, Shape::Signature { strokes }, String::new(), author))
 }
 
-/// Place typed text in the script font with its left edge at `at`, `height` points tall.
-pub fn typed_signature_at(page: usize, at: [f64; 2], text: &str, height: f64, author: &str) -> Option<Edit> {
-    pdfcraft_engine::typed_signature_shape(at, text, height).map(|shape| new(page, shape, String::new(), author))
+/// Place typed text in the script font with its left edge at `at`, `height` points tall, upright
+/// as displayed on a page turned by `rotation`.
+pub fn typed_signature_at(page: usize, at: [f64; 2], text: &str, height: f64, rotation: i64, author: &str) -> Option<Edit> {
+    pdfcraft_engine::typed_signature_shape(at, text, height, rotation).map(|shape| new(page, shape, String::new(), author))
 }
 
-/// Place a saved signature or initials.
-pub fn place(page: usize, at: [f64; 2], sig: &SavedSig, initials: bool, author: &str) -> Option<Edit> {
+/// Place a saved signature or initials, upright as `info`'s page is displayed.
+pub fn place(page: usize, info: &PageInfo, at: [f64; 2], sig: &SavedSig, initials: bool, author: &str) -> Option<Edit> {
+    let rotation = i64::from(info.rotation);
     match sig {
-        SavedSig::Drawn(strokes) => signature_at(page, at, strokes, author),
-        SavedSig::Image(image) => image.edit(page, at, initials, author),
+        SavedSig::Drawn(strokes) => signature_at(page, at, strokes, rotation, author),
+        SavedSig::Image(image) => image.edit(page, info, at, initials, author),
         SavedSig::Typed(text) => {
             let [left, bottom, right, top] = pdfcraft_engine::script_outline(text).bounds();
             let height = if initials { 24.0_f64 } else { 32.0_f64 };
             // Keep long names within the same placement width as drawn signatures.
             let height = height.min(150.0 * (top - bottom).max(0.1) / (right - left).max(0.01));
-            typed_signature_at(page, at, text, height, author)
+            typed_signature_at(page, at, text, height, rotation, author)
         }
     }
 }
@@ -296,48 +322,7 @@ pub(crate) fn signature_entries(ui: &mut egui::Ui, app: &mut crate::PdfCraftApp,
                 Stroke::new(1.0, if response.hovered() { t.accent } else { t.border }),
                 egui::StrokeKind::Inside,
             );
-            let preview_rect = rect.shrink(8.0);
-            match saved {
-                SavedSig::Typed(text) => {
-                    let cache = &mut app.saved_signature_previews[i];
-                    if cache.as_ref().is_none_or(|(s, _)| s != saved) {
-                        *cache = Some((
-                            saved.clone(),
-                            ui.ctx().load_texture(format!("saved-{what}"), script_preview(text, 480, 104), egui::TextureOptions::LINEAR),
-                        ));
-                    }
-                    if let Some((_, tex)) = cache {
-                        let size = vec2(480.0, 104.0) * (preview_rect.width() / 480.0).min(preview_rect.height() / 104.0);
-                        painter.image(
-                            tex.id(),
-                            egui::Rect::from_center_size(preview_rect.center(), size),
-                            egui::Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
-                            Color32::WHITE,
-                        );
-                    }
-                }
-                SavedSig::Image(image) => {
-                    image_preview(ui, preview_rect, image, &mut app.saved_signature_previews[i]);
-                }
-                SavedSig::Drawn(strokes) => {
-                    let bounds = strokes
-                        .iter()
-                        .flatten()
-                        .filter(|p| p.iter().all(|v| v.is_finite()))
-                        .fold(egui::Rect::NOTHING, |r, p| r.union(egui::Rect::from_min_max(pos2(p[0], p[1]), pos2(p[0], p[1]))));
-                    if bounds.is_finite() {
-                        let scale = (preview_rect.width() / bounds.width().max(0.01)).min(preview_rect.height() / bounds.height().max(0.01));
-                        for stroke in strokes {
-                            let pts = stroke
-                                .iter()
-                                .filter(|p| p.iter().all(|v| v.is_finite()))
-                                .map(|p| preview_rect.center() + vec2(p[0] - bounds.center().x, bounds.center().y - p[1]) * scale)
-                                .collect();
-                            painter.add(egui::Shape::line(pts, Stroke::new(1.5, Color32::BLACK)));
-                        }
-                    }
-                }
-            }
+            paint_saved(ui, rect.shrink(8.0), saved, &mut app.saved_signature_previews[i], &format!("saved-{what}"));
             if response.on_hover_text(label("Place saved {what}")).clicked() {
                 command = Some(use_id);
             }
@@ -351,6 +336,47 @@ pub(crate) fn signature_entries(ui: &mut egui::Ui, app: &mut crate::PdfCraftApp,
         ui.add_space(4.0);
     }
     command
+}
+
+/// Draw a saved signature as large as fits in `rect`, centred: typed text and images through
+/// `cache` (a texture named `key`), strokes as lines.
+pub(crate) fn paint_saved(ui: &egui::Ui, rect: egui::Rect, saved: &SavedSig, cache: &mut Option<(SavedSig, egui::TextureHandle)>, key: &str) {
+    let painter = ui.painter_at(rect);
+    match saved {
+        SavedSig::Typed(text) => {
+            if cache.as_ref().is_none_or(|(s, _)| s != saved) {
+                *cache = Some((saved.clone(), ui.ctx().load_texture(key, script_preview(text, 480, 104), egui::TextureOptions::LINEAR)));
+            }
+            if let Some((_, tex)) = cache {
+                let size = vec2(480.0, 104.0) * (rect.width() / 480.0).min(rect.height() / 104.0);
+                painter.image(
+                    tex.id(),
+                    egui::Rect::from_center_size(rect.center(), size),
+                    egui::Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+                    Color32::WHITE,
+                );
+            }
+        }
+        SavedSig::Image(image) => image_preview(ui, rect, image, cache),
+        SavedSig::Drawn(strokes) => {
+            let bounds = strokes
+                .iter()
+                .flatten()
+                .filter(|p| p.iter().all(|v| v.is_finite()))
+                .fold(egui::Rect::NOTHING, |r, p| r.union(egui::Rect::from_min_max(pos2(p[0], p[1]), pos2(p[0], p[1]))));
+            if bounds.is_finite() {
+                let scale = (rect.width() / bounds.width().max(0.01)).min(rect.height() / bounds.height().max(0.01));
+                for stroke in strokes {
+                    let pts = stroke
+                        .iter()
+                        .filter(|p| p.iter().all(|v| v.is_finite()))
+                        .map(|p| rect.center() + vec2(p[0] - bounds.center().x, bounds.center().y - p[1]) * scale)
+                        .collect();
+                    painter.add(egui::Shape::line(pts, Stroke::new(1.5, Color32::BLACK)));
+                }
+            }
+        }
+    }
 }
 
 /// Preview and clicks with a Fill & Sign tool on one page.
@@ -367,12 +393,13 @@ pub(crate) fn page_input(
     initials: Option<&SavedSig>,
     preview: &mut Option<(SavedSig, egui::TextureHandle)>,
     author: &str,
-    today: (i64, u32, u32),
+    date_text: &Result<String, String>,
 ) -> Option<FillAction> {
     let pointer = ui.input(|i| i.pointer.hover_pos())?;
     if !resp.contains_pointer() || !xf.rect.contains(pointer) {
         return None;
     }
+    let p = info.pages.get(page)?;
     let at = to_user(xf, info, page, pointer);
     let saved = match tool {
         FillTool::Signature => signature,
@@ -380,9 +407,9 @@ pub(crate) fn page_input(
         _ => None,
     };
     if let Some(SavedSig::Image(image)) = saved {
-        if let Some(rect) = image.rect(at, tool == FillTool::Initials) {
+        if let Some(rect) = image.rect(p, at, tool == FillTool::Initials) {
             let tex = image_texture(ui, image, preview);
-            xf.paint_user_image(ui.painter(), tex, info, page, rect, Color32::WHITE);
+            xf.paint_user_image(ui.painter(), tex, p, rect, i64::from(p.rotation), Color32::WHITE);
             ui.ctx().set_cursor_icon(egui::CursorIcon::None);
         }
     } else {
@@ -393,19 +420,21 @@ pub(crate) fn page_input(
     }
     match tool {
         FillTool::Text => {
-            view.fill_text = Some(TypeBox { page, at: [at[0], at[1] + TEXT_SIZE * 0.6], text: String::new(), focus: true });
-            None
+            // Clicking away from an open box commits it: the page sees this click before the box
+            // sees its lost focus, so replacing the box first would drop what was typed.
+            let open = view.fill_text.replace(TypeBox { page, at: [at[0], at[1] + TEXT_SIZE * 0.6], text: String::new(), focus: true });
+            open.filter(|tb| !tb.text.trim().is_empty()).map(|tb| FillAction::Edit(Box::new(typed(tb.page, tb.at, tb.text.trim(), author))))
         }
-        FillTool::Date => {
-            let (y, m, d) = today;
-            Some(FillAction::Edit(Box::new(typed(page, [at[0], at[1] + TEXT_SIZE * 0.6], &format!("{m}/{d}/{y}"), author))))
-        }
+        FillTool::Date => Some(match date_text {
+            Ok(text) => FillAction::Edit(Box::new(typed(page, [at[0], at[1] + TEXT_SIZE * 0.6], text, author))),
+            Err(why) => FillAction::Refused(why.clone()),
+        }),
         FillTool::Signature => match signature {
-            Some(s) => place(page, at, s, false, author).map(|e| FillAction::Signature(Box::new(e))),
+            Some(s) => place(page, p, at, s, false, author).map(|e| FillAction::Signature(Box::new(e))),
             None => Some(FillAction::CreateSignature),
         },
         FillTool::Initials => match initials {
-            Some(s) => place(page, at, s, true, author).map(|e| FillAction::Signature(Box::new(e))),
+            Some(s) => place(page, p, at, s, true, author).map(|e| FillAction::Signature(Box::new(e))),
             None => Some(FillAction::CreateInitials),
         },
         mark => {
@@ -427,6 +456,8 @@ pub enum FillAction {
     CreateSignature,
     /// No initials yet.
     CreateInitials,
+    /// Nothing placed, and why (today's date can't be written into the PDF yet).
+    Refused(String),
 }
 
 /// The in-place editor for typed text. Returns the edit once committed.
@@ -440,7 +471,10 @@ pub(crate) fn type_box(ctx: &egui::Context, view: &mut DocView, info: &DocInfo, 
     let mut cancel = false;
     egui::Area::new(egui::Id::new(("fill-text", view.id.0))).order(egui::Order::Foreground).fixed_pos(pos).show(ctx, |ui| {
         let Some(t) = view.fill_text.as_mut() else { return };
-        let width = ((t.text.len().max(8) as f32) * TEXT_SIZE as f32 * 0.6 * zoom).clamp(60.0, 600.0);
+        let width = ((t.text.chars().count().max(8) as f32) * TEXT_SIZE as f32 * 0.6 * zoom).clamp(60.0, 600.0);
+        // The area's max rect is last frame's size, which caps the edit's width; widen it so the
+        // box grows as text is typed.
+        ui.set_min_width(width);
         let r = ui.add(
             egui::TextEdit::singleline(&mut t.text)
                 .font(egui::FontId::proportional((TEXT_SIZE as f32 * zoom).max(8.0)))
@@ -691,7 +725,8 @@ impl crate::PdfCraftApp {
     }
 
     fn use_signature_image(&mut self, result: Result<SignatureImage, String>) {
-        match result {
+        let cleaned = result.and_then(|image| image.remove_white_background(245, 35).map_err(|e| e.to_string()));
+        match cleaned {
             Ok(image) => {
                 self.signature_draft.image = Some(image);
                 self.toast = None;

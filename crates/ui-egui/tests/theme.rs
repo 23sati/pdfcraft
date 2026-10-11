@@ -24,12 +24,10 @@ fn assert_theme(h: &Harness<'static, PdfCraftApp>, preference: ThemePreference, 
     assert_eq!(h.ctx.theme(), if kind == ThemeKind::Dark { egui::Theme::Dark } else { egui::Theme::Light });
 }
 
-fn open_toolbar(h: &mut Harness<'static, PdfCraftApp>, label: &str) {
+/// A click on the title bar's theme button cycles Light, Dark, System.
+fn click_toolbar(h: &mut Harness<'static, PdfCraftApp>, label: &str) {
     h.get_by_label(&format!("Display theme: {label}")).click();
     h.run_steps(3);
-    for choice in ["Use system setting", "Light gray", "Dark gray"] {
-        h.get_by_label(choice);
-    }
 }
 
 fn open_view_menu(h: &mut Harness<'static, PdfCraftApp>) {
@@ -50,18 +48,16 @@ fn toolbar_and_view_menu_share_three_state_preferences() {
     let mut h = harness();
     // Explicit light wins even on a dark desktop, including egui's popup style.
     assert_theme(&h, ThemePreference::Light, ThemeKind::Light);
-    open_toolbar(&mut h, "Light gray");
-    h.get_by_label("Use system setting").click();
-    h.run_steps(3);
+    click_toolbar(&mut h, "Light gray");
+    assert_theme(&h, ThemePreference::Dark, ThemeKind::Dark);
+    click_toolbar(&mut h, "Dark gray");
     assert_theme(&h, ThemePreference::System, ThemeKind::Dark);
 
     open_view_menu(&mut h);
     h.get_by_label("Light gray").click();
     h.run_steps(3);
     assert_theme(&h, ThemePreference::Light, ThemeKind::Light);
-    open_toolbar(&mut h, "Light gray");
-    h.get_by_label("Dark gray").click();
-    h.run_steps(3);
+    click_toolbar(&mut h, "Light gray");
     assert_theme(&h, ThemePreference::Dark, ThemeKind::Dark);
 
     open_view_menu(&mut h);
@@ -71,9 +67,8 @@ fn toolbar_and_view_menu_share_three_state_preferences() {
     h.input_mut().system_theme = Some(egui::Theme::Light);
     h.run_steps(3);
     assert_theme(&h, ThemePreference::System, ThemeKind::Light);
-    open_toolbar(&mut h, "Use system setting");
-    h.get_by_label("Dark gray").click();
-    h.run_steps(3);
+    click_toolbar(&mut h, "Use system setting");
+    click_toolbar(&mut h, "Light gray");
     // A manual choice exits system mode and survives subsequent OS changes.
     h.input_mut().system_theme = Some(egui::Theme::Dark);
     h.run_steps(2);
@@ -86,13 +81,16 @@ fn toolbar_and_view_menu_share_three_state_preferences() {
 fn saved_preferences_restore_with_legacy_light_dark_settings() {
     for (value, preference) in [("light", ThemePreference::Light), ("dark", ThemePreference::Dark), ("system", ThemePreference::System)] {
         let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
         app.set_option("theme", value).unwrap();
         let saved = app.persist();
         let mut restored = PdfCraftApp::new();
+        restored.set_option("language", "en").unwrap();
         restored.restore(&saved);
         assert_eq!(restored.theme_preference, preference);
     }
     let mut app = PdfCraftApp::new();
+    app.set_option("language", "en").unwrap();
     app.restore(r#"{"theme":"Dark"}"#);
     assert_eq!(app.theme_preference, ThemePreference::Dark);
     assert_eq!(app.theme, ThemeKind::Dark);
@@ -107,6 +105,7 @@ fn saved_preferences_restore_with_legacy_light_dark_settings() {
 #[test]
 fn commands_and_options_apply_before_the_first_frame() {
     let mut app = PdfCraftApp::new();
+    app.set_option("language", "en").unwrap();
     app.run_command("view.theme.dark");
     assert_eq!(app.theme_preference, ThemePreference::Dark);
     assert_eq!(app.theme, ThemeKind::Dark);
