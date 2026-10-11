@@ -1600,6 +1600,32 @@ fn editing_page_images_through_tools() {
 }
 
 #[test]
+fn enhance_camera_image_through_tools() {
+    let dir = workdir("enhance-camera");
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    ok(&mut a, "doc_export_images", json!({ "doc": doc, "folder": "src", "dpi": 72, "pages": [1] }));
+    let photo = ok(&mut a, "doc_create", json!({ "from": "images", "paths": ["src/a_page_1.png"] }))["doc"].as_u64().unwrap();
+    // A 200 × 300 pt page at one pixel per point; the corners, in any order, keep a 160 × 240 part.
+    let r = ok(&mut a, "page_enhance_camera", json!({ "doc": photo, "page": 1, "corners": [180, 270, 20, 30, 20, 270, 180, 30] }));
+    assert_eq!(r["undo"], "Enhance camera image");
+    assert_eq!(r["pages"], 1);
+    let images = ok(&mut a, "page_images", json!({ "doc": photo, "page": 1 }));
+    assert_eq!(images["count"], 1);
+    assert_eq!(images["images"][0]["pixels"], json!([160, 240]));
+    assert_eq!(images["images"][0]["rect"], json!([0.0, 0.0, 160.0, 240.0]));
+    for bad in [json!([0, 0, 10, 10, 20, 20, 30, 30]), json!([0, 0, 10]), json!("corners")] {
+        let e = a.call("page_enhance_camera", &json!({ "doc": photo, "page": 1, "corners": bad }));
+        assert!(matches!(e, Err(ToolError::InvalidArgs(_) | ToolError::Failed(_))), "{bad}: {e:?}");
+    }
+    assert!(matches!(a.call("page_enhance_camera", &json!({ "doc": photo, "page": 1 })), Err(ToolError::InvalidArgs(_))));
+    assert!(matches!(
+        a.call("page_enhance_camera", &json!({ "doc": photo, "page": 9, "corners": [0, 0, 9, 0, 9, 9, 0, 9] })),
+        Err(ToolError::InvalidArgs(_))
+    ));
+}
+
+#[test]
 fn editing_form_artwork_through_tools() {
     use pdfcraft_cos::{Dict, Document, Object, SaveOptions, Stream, write_incremental};
     let dir = workdir("form-artwork");
