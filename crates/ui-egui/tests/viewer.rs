@@ -108,12 +108,12 @@ fn view_history_select_all_and_find_options() {
     h.state_mut().views[0].open_find();
     h.state_mut().views[0].find.as_mut().unwrap().query = "page".into();
     h.state_mut().views[0].rerun_find();
-    for _ in 0..60 {
+    // Find runs in the background: wait for it by a deadline, not a frame count, which a loaded
+    // machine (the whole workspace testing at once) can use up before the last page is searched.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    while std::time::Instant::now() < deadline && h.state().views[0].find.as_ref().unwrap().matches.len() < 15 {
         h.run_steps(2);
         std::thread::sleep(std::time::Duration::from_millis(5));
-        if h.state().views[0].find.as_ref().unwrap().matches.len() >= 15 {
-            break;
-        }
     }
     assert_eq!(h.state().views[0].find.as_ref().unwrap().matches.len(), 15);
     {
@@ -128,6 +128,45 @@ fn view_history_select_all_and_find_options() {
     h.state_mut().views[0].rerun_find();
     h.run_steps(2);
     assert_eq!(h.state().views[0].find.as_ref().unwrap().matches.len(), 5);
+}
+
+#[test]
+fn find_shortcuts_advance_and_retreat_matches() {
+    let mut h = harness();
+    h.state_mut().active = Some(0);
+    h.run_steps(2);
+    h.state_mut().views[0].open_find();
+    h.state_mut().views[0].find.as_mut().unwrap().query = "page".into();
+    h.state_mut().views[0].rerun_find();
+    // Find runs in the background: wait by a deadline, not a frame count, which a loaded machine
+    // can use up before the last page is searched.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    while std::time::Instant::now() < deadline {
+        h.run_steps(2);
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        if h.state().views[0].find.as_ref().unwrap().matches.len() >= 15 {
+            break;
+        }
+    }
+    let n = h.state().views[0].find.as_ref().unwrap().matches.len();
+    assert_eq!(n, 15);
+    // Surrender text edit focus so canvas shortcut handler receives key events.
+    h.state_mut().views[0].find.as_mut().unwrap().focus = false;
+    h.ctx.memory_mut(|m| m.surrender_focus(egui::Id::new("find-input")));
+    h.run_steps(2);
+    let start = h.state().views[0].find.as_ref().unwrap().current.unwrap();
+    // ⌘G advances to next match.
+    h.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::G);
+    h.run_steps(2);
+    assert_eq!(h.state().views[0].find.as_ref().unwrap().current, Some((start + 1) % n));
+    // ⇧⌘G retreats to previous match.
+    h.key_press_modifiers(egui::Modifiers::COMMAND | egui::Modifiers::SHIFT, egui::Key::G);
+    h.run_steps(2);
+    assert_eq!(h.state().views[0].find.as_ref().unwrap().current, Some(start));
+    // ⇧⌘G again wraps backwards.
+    h.key_press_modifiers(egui::Modifiers::COMMAND | egui::Modifiers::SHIFT, egui::Key::G);
+    h.run_steps(2);
+    assert_eq!(h.state().views[0].find.as_ref().unwrap().current, Some((start + n - 1) % n));
 }
 
 #[test]
@@ -754,4 +793,38 @@ fn pages_panel_thumbnails_have_a_context_menu() {
     h.get_by_label("Copy").click();
     h.run_steps(3);
     assert_eq!(h.state().page_clipboard.as_ref().map(|c| c.pages.clone()), Some(vec![2]));
+}
+
+/// #444, #186: a mouse-wheel notch scrolls as far as the scroll speed preference says;
+/// trackpad (point) scrolling keeps its own speed. The choice is saved.
+#[test]
+fn the_scroll_speed_preference_scales_mouse_wheel_notches() {
+    use pdfcraft_ui_egui::scroll_speed::ScrollSpeed;
+    let scrolled = |speed: ScrollSpeed, unit: egui::MouseWheelUnit, dy: f32| -> f32 {
+        let mut h = harness();
+        h.state_mut().scroll_speed = speed;
+        h.run_steps(2);
+        let i = h.state().active.expect("a document is shown");
+        let top = |h: &Harness<'static, PdfCraftApp>| h.state().views[i].page_screen_rect(0).expect("page 1 on screen").min.y;
+        let before = top(&h);
+        h.event(egui::Event::PointerMoved(h.state().views[i].viewport_rect().center()));
+        h.event(egui::Event::MouseWheel { unit, delta: egui::vec2(0.0, -dy), phase: egui::TouchPhase::Move, modifiers: egui::Modifiers::NONE });
+        // egui spreads a wheel notch over a few frames.
+        h.run_steps(30);
+        before - top(&h)
+    };
+    let line = egui::MouseWheelUnit::Line;
+    let normal = scrolled(ScrollSpeed::Normal, line, 1.0);
+    assert!((normal - ScrollSpeed::Normal.line_points()).abs() < 1.0, "one notch at Normal scrolled {normal}");
+    let (slow, fast) = (scrolled(ScrollSpeed::Slow, line, 1.0), scrolled(ScrollSpeed::Fast, line, 1.0));
+    assert!((slow * 2.0 - normal).abs() < 1.0 && (fast - normal * 2.0).abs() < 1.0, "slow {slow}, normal {normal}, fast {fast}");
+    let point = egui::MouseWheelUnit::Point;
+    let (normal_points, fast_points) = (scrolled(ScrollSpeed::Normal, point, 30.0), scrolled(ScrollSpeed::Fast, point, 30.0));
+    assert!(normal_points > 0.0 && (normal_points - fast_points).abs() < 1.0, "trackpad: {normal_points} vs {fast_points}");
+    let mut app = PdfCraftApp::new();
+    app.set_option("scroll_speed", "fast").unwrap();
+    assert!(app.set_option("scroll_speed", "warp").unwrap_err().contains("slow, normal, or fast"));
+    let mut again = PdfCraftApp::new();
+    again.restore(&app.persist());
+    assert_eq!(again.scroll_speed, ScrollSpeed::Fast);
 }

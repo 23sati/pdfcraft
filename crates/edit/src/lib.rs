@@ -387,10 +387,18 @@ pub(crate) fn drawable<'a>(lines: impl IntoIterator<Item = &'a str>) -> Result<(
 
 /// The refusal for page text with `c`, which nothing here can draw.
 pub(crate) fn undrawable(c: char) -> EditError {
-    EditError::Invalid(format!(
-        "the standard fonts can't draw \"{c}\" (U+{:04X}); only Western European characters can be added as text for now",
-        u32::from(c)
-    ))
+    EditError::Invalid(undrawable_message(c))
+}
+
+/// The wording of the refusal for text with `c`, which the standard fonts can't draw.
+pub fn undrawable_message(c: char) -> String {
+    format!("the standard fonts can't draw \"{c}\" (U+{:04X}); only Western European characters can be added as text for now", u32::from(c))
+}
+
+/// The first character of plain `text` that Helvetica/WinAnsi can't draw (line and page breaks
+/// and tabs are layout, not glyphs).
+pub fn first_undrawable_plain(text: &str) -> Option<char> {
+    text.chars().find(|c| !matches!(c, '\r' | '\n' | '\t' | '\u{c}') && !pdfcraft_fonts::win_ansi_encodable(*c))
 }
 
 fn text_op(x: f64, y: f64, text: &str) -> Vec<u8> {
@@ -414,6 +422,20 @@ pub fn add_header_footer(doc: &mut Document, pages: &[usize], hf: &HeaderFooter,
     if !(hf.font_size.is_finite() && hf.font_size > 0.0 && hf.font_size <= 200.0 && hf.margins.iter().all(|m| m.is_finite() && *m >= 0.0)) {
         return Err(EditError::Invalid("invalid font size or margins".into()));
     }
+    // Page numbers count up from start_number, so the last selected page needs the most room.
+    // Refuse the whole run before drawing anything: headers applied to some pages and then a
+    // failed page number would leave the document half changed.
+    let last_number = u64::from(hf.start_number)
+        .checked_add(pages.len().saturating_sub(1) as u64)
+        .ok_or_else(|| EditError::Invalid("the header page numbers are too large".into()))?;
+    if last_number > u64::from(u32::MAX) {
+        return Err(EditError::Invalid(format!(
+            "the header start number {} leaves no room for {} pages (page numbers stop at {})",
+            hf.start_number,
+            pages.len(),
+            u32::MAX
+        )));
+    }
     if replace {
         remove_marks(doc, pages, MarkKind::HeaderFooter)?;
     }
@@ -423,7 +445,8 @@ pub fn add_header_footer(doc: &mut Document, pages: &[usize], hf: &HeaderFooter,
     for (k, &i) in pages.iter().enumerate() {
         let page = &all[i];
         let (w, h) = page.display_size(doc);
-        let number = hf.start_number + k as u32;
+        let number =
+            u32::try_from(u64::from(hf.start_number) + k as u64).map_err(|_| EditError::Invalid("the header page numbers are too large".into()))?;
         let bates = bates0 + k as u64;
         let size = hf.font_size;
         let [top, bottom, left, right] = hf.margins;
@@ -476,7 +499,12 @@ pub fn add_watermark(doc: &mut Document, pages: &[usize], wm: &Watermark, replac
     if wm.source.is_none() {
         drawable(text.lines())?;
     }
-    if !(wm.opacity.is_finite() && wm.rotation.is_finite() && wm.font_size.is_finite() && wm.font_size >= 0.0) {
+    if !(wm.opacity.is_finite()
+        && wm.rotation.is_finite()
+        && wm.font_size.is_finite()
+        && wm.font_size >= 0.0
+        && wm.offset.iter().all(|o| o.is_finite()))
+    {
         return Err(EditError::Invalid("invalid watermark settings".into()));
     }
     if replace {
@@ -610,6 +638,9 @@ pub fn marks_present(doc: &Document) -> Vec<MarkKind> {
     }
     found
 }
+
+pub mod objects;
+pub use objects::{EditableObject, MAX_MOVE_OBJECTS, ObjectKind, ObjectTarget, editable_objects, move_objects};
 
 mod flatten;
 pub use flatten::{flatten, flatten_fill_sign};

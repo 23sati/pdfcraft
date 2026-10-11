@@ -215,6 +215,30 @@ fn wheel_turns_one_page_per_notch_and_per_trackpad_swipe() {
 }
 
 #[test]
+fn precise_touchpad_wheel_scrolls_one_to_one() {
+    // A precision touchpad's pixel delta scrolls the page by that amount in the same frame,
+    // instead of egui easing it over several frames so the page lags the finger (#759). A single
+    // 200 px precise event is well over egui's 8 px smoothing threshold, so without the fix only
+    // a fraction would land on the first frame.
+    let mut h = harness_stepping(1.0 / 60.0, &[("layout", "continuous"), ("zoom", "100")]);
+    let at = h.state().views[0].viewport_rect().center();
+    h.hover_at(at);
+    h.run_steps(2);
+    let before = rect(&h, 0).expect("page 1 on screen").min.y;
+    h.event(wheel(MouseWheelUnit::Point, -200.0, TouchPhase::Move));
+    // A few frames for the event to reach the ScrollArea and the new offset to be drawn. The
+    // page jumps the full 200 px at once; an eased path would ramp there over ~0.1 s (6 frames).
+    h.run_steps(4);
+    let moved = before - rect(&h, 0).expect("page 1 still laid out").min.y;
+    assert!(moved > 190.0, "a 200 px precise swipe scrolls ~200 px at once, not an eased fraction: moved {moved}");
+    // And it stops with the finger: idle frames must not drift on a leftover easing tail.
+    let settled = rect(&h, 0).unwrap().min.y;
+    h.run_steps(20);
+    let drift = settled - rect(&h, 0).unwrap().min.y;
+    assert!(drift.abs() < 2.0, "no easing tail after the swipe: drifted {drift}");
+}
+
+#[test]
 fn page_display_commands_switch_layouts() {
     let mut h = harness(&[]);
     h.state_mut().execute("view.layout.single");
@@ -895,4 +919,67 @@ trailer << /Root 1 0 R >>
     h.step();
     let first = detail(&mut h);
     assert!(first * 10 > sharp * 7, "the first frame after zooming lost its detail: {first} against {sharp}");
+}
+
+#[test]
+fn sidebar_collapse_and_resize_preserves_scroll_position() {
+    use pdfcraft_ui_egui::canvas::Fit;
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(|_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("pages.pdf", None, PAGES.to_vec()).expect("opens");
+        app.set_option("left", "closed").unwrap();
+        app.set_option("panel", "bookmarks").unwrap();
+        app.set_option("layout", "continuous").unwrap();
+        app
+    });
+    let mut width = 0.0;
+    for _ in 0..400 {
+        h.run_steps(1);
+        let w = h.state().views[0].viewport_rect().width();
+        if w == width {
+            break;
+        }
+        width = w;
+    }
+    h.state_mut().views[0].go_to_page(2);
+    h.run_steps(6);
+
+    let v = &h.state().views[0];
+    assert_eq!(v.current, 2);
+    assert_eq!(v.fit, Fit::Width);
+    let zoom_before = v.zoom;
+    let rect_before = v.page_screen_rect(2).expect("page 2 on screen");
+    let vp_before = v.viewport_rect();
+    let rel_y_before = rect_before.min.y - vp_before.min.y;
+
+    // Collapse bookmarks panel: available width increases, so fit-width zoom increases.
+    h.state_mut().set_option("panel", "none").unwrap();
+    h.run_steps(6);
+
+    let v = &h.state().views[0];
+    let zoom_after = v.zoom;
+    assert!(zoom_after > zoom_before, "zoom increased when panel collapsed: {zoom_after} vs {zoom_before}");
+    assert_eq!(v.current, 2, "still on page 2 after panel collapsed");
+    let rect_after = v.page_screen_rect(2).expect("page 2 still on screen");
+    let vp_after = v.viewport_rect();
+    let rel_y_after = rect_after.min.y - vp_after.min.y;
+    assert!((rel_y_after - rel_y_before).abs() < 1.0, "page 2 scroll position preserved: before {rel_y_before}, after {rel_y_after}");
+
+    // Reopen bookmarks panel: available width decreases, so fit-width zoom decreases.
+    h.state_mut().set_option("panel", "bookmarks").unwrap();
+    for _ in 0..400 {
+        h.run_steps(1);
+        let w = h.state().views[0].viewport_rect().width();
+        if w == width {
+            break;
+        }
+        width = w;
+    }
+    let v = &h.state().views[0];
+    assert_eq!(v.current, 2, "still on page 2 after panel reopened");
+    let rect_reopened = v.page_screen_rect(2).expect("page 2 still on screen");
+    let vp_reopened = v.viewport_rect();
+    let rel_y_reopened = rect_reopened.min.y - vp_reopened.min.y;
+    assert!((rel_y_reopened - rel_y_before).abs() < 1.0, "page 2 scroll position preserved on reopen: before {rel_y_before}, after {rel_y_reopened}");
 }
