@@ -678,7 +678,7 @@
 	Centre	Centrer
 	Align right	Aligner à droite
 	Justify	Justifier
-	Standard fonts; text outside Windows-1252 isn't supported yet.	Polices standard ; le texte hors Windows-1252 n'est pas encore pris en charge.
+	Thai and Arabic use regular fallback fonts when available.	Le thaï et l’arabe utilisent des polices de remplacement de style normal lorsqu’elles sont disponibles.
 	Edit image	Modifier l'image
 	Rotate counterclockwise	Pivoter vers la gauche
 	Rotate clockwise	Pivoter vers la droite
@@ -1202,6 +1202,8 @@
 	Searchable Image (Exact)	Image recherchable (exacte)
 	Adds invisible text over each word; the page image is not changed	Ajoute du texte invisible sur chaque mot ; l'image de la page n'est pas modifiée
 	Downsample to	Sous-échantillonner à
+	Also recognize pages that already have text	Reconnaître aussi les pages qui contiennent déjà du texte
+	Pictures on those pages are recognized too; words already in the page's text are not added again	Les images de ces pages sont aussi reconnues ; les mots déjà présents dans le texte de la page ne sont pas ajoutés une seconde fois
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	La reconnaissance de texte n'est pas installée : ses fichiers de modèles sont absents. Réinstallez PdfCraft, ou définissez PDFCRAFT_MODELS sur le dossier qui les contient.
 	Settings	Réglages
 	Optional	Facultatif
@@ -2089,7 +2091,10 @@
 	No recent files	Aucun fichier récent
 	Go to page…	Aller à la page…
 	For page sizes and margins.	Pour les tailles de page et les marges.
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	Les polices de texte PDF ne peuvent pas afficher « {c} » ({code}). Choisissez un texte pris en charge.
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Les polices standard ne peuvent pas afficher « {c} » ({code}). Pour l'instant, seuls les caractères d'Europe occidentale peuvent être ajoutés comme texte.
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	La police de ce champ ne peut pas afficher « {c} » ({code}) : PdfCraft affiche ? à sa place. La valeur est enregistrée, et les autres lecteurs PDF redessinent le champ à partir de celle-ci.
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Les polices qu'utilise PdfCraft pour écrire ne peuvent pas afficher « {c} » ({code}) : il apparaît comme ? dans tous les lecteurs PDF. Le texte est enregistré.
 	Larger pages	Pages plus grandes
 	Smaller pages	Pages plus petites
 	Reset page size	Rétablir la taille des pages
@@ -2246,3 +2251,6 @@ scroll speed	Fast	Rapide
 	Original	Original
 	Greyscale	Niveaux de gris
 	Black and white	Noir et blanc
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Le pilote de cette imprimante n'accepte pas les réglages recto verso des autres programmes ; son propre réglage s'applique. Modifiez-le dans Propriétés…
+	Tools panel side	Côté du panneau Outils
+	Add comment	Ajouter un commentaire

@@ -12,6 +12,7 @@ use pdfcraft_render::DocInfo;
 
 use crate::canvas::{DocView, PageXform};
 use crate::theme::Tokens;
+use crate::widgets;
 
 const FOCUS_BLUE: Color32 = Color32::from_rgb(0x14, 0x73, 0xE6);
 /// Background of the in-place text field editor, the same in every theme.
@@ -425,7 +426,7 @@ pub(crate) fn overlay(ctx: &egui::Context, view: &mut DocView, info: &DocInfo, f
                                 let on = if multi { fx.picked.contains(export) } else { f.value.first() == Some(export) };
                                 if multi {
                                     let mut c = on;
-                                    if ui.checkbox(&mut c, display).changed() {
+                                    if ui.add(widgets::checkbox(&mut c, display)).changed() {
                                         if c {
                                             fx.picked.push(export.clone());
                                         } else {

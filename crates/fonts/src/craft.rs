@@ -66,6 +66,15 @@ pub fn ui_telugu_fonts() -> Vec<&'static CraftFont> {
     CRAFT_FONTS.iter().filter(|f| f.covers("Telu")).collect()
 }
 
+/// Thai faces shared by the interface and PDF text writer.
+pub fn ui_thai_fonts() -> Vec<&'static CraftFont> {
+    CRAFT_FONTS.iter().filter(|f| f.covers("Thai")).collect()
+}
+
+pub fn document_thai_font() -> Option<&'static CraftFont> {
+    ui_thai_fonts().into_iter().next()
+}
+
 /// The `Hebr` craft-fonts faces for Hebrew interface text (file names, document titles, text
 /// being edited), in manifest order. Empty when built without craft-fonts or when it has no
 /// Hebrew face.

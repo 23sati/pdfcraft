@@ -23,7 +23,7 @@ status = "shipped"
 commands = ["file.open"]
 tools = ["doc_open"]
 evidence = ["crates/automation/tests/automation.rs::open_inspect_render_and_find", "crates/ui-egui/tests/ui.rs::opening_a_pdf_shows_comments_and_bookmarks", "crates/ui-egui/tests/ui.rs::files_and_quit_from_the_operating_system"]
-notes = "File ▸ Open, the command line (Linux and Windows file associations), and on macOS Finder, Open With and the Dock (Apple events; the bundle declares PDF as a document type)"
+notes = "File ▸ Open, the command line (Linux and Windows file associations), the Windows MSI's \"Edit with PdfCraft\" entry on PDF files' File Explorer right-click menu (#682; several selected PDFs open as tabs of one window), and on macOS Finder, Open With and the Dock (Apple events; the bundle declares PDF as a document type). Not yet: a first-level Windows 11 menu entry (needs package identity) or Combine from the file manager (#585)"
 
 [[feature]]
 id = "core.repair-broken-files"
@@ -926,8 +926,8 @@ milestone = "M3"
 status = "shipped"
 commands = []
 tools = []
-evidence = ["crates/ui-egui/tests/ui.rs::zoom_keeps_the_point_under_the_cursor_still"]
-notes = ""
+evidence = ["crates/ui-egui/tests/ui.rs::zoom_keeps_the_point_under_the_cursor_still", "crates/ui-egui/tests/ui.rs::trackpad_pinch_zooms_the_pdf_under_the_pointer"]
+notes = "A trackpad pinch zooms the PDF beneath the pointer in either direction, keeping the same page point in place. The viewer handles the platform's zoom gesture where it is available."
 
 [[feature]]
 id = "view.zoom-to-percent"
@@ -1490,8 +1490,8 @@ milestone = "M3"
 status = "shipped"
 commands = []
 tools = []
-evidence = ["crates/ui-egui/tests/ui.rs::drag_selects_text_and_copy_returns_it", "crates/ui-egui/tests/ui.rs::selection_works_in_every_view_rotation", "crates/ui-egui/tests/ui_group/text_select.rs::quick_clicks_select_a_word_then_the_line_then_the_page", "crates/ui-egui/tests/ui_group/text_select.rs::quick_clicks_with_the_highlighter_mark_only_the_word", "crates/ui-egui/tests/ui_group/text_select.rs::shift_click_extends_the_selection_from_its_anchor"]
-notes = "Drag to select; ⇧-click extends the selection to the click, keeping its anchor (same page only); with the Select tool, quick clicks select a word (two), the line (three) or all the text on the page (four). The markup and Redact tools mark a double-clicked word and stop there. Missing: selection across pages (dragging or ⇧-clicking onto another page), paragraph selection, and ⌘A across the whole document (it selects the current page)."
+evidence = ["crates/ui-egui/tests/ui.rs::drag_selects_text_and_copy_returns_it", "crates/ui-egui/tests/ui.rs::selection_works_in_every_view_rotation", "crates/ui-egui/tests/ui_group/text_select.rs::quick_clicks_select_a_word_then_the_line_then_the_page", "crates/ui-egui/tests/ui_group/text_select.rs::quick_clicks_with_the_highlighter_mark_only_the_word", "crates/ui-egui/tests/ui_group/text_select.rs::shift_click_extends_the_selection_from_its_anchor", "crates/ui-egui/tests/comments.rs::selected_text_shows_actions_and_underlines_without_changing_tools", "crates/ui-egui/tests/comments.rs::selected_text_replace_action_opens_replacement_composer", "crates/ui-egui/tests/comments.rs::selected_text_comment_action_opens_note_composer"]
+notes = "Drag to select; ⇧-click extends the selection to the click, keeping its anchor (same page only); with the Select tool, quick clicks select a word (two), the line (three) or all the text on the page (four). A floating action bar offers comment, highlight, underline, strikethrough, replace text and copy after selection. The markup and Redact tools mark a double-clicked word and stop there. Missing: selection across pages (dragging or ⇧-clicking onto another page), paragraph selection, and ⌘A across the whole document (it selects the current page). Acrobat's other selection context actions such as bookmark, link and export selection remain outside this bar."
 
 [[feature]]
 id = "view.column-select"
@@ -1974,8 +1974,8 @@ milestone = "M7"
 status = "shipped"
 commands = ["edit.text"]
 tools = ["page_add_text", "content_update"]
-evidence = ["crates/ui-egui/tests/content.rs::typing_moving_styling_and_deleting_added_content", "crates/ui-egui/tests/content.rs::clicking_elsewhere_keeps_the_text_and_starts_a_new_box", "crates/automation/tests/automation.rs::adding_content_through_tools", "crates/edit/src/tests.rs::added_text_and_images_are_page_content_that_stays_editable", "crates/engine/src/tests.rs::added_text_and_images_render_and_stay_editable", "crates/edit/src/tests.rs::added_arabic_text_is_shaped_in_display_order_and_stays_searchable"]
-notes = "page content, editable later (retype, move, restyle); standard fonts, Windows-1252 text. Arabic text is shaped with the craft-fonts Arab face (Type 3 outlines with ToUnicode) and laid out in bidirectional display order; it is drawn regular whatever the bold/italic setting, Hebrew and other right-to-left scripts are not covered, and typing in the box is still left to right (misc.rtl-ui). Each click on the page keeps the box being typed and starts a new one; Done and Discard beside the box"
+evidence = ["crates/ui-egui/tests/content.rs::typing_moving_styling_and_deleting_added_content", "crates/ui-egui/tests/content.rs::clicking_elsewhere_keeps_the_text_and_starts_a_new_box", "crates/automation/tests/automation.rs::adding_content_through_tools", "crates/edit/src/tests.rs::added_text_and_images_are_page_content_that_stays_editable", "crates/engine/src/tests.rs::added_text_and_images_render_and_stay_editable", "crates/edit/src/tests.rs::added_arabic_text_is_shaped_in_display_order_and_stays_searchable", "crates/automation/tests/automation.rs::thai_text_through_tools_saves_reopens_extracts_and_renders", "crates/ui-egui/tests/content.rs::typing_thai_text_keeps_marks_and_commits_to_page"]
+notes = "page content, editable later (retype, move, restyle); standard fonts, Windows-1252 text. Arabic text is shaped with the craft-fonts Arab face (Type 3 outlines with ToUnicode) and laid out in bidirectional display order; it is drawn regular whatever the bold/italic setting, Hebrew and other right-to-left scripts are not covered, and typing in the box is still left to right (misc.rtl-ui). Thai Add Text uses the craft-fonts Thai face, with shaped clusters and ToUnicode; Thai is regular style, wrapping preserves clusters but is not dictionary-based, and forms/Fill and Sign are not covered by this change. Each click on the page keeps the box being typed and starts a new one; Done and Discard beside the box"
 
 [[feature]]
 id = "edit.find-replace"
@@ -2770,7 +2770,7 @@ milestone = "M4"
 status = "shipped"
 commands = ["page.replace"]
 tools = ["page_replace"]
-evidence = ["crates/organize/src/tests.rs::replace_pages_swaps_content_but_keeps_annotations", "crates/ui-egui/tests/editing.rs::replace_pages_dialog_swaps_page_content", "crates/automation/tests/automation.rs::replacing_pages_through_tools"]
+evidence = ["crates/organize/src/tests.rs::replace_pages_swaps_content_but_keeps_annotations", "crates/ui-egui/tests/editing.rs::replace_pages_dialog_swaps_page_content", "crates/ui-egui/tests/editing.rs::replace_button_replaces_selected_pages_in_organize", "crates/automation/tests/automation.rs::replacing_pages_through_tools"]
 notes = "content, resources and boxes replaced; links, comments, fields and bookmarks kept"
 
 [[feature]]
@@ -4639,7 +4639,7 @@ status = "shipped"
 commands = ["form.import_data"]
 tools = ["doc_import_data"]
 evidence = ["crates/xfdf/src/tests.rs::xfdf_round_trips_comments_and_values", "crates/xfdf/src/tests.rs::fdf_round_trips_values_and_comments", "crates/automation/tests/automation.rs::comments_and_form_data_travel_as_xfdf_fdf_and_text"]
-notes = "XFDF, FDF; values go through formats and validation; read-only fields take data"
+notes = "XFDF, FDF; values go through formats and validation; read-only fields take data; XFA forms also take XDP/XML data files (form.xfa-data)"
 
 [[feature]]
 id = "form.export-data"
@@ -4651,7 +4651,7 @@ status = "shipped"
 commands = ["form.export_data"]
 tools = ["doc_export_data"]
 evidence = ["crates/xfdf/src/tests.rs::xfdf_round_trips_comments_and_values", "crates/automation/tests/automation.rs::comments_and_form_data_travel_as_xfdf_fdf_and_text"]
-notes = "XFDF, FDF"
+notes = "XFDF, FDF; XFA forms also export their data as XML or XDP (form.xfa-data)"
 
 [[feature]]
 id = "form.data-xml-csv-txt"
@@ -5200,10 +5200,10 @@ area = "F"
 tier = "P2"
 milestone = "M12"
 status = "partial"
-commands = ["file.open", "file.save"]
-tools = ["doc_open", "form_fill", "doc_save"]
-evidence = ["crates/xfa/src/tests.rs::the_datasets_packet_is_written_from_the_fields_and_read_back", "crates/xfa/src/tests.rs::data_fills_the_fields_and_adds_rows", "crates/engine/src/tests.rs::dynamic_xfa_forms_are_laid_out_on_open_filled_and_saved_incrementally", "crates/xfa/src/tests.rs::data_paths_leave_areas_out", "crates/engine/src/tests.rs::xfa_rows_in_areas_are_laid_out_read_calculated_and_written_where_adobe_binds_them"]
-notes = "the datasets packet inside the PDF: read on open (values, dates in ISO form, check and radio states, extra rows for repeating subforms) and rewritten after every form edit from the fields' SOM paths (/PCSom), with areas left out of data paths as Adobe binds them. Missing: importing or exporting a standalone XML/XDP data file, explicit bind refs, data descriptions"
+commands = ["file.open", "file.save", "form.export_data", "form.import_data"]
+tools = ["doc_open", "form_fill", "doc_save", "doc_export_data", "doc_import_data", "form_set_image"]
+evidence = ["crates/xfa/src/tests.rs::the_datasets_packet_is_written_from_the_fields_and_read_back", "crates/xfa/src/tests.rs::data_fills_the_fields_and_adds_rows", "crates/engine/src/tests.rs::dynamic_xfa_forms_are_laid_out_on_open_filled_and_saved_incrementally", "crates/xfa/src/tests.rs::data_paths_leave_areas_out", "crates/engine/src/tests.rs::xfa_rows_in_areas_are_laid_out_read_calculated_and_written_where_adobe_binds_them", "crates/xfa/src/tests.rs::data_exports_as_datasets_xml_or_an_xdp_and_imports_from_any_of_them", "crates/xfa/src/tests.rs::a_picture_chosen_for_an_image_field_is_kept_in_the_data_with_its_content_type", "crates/engine/src/tests.rs::xfa_data_exports_imports_and_pictures_round_trip_through_the_session", "crates/engine/src/tests.rs::xfa_data_import_adds_and_removes_rows_of_a_dynamic_form", "crates/automation/tests/automation.rs::xfa_data_files_export_and_import_through_tools"]
+notes = "the datasets packet inside the PDF: read on open (values, dates in ISO form, check and radio states, extra rows for repeating subforms) and rewritten after every form edit from the fields' SOM paths (/PCSom), with areas left out of data paths as Adobe binds them. Export Data writes it as XML (the data alone, rooted at the form's root data node, as Acrobat does) or an XDP with the whole datasets and a reference to the PDF; Import Data takes an XDP, datasets or data XML file (or a bare data document) as the form's whole data, keeping data descriptions, lays a dynamic form out again from it (rows added and removed, more than 50 rows reported) and runs its calculations, undoable; a static form's fields take the data and the rest are emptied; the file's data is re-serialized with the packet's own prefix and every packet rewrite is parsed back before it is written; XFDF/FDF/CSV still go the AcroForm way. Files are UTF-8, UTF-16 or ISO-8859-1, at most 16 MB and 64 levels deep; pictures at most 8 MB (PNG, JPEG, GIF). Pictures chosen for image fields are kept in the data as base64 with xfa:contentType, as Designer saves them. Missing: explicit bind refs, data descriptions are kept but not checked, no data connection (WSDL/ODBC)"
 
 [[feature]]
 id = "form.xfa-flatten"
@@ -6427,7 +6427,7 @@ status = "shipped"
 commands = ["ocr.recognize"]
 tools = ["ocr_recognize", "ocr_status"]
 evidence = ["crates/engine/src/tests.rs::recognize_text_makes_a_scanned_page_searchable", "crates/automation/tests/automation.rs::ocr_tools_make_a_scan_searchable", "crates/ui-egui/tests/ocr.rs::recognize_text_dialog_adds_searchable_text"]
-notes = "ocrs engine (MIT/Apache) with CC-BY-SA models fetched by `cargo xtask models`; the desktop release packages ship them (#103; packaging/env.sh stage_models), the web build does not yet; runs on a worker thread with progress; one undoable step; pages with text are skipped."
+notes = "ocrs engine (MIT/Apache) with CC-BY-SA models fetched by `cargo xtask models`; the desktop release packages ship them (#103; packaging/env.sh stage_models), the web build does not yet; runs on a worker thread with progress; one undoable step; pages with text are skipped unless asked (ocr.skip-renderable-text)."
 
 [[feature]]
 id = "ocr.recognize-range"
@@ -6522,8 +6522,8 @@ milestone = "M10"
 status = "shipped"
 commands = ["ocr.recognize"]
 tools = ["ocr_recognize"]
-evidence = ["crates/engine/src/tests.rs::recognize_text_makes_a_scanned_page_searchable", "crates/automation/tests/automation.rs::ocr_tools_make_a_scan_searchable"]
-notes = "Pages that already have text are skipped and reported (skip_text_pages false reads them anyway)."
+evidence = ["crates/engine/src/tests.rs::recognize_text_makes_a_scanned_page_searchable", "crates/automation/tests/automation.rs::ocr_tools_make_a_scan_searchable", "crates/engine/src/tests.rs::recognize_text_reads_a_picture_on_a_page_that_has_text", "crates/automation/tests/automation.rs::ocr_recognize_reads_pictures_on_pages_with_text", "crates/ui-egui/tests/ocr.rs::recognize_text_can_read_pictures_on_pages_with_text"]
+notes = "Pages that already have text are skipped and reported by default. The dialog's \"Also recognize pages that already have text\" (skip_text_pages false, also for multiple files) reads pictures on such pages (#1028); a recognised word at least half covered by the page's own text (an earlier OCR layer included) is left out and counted (already_on_page). Missing: recognising only the image areas (the whole page is still read, so it takes as long as a scan), and a word in a picture that sits under real text is treated as that text."
 
 [[feature]]
 id = "ocr.rotation-detection"
@@ -10035,7 +10035,7 @@ status = "partial"
 commands = []
 tools = []
 evidence = []
-notes = "Release builds provide signed and notarized macOS artifacts and code-signed Windows installers when signing credentials are configured (packaging/macos/package.sh; packaging/windows/sign.ps1; README.md). Linux AppImage, Flatpak, deb and rpm packages ship, but are not code-signed. Windows MSI creates Start menu and optional desktop shortcuts (#143); packaging/windows/test-msi.ps1 checks the compiled MSI and windows-arm64.yml checks installation/removal. First-page PDF thumbnails remain unsupported."
+notes = "Release builds provide signed and notarized macOS artifacts and code-signed Windows installers when signing credentials are configured (packaging/macos/package.sh; packaging/windows/sign.ps1; README.md). Linux AppImage, Flatpak, deb and rpm packages ship, but are not code-signed. Windows MSI creates a Start menu shortcut, an optional (default on) desktop shortcut and an optional (default on, INSTALLPDFCONTEXTMENU) \"Edit with PdfCraft\" File Explorer menu entry for PDF files (#682), and confirms full-UI completion with Finish (#143); packaging/windows/test-msi.ps1 checks the compiled MSI and windows-arm64.yml checks installation/removal. PDF files use a dedicated embedded document icon when PdfCraft is chosen as the default reader (confirmed in Windows Explorer); first-page thumbnails remain unsupported."
 
 [[feature]]
 id = "misc.web-deploy"
