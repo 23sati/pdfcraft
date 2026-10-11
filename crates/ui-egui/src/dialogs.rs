@@ -19,6 +19,10 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
         app.view_draft = None;
         return;
     };
+    // Properties ▸ Fonts shows the fonts as they are now, after any content edits.
+    if let (Dialog::Properties(PropsTab::Fonts), Some((_, id))) = (dialog, app.active_ids()) {
+        app.session.refresh_fonts(id);
+    }
     // Seed the editable Description fields from the document when the dialog opens.
     if let (Dialog::Properties(_), Some((_, id))) = (dialog, app.active_ids())
         && app.props_draft.as_ref().is_none_or(|(d, _)| *d != id)

@@ -277,6 +277,9 @@ pub struct Document {
     pub xfa: Option<XfaLayout>,
     /// The parsed template of a laid-out XFA form, for its scripts.
     xfa_template: Option<Arc<pdfcraft_xfa::model::Template>>,
+    /// A content-only refresh keeps `info` from before the edit; an edit may have added or
+    /// embedded fonts, so the font list is read again on demand ([`Session::refresh_fonts`]).
+    fonts_stale: bool,
     /// XFA forms: what was approximated, rewritten or could not be written to the XFA data
     /// (also in `info.warnings`, kept there when the document is re-read).
     pub xfa_warnings: Vec<String>,
@@ -2468,6 +2471,7 @@ impl Session {
             js_output: Default::default(),
             xfa,
             xfa_template: None,
+            fonts_stale: false,
             xfa_warnings: Vec::new(),
         });
         Ok(id)
@@ -2645,8 +2649,9 @@ impl Session {
             return Self::refresh_content(doc, None);
         }
         let Some(editor) = doc.editor.as_mut() else { return Ok(()) };
-        // Comment edits may change annotation dictionaries, invalidating cached appearances.
-        if scope == Scope::Comments {
+        // Comment edits, and form edits (a script may change annotation properties), may change
+        // annotation dictionaries, invalidating cached appearances.
+        if matches!(scope, Scope::Comments | Scope::Form) {
             editor.appearances.clear();
         }
         let bytes = if editor.cos.is_modified() {
@@ -2756,6 +2761,7 @@ impl Session {
         doc.display = display_bytes(Some(editor), &bytes);
         doc.renderer = RenderPool::new(doc.display.clone(), render_threads(), doc.config.clone());
         doc.bytes = bytes;
+        doc.fonts_stale = true;
         Ok(())
     }
 
@@ -2788,6 +2794,7 @@ impl Session {
         }
         note_warnings(&mut info.warnings, &doc.xfa_warnings);
         doc.info = info;
+        doc.fonts_stale = false;
         let mut form = pdfcraft_forms::fields(&editor.cos);
         xfa::mark_script_buttons(&editor.cos, &mut form);
         doc.form = Arc::new(form);
@@ -3368,6 +3375,16 @@ impl Session {
 
     pub fn get(&self, id: DocId) -> Option<&Document> {
         self.docs.iter().find(|d| d.id == id)
+    }
+
+    /// Read document `id`'s font list again if content edits since the last full inspection may
+    /// have changed it (Document Properties ▸ Fonts, `doc_info`). A no-op otherwise.
+    pub fn refresh_fonts(&mut self, id: DocId) {
+        let Some(doc) = self.docs.iter_mut().find(|d| d.id == id && d.fonts_stale) else { return };
+        if let Ok(info) = pdfcraft_render::inspect(doc.bytes.clone(), doc.password.as_deref()) {
+            doc.info.fonts = info.fonts;
+        }
+        doc.fonts_stale = false;
     }
 
     pub fn docs(&self) -> &[Document] {
