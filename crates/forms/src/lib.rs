@@ -487,13 +487,28 @@ struct Inherited {
 /// Every terminal field: the `/Fields` tree in order, then the fields reachable only through the
 /// page annotations (see [`adopt_page_fields`]).
 pub fn fields(doc: &Document) -> Vec<Field> {
-    enumerate(doc).0
+    fields_with_adopted(doc).items
 }
 
 /// How many of [`fields`] were reachable only through the page annotations: the form's `/Fields`
 /// list names none or only some of them, so the leniency that adopts them is worth recording.
 pub fn adopted_page_fields(doc: &Document) -> usize {
-    enumerate(doc).1
+    fields_with_adopted(doc).adopted_page_fields
+}
+
+/// The terminal fields and page-only fields adopted while reading a form.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Fields {
+    /// Terminal fields in tree order, followed by adopted page-only fields.
+    pub items: Vec<Field>,
+    /// How many fields were reachable only through page annotations.
+    pub adopted_page_fields: usize,
+}
+
+/// Read all terminal fields and the page-only adoption count in one enumeration.
+pub fn fields_with_adopted(doc: &Document) -> Fields {
+    let (items, adopted_page_fields) = enumerate(doc);
+    Fields { items, adopted_page_fields }
 }
 
 fn enumerate(doc: &Document) -> (Vec<Field>, usize) {
@@ -846,7 +861,7 @@ pub fn recalculate(doc: &mut Document) -> Result<usize, FormError> {
 
 /// [`recalculate`], running custom Calculate (and Format) scripts through `scripts`.
 pub fn recalculate_with(doc: &mut Document, scripts: &mut dyn Scripts) -> Result<usize, FormError> {
-    let all = fields(doc);
+    let mut all = fields(doc);
     let calculated = |f: &Field| f.actions.calculate != af::Calculate::None || f.actions.scripts.calculate.is_some();
     if !all.iter().any(calculated) {
         return Ok(0);
@@ -865,17 +880,18 @@ pub fn recalculate_with(doc: &mut Document, scripts: &mut dyn Scripts) -> Result
     }
     let mut changed = 0;
     for name in order {
-        let now = fields(doc);
-        let Some(f) = now.iter().find(|f| f.name == name) else { continue };
+        let Some(f) = all.iter().find(|f| f.name == name).cloned() else { continue };
         let lookup = |n: &str| -> Vec<String> {
             let prefix = format!("{n}.");
-            now.iter().filter(|x| x.name == n || x.name.starts_with(&prefix)).flat_map(|x| x.value.first().cloned()).collect()
+            all.iter().filter(|x| x.name == n || x.name.starts_with(&prefix)).flat_map(|x| x.value.first().cloned()).collect()
         };
         let current = f.value.first().cloned().unwrap_or_default();
         let v = if let Some(js) = &f.actions.scripts.calculate {
-            let f = f.clone();
-            let r = scripts.run(FieldEvent::Calculate, js, &f, &current, &now);
+            let r = scripts.run(FieldEvent::Calculate, js, &f, &current, &all);
             scripting::apply_changes(doc, &r.changes, &f.name)?;
+            if !r.changes.is_empty() {
+                all = fields(doc);
+            }
             if !r.rc {
                 continue;
             }
@@ -884,12 +900,12 @@ pub fn recalculate_with(doc: &mut Document, scripts: &mut dyn Scripts) -> Result
             let Some(v) = af::calculate(&f.actions.calculate, &lookup) else { continue };
             v
         };
-        let now = fields(doc);
-        let Some(f) = now.iter().find(|f| f.name == name) else { continue };
         if current != v && matches!(f.kind, FieldKind::Text | FieldKind::Combo) {
-            let f = f.clone();
             doc.update_dict(f.obj, |d| d.set(b"V".to_vec(), PdfString::text(&v)))?;
             redraw(doc, &f, std::slice::from_ref(&v), scripts)?;
+            if let Some(target) = all.iter_mut().find(|x| x.name == name) {
+                target.value = vec![v];
+            }
             changed += 1;
         }
     }
