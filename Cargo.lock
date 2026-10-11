@@ -3668,7 +3668,9 @@ dependencies = [
  "pdfcraft-cos",
  "pdfcraft-fonts",
  "pdfcraft-model",
+ "pdfcraft-ofd",
  "png 0.18.1",
+ "skrifa 0.44.0",
  "thiserror 2.0.21",
  "tiff",
 ]
