@@ -2319,10 +2319,8 @@ action wizard	Start	Iniciar
 	Change Author	Cambiar el autor
 	Change Subject	Cambiar el asunto
 	Change Keywords	Cambiar las palabras clave
-	Run form script	Ejecutar el script del formulario
 	Save as {level}	Guardar como {level}
 	Create links	Crear enlaces
-	Mark differences	Marcar diferencias
 
 # Multi-object selection and movement (#844)
 @plural	{n} object selected|{n} objects selected	{n} objeto seleccionado|{n} objetos seleccionados
