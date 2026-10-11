@@ -81,12 +81,18 @@
 	Open a PDF ({key})	PDF megnyitása ({key})
 	Dark gray theme	Sötétszürke téma
 	Light theme	Világos téma
+	Appearance mode	Megjelenési mód
+	Light	Világos
+	Dark	Sötét
+	Active	Aktív
+	Dark theme	Sötét téma
+	Appearance settings…	Megjelenési beállítások…
 	All tools	Minden eszköz
 	Read	Olvasás
 	Convert	Konvertálás
 	E-Sign	E-aláírás
 	Print ({key})	Nyomtatás ({key})
-	Save (M4)	Mentés (M4)
+	Save ({key})	Mentés ({key})
 	Document properties ({key})	Dokumentum tulajdonságai ({key})
 	Find tools and commands	Eszközök és parancsok keresése
 	Fit to height	Magassághoz igazítás
@@ -2203,3 +2209,10 @@ key	Space	Szóköz
 	Resize panel window	Panelablak átméretezése
 	Tools	Eszközök
 	Inspector	Tulajdonságvizsgáló
+	Mouse wheel scroll speed	Egérgörgő görgetési sebessége
+scroll speed	Slow	Lassú
+scroll speed	Normal	Normál
+scroll speed	Fast	Gyors
+	Enhance camera image	Kamerakép javítása
+	Drag the corners onto the document's edges, then choose Enhance page.	Húzza a sarkokat a dokumentum széleire, majd válassza az Oldal javítása lehetőséget.
+	Enhance page	Oldal javítása

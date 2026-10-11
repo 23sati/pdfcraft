@@ -83,12 +83,18 @@
 	Open a PDF ({key})	Ouvrir un PDF ({key})
 	Dark gray theme	Thème gris foncé
 	Light theme	Thème clair
+	Appearance mode	Mode d'apparence
+	Light	Clair
+	Dark	Sombre
+	Active	Actif
+	Dark theme	Thème sombre
+	Appearance settings…	Réglages d'apparence…
 	All tools	Tous les outils
 	Read	Lire
 	Convert	Convertir
 	E-Sign	Signature électronique
 	Print ({key})	Imprimer ({key})
-	Save (M4)	Enregistrer (M4)
+	Save ({key})	Enregistrer ({key})
 	Document properties ({key})	Propriétés du document ({key})
 	Find tools and commands	Rechercher des outils et des commandes
 	Fit to height	Ajuster à la hauteur
@@ -2205,3 +2211,10 @@ key	Space	Espace
 	Resize panel window	Redimensionner la fenêtre du panneau
 	Tools	Outils
 	Inspector	Inspecteur
+	Mouse wheel scroll speed	Vitesse de défilement de la molette
+scroll speed	Slow	Lente
+scroll speed	Normal	Normale
+scroll speed	Fast	Rapide
+	Enhance camera image	Améliorer la photo d'un document
+	Drag the corners onto the document's edges, then choose Enhance page.	Faites glisser les coins sur les bords du document, puis choisissez Améliorer la page.
+	Enhance page	Améliorer la page

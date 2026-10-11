@@ -1036,8 +1036,14 @@
 	Open a PDF ({key})	Abrir um PDF ({key})
 	Dark gray theme	Tema cinza escuro
 	Light theme	Tema claro
+	Appearance mode	Modo de aparência
+	Light	Claro
+	Dark	Escuro
+	Active	Ativo
+	Dark theme	Tema escuro
+	Appearance settings…	Configurações de aparência…
 	Print ({key})	Imprimir ({key})
-	Save (M4)	Salvar (M4)
+	Save ({key})	Salvar ({key})
 	Document properties ({key})	Propriedades do documento ({key})
 	Action Wizard…	Assistente de ações…
 	Add Bates numbering…	Adicionar numeração Bates…
@@ -2206,3 +2212,22 @@ key	Space	Espaço
 	Resize panel window	Redimensionar janela do painel
 	Tools	Ferramentas
 	Inspector	Inspetor
+calendar date	January	janeiro
+calendar date	February	fevereiro
+calendar date	March	março
+calendar date	April	abril
+calendar date	May	maio
+calendar date	June	junho
+calendar date	July	julho
+calendar date	August	agosto
+calendar date	September	setembro
+calendar date	October	outubro
+calendar date	November	novembro
+calendar date	December	dezembro
+	Mouse wheel scroll speed	Velocidade de rolagem da roda do mouse
+scroll speed	Slow	Lenta
+scroll speed	Normal	Normal
+scroll speed	Fast	Rápida
+	Enhance camera image	Aprimorar foto da câmera
+	Drag the corners onto the document's edges, then choose Enhance page.	Arraste os cantos até as bordas do documento e escolha Aprimorar página.
+	Enhance page	Aprimorar página
