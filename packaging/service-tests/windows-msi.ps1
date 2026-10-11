@@ -15,7 +15,7 @@ $upgrade = Join-Path $stage 'service-test-upgrade.msi'
 $installedMsi = $msi
 & wix extension add -g WixToolset.Util.wixext/5.0.2
 if ($LASTEXITCODE -ne 0) { throw 'WiX extension installation failed' }
-& wix build packaging/windows/pdfcraft.wxs packaging/windows/installer-ui.wxs -arch x64 -ext WixToolset.Util.wixext -d Version=0.6.0 -d "BinDir=$stage" -d "ModelsDir=$stage/models" -d 'IconPath=assets/app-icon/pdfcraft.ico' -o $msi
+& wix build packaging/windows/pdfcraft.wxs packaging/windows/installer-ui.wxs -loc packaging/windows/locales/en.wxl -arch x64 -ext WixToolset.Util.wixext -d Version=0.6.0 -d "BinDir=$stage" -d "ModelsDir=$stage/models" -d 'IconPath=assets/app-icon/pdfcraft.ico' -o $msi
 if ($LASTEXITCODE -ne 0) { throw 'WiX compilation failed' }
 & pwsh -NoProfile -File packaging/windows/test-msi.ps1 $msi
 if ($LASTEXITCODE -ne 0) { throw 'Compiled MSI validation failed' }
@@ -24,7 +24,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Compiled MSI validation failed' }
 $probeStream = [IO.File]::Open("$stage/pdfcraft-hot-folder.exe", [IO.FileMode]::Append)
 try { $probeStream.Write([Text.Encoding]::ASCII.GetBytes('synthetic upgrade payload')) } finally { $probeStream.Dispose() }
 $upgradeHash = (Get-FileHash -LiteralPath "$stage/pdfcraft-hot-folder.exe" -Algorithm SHA256).Hash
-& wix build packaging/windows/pdfcraft.wxs packaging/windows/installer-ui.wxs -arch x64 -ext WixToolset.Util.wixext -d Version=0.6.1 -d "BinDir=$stage" -d "ModelsDir=$stage/models" -d 'IconPath=assets/app-icon/pdfcraft.ico' -o $upgrade
+& wix build packaging/windows/pdfcraft.wxs packaging/windows/installer-ui.wxs -loc packaging/windows/locales/en.wxl -arch x64 -ext WixToolset.Util.wixext -d Version=0.6.1 -d "BinDir=$stage" -d "ModelsDir=$stage/models" -d 'IconPath=assets/app-icon/pdfcraft.ico' -o $upgrade
 if ($LASTEXITCODE -ne 0) { throw 'Upgrade MSI compilation failed' }
 function Invoke-Msi([string] $Options, [string] $Name) {
   $log = Join-Path $stage "$Name.log"
