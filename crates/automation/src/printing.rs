@@ -12,7 +12,16 @@ fn bad(m: impl Into<String>) -> ToolError {
 
 impl Automation {
     pub(crate) fn printers(&self) -> Result<Value> {
-        let list: Vec<Value> = spool::printers().into_iter().map(|p| json!({ "name": p.name, "default": p.default })).collect();
+        let list: Vec<Value> = spool::printers()
+            .into_iter()
+            .map(|p| {
+                let mut v = json!({ "name": p.name, "default": p.default });
+                if let Some(two_sided) = p.two_sided {
+                    v["two_sided"] = json!(two_sided);
+                }
+                v
+            })
+            .collect();
         Ok(json!({ "count": list.len(), "printers": list }))
     }
 
@@ -105,9 +114,15 @@ impl Automation {
             None => PAPERS[0].1,
             Some(p) => PAPERS
                 .iter()
-                .find(|(n, _)| n.eq_ignore_ascii_case(p) || n.replace("US ", "").eq_ignore_ascii_case(p))
+                .find(|(n, _)| {
+                    n.eq_ignore_ascii_case(p)
+                        || n.replace("US ", "").eq_ignore_ascii_case(p)
+                        || n.split(" (").next().is_some_and(|name| name.eq_ignore_ascii_case(p))
+                })
                 .map(|x| x.1)
-                .ok_or_else(|| bad(format!("unknown paper {p:?} (Letter, Legal, Tabloid, A3, A4, A5)")))?,
+                .ok_or_else(|| {
+                    bad(format!("unknown paper {p:?}; choose one of {}", PAPERS.iter().map(|(name, _)| *name).collect::<Vec<_>>().join(", ")))
+                })?,
         };
         let settings = print::Settings { pages, paper, orientation, layout, content };
         let sizes: Vec<(f64, f64)> = self.doc(a)?.info.pages.iter().map(|p| (p.width as f64, p.height as f64)).collect();

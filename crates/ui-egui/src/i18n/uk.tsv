@@ -703,7 +703,7 @@
 	Centre	По центру
 	Align right	Вирівняти праворуч
 	Justify	За шириною
-	Standard fonts; text outside Windows-1252 isn't supported yet.	Стандартні шрифти; текст поза Windows-1252 ще не підтримується.
+	Thai and Arabic use regular fallback fonts when available.	Для тайського й арабського тексту використовуються доступні резервні шрифти звичайного накреслення.
 	Edit image	Редагувати зображення
 	Rotate counterclockwise	Повернути проти годинникової стрілки
 	Rotate clockwise	Повернути за годинниковою стрілкою
@@ -1220,6 +1220,8 @@
 	Searchable Image (Exact)	Зображення з пошуком (точне)
 	Adds invisible text over each word; the page image is not changed	Додає невидимий текст поверх кожного слова; зображення сторінки не змінюється
 	Downsample to	Знизити роздільну здатність до
+	Also recognize pages that already have text	Розпізнавати й сторінки, на яких уже є текст
+	Pictures on those pages are recognized too; words already in the page's text are not added again	Зображення на цих сторінках теж розпізнаються; слова, які вже є в тексті сторінки, повторно не додаються
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	Розпізнавання тексту не встановлено: бракує файлів моделей. Перевстановіть PdfCraft або задайте в PDFCRAFT_MODELS теку, у якій вони лежать.
 	Settings	Налаштування
 	Optional	Необов’язково
@@ -1711,7 +1713,12 @@
 	watermark	водяний знак
 	background	тло
 	This document isn't password-protected	Цей документ не захищено паролем
-	Only the document's owner can change its security (open it with the permissions password)	Лише власник документа може змінювати захист (відкрийте з паролем дозволів)
+	Enter permissions password…	Ввести пароль дозволів…
+	Permissions password	Пароль дозволів
+	“{name}” has security restrictions. Enter its permissions password to lift them.	«{name}» має обмеження захисту. Введіть пароль дозволів, щоб зняти їх.
+	Restrictions lifted	Обмеження знято
+	Couldn't unlock {name}: {e}	Не вдалося розблокувати {name}: {e}
+	This document has no restrictions to lift	Цей документ не має обмежень, які можна зняти
 	The document's security settings don't allow this change	Налаштування захисту документа не дозволяють цю зміну
 	The document's security settings don't allow copying text and images	Налаштування захисту документа не дозволяють копіювати текст і зображення
 	Open a document first	Спочатку відкрийте документ
@@ -2146,7 +2153,10 @@ calendar date	December	грудня
 	Reverse open arrow	Зворотна відкрита стрілка
 	Reverse closed arrow	Зворотна закрита стрілка
 	Slash	Коса риска
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	Шрифти тексту PDF не можуть відобразити «{c}» ({code}). Виберіть підтримуваний текст.
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Стандартні шрифти не можуть відобразити «{c}» ({code}). Поки що як текст можна додавати лише західноєвропейські символи.
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Шрифт цього поля не може відобразити «{c}» ({code}), тому PdfCraft показує на його місці ?. Значення збережено, і інші програми перегляду PDF перемалюють поле за ним.
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Шрифти, якими пише PdfCraft, не можуть відобразити «{c}» ({code}), тому в усіх програмах перегляду PDF на його місці буде ?. Текст збережено.
 	Larger pages	Більші сторінки
 	Smaller pages	Менші сторінки
 	Reset page size	Скинути розмір сторінок
@@ -2165,6 +2175,8 @@ calendar date	December	грудня
 	Printer properties	Властивості принтера
 	Reset to printer defaults	Скинути до налаштувань принтера за замовчуванням
 	This printer offers no settings of its own.	Цей принтер не має власних налаштувань.
+	Margins	Поля
+	For page sizes and margins.	Для розмірів сторінок і полів.
 certificate	Subject	Власник сертифіката
 	Scroll tabs left	Прокрутити вкладки ліворуч
 	Scroll tabs right	Прокрутити вкладки праворуч
@@ -2233,6 +2245,13 @@ key	Space	Пробіл
 	Panels	Панелі
 	Resize panels	Змінити розмір панелей
 	Resize panel window	Змінити розмір вікна панелі
+
+# Architectural print controls (follow-up to #599).
+	PDF page: {size}	Сторінка PDF: {size}
+	Match page at 100%	Підібрати папір, масштаб 100%
+	PDF scale: {scale}%	Масштаб PDF: {scale}%
+	Printer paper and scaling may differ. Check driver settings.	Папір і масштаб принтера можуть відрізнятися. Перевірте налаштування драйвера.
+	Drawing scale changes. Use Actual size for full-scale plans.	Масштаб креслення змінюється. Для друку в початковому масштабі виберіть Фактичний розмір.
 	Reload documents when their files change on disk	Перезавантажувати документи, коли їхні файли змінюються на диску
 	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Цей файл змінено на диску. Перезавантажте його, щоб побачити нову версію; незбережені зміни буде втрачено.
 	Reload	Перезавантажити
@@ -2248,3 +2267,12 @@ scroll speed	Fast	Швидка
 	Enhance camera image	Поліпшити знімок з камери
 	Drag the corners onto the document's edges, then choose Enhance page.	Перетягніть кути до країв документа, потім виберіть «Поліпшити сторінку».
 	Enhance page	Поліпшити сторінку
+	Done adding text	Завершити додавання тексту
+	Discard this text (Esc)	Відкинути цей текст (Esc)
+	Clean-up	Очищення
+	Original	Оригінал
+	Greyscale	Відтінки сірого
+	Black and white	Чорно-білий
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Драйвер цього принтера не приймає налаштування двобічного друку від інших програм, тому діє його власне налаштування. Змініть його у вікні Властивості…
+	Tools panel side	Бік панелі інструментів
+	Add comment	Додати коментар

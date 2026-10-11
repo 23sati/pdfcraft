@@ -705,7 +705,7 @@
 	Centre	توسيط
 	Align right	محاذاة لليمين
 	Justify	ضبط
-	Standard fonts; text outside Windows-1252 isn't supported yet.	خطوط قياسية؛ النص خارج Windows-1252 غير مدعوم بعد.
+	Thai and Arabic use regular fallback fonts when available.	تستخدم التايلاندية والعربية خطوطًا بديلة بالنمط العادي عند توفرها.
 	Edit image	تحرير الصورة
 	Rotate counterclockwise	تدوير عكس عقارب الساعة
 	Rotate clockwise	تدوير مع عقارب الساعة
@@ -1222,6 +1222,8 @@
 	Searchable Image (Exact)	صورة قابلة للبحث (مطابقة)
 	Adds invisible text over each word; the page image is not changed	يضيف نصًا غير مرئي فوق كل كلمة؛ صورة الصفحة لا تتغير
 	Downsample to	تقليل العينات إلى
+	Also recognize pages that already have text	التعرف على الصفحات التي تحتوي على نص أيضًا
+	Pictures on those pages are recognized too; words already in the page's text are not added again	يُتعرَّف على الصور في هذه الصفحات أيضًا، ولا تُضاف مرة أخرى الكلمات الموجودة بالفعل في نص الصفحة
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	التعرف على النص غير مثبت: ملفات نماذجه مفقودة. أعد تثبيت PdfCraft، أو اضبط PDFCRAFT_MODELS على المجلد الذي يحتويها.
 	Settings	الإعدادات
 	Optional	اختياري
@@ -1713,7 +1715,12 @@
 	watermark	علامة مائية
 	background	خلفية
 	This document isn't password-protected	هذا المستند غير محمي بكلمة مرور
-	Only the document's owner can change its security (open it with the permissions password)	مالك المستند وحده يستطيع تغيير أمانه (افتحه بكلمة مرور الأذونات)
+	Enter permissions password…	أدخل كلمة مرور الأذونات…
+	Permissions password	كلمة مرور الأذونات
+	“{name}” has security restrictions. Enter its permissions password to lift them.	«{name}» عليه قيود أمان. أدخل كلمة مرور الأذونات الخاصة به لرفعها.
+	Restrictions lifted	رُفعت القيود
+	Couldn't unlock {name}: {e}	تعذّر إلغاء قفل {name}: {e}
+	This document has no restrictions to lift	لا توجد في هذا المستند قيود لرفعها
 	The document's security settings don't allow this change	إعدادات أمان المستند لا تسمح بهذا التغيير
 	The document's security settings don't allow copying text and images	إعدادات أمان المستند لا تسمح بنسخ النصوص والصور
 	Open a document first	افتح مستندًا أولًا
@@ -2146,7 +2153,10 @@ calendar date	December	ديسمبر
 	Reverse open arrow	سهم مفتوح معكوس
 	Reverse closed arrow	سهم مغلق معكوس
 	Slash	شرطة مائلة
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	لا تستطيع خطوط نص PDF عرض «{c}» ({code}). اختر نصًا مدعومًا.
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	الخطوط القياسية لا تستطيع رسم «{c}» ({code}). حاليًا يمكن إضافة محارف أوروبا الغربية فقط كنص.
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	خط هذا الحقل لا يستطيع رسم «{c}» ({code})، لذا يعرض PdfCraft علامة ? مكانه. القيمة محفوظة، وتعيد برامج عرض PDF الأخرى رسم الحقل منها.
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	الخطوط التي يكتب بها PdfCraft لا تستطيع رسم «{c}» ({code})، لذا يظهر بشكل ? في كل برامج عرض PDF. النص محفوظ.
 	Larger pages	صفحات أكبر
 	Smaller pages	صفحات أصغر
 	Reset page size	إعادة ضبط حجم الصفحة
@@ -2188,6 +2198,8 @@ certificate	Subject	صاحب الشهادة
 	A selected field has no widget on any page, so the fields can't be edited together.	أحد الحقول المحددة ليس له عنصر واجهة في أي صفحة، لذا لا يمكن تحرير الحقول معًا.
 	Text recognition isn't installed: its models are missing (run `cargo xtask models`, or set PDFCRAFT_MODELS).	التعرف على النص غير مثبت: نماذجه مفقودة (شغّل `cargo xtask models`، أو اضبط PDFCRAFT_MODELS).
 	 ({n} at {dpi} dpi, the largest size they can be drawn at)	 ({n} بدقة {dpi} dpi، وهي أكبر دقة يمكن رسمها بها)
+	Margins	الهوامش
+	For page sizes and margins.	لأحجام الصفحات والهوامش.
 
 # Multi-object selection and movement (#844)
 @plural	{n} object selected|{n} objects selected	تم تحديد {n} عنصر|تم تحديد {n} عنصر|تم تحديد {n} عنصرين|تم تحديد {n} عناصر|تم تحديد {n} عنصرًا|تم تحديد {n} عنصر
@@ -2232,6 +2244,13 @@ key	Space	مسافة
 	Panels	اللوحات
 	Resize panels	تغيير حجم اللوحات
 	Resize panel window	تغيير حجم نافذة اللوحة
+
+# Architectural print controls (follow-up to #599).
+	PDF page: {size}	صفحة PDF: {size}
+	Match page at 100%	مطابقة الورق للصفحة بنسبة 100%
+	PDF scale: {scale}%	مقياس PDF: {scale}%
+	Printer paper and scaling may differ. Check driver settings.	قد يختلف ورق الطابعة ومقياس الطباعة. تحقق من إعدادات برنامج التشغيل.
+	Drawing scale changes. Use Actual size for full-scale plans.	يتغير مقياس الرسم. استخدم الحجم الفعلي لطباعة المخططات بمقياسها الأصلي.
 	Reload documents when their files change on disk	إعادة تحميل المستندات عند تغيّر ملفاتها على القرص
 	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	تغيّر هذا الملف على القرص. أعد تحميله لعرض النسخة الجديدة؛ ستفقد تغييراتك غير المحفوظة.
 	Reload	إعادة تحميل
@@ -2247,3 +2266,12 @@ scroll speed	Fast	سريعة
 	Enhance camera image	تحسين صورة الكاميرا
 	Drag the corners onto the document's edges, then choose Enhance page.	اسحب الزوايا إلى حواف المستند، ثم اختر تحسين الصفحة.
 	Enhance page	تحسين الصفحة
+	Done adding text	إنهاء إضافة النص
+	Discard this text (Esc)	تجاهل هذا النص (Esc)
+	Clean-up	تنظيف
+	Original	الأصل
+	Greyscale	تدرج رمادي
+	Black and white	أبيض وأسود
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	لا يقبل برنامج تشغيل هذه الطابعة إعدادات الطباعة على الوجهين من البرامج الأخرى، لذا يُطبَّق إعداده الخاص. غيّره من خصائص…
+	Tools panel side	جانب لوحة الأدوات
+	Add comment	إضافة تعليق

@@ -77,6 +77,8 @@
 	PdfCraft is drawing without a graphics processor, so it may be slow. Updating the graphics driver may help.	O PdfCraft está desenhando sem processador gráfico, por isso pode ficar lento. Atualizar o driver de vídeo pode ajudar.
 	Go to page…	Ir para a página…
 	Reopen the files that were open when PdfCraft last closed	Reabrir os arquivos que estavam abertos quando o PdfCraft foi fechado pela última vez
+	Margins	Margens
+	For page sizes and margins.	Para tamanhos de página e margens.
 	Open	Abrir
 	Open file	Abrir arquivo
 	Home	Início
@@ -337,7 +339,7 @@
 	Centre	Centralizar
 	Align right	Alinhar à direita
 	Justify	Justificar
-	Standard fonts; text outside Windows-1252 isn't supported yet.	Fontes padrão; texto fora de Windows-1252 ainda não é suportado.
+	Thai and Arabic use regular fallback fonts when available.	O tailandês e o árabe usam fontes alternativas de estilo normal quando disponíveis.
 	Edit image	Editar imagem
 	Rotate counterclockwise	Girar no sentido anti-horário
 	Rotate clockwise	Girar no sentido horário
@@ -864,6 +866,8 @@
 	Searchable Image (Exact)	Imagem pesquisável (Exata)
 	Adds invisible text over each word; the page image is not changed	Adiciona texto invisível sobre cada palavra; a imagem da página não é alterada
 	Downsample to	Reduzir amostragem para
+	Also recognize pages that already have text	Reconhecer também as páginas que já contêm texto
+	Pictures on those pages are recognized too; words already in the page's text are not added again	As imagens dessas páginas também são reconhecidas; as palavras que já estão no texto da página não são adicionadas novamente
 	Settings	Configurações
 	Protect	Proteger
 	Advanced options	Opções avançadas
@@ -1546,7 +1550,12 @@
 	watermark	marca-d'água
 	background	plano de fundo
 	This document isn't password-protected	Este documento não está protegido por senha
-	Only the document's owner can change its security (open it with the permissions password)	Somente o proprietário do documento pode alterar sua segurança (abra-o com a senha de permissões)
+	Enter permissions password…	Digitar senha de permissões…
+	Permissions password	Senha de permissões
+	“{name}” has security restrictions. Enter its permissions password to lift them.	“{name}” tem restrições de segurança. Digite a senha de permissões para removê-las.
+	Restrictions lifted	Restrições removidas
+	Couldn't unlock {name}: {e}	Não foi possível desbloquear {name}: {e}
+	This document has no restrictions to lift	Este documento não tem restrições a remover
 	The document's security settings don't allow this change	As configurações de segurança do documento não permitem esta alteração
 	The document's security settings don't allow copying text and images	As configurações de segurança do documento não permitem copiar texto e imagens
 	Open a document first	Abra um documento primeiro
@@ -2024,7 +2033,10 @@
 	This web address mixes letters from different alphabets, a common way to imitate another site's name.	Este endereço da web mistura letras de alfabetos diferentes, uma forma comum de imitar o nome de outro site.
 	This web address uses letters from another alphabet, which can look like familiar ones.	Este endereço da web usa letras de outro alfabeto, que podem parecer familiares.
 	Only continue if you trust this document. An address can carry information from the document, such as what you typed into its form.	Continue apenas se você confiar neste documento. Um endereço pode carregar informações do documento, como o que você digitou no formulário dele.
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	As fontes de texto PDF não podem exibir “{c}” ({code}). Escolha um texto compatível.
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	As fontes padrão não conseguem desenhar “{c}” ({code}). Por enquanto, apenas caracteres da Europa Ocidental podem ser adicionados como texto.
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	A fonte deste campo não consegue desenhar “{c}” ({code}), então o PdfCraft mostra ? no lugar. O valor foi salvo, e outros leitores de PDF redesenham o campo a partir dele.
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	As fontes que o PdfCraft usa para escrever não conseguem desenhar “{c}” ({code}), então ele aparece como ? em qualquer leitor de PDF. O texto foi salvo.
 	Line ending	Fim de linha
 	Show	Mostrar
 	Sort	Classificar
@@ -2213,6 +2225,13 @@ key	Space	Espaço
 	Resize panel window	Redimensionar janela do painel
 	Tools	Ferramentas
 	Inspector	Inspetor
+
+# Architectural print controls (follow-up to #599).
+	PDF page: {size}	Página PDF: {size}
+	Match page at 100%	Ajustar papel à página a 100%
+	PDF scale: {scale}%	Escala do PDF: {scale}%
+	Printer paper and scaling may differ. Check driver settings.	O papel e a escala da impressora podem variar. Confira as configurações do driver.
+	Drawing scale changes. Use Actual size for full-scale plans.	A escala do desenho muda. Use Tamanho real para plantas em escala.
 	Reload documents when their files change on disk	Recarregar documentos quando os arquivos mudarem no disco
 	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Este arquivo foi alterado no disco. Recarregue-o para ver a nova versão; suas alterações não salvas serão perdidas.
 	Reload	Recarregar
@@ -2240,3 +2259,12 @@ scroll speed	Fast	Rápida
 	Enhance camera image	Aprimorar foto da câmera
 	Drag the corners onto the document's edges, then choose Enhance page.	Arraste os cantos até as bordas do documento e escolha Aprimorar página.
 	Enhance page	Aprimorar página
+	Done adding text	Concluir a adição de texto
+	Discard this text (Esc)	Descartar este texto (Esc)
+	Clean-up	Limpeza
+	Original	Original
+	Greyscale	Escala de cinza
+	Black and white	Preto e branco
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	O driver desta impressora não aceita configurações de frente e verso de outros programas, então vale a configuração dele. Altere em Propriedades…
+	Tools panel side	Lado do painel Ferramentas
+	Add comment	Adicionar comentário

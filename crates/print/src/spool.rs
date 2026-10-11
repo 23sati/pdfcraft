@@ -12,6 +12,10 @@ use crate::PrintError;
 pub struct Printer {
     pub name: String,
     pub default: bool,
+    /// Whether the driver says it can print two-sided, where the spooler tells (Windows: the
+    /// printer's `Duplex Printing` capability). A driver without it ignores Two-sided and uses
+    /// its own setting. `None` when unknown (CUPS maps `sides` itself).
+    pub two_sided: Option<bool>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -53,7 +57,7 @@ pub fn parse_lpstat(out: &str) -> Vec<Printer> {
     out.lines()
         .filter_map(|l| l.strip_prefix("printer "))
         .filter_map(|l| l.split_whitespace().next())
-        .map(|n| Printer { name: n.to_string(), default: default == Some(n) })
+        .map(|n| Printer { name: n.to_string(), default: default == Some(n), two_sided: None })
         .collect()
 }
 
@@ -340,7 +344,7 @@ pub fn printers_parsed(queues: &str, available: Option<&str>) -> Vec<Printer> {
     if let Some(names) = available {
         for name in parse_lpstat_e(names) {
             if !printers.iter().any(|p| p.name == name) {
-                printers.push(Printer { default: default == Some(name.as_str()), name });
+                printers.push(Printer { default: default == Some(name.as_str()), name, two_sided: None });
             }
         }
     }
@@ -351,33 +355,48 @@ pub fn printers_parsed(queues: &str, available: Option<&str>) -> Vec<Printer> {
 /// writing banners into what is parsed, `-NonInteractive` from waiting for input.
 /// `CREATE_NO_WINDOW`: the release app has no console of its own, so without it Windows opens
 /// a console window for PowerShell over the app for as long as the script runs.
+///
+/// Named by its full path, as `rundll32` is in [`open_printer_preferences`]: given a bare name,
+/// Rust looks in the app's own folder before System32, so a `powershell.exe` beside a portable
+/// `pdfcraft.exe` would run in its place each time the Print dialog opens and on every job.
 #[cfg(windows)]
-fn powershell_command(script: &str) -> std::process::Command {
+pub(crate) fn powershell_command(script: &str) -> std::process::Command {
     use std::os::windows::process::CommandExt as _;
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    let mut c = std::process::Command::new("powershell");
+    let root = std::env::var_os("SystemRoot").unwrap_or_else(|| "C:\\Windows".into());
+    let exe = std::path::Path::new(&root).join("System32").join("WindowsPowerShell").join("v1.0").join("powershell.exe");
+    let mut c = std::process::Command::new(exe);
     c.args(["-NoProfile", "-NonInteractive", "-Command", script]);
     c.creation_flags(CREATE_NO_WINDOW);
     c
 }
 
-/// The Windows printer list: one line per printer, `*` on the system default. UTF-8, through
-/// the output encoding the script sets first. Only the two properties the list needs are
+/// The Windows printer list: one line per printer, `*` on the system default, then a tab and
+/// `2` when the driver reports the Duplex Printing capability (3), `1` when it doesn't. UTF-8,
+/// through the output encoding the script sets first. Only the properties the list needs are
 /// pulled, so a machine with many printers doesn't wait for the rest of each record.
 #[cfg(windows)]
-const POWERSHELL_PRINTERS: &str = "[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false); Get-CimInstance Win32_Printer -Property Name, Default | ForEach-Object { if ($_.Default) { '*' + $_.Name } else { $_.Name } }";
+const POWERSHELL_PRINTERS: &str = "[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false); Get-CimInstance Win32_Printer -Property Name, Default, Capabilities | ForEach-Object { $sides = if (@($_.Capabilities) -contains 3) { '2' } else { '1' }; if ($_.Default) { '*' + $_.Name + [char]9 + $sides } else { $_.Name + [char]9 + $sides } }";
 
 /// The Print dialog's printers from the Windows printer list: one per line, `*` before the
-/// system default (a Windows queue name may not contain `*`). The first `*` wins when a broken
-/// spooler marks more than one, so the dialog still has a single default to preselect.
+/// system default (a Windows queue name may not contain `*`), and after a tab `2` or `1` for
+/// whether the driver can print two-sided. The first `*` wins when a broken spooler marks more
+/// than one, so the dialog still has a single default to preselect.
 pub fn parse_windows_printers(out: &str) -> Vec<Printer> {
     let mut printers: Vec<Printer> = out
         .lines()
         .map(|l| l.strip_suffix('\r').unwrap_or(l))
         .filter(|l| !l.is_empty())
-        .map(|l| match l.strip_prefix('*') {
-            Some(name) => Printer { name: name.to_string(), default: true },
-            None => Printer { name: l.to_string(), default: false },
+        .map(|l| {
+            let (l, two_sided) = match l.rsplit_once('\t') {
+                Some((name, "2")) => (name, Some(true)),
+                Some((name, "1")) => (name, Some(false)),
+                _ => (l, None),
+            };
+            match l.strip_prefix('*') {
+                Some(name) => Printer { name: name.to_string(), default: true, two_sided },
+                None => Printer { name: l.to_string(), default: false, two_sided },
+            }
         })
         .collect();
     let mut seen_default = false;

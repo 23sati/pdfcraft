@@ -3611,6 +3611,7 @@ dependencies = [
  "image",
  "pdfcraft-cos",
  "pdfcraft-engine",
+ "pdfcraft-fonts",
  "pdfcraft-model",
  "pdfcraft-organize",
  "pdfcraft-platform",
@@ -3841,6 +3842,8 @@ dependencies = [
 name = "pdfcraft-platform"
 version = "0.6.0"
 dependencies = [
+ "async-channel",
+ "futures-lite",
  "zbus",
 ]
 
