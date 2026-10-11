@@ -93,6 +93,9 @@ real_name = "Atos Lins"
 display_name = "Atos Lins"
 sync_github_name = false
 
+[people.mhadidi06]
+display_name = "Mustafa Hadidi"
+
 [people.LucasT-dev]
 real_name = "Lucas"
 display_name = "Lucas"

@@ -367,7 +367,7 @@ pub struct DocView {
     screen_xforms: Vec<(usize, PageXform)>,
     /// The scroll viewport on screen last frame.
     viewport_screen: Rect,
-    /// Pending zoom anchor: page, position within it (0..1), and offset from the viewport corner.
+    /// Pending zoom anchor: page, fractional position (also in gutters), and viewport offset.
     zoom_anchor: Option<(usize, f32, f32, Vec2)>,
     /// The page view has been shown, so its scroll offset in egui's memory is this document's.
     shown: bool,
@@ -1214,17 +1214,31 @@ impl DocView {
 
     /// Zoom keeping the centre of the view still.
     pub fn set_zoom(&mut self, zoom: f32) {
-        let centre = self.viewport_screen.center();
+        // CLI/view options can set zoom before the first layout. Rect::NOTHING has no
+        // finite centre yet, but an initial zoom still needs to leave the default fit mode.
+        let centre = if self.viewport_screen.is_positive() { self.viewport_screen.center() } else { Pos2::ZERO };
         self.zoom_at(zoom, centre);
     }
 
     /// Zoom keeping the document point under `screen_pos` still (pinch, ⌘-scroll).
     pub fn zoom_at(&mut self, zoom: f32, screen_pos: Pos2) {
-        let anchor = self.screen_rects.iter().find(|(_, r)| r.expand(GAP).contains(screen_pos)).map(|(p, r)| {
-            let f = (screen_pos - r.min) / r.size();
-            (*p, f.x.clamp(0.0, 1.0), f.y.clamp(0.0, 1.0), screen_pos - self.viewport_screen.min)
-        });
-        self.zoom = zoom.clamp(0.08, 64.0);
+        if !zoom.is_finite() || !screen_pos.is_finite() {
+            return;
+        }
+        let zoom = zoom.clamp(0.08, 64.0);
+        if zoom == self.zoom && self.fit == Fit::None {
+            return;
+        }
+        // In gutters/gaps, anchor relative to the nearest page rather than jumping to its top.
+        // Fractions outside 0..1 preserve the pointer's position outside the page as well.
+        let anchor =
+            self.screen_rects.iter().min_by(|(_, a), (_, b)| a.distance_sq_to_pos(screen_pos).total_cmp(&b.distance_sq_to_pos(screen_pos))).map(
+                |(p, r)| {
+                    let f = (screen_pos - r.min) / r.size();
+                    (*p, f.x, f.y, screen_pos - self.viewport_screen.min)
+                },
+            );
+        self.zoom = zoom;
         self.fit = Fit::None;
         match anchor {
             Some(a) => self.zoom_anchor = Some(a),
@@ -1997,7 +2011,10 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
 
     // Pinch / ctrl+scroll zoom, anchored on the current page.
     let zoom_delta = ui.input(|i| i.zoom_delta());
-    if (zoom_delta - 1.0).abs() > 0.001 && ui.rect_contains_pointer(avail) {
+    // Exclude the previous frame's scrollbar tracks from gesture activation.
+    let navigation_rect = if view.viewport_screen.is_positive() { avail.intersect(view.viewport_screen) } else { avail };
+    let navigation_enabled = app.dialog.is_none() && app.close_request.is_none() && !app.palette_open && ui.is_enabled() && ui.input(|i| i.focused);
+    if zoom_delta.is_finite() && zoom_delta > 0.0 && zoom_delta != 1.0 && navigation_enabled && ui.rect_contains_pointer(navigation_rect) {
         let z = view.zoom * zoom_delta;
         match ui.input(|i| i.pointer.hover_pos()) {
             Some(p) => view.zoom_at(z, p),
@@ -2880,6 +2897,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         (page, out.state.offset.y <= MARGIN - GAP + 1.0, out.state.offset.y >= max_y - 1.0)
     });
 
+    view.viewport_screen = out.inner_rect;
     view.auto_scroll.paint(ui, avail);
 
     // Collect all main-page demand, including cached surfaces, for byte admission later.
