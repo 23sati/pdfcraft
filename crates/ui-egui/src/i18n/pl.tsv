@@ -106,12 +106,18 @@
 	Open a PDF (⌘O)	Otwórz PDF (⌘O)
 	Dark gray theme	Ciemnoszary motyw
 	Light theme	Jasny motyw
+	Appearance mode	Tryb wyglądu
+	Light	Jasny
+	Dark	Ciemny
+	Active	Aktywny
+	Dark theme	Ciemny motyw
+	Appearance settings…	Ustawienia wyglądu…
 	All tools	Wszystkie narzędzia
 	Read	Czytaj
 	Convert	Konwertuj
 	E-Sign	Podpis elektroniczny
 	Print (⌘P)	Drukuj (⌘P)
-	Save (M4)	Zapisz (M4)
+	Save ({key})	Zapisz ({key})
 	Document properties (⌘D)	Właściwości dokumentu (⌘D)
 	Find tools and commands	Znajdź narzędzia i polecenia
 	Fit to height	Dopasuj do wysokości
@@ -844,6 +850,10 @@
 	The signature will be invisible.	Podpis będzie niewidoczny.
 	Distinguished name	Nazwa wyróżniająca
 	Labels	Etykiety
+	Graphic	Grafika
+	Signer's name	Nazwa podpisującego
+	Fill & Sign signature	Podpis z „Wypełnij i podpisz”
+	Choose image…	Wybierz obraz…
 	Permitted actions after certifying	Dozwolone działania po certyfikacji
 	No changes allowed	Zmiany niedozwolone
 	Annotations, form fill-in, and digital signatures	Adnotacje, wypełnianie formularzy i podpisy cyfrowe
@@ -2195,3 +2205,10 @@ key	Space	Spacja
 	Text used as a clipping path cannot be moved with this selection.	Tekstu używanego jako ścieżka przycinania nie można przenieść razem z tym zaznaczeniem.
 	These objects could not be moved. Select them again and try a smaller move.	Nie udało się przenieść tych obiektów. Zaznacz je ponownie i spróbuj mniejszego przesunięcia.
 	This page contains objects that cannot be selected together.	Ta strona zawiera obiekty, których nie można zaznaczyć razem.
+	Mouse wheel scroll speed	Szybkość przewijania kółkiem myszy
+scroll speed	Slow	Wolna
+scroll speed	Normal	Normalna
+scroll speed	Fast	Szybka
+	Enhance camera image	Popraw zdjęcie z aparatu
+	Drag the corners onto the document's edges, then choose Enhance page.	Przeciągnij narożniki na krawędzie dokumentu, a następnie wybierz Popraw stronę.
+	Enhance page	Popraw stronę

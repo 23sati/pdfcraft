@@ -5941,9 +5941,9 @@ tier = "P1"
 milestone = "M9"
 status = "partial"
 commands = ["sign.digital"]
-tools = []
-evidence = ["crates/ui-egui/tests/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting"]
-notes = "text items (name, date, reason, location, DN, labels); no graphics or saved appearances yet"
+tools = ["sign_document"]
+evidence = ["crates/ui-egui/tests/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting", "crates/ui-egui/tests/signing.rs::the_fill_and_sign_signature_or_an_image_shows_in_a_digital_signature", "crates/sign/tests/pdf.rs::visible_signatures_show_a_drawn_typed_or_image_graphic", "crates/sign/tests/pdf.rs::malformed_signature_graphics_are_refused_not_drawn", "crates/sign/tests/pdf.rs::an_encrypted_documents_signature_graphic_is_encrypted_with_it", "crates/automation/tests/automation.rs::signing_with_an_image_typed_or_drawn_graphic_through_tools"]
+notes = "text items (name, date, reason, location, DN, labels), and a graphic where the large name would be: the saved Fill & Sign signature (drawn, typed or image) or an imported PNG/JPEG (white paper made transparent, as in Fill & Sign), remembered for the next signing; alone it fills the box. Missing: named saved appearances (one remembered choice only), a PDF page as the graphic, the logo/watermark background, drawing a new signature inside the dialog"
 
 [[feature]]
 id = "sign.reason-location"
@@ -6591,11 +6591,11 @@ title = "Enhance camera images (edges, perspective, contrast)"
 area = "I"
 tier = "P1"
 milestone = "M10"
-status = "planned"
-commands = []
-tools = []
-evidence = []
-notes = ""
+status = "partial"
+commands = ["ocr.enhance_camera"]
+tools = ["page_enhance_camera"]
+evidence = ["crates/engine/src/tests.rs::enhance_camera_page_straightens_the_sheet", "crates/automation/tests/automation.rs::enhance_camera_image_through_tools", "crates/ui-egui/tests/camera.rs::dragging_a_corner_then_enhance_page_straightens_the_page", "crates/ui-egui/tests/camera.rs::after_enhance_page_crop_and_organize_take_over", "crates/engine/src/tests.rs::detect_camera_corners_finds_the_sheet_in_user_space", "crates/automation/tests/automation.rs::enhance_camera_image_finds_the_edges_by_itself"]
+notes = "Four corners (any order, a convex quadrilateral) are warped to an upright page at the picture's own resolution, in one undoable step; comments, links and bookmarks stay. Scan & OCR ▸ Enhance camera image shows four corner handles on the current page (Enhance page / Cancel / Esc), then offers rotate either way, Crop pages and Organize pages for the enhanced page; page_enhance_camera does the same headlessly. The corners start on the document's edges when they are found (straight lines with an edge along most of each side, refined by a line fit; tested on synthetic photos with text, wood grain, shadows, strong perspective and a 30° turn), else inset 5%. Missing: turning the result upright (text orientation), rounded-corner cards keep their background in the corners, contrast and background cleanup, document types."
 
 [[feature]]
 id = "ocr.camera-document-type"

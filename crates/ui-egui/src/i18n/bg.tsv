@@ -535,6 +535,10 @@
 	The signature will be invisible.	Подписът ще бъде невидим.
 	Distinguished name	Отличително име
 	Labels	Етикети
+	Graphic	Графика
+	Signer's name	Име на подписващия
+	Fill & Sign signature	Подпис от „Попълни и подпиши“
+	Choose image…	Избор на изображение…
 	Permitted actions after certifying	Разрешени действия след сертифициране
 	No changes allowed	Не се разрешават промени
 	Annotations, form fill-in, and digital signatures	Анотации, попълване на формуляри и цифрови подписи
@@ -1090,8 +1094,14 @@
 	Open a PDF ({key})	Отвори PDF файл ({key})
 	Dark gray theme	Тъмносива тема
 	Light theme	Светла тема
+	Appearance mode	Режим на облика
+	Light	Светъл
+	Dark	Тъмен
+	Active	Активен
+	Dark theme	Тъмна тема
+	Appearance settings…	Настройки на облика…
 	Print ({key})	Печат ({key})
-	Save (M4)	Запиши (M4)
+	Save ({key})	Запиши ({key})
 	Document properties ({key})	Свойства на документа ({key})
 	Action Wizard…	Съветник за действия…
 	Add Bates numbering…	Добави номериране на Бейтс…
@@ -2164,3 +2174,10 @@ key	Space	Интервал
 	Resize panel window	Преоразмери прозореца на панела
 	Tools	Инструменти
 	Inspector	Инспектор
+	Mouse wheel scroll speed	Скорост на превъртане с колелцето на мишката
+scroll speed	Slow	Ниска
+scroll speed	Normal	Нормална
+scroll speed	Fast	Висока
+	Enhance camera image	Подобри снимка от камера
+	Drag the corners onto the document's edges, then choose Enhance page.	Плъзнете ъглите до краищата на документа, след това изберете „Подобри страницата“.
+	Enhance page	Подобри страницата

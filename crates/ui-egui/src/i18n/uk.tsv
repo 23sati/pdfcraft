@@ -109,12 +109,18 @@
 	Open a PDF ({key})	Відкрити PDF ({key})
 	Dark gray theme	Темно-сіра тема
 	Light theme	Світла тема
+	Appearance mode	Режим вигляду
+	Light	Світлий
+	Dark	Темний
+	Active	Активний
+	Dark theme	Темна тема
+	Appearance settings…	Налаштування вигляду…
 	All tools	Усі інструменти
 	Read	Читання
 	Convert	Перетворення
 	E-Sign	Електронний підпис
 	Print ({key})	Друк ({key})
-	Save (M4)	Зберегти (M4)
+	Save ({key})	Зберегти ({key})
 	Document properties ({key})	Властивості документа ({key})
 	Find tools and commands	Знайти інструменти й команди
 	Fit to height	За висотою
@@ -848,6 +854,10 @@
 	The signature will be invisible.	Підпис буде невидимим.
 	Distinguished name	Розпізнавальне ім’я
 	Labels	Позначки
+	Graphic	Графіка
+	Signer's name	Ім’я підписувача
+	Fill & Sign signature	Підпис із «Заповнення й підпис»
+	Choose image…	Вибрати зображення…
 	Permitted actions after certifying	Дозволені дії після засвідчення
 	No changes allowed	Зміни заборонено
 	Annotations, form fill-in, and digital signatures	Коментарі, заповнення форми й цифрові підписи
@@ -2223,3 +2233,10 @@ key	Space	Пробіл
 	Panels	Панелі
 	Resize panels	Змінити розмір панелей
 	Resize panel window	Змінити розмір вікна панелі
+	Mouse wheel scroll speed	Швидкість прокручування коліщатком миші
+scroll speed	Slow	Повільна
+scroll speed	Normal	Звичайна
+scroll speed	Fast	Швидка
+	Enhance camera image	Поліпшити знімок з камери
+	Drag the corners onto the document's edges, then choose Enhance page.	Перетягніть кути до країв документа, потім виберіть «Поліпшити сторінку».
+	Enhance page	Поліпшити сторінку

@@ -110,12 +110,18 @@
 	Open a PDF ({key})	PDF を開く（{key}）
 	Dark gray theme	ダークグレーのテーマ
 	Light theme	ライトテーマ
+	Appearance mode	外観モード
+	Light	ライト
+	Dark	ダーク
+	Active	使用中
+	Dark theme	ダークテーマ
+	Appearance settings…	外観の設定…
 	All tools	すべてのツール
 	Read	閲覧
 	Convert	変換
 	E-Sign	電子署名
 	Print ({key})	印刷（{key}）
-	Save (M4)	保存（M4）
+	Save ({key})	保存（{key}）
 	Document properties ({key})	文書のプロパティ（{key}）
 	Find tools and commands	ツールとコマンドを検索
 	Fit to height	高さに合わせる
@@ -850,6 +856,10 @@
 	The signature will be invisible.	署名は非表示になります。
 	Distinguished name	識別名
 	Labels	ラベル
+	Graphic	グラフィック
+	Signer's name	署名者名
+	Fill & Sign signature	入力と署名の署名
+	Choose image…	画像を選択…
 	Permitted actions after certifying	証明後に許可する操作
 	No changes allowed	変更を許可しない
 	Annotations, form fill-in, and digital signatures	注釈、フォーム入力、デジタル署名
@@ -2202,3 +2212,10 @@ key	Space	スペース
 	Resize panel window	パネルウィンドウのサイズを変更
 	Tools	ツール
 	Inspector	インスペクター
+	Mouse wheel scroll speed	マウスホイールのスクロール速度
+scroll speed	Slow	遅い
+scroll speed	Normal	標準
+scroll speed	Fast	速い
+	Enhance camera image	カメラ画像を補正
+	Drag the corners onto the document's edges, then choose Enhance page.	四隅を文書の端までドラッグしてから、「ページを補正」を選択します。
+	Enhance page	ページを補正
