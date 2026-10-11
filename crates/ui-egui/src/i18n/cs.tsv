@@ -48,7 +48,7 @@
 	Remove from Recent	Odebrat z nedávných souborů
 	Remove {name} from Recent	Odebrat {name} z nedávných souborů
 	Clear	Vymazat
-	Pin folder to Home…	Připnout složku na úvodní stránku…
+	Pin folder to Home…	Připnout složku na úvodní obrazovku…
 	No recent files	Žádné nedávné soubory
 	New blank PDF	Nový prázdný dokument PDF
 	Create PDF from file…	Vytvořit PDF ze souboru…
@@ -138,10 +138,10 @@
 	PdfCraft is drawing without a graphics processor, so it may be slow. Updating the graphics driver may help.	PdfCraft vykresluje bez grafického procesoru, takže může být pomalý. Pomoci může aktualizace grafického ovladače.
 	Go to page…	Přejít na stránku…
 	Open arrow	Otevřená šipka
-	Closed arrow	Zavřená šipka
+	Closed arrow	Uzavřená šipka
 	Butt	Tupý konec
-	Reverse open arrow	Otevřená šipka obráceně
-	Reverse closed arrow	Zavřená šipka obráceně
+	Reverse open arrow	Obrácená otevřená šipka
+	Reverse closed arrow	Obrácená uzavřená šipka
 	Slash	Lomítko
 	Scroll tabs left	Posunout karty doleva
 	Scroll tabs right	Posunout karty doprava
@@ -197,7 +197,7 @@ key	Space	Mezerník
 # The rest of the interface: Home, All tools, panels, dialogs, notices and history labels.
 	Folders	Složky
 	Pin a folder…	Připnout složku…
-	Pin a folder to Home	Připnout složku na úvodní stránku
+	Pin a folder to Home	Připnout složku na úvodní obrazovku
 	Pin a folder to list its newest PDFs here, such as where your scanner or a synced cloud drive saves them.	Připněte složku a uvidíte zde její nejnovější soubory PDF, třeba tu, kam ukládá skener nebo synchronizovaný cloudový disk.
 	Unpin	Odepnout
 	Unpin {folder}	Odepnout {folder}
@@ -209,10 +209,10 @@ key	Space	Mezerník
 	The newest {n} of {total} PDFs	Nejnovější soubory PDF: {n} z {total}
 	Pinned folders need the desktop app	Připnuté složky vyžadují desktopovou aplikaci
 	Choose a folder on this computer to pin	Vyberte složku v tomto počítači, kterou chcete připnout
-	{folder} is already pinned to Home	Složka {folder} už je připnutá na úvodní stránce
+	{folder} is already pinned to Home	Složka {folder} už je připnutá na úvodní obrazovce
 	You can pin up to {n} folders. Unpin one first.	Připnout lze nejvýše {n} složek. Nejdříve některou odepněte.
-	Pinned {folder} to Home	Složka {folder} je připnutá na úvodní stránce
-	Join our Discord	Připojte se k nám na Discordu
+	Pinned {folder} to Home	Složka {folder} je připnutá na úvodní obrazovce
+	Join our Discord	Připojit se k našemu Discordu
 	Close	Zavřít
 	Next / previous match	Další / předchozí shoda
 	Copy selected text	Kopírovat vybraný text
@@ -268,7 +268,7 @@ key	Space	Mezerník
 	Previous page	Předchozí stránka
 	Current page — type a page number or label (such as iv) and press Enter	Aktuální stránka — zadejte číslo nebo označení stránky (třeba iv) a stiskněte Enter
 	Welcome to PdfCraft	Vítá vás PdfCraft
-	An open-source PDF workbench — local, private, and scriptable.	Otevřená dílna pro PDF — lokální, soukromá a skriptovatelná.
+	An open-source PDF workbench — local, private, and scriptable.	Open-source dílna pro PDF — lokální, soukromá a skriptovatelná.
 	Join the ArtCraft community	Připojte se ke komunitě ArtCraft
 	Get help, share feedback and follow development on Discord.	Získejte pomoc, sdílejte zpětnou vazbu a sledujte vývoj na Discordu.
 	Recommended tools	Doporučené nástroje
@@ -303,7 +303,7 @@ key	Space	Mezerník
 	Draw a polygon	Nakreslit mnohoúhelník
 	Draw connected lines	Nakreslit lomenou čáru
 	Draw a cloud	Nakreslit obláček
-	Add a callout	Přidat odkazový popisek
+	Add a callout	Přidat popisek se šipkou
 	Insert text	Vložit text
 	Replace text	Nahradit text
 	Attach a file	Připojit soubor
@@ -339,7 +339,7 @@ key	Space	Mezerník
 	Redact pages…	Začernit stránky…
 	Find text and redact…	Najít text a začernit…
 	Redaction properties…	Vlastnosti začernění…
-	Apply redactions…	Použít začernění…
+	Apply redactions…	Provést začernění…
 	Clear redaction marks	Vymazat značky začernění
 	Remove hidden information…	Odebrat skryté informace…
 	Sanitize document…	Vyčistit dokument…
@@ -511,14 +511,14 @@ key	Space	Mezerník
 	Geospatial location	Geoprostorová poloha
 	Compare files	Porovnat soubory
 	Select files to compare	Vyberte soubory k porovnání
-	Use guided actions	Použít řízené akce
+	Use guided actions	Použít akce s průvodcem
 	Actions list	Seznam akcí
 	Action Wizard	Průvodce akcemi
 	Make accessible	Zpřístupnit
 	Prepare for distribution	Připravit k distribuci
 	Optimize scanned documents	Optimalizovat skenované dokumenty
 	Archive documents	Archivovat dokumenty
-	Prepare for accessibility	Připravit přístupnost
+	Prepare for accessibility	Zajistit přístupnost
 	Accessibility	Přístupnost
 	Automatically tag PDF	Automaticky označkovat PDF
 	Change reading options	Změnit možnosti čtení
@@ -649,7 +649,7 @@ key	Space	Mezerník
 	Space Audit	Analýza využití místa
 	Bytes	Bajty
 	Content Streams	Proudy obsahu
-	X Object Forms	Formuláře XObject
+	X Object Forms	Objekty Form XObject
 	Structure Info	Informace o struktuře
 	Thumbnails	Miniatury
 	Named Destinations	Pojmenované cíle
@@ -683,25 +683,25 @@ key	Space	Mezerník
 	Border Color:	Barva ohraničení:
 	Fill Color:	Barva výplně:
 	No color	Bez barvy
-	Beveled	Zkosené
+	Beveled	Zkosená
 	Left:	Vlevo:
 	Bottom:	Dole:
 	Width:	Šířka:
 	Height:	Výška:
-	Points from the page's bottom-left corner.	Body od levého dolního rohu stránky.
+	Points from the page's bottom-left corner.	V bodech od levého dolního rohu stránky.
 	Alignment:	Zarovnání:
 	Default Value:	Výchozí hodnota:
 	Multi-line	Víceřádkové
 	Scroll long text	Posouvat dlouhý text
-	Allow Rich Text Formatting	Povolit formátování RTF
-	Limit of	Limit
+	Allow Rich Text Formatting	Povolit formátovaný text
+	Limit of	Omezit na
 	characters	znaků
 	Field is used for file selection	Pole slouží k výběru souboru
 	Check spelling	Kontrolovat pravopis
 	Comb of	Rozdělit na
 	Export Value: {on}	Hodnota pro export: {on}
 	Check box is checked by default	Zaškrtávací políčko je ve výchozím stavu zaškrtnuté
-	Button is checked by default	Přepínač je ve výchozím stavu zapnutý
+	Button is checked by default	Přepínač je ve výchozím stavu vybraný
 	Buttons with the same name and value are selected in unison	Přepínače se stejným názvem a hodnotou se vybírají současně
 	Item:	Položka:
 	Item List	Seznam položek
@@ -729,7 +729,7 @@ key	Space	Mezerník
 	Custom:	Vlastní:
 	Zip Code	PSČ (USA)
 	Zip Code + 4	PSČ + 4 (USA)
-	Phone Number	Telefonní číslo
+	Phone Number	Telefonní číslo (USA)
 	Social Security Number	Číslo sociálního zabezpečení (USA)
 	Arbitrary Mask	Libovolná maska
 	Mask:	Maska:
@@ -741,18 +741,18 @@ key	Space	Mezerník
 	Select Trigger:	Vyberte spouštěč:
 	Mouse Up	Uvolnění tlačítka myši
 	Mouse Down	Stisknutí tlačítka myši
-	Mouse Enter	Vstup myši
-	Mouse Exit	Opuštění myši
+	Mouse Enter	Najetí kurzoru
+	Mouse Exit	Odjetí kurzoru
 	On Focus	Při získání fokusu
 	On Blur	Při ztrátě fokusu
 	Select Action:	Vyberte akci:
 	Open a web link	Otevřít webový odkaz
-	Reset a form	Obnovit formulář
+	Reset a form	Resetovat formulář
 	Execute a menu item	Spustit položku nabídky
 	Show a field	Zobrazit pole
 	Hide a field	Skrýt pole
 	Submit a form	Odeslat formulář
-	Fields to reset (comma-separated; empty: all)	Pole k obnovení (oddělená čárkami; prázdné: všechna)
+	Fields to reset (comma-separated; empty: all)	Pole k resetování (oddělená čárkami; prázdné: všechna)
 	Print, NextPage, PrevPage, FirstPage or LastPage	Print, NextPage, PrevPage, FirstPage nebo LastPage
 	Field names (comma-separated)	Názvy polí (oddělené čárkami)
 	URL to submit to	Adresa URL pro odeslání
@@ -828,7 +828,7 @@ key	Space	Mezerník
 	Asks GitHub for the latest release. Nothing is downloaded or installed automatically.	Zjistí na GitHubu nejnovější vydání. Nic se automaticky nestahuje ani neinstaluje.
 	Download	Stáhnout
 	Later	Později
-	none	žádný
+	none	žádná
 	Declared conformance: {shown}	Deklarovaná shoda: {shown}
 	Output intent: {list}	Výstupní záměr: {list}
 	Conformance level:	Úroveň shody:
@@ -880,7 +880,7 @@ key	Space	Mezerník
 	Highlight Style:	Styl zvýraznění:
 	Invert	Invertovat
 	Outline	Obrys
-	Inset	Vsazení
+	Inset	Zapuštění
 	Line Thickness:	Tloušťka čáry:
 	Thin	Tenká
 	Thick	Silná
@@ -908,7 +908,7 @@ key	Space	Mezerník
 	Continue	Pokračovat
 	Configure a Digital ID for Signing	Nastavení digitálního ID pro podepisování
 	Use a Digital ID from a file	Použít digitální ID ze souboru
-	Create a new Digital ID (self-signed, saved to a password-protected file)	Vytvořit nové digitální ID (podepsané sebou samým, uložené do souboru chráněného heslem)
+	Create a new Digital ID (self-signed, saved to a password-protected file)	Vytvořit nové digitální ID (samopodepsané, uložené do souboru chráněného heslem)
 	Name	Jméno
 	Organizational Unit	Organizační jednotka
 	Organization Name	Název organizace
@@ -916,7 +916,7 @@ key	Space	Mezerník
 	Country/Region	Země/oblast
 	Key Algorithm	Algoritmus klíče
 	Confirm Password	Potvrzení hesla
-	Valid for 5 years, for digital signatures. Self-signed IDs are usually not trusted by others.	Platí 5 let, pro digitální podpisy. ID podepsaná sebou samým ostatní obvykle nepovažují za důvěryhodná.
+	Valid for 5 years, for digital signatures. Self-signed IDs are usually not trusted by others.	Platí 5 let, pro digitální podpisy. Samopodepsaná ID ostatní obvykle nepovažují za důvěryhodná.
 	File (.p12, .pfx)	Soubor (.p12, .pfx)
 	Digital ID	Digitální ID
 	Browse…	Procházet…
@@ -967,7 +967,7 @@ key	Space	Mezerník
 	Public key	Veřejný klíč
 	Key usage	Použití klíče
 	Not present	Není uvedeno
-	Self-signed	Podepsaný sebou samým
+	Self-signed	Samopodepsaný
 	Edit Action	Upravit akci
 	New Action	Nová akce
 	Action name:	Název akce:
@@ -1041,7 +1041,7 @@ key	Space	Mezerník
 	Checking Options ({on} of 32 in all categories)	Možnosti kontroly (zapnuto {on} z 32 ve všech kategoriích)
 	Show this dialog when the Checker starts	Zobrazit toto okno při spuštění kontroly
 	Select All	Vybrat vše
-	Clear All	Zrušit výběr všech
+	Clear All	Zrušit výběr
 	Start Checking	Spustit kontrolu
 	This document hasn't been checked yet.	Tento dokument zatím nebyl zkontrolován.
 	No issues found	Nenalezeny žádné problémy
@@ -1085,7 +1085,7 @@ key	Space	Mezerník
 	Check that the tags read in the order a sighted reader would. Use the Reading Order tool or the Tags panel to correct it.	Zkontrolujte, že tagy jdou v pořadí, v jakém by četl vidící čtenář. Opravte je nástrojem Pořadí čtení nebo v panelu Tagy.
 	Primary language	Hlavní jazyk
 	Text language is specified	Jazyk textu je určen
-	Screen readers choose their voice from the document's language. Set it in Document Properties > Advanced > Language.	Čtečky obrazovky volí hlas podle jazyka dokumentu. Nastavte ho ve Vlastnosti dokumentu > Rozšířené > Jazyk.
+	Screen readers choose their voice from the document's language. Set it in Document Properties > Advanced > Language.	Čtečky obrazovky volí hlas podle jazyka dokumentu. Nastavte ho v okně Vlastnosti dokumentu > Rozšířené > Jazyk.
 	Document title is showing in title bar	V záhlaví okna se zobrazuje název dokumentu
 	The window should show a meaningful title rather than the file name. Set a title and Initial View > Show: Document Title.	Okno by mělo místo názvu souboru zobrazovat smysluplný název. Nastavte název a Úvodní zobrazení > Zobrazit: Název dokumentu.
 	Bookmarks are present in large documents	Velké dokumenty obsahují záložky
@@ -1124,7 +1124,7 @@ key	Space	Mezerník
 	Form fields must be in the tag tree (Form tags) to be announced. Tag the form fields.	Formulářová pole musí být ve stromu tagů (tagy Form), aby je čtečky oznámily. Označkujte formulářová pole.
 	Field descriptions	Popisy polí
 	All form fields have description	Všechna formulářová pole mají popis
-	Each field needs a tooltip that says what to enter. Add one in Field Properties > General > Tooltip.	Každé pole potřebuje popisek, který říká, co zadat. Přidejte ho ve Vlastnosti pole > Obecné > Popisek.
+	Each field needs a tooltip that says what to enter. Add one in Field Properties > General > Tooltip.	Každé pole potřebuje popisek, který říká, co zadat. Přidejte ho v okně Vlastnosti pole > Obecné > Popisek.
 	Figures alternate text	Alternativní text obrázků
 	Figures require alternate text	Obrázky vyžadují alternativní text
 	Pictures need alternate text that describes them, or must be marked decorative. Add alternate text to each figure.	Obrázky potřebují alternativní text, který je popisuje, nebo musí být označené jako dekorativní. Přidejte alternativní text ke každému obrázku.
@@ -1170,8 +1170,8 @@ key	Space	Mezerník
 	Phone Numbers	Telefonní čísla
 	Email Addresses	E-mailové adresy
 	Credit Cards	Platební karty
-	Social Security Numbers	Rodná čísla (USA)
-	Dates	Data
+	Social Security Numbers	Čísla sociálního zabezpečení (USA)
+	Dates	Kalendářní data
 	Text in images isn't found; recognise text (OCR) first.	Text v obrázcích se nenajde; nejdřív rozpoznejte text (OCR).
 	No matches.	Žádné shody.
 	{n} match(es) marked for redaction.	K začernění označeno shod: {n}.
@@ -1187,7 +1187,7 @@ key	Space	Mezerník
 	Repeat overlay text	Opakovat překryvný text
 	Text alignment:	Zarovnání textu:
 	Center	Na střed
-	Apply redactions	Použít začernění
+	Apply redactions	Provést začernění
 	You are about to apply 1 redaction mark. Text, images and drawings under the marks, and comments and form fields that overlap them, are removed permanently.	Chystáte se použít 1 značku začernění. Text, obrázky a kresby pod značkami a komentáře a formulářová pole, která je překrývají, budou trvale odstraněny.
 	You are about to apply {n} redaction marks. Text, images and drawings under the marks, and comments and form fields that overlap them, are removed permanently.	Chystáte se použít značky začernění (počet: {n}). Text, obrázky a kresby pod značkami a komentáře a formulářová pole, která je překrývají, budou trvale odstraněny.
 	Save the document afterwards: saving rewrites the whole file so no trace of the removed content stays in it.	Dokument poté uložte: uložení přepíše celý soubor, takže v něm nezůstane žádná stopa po odstraněném obsahu.
@@ -1296,7 +1296,7 @@ key	Space	Mezerník
 	Note	Poznámka
 	Polyline	Lomená čára
 	Attachment	Příloha
-	Callout	Odkazový popisek
+	Callout	Popisek se šipkou
 	Typewriter	Psací stroj
 	Checked	Zaškrtnuto
 	Unchecked	Nezaškrtnuto
@@ -1368,7 +1368,7 @@ key	Space	Mezerník
 	Next ({key})	Další ({key})
 	Find options	Možnosti hledání
 	Whole words only	Jen celá slova
-	Case-sensitive	Rozlišovat velká a malá písmena
+	Case-sensitive	Rozlišovat velikost písmen
 	Close (Esc)	Zavřít (Esc)
 	Align	Zarovnat
 	Top	Nahoru
@@ -1433,7 +1433,7 @@ key	Space	Mezerník
 	Recover	Obnovit
 	Discard	Zahodit
 	Version {v}	Verze {v}
-	A clean-room, open-source PDF application written in Rust. MIT OR Apache-2.0.	Otevřená aplikace pro PDF napsaná v Rustu metodou clean-room. MIT OR Apache-2.0.
+	A clean-room, open-source PDF application written in Rust. MIT OR Apache-2.0.	Open-source aplikace pro PDF napsaná v Rustu metodou clean-room. MIT OR Apache-2.0.
 	Part of	Součást
 	Summarize Options	Možnosti souhrnu
 	Choose a layout:	Vyberte rozvržení:
@@ -1684,7 +1684,7 @@ key	Space	Mezerník
 	Drag to reorder	Přetažením změníte pořadí
 	{k} of {n}	{k} z {n}
 	? of {n}	? z {n}
-	Added more than once	Přidáno víckrát
+	Added more than once	Přidáno vícekrát
 	yesterday	včera
 	{n} days ago	před {n} dny
 	No pages selected	Nejsou vybrány žádné stránky
@@ -1849,7 +1849,7 @@ key	Space	Mezerník
 	{0}: {1}	{0}: {1}
 	the text recognition models are not installed (reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them)	modely pro rozpoznávání textu nejsou nainstalované (přeinstalujte PdfCraft nebo nastavte PDFCRAFT_MODELS na složku, ve které jsou)
 	the image is empty	obrázek je prázdný
-	this file isn't XFDF, FDF, XML or text form data	tento soubor nejsou data formuláře XFDF, FDF, XML ani textová
+	this file isn't XFDF, FDF, XML or text form data	tento soubor neobsahuje data formuláře ve formátu XFDF, FDF, XML ani v textovém
 	nothing in the file matches this document	nic v souboru neodpovídá tomuto dokumentu
 	This page couldn't be displayed.\n{e}	Tuto stránku nelze zobrazit.\n{e}
 	Go to page {p}	Přejít na stránku {p}
@@ -1896,7 +1896,7 @@ key	Space	Mezerník
 	Images and text	Obrázky a text
 	Check Box Style:	Styl zaškrtávacího políčka:
 	Button Style:	Styl přepínače:
-	Check	Fajfka
+	Check	Zaškrtnutí
 	Circle	Kruh
 	Diamond	Kosočtverec
 	Square	Čtverec
@@ -1971,7 +1971,7 @@ key	Space	Mezerník
 	Add cloud	Přidat obláček
 	Add polygon	Přidat mnohoúhelník
 	Add connected lines	Přidat lomenou čáru
-	Add callout	Přidat odkazový popisek
+	Add callout	Přidat popisek se šipkou
 	Add inserted text	Přidat vložený text
 	Add file attachment	Přidat připojený soubor
 	Set status Accepted	Nastavit stav Přijato
@@ -2083,7 +2083,7 @@ key	Space	Mezerník
 	Show	Zobrazit
 	Sort	Seřadit
 	Reverse the order	Obrátit pořadí
-	Grab bag	Směs
+	Grab bag	Volný seznam
 	Table	Tabulka
 	Username	Uživatelské jméno
 	Display name	Zobrazované jméno
@@ -2094,27 +2094,27 @@ key	Space	Mezerník
 	Commits	Commity
 	Lines added	Přidané řádky
 	+LOC	+LOC
-	Lines deleted	Odebrané řádky
+	Lines deleted	Odstraněné řádky
 	−LOC	−LOC
 	Line delta	Rozdíl řádků
 	ΔLOC	ΔLOC
 	Binary assets added	Přidané binární soubory
 	+Bin	+Bin
-	Binary assets removed	Odebrané binární soubory
+	Binary assets removed	Odstraněné binární soubory
 	−Bin	−Bin
 	First commit	První commit
 	First	První
 	Last commit	Poslední commit
 	Last	Poslední
-	No contributor data was built into this copy.	Do této kopie nebyla zabudována data o přispěvatelích.
-	No model credits were built into this copy.	Do této kopie nebyly zabudovány informace o modelech.
+	No contributor data was built into this copy.	Tato kopie neobsahuje údaje o přispěvatelích.
+	No model credits were built into this copy.	Tato kopie neobsahuje uvedení modelů.
 	{n} contributors · {c} commits	Přispěvatelé: {n} · commity: {c}
 	Company	Společnost
 	Model	Model
 	% of all commits	% všech commitů
 	Lines +/−	Řádky +/−
 	@{login}: {prs} PRs, {commits} commits, +{added} / −{deleted} lines (Δ {delta}), +{bin_added} / −{bin_deleted} binary assets, {first} – {last}	@{login}: PR: {prs}, commity: {commits}, +{added} / −{deleted} řádků (Δ {delta}), +{bin_added} / −{bin_deleted} binárních souborů, {first} – {last}
-	None of those files can be made into a PDF; use PDFs, images or .txt files	Z žádného z těchto souborů nelze vytvořit PDF; použijte soubory PDF, obrázky nebo soubory .txt
+	None of those files can be made into a PDF; use PDFs, images or .txt files	Ze žádného z těchto souborů nelze vytvořit PDF; použijte soubory PDF, obrázky nebo soubory .txt
 	About	O aplikaci
 	Contributors	Přispěvatelé
 	Models	Modely
@@ -2177,7 +2177,7 @@ calendar date	December	prosince
 	Larger pages	Větší stránky
 	Smaller pages	Menší stránky
 	Reset page size	Obnovit velikost stránek
-	Flatten Fill & Sign when saving	Při ukládání sloučit Vyplnit a podepsat se stránkou
+	Flatten Fill & Sign when saving	Při ukládání sloučit obsah Vyplnit a podepsat se stránkou
 	Text, marks and signatures become part of the page. Other comments stay editable.	Text, značky a podpisy se stanou součástí stránky. Ostatní komentáře zůstanou upravitelné.
 	Date format	Formát data
 	Fill & Sign dates	Datum pro Vyplnit a podepsat
@@ -2223,5 +2223,5 @@ certificate	Subject	Subjekt
 	Fill colour: none	Barva výplně: žádná
 	No fill	Bez výplně
 	Some bookmarks are not shown here: the panel lists a limited number, nested a limited depth.	Některé záložky se zde nezobrazují: panel ukazuje jen omezený počet záložek do omezené hloubky vnoření.
-	Creator	Tvůrce
-	Producer	Producent
+	Creator	Aplikace
+	Producer	Producent PDF
