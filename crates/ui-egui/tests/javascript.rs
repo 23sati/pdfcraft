@@ -94,6 +94,11 @@ fn document_scripts_and_preferences() {
     assert_eq!(h.state().session.get(id).unwrap().document_scripts()[0].0, "init");
     h.state_mut().dialog = Some(Dialog::Preferences);
     h.run_steps(2);
+    // Preferences is taller than the window: it starts to scroll on the second frame, so let it
+    // settle, then bring the option into view.
+    h.run_steps(4);
+    h.get_by_label("Enable Acrobat JavaScript").scroll_to_me();
+    h.run_steps(3);
     h.get_by_label("Enable Acrobat JavaScript").click();
     h.run_steps(2);
     assert!(!h.state().session.javascript());
