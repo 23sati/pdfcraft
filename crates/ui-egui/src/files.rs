@@ -19,6 +19,8 @@ pub enum FilePurpose {
     Ocr,
     /// Create a PDF ▸ Multiple files (PDFs, images and text).
     CreateMultiple,
+    /// Create one PDF per selected non-PDF file.
+    CreateMultipleSeparate,
     /// Find text and redact ▸ Import list: a text file with one word or phrase per line.
     RedactWords,
 }
@@ -29,7 +31,7 @@ fn files_picker(purpose: FilePurpose) -> rfd::AsyncFileDialog {
     if purpose == FilePurpose::RedactWords {
         return dialog.add_filter(tl!("Text"), &["txt"]);
     }
-    if !matches!(purpose, FilePurpose::CreateMultiple | FilePurpose::InsertPages | FilePurpose::Combine) {
+    if !matches!(purpose, FilePurpose::CreateMultiple | FilePurpose::CreateMultipleSeparate | FilePurpose::InsertPages | FilePurpose::Combine) {
         return dialog.add_filter("PDF", &["pdf"]);
     }
     let all: Vec<&str> = std::iter::once("pdf").chain(pdfcraft_engine::CONVERTIBLE).collect();
@@ -193,6 +195,11 @@ impl PdfCraftApp {
         self.pick_files(FilePurpose::CreateMultiple, true);
     }
 
+    /// Create a PDF ▸ Separate PDFs: pick source files, then a destination folder.
+    pub fn create_multiple_separate_dialog(&mut self) {
+        self.pick_files(FilePurpose::CreateMultipleSeparate, true);
+    }
+
     /// Scan & OCR ▸ Recognize text ▸ In multiple files: ask for the PDFs.
     pub fn ocr_files_dialog(&mut self) {
         self.pick_files(FilePurpose::Ocr, true);
@@ -253,6 +260,25 @@ impl PdfCraftApp {
             // Each file is read when its turn comes, so the selection's bytes are not all held at once.
             if !paths.is_empty() {
                 self.stage_create_multiple(paths.iter().map(|p| read_named(p)));
+            }
+            return;
+        }
+        if purpose == FilePurpose::CreateMultipleSeparate {
+            if !paths.is_empty() {
+                let paths = paths.to_vec();
+                let convert = move |app: &mut Self, dir: std::path::PathBuf| {
+                    app.stage_create_separate(paths.iter().map(|p| read_named(p)), Some(dir));
+                };
+                match self.export_dir_override.clone() {
+                    Some(dir) => convert(self, std::path::PathBuf::from(dir)),
+                    None => {
+                        self.ask_one(
+                            crate::pickers::Ask::Folder(rfd::AsyncFileDialog::new().set_title(tl!("Choose a folder for the exported files"))),
+                            None,
+                            convert,
+                        );
+                    }
+                }
             }
             return;
         }
@@ -377,6 +403,10 @@ impl PdfCraftApp {
             }
             FilePurpose::Ocr => self.ocr_files(files),
             FilePurpose::CreateMultiple => self.stage_create_multiple(files.into_iter().map(Ok)),
+            FilePurpose::CreateMultipleSeparate => {
+                let dir = self.export_dir_override.as_ref().map(std::path::PathBuf::from);
+                self.stage_create_separate(files.into_iter().map(Ok), dir);
+            }
             FilePurpose::RedactWords => {
                 let Some((name, bytes)) = files.into_iter().next() else { return };
                 if bytes.len() > crate::redact_ui::MAX_WORD_LIST_BYTES {

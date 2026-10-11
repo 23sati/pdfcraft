@@ -345,6 +345,7 @@
 	Create from	Створити з
 	Single file	Один файл
 	Multiple files	Кілька файлів
+	Separate PDFs	Окремі PDF-файли
 	Images	Зображення
 	Clipboard	Буфер обміну
 	Blank page	Порожня сторінка
@@ -2023,6 +2024,7 @@
 @plural	{n} page|{n} pages	{n} сторінка|{n} сторінки|{n} сторінок
 @plural	{n} field|{n} fields	{n} поле|{n} поля|{n} полів
 	Create PDF from multiple files…	Створити PDF із кількох файлів…
+	Create separate PDFs…	Створити окремі PDF-файли…
 	Optimizing… removing user data	Оптимізація… видалення даних користувача
 	Optimizing… image {d} of {t}	Оптимізація… зображення {d} із {t}
 	Optimizing… cleaning up	Оптимізація… очищення

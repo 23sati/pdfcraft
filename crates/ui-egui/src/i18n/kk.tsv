@@ -307,6 +307,7 @@
 	Create from	Мынадан жасау
 	Single file	Бір файл
 	Multiple files	Бірнеше файл
+	Separate PDFs	Бөлек PDF файлдары
 	Images	Кескіндер
 	Clipboard	Алмасу буфері
 	Blank page	Бос бет
@@ -1954,6 +1955,7 @@
 @plural	{n} page|{n} pages	{n} бет|{n} бет
 @plural	{n} field|{n} fields	{n} өріс|{n} өріс
 	Create PDF from multiple files…	Бірнеше файлдан PDF жасау…
+	Create separate PDFs…	Бөлек PDF файлдарын жасау…
 	Optimizing… removing user data	Оңтайландыру… пайдаланушы деректерін жою
 	Optimizing… image {d} of {t}	Оңтайландыру… сурет {d} / {t}
 	Optimizing… cleaning up	Оңтайландыру… тазарту

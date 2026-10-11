@@ -73,7 +73,7 @@ features total).
 | PostScript / EPS (Distiller) | yes | no | none | `create.distiller` planned (P3) |
 | Markdown | no | no | none | `create.from-markdown` planned (P2; not an Acrobat feature) |
 | Scanner | yes | no | none | `ocr.scanner-acquire` planned |
-| Several files at once | yes | yes (PDFs, images and text) | good | `create.create-multiple` |
+| Several files at once | yes | yes: combine PDFs, images and text into one document, or create a separate PDF for each non-PDF source (GUI and `doc_create_multiple mode=separate`); existing outputs get numbered names | good for supported source types | `create.create-multiple`, `separate_batch_creates_one_pdf_per_source_without_replacing_existing_files` |
 
 ## Export PDF to
 

@@ -485,6 +485,7 @@
 	Create PDF from images	Ustvari PDF iz slik
 	Create PDF from images…	Ustvari PDF iz slik…
 	Create PDF from multiple files…	Ustvari PDF iz več datotek…
+	Create separate PDFs…	Ustvari ločene PDF-je…
 	Create a PDF	Ustvari PDF
 	Create a new Digital ID (self-signed, saved to a password-protected file)	Ustvari novo digitalno identiteto (samopodpisano, shranjeno v datoteko, zaščiteno z geslom)
 	Create accessibility report	Ustvari poročilo o dostopnosti
@@ -1094,6 +1095,7 @@
 	Multi-line	Večvrstično
 	Multiple	Več
 	Multiple files	Več datotek
+	Separate PDFs	Ločeni PDF-ji
 	Multiple selection	Večkratna izbira
 	Name	Ime
 	Name (A–Z)	Ime (A–Ž)
