@@ -1352,3 +1352,104 @@ fn a_text_field_that_outgrows_a_page_continues_on_the_next_as_text() {
     let last_line = last.items.iter().filter_map(|it| if let Item::Text(s) = it { Some(s.baseline) } else { None }).fold(0.0, f64::max);
     assert!(after.rect.y >= last_line - 0.01 && after.rect.bottom() <= 36.0 + 720.0 + 0.01, "{:?} after {last_line}", after.rect);
 }
+
+#[test]
+fn the_form_packet_restores_the_presence_and_access_the_form_was_saved_with() {
+    // Three rows hidden in the template; a script showed the first two before the form was
+    // saved, and locked a field.
+    let row = |n: usize, presence: &str| {
+        format!(
+            r#"<subform name="row{n}" layout="lr-tb" w="7.5in"{presence}><field name="who" w="3in" h="0.4in"><ui><textEdit/></ui></field></subform>"#
+        )
+    };
+    let body = format!(
+        r#"<subform name="body" layout="lr-tb" w="7.5in">{}{}{}{}<subform name="rep" layout="lr-tb" w="7.5in"><occur max="-1"/><field name="x" w="3in" h="0.4in"><ui><textEdit/></ui></field></subform></subform>"#,
+        row(0, ""),
+        row(1, r#" presence="hidden""#),
+        row(2, r#" presence="hidden""#),
+        row(3, r#" presence="hidden""#)
+    );
+    let template = one_area_form(r#"layout="tb""#, &body);
+    let visible = |xdp: &str| -> Vec<String> { layout_xml(xdp).unwrap().pages.iter().flat_map(widgets).map(|w| w.som.clone()).collect() };
+    assert_eq!(visible(&template), ["form[0].body[0].row0[0].who[0]", "form[0].body[0].rep[0].x[0]"]);
+    let saved = r#"<form xmlns="http://www.xfa.org/schema/xfa-form/2.8/" checksum="x"><subform name="form">
+ <instanceManager name="_body"/>
+ <subform name="body">
+  <subform name="row0"><field name="who" access="readOnly"/></subform>
+  <subform name="row1" presence="visible"><field name="who" access="readOnly"><value override="1"/></field></subform>
+  <subform name="row2" presence="visible"/>
+  <subform name="row3" presence="hidden"/>
+  <subform name="rep"><field name="x"/></subform>
+  <subform name="rep" presence="hidden"><field name="x" access="readOnly"/></subform>
+  <subform name="nowhere" presence="hidden"/>
+ </subform>
+ <pageSet><pageArea name="page"/></pageSet>
+</subform></form>
+</xdp:xdp>"#;
+    let xdp = template.replace("</xdp:xdp>", saved);
+    assert_eq!(
+        visible(&xdp),
+        ["form[0].body[0].row0[0].who[0]", "form[0].body[0].row1[0].who[0]", "form[0].body[0].row2[0].who[0]", "form[0].body[0].rep[0].x[0]"],
+        "a later instance of a repeating subform says nothing about the template's one"
+    );
+    let form = layout_xml(&xdp).unwrap();
+    let locked: Vec<bool> = form.pages.iter().flat_map(widgets).map(|w| w.read_only).collect();
+    assert_eq!(locked, [true, true, false, false]);
+}
+
+#[test]
+fn a_flowed_subform_is_as_tall_as_its_content_whatever_its_minimum_height() {
+    // A bar with a stale 3in `minH` holds one 0.2in line; the row after it follows directly.
+    let body = |bar: &str| {
+        format!(
+            r#"<subform name="body" layout="lr-tb" w="7.5in"><subform name="bar" {bar} w="7.5in" minH="3in"><draw w="7.5in" h="0.2in"><value><text>Attachments</text></value></draw></subform><field name="who" w="3in" h="0.4in"><ui><textEdit/></ui></field></subform>"#
+        )
+    };
+    let top = |bar: &str| {
+        let form = layout_xml(&one_area_form(r#"layout="tb""#, &body(bar))).unwrap();
+        let w = widgets(&form.pages[0]);
+        w[0].rect.y
+    };
+    let flowed = top(r#"layout="lr-tb""#);
+    assert!((top(r#"layout="tb""#) - flowed).abs() < 0.01);
+    // A positioned subform keeps its minimum: nothing else says how tall it is.
+    assert!((top("") - flowed - (216.0 - 14.4)).abs() < 0.01, "{} against {flowed}", top(""));
+}
+
+#[test]
+fn the_form_packet_restores_a_caption_a_script_changed() {
+    let body = r#"<subform name="body" layout="tb" w="7.5in"><field name="bar" w="2in" h="0.3in"><ui><button/></ui><caption><value><text>Show Bar</text></value></caption></field></subform>"#;
+    let template = one_area_form(r#"layout="tb""#, body);
+    let caption = |xdp: &str| match &widgets(&layout_xml(xdp).unwrap().pages[0])[0].kind {
+        WidgetKind::Button { caption } => caption.clone(),
+        other => panic!("{other:?}"),
+    };
+    assert_eq!(caption(&template), "Show Bar");
+    let saved = r#"<form xmlns="http://www.xfa.org/schema/xfa-form/2.8/"><subform name="form"><subform name="body">
+ <field name="bar"><caption><value><text>Hide Bar</text></value></caption></field>
+</subform></subform></form>
+</xdp:xdp>"#;
+    assert_eq!(caption(&template.replace("</xdp:xdp>", saved)), "Hide Bar");
+}
+
+#[test]
+fn a_text_field_without_a_border_of_its_own_has_no_box() {
+    let body = r#"<subform name="body" layout="tb" w="7.5in"><field name="plain" w="3in" h="0.4in"><ui><textEdit/></ui></field><field name="boxed" w="3in" h="0.4in"><ui><textEdit><border><edge/></border></textEdit></ui></field><field name="tick" w="3in" h="0.4in"><ui><checkButton/></ui></field></subform>"#;
+    let form = layout_xml(&one_area_form(r#"layout="tb""#, body)).unwrap();
+    let shapes: Vec<BorderShape> = widgets(&form.pages[0]).iter().map(|w| w.border.shape).collect();
+    assert_eq!(shapes, [BorderShape::None, BorderShape::Full, BorderShape::Full]);
+}
+
+#[test]
+fn a_carriage_return_and_line_feed_are_one_line_break() {
+    let lines = |t: &str| crate::text::plain(t).paragraphs.len();
+    assert_eq!(lines("one\r\ntwo\r\nthree"), 3);
+    assert_eq!(lines("one\ntwo\rthree"), 3);
+    assert_eq!(lines("one\r\n\r\ntwo"), 3, "an empty line stays");
+    // As the data holds it: character references, which the XML parser leaves alone.
+    let form = layout_xml(&wrapped_form("<form><body><notes>one&#xD;&#xA;two&#xD;&#xA;three</notes></body></form>")).unwrap();
+    let crlf = form.pages.iter().flat_map(widgets).find(|w| w.name == "notes").unwrap().rect.h;
+    let form = layout_xml(&wrapped_form("<form><body><notes>one&#xA;two&#xA;three</notes></body></form>")).unwrap();
+    let lf = form.pages.iter().flat_map(widgets).find(|w| w.name == "notes").unwrap().rect.h;
+    assert!((crlf - lf).abs() < 0.01);
+}

@@ -917,7 +917,13 @@ impl Layouter<'_> {
                 content + c.margin.vertical()
             }
         };
-        (w, clamp_opt(h, c.min_h, c.max_h))
+        // A flowed subform is as tall as what it holds: other viewers do not stretch one to
+        // the `minH` a designer left on it.
+        let min_h = match node {
+            Node::Subform(s) if c.h.is_none() && s.layout != Layout::Positioned => None,
+            _ => c.min_h,
+        };
+        (w, clamp_opt(h, min_h, c.max_h))
     }
 
     /// The natural width of a container's content within `avail_w`.
@@ -1632,16 +1638,14 @@ impl Layouter<'_> {
     }
 }
 
-/// The widget's own border from the `<ui>` border element. Without one, text fields and check
-/// boxes get a solid box, as Designer draws them.
+/// The widget's own border from the `<ui>` border element. Without one, a check box gets a
+/// solid box, as Designer draws it, and any other field has no box of its own.
 fn widget_border(b: Option<&Border>, check: bool) -> WidgetBorder {
     let Some(b) = b else {
-        return WidgetBorder {
-            color: Some([0.0, 0.0, 0.0]),
-            fill: if check { Some([1.0, 1.0, 1.0]) } else { None },
-            shape: BorderShape::Full,
-            width: 0.5,
-        };
+        if !check {
+            return WidgetBorder { color: None, fill: None, shape: BorderShape::None, width: 0.0 };
+        }
+        return WidgetBorder { color: Some([0.0, 0.0, 0.0]), fill: Some([1.0, 1.0, 1.0]), shape: BorderShape::Full, width: 0.5 };
     };
     let vis = b.visible_edges();
     let shape = match vis {
