@@ -5,7 +5,7 @@
 //! its proportions), right-click for rotate, flip, replace, save and delete; Delete removes it.
 
 use egui::{Color32, CornerRadius, FontFamily, FontId, Pos2, Rect, Stroke};
-use pdfcraft_engine::Edit;
+use pdfcraft_engine::{Edit, ObjectKind, ObjectTarget};
 use pdfcraft_render::DocInfo;
 
 use crate::canvas::{DocView, PageXform};
@@ -223,6 +223,8 @@ enum Grip {
 pub struct BlockDrag {
     page: usize,
     block: usize,
+    /// A paragraph index belongs to the document generation where the press was resolved.
+    generation: u64,
     /// Where the drag started (screen).
     start: Pos2,
     grip: Grip,
@@ -427,10 +429,15 @@ pub(crate) fn page_input(
     resp: &egui::Response,
     xf: &PageXform,
     page: usize,
-    info: &DocInfo,
+    doc: &pdfcraft_engine::Document,
     lines: &[pdfcraft_engine::TextBlock],
     view: &mut DocView,
 ) -> bool {
+    let info = &doc.info;
+    if view.block_drag.is_some_and(|d| d.generation != doc.edit_generation()) {
+        view.block_drag = None;
+        return true;
+    }
     let boxes: Vec<Rect> = lines.iter().map(|l| xf.user_rect(info, page, l.rect.map(|v| v as f32)).expand(2.0)).collect();
     let painter = ui.painter();
     let active = view.line_editor.as_ref().filter(|e| e.page == page).map(|e| e.block);
@@ -470,18 +477,25 @@ pub(crate) fn page_input(
         if resp.drag_stopped() || !ui.input(|i| i.pointer.any_down()) {
             view.block_drag = None;
             let (from, to) = (user_box(xf, info, page, b), user_box(xf, info, page, preview));
-            let style = if resizing {
+            let edit = if resizing {
                 // The new width in user space: the box's change, added to the paragraph's own. A
                 // moved left side (in user space; on an upside-down page that's the screen's right
                 // edge) moves the paragraph with it.
                 let width = (l.rect[2] - l.rect[0]) + (to[2] - to[0]) - (from[2] - from[0]);
                 let shift = to[0] - from[0];
-                pdfcraft_engine::BlockStyle { width: Some(width), offset: (shift != 0.0).then_some([shift, 0.0]), ..Default::default() }
+                let style = pdfcraft_engine::BlockStyle { width: Some(width), offset: (shift != 0.0).then_some([shift, 0.0]), ..Default::default() };
+                Edit::EditTextBlock { page, block: d.block, text: l.text.clone(), style }
             } else {
-                pdfcraft_engine::BlockStyle { offset: Some([to[0] - from[0], to[1] - from[1]]), ..Default::default() }
+                // Translation must keep the selected source operators. Rewriting unchanged text
+                // would also remove unrelated paragraphs that now overlap this one (#594).
+                Edit::MoveObjects {
+                    page,
+                    objects: vec![ObjectTarget { kind: ObjectKind::Text, index: d.block }],
+                    offset: [to[0] - from[0], to[1] - from[1]],
+                }
             };
             if preview != b {
-                view.pending_edit = Some(Edit::EditTextBlock { page, block: d.block, text: l.text.clone(), style });
+                view.pending_edit = Some(edit);
             }
         }
         return true;
@@ -495,7 +509,7 @@ pub(crate) fn page_input(
         && let Some(o) = ui.input(|i| i.pointer.press_origin())
         && let Some((block, grip)) = grab_at(&boxes, o, upright)
     {
-        view.block_drag = Some(BlockDrag { page, block, start: o, grip });
+        view.block_drag = Some(BlockDrag { page, block, generation: doc.edit_generation(), start: o, grip });
         return true;
     }
     let Some(p) = ui.input(|i| i.pointer.hover_pos()).filter(|p| xf.rect.contains(*p)) else { return false };

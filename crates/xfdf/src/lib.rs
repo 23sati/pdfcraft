@@ -41,6 +41,9 @@ pub enum Format {
     Xml,
     Csv,
     Txt,
+    /// An XFA form's data as an XML Data Package (the engine writes it; for a form without
+    /// XFA packets it is the XML format).
+    Xdp,
 }
 
 impl Format {
@@ -49,6 +52,7 @@ impl Format {
             "xfdf" => Format::Xfdf,
             "fdf" => Format::Fdf,
             "xml" => Format::Xml,
+            "xdp" => Format::Xdp,
             "csv" => Format::Csv,
             "txt" | "tab" | "tsv" => Format::Txt,
             _ => return None,
@@ -577,7 +581,7 @@ pub fn export_data(doc: &Document, format: Format) -> String {
         })
         .collect();
     match format {
-        Format::Xml => {
+        Format::Xml | Format::Xdp => {
             let mut out = String::from("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<fields xmlns:xfdf=\"http://ns.adobe.com/xfdf-transition/\">\n");
             for (k, v) in &fields {
                 let tag = xml_name(k);

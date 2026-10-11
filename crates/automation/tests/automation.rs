@@ -1313,6 +1313,25 @@ fn protecting_with_an_open_password_alone_restricts_nothing() {
     }
 }
 
+/// AES-256 keys on the SASLprep form of a password, which drops soft hyphens: a password made
+/// only of them is no password at all (as the permissions password, it would give everyone owner
+/// rights), so it is refused rather than written.
+#[test]
+fn protecting_with_a_password_encryption_ignores_is_refused() {
+    let dir = workdir("protect-ignored");
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    let answers: Vec<String> = ["open_password", "permissions_password"]
+        .into_iter()
+        .map(|key| match a.call("doc_protect", &json!({ "doc": doc, key: "\u{AD}" })) {
+            Err(ToolError::Failed(m)) => m,
+            other => format!("{key}: {other:?}"),
+        })
+        .collect();
+    assert!(answers.iter().all(|m| m.contains("soft hyphens")), "{answers:?}");
+    assert_eq!(ok(&mut a, "doc_info", json!({ "doc": doc }))["security"]["protected"], false, "a refused call changes nothing");
+}
+
 #[test]
 fn forms_through_tools() {
     let dir = workdir("forms");
@@ -3532,6 +3551,39 @@ fn exporting_to_word_html_and_rtf() {
     assert!(std::fs::read(dir.join("a.docx")).unwrap().starts_with(b"PK"));
     assert!(std::fs::read_to_string(dir.join("a.rtf")).unwrap().contains("Page 2"));
     assert!(a.call("doc_export_office", &json!({ "doc": doc, "path": "a.xyz" })).is_err());
+}
+
+#[test]
+fn xfa_data_files_export_and_import_through_tools() {
+    let dir = workdir("xfa-data");
+    let data = "<form><page1><country>JP</country></page1></form>";
+    std::fs::write(dir.join("fields.pdf"), pdfcraft_xfa::fixtures::shell(&pdfcraft_xfa::fixtures::fields_template(data))).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "fields.pdf" }))["doc"].as_u64().unwrap();
+    ok(&mut a, "doc_export_data", json!({ "doc": doc, "path": "data.xml", "what": "fields" }));
+    ok(&mut a, "doc_export_data", json!({ "doc": doc, "path": "data.xdp", "what": "fields" }));
+    let xml = std::fs::read_to_string(dir.join("data.xml")).unwrap();
+    let xdp = std::fs::read_to_string(dir.join("data.xdp")).unwrap();
+    assert!(xml.contains("<form") && xml.contains("<country>JP</country>"), "{xml}");
+    assert!(xdp.contains("<xdp:xdp") && xdp.contains("<country>JP</country>"), "{xdp}");
+    // Edit the exported data and import it back.
+    std::fs::write(dir.join("edited.xdp"), xdp.replace("<country>JP</country>", "<country>CA</country>")).unwrap();
+    let r = ok(&mut a, "doc_import_data", json!({ "doc": doc, "path": "edited.xdp" }));
+    assert!(r["filled_fields"].as_u64().unwrap() >= 1);
+    let fields = ok(&mut a, "form_fields", json!({ "doc": doc }));
+    let country = fields["fields"].as_array().unwrap().iter().find(|f| f["name"] == "country").unwrap();
+    assert_eq!(country["value"], json!("CA"));
+    // A picture for the image field, through form_set_image, lands in the data.
+    std::fs::write(dir.join("pic.gif"), pdfcraft_xfa::fixtures::TINY_GIF).unwrap();
+    ok(&mut a, "form_set_image", json!({ "doc": doc, "field": "photo", "path": "pic.gif" }));
+    ok(&mut a, "doc_export_data", json!({ "doc": doc, "path": "after.xml", "what": "fields" }));
+    let after = std::fs::read_to_string(dir.join("after.xml")).unwrap();
+    assert!(after.contains("<photo xfa:contentType=\"image/gif\">R0lGODlh"), "{after}");
+    // XDP is for XFA forms only.
+    std::fs::write(dir.join("plain.pdf"), pdfcraft_xfa::fixtures::static_shell("<form1><page1><name>Ada</name></page1></form1>")).unwrap();
+    let plain = ok(&mut a, "doc_open", json!({ "path": "plain.pdf" }))["doc"].as_u64().unwrap();
+    ok(&mut a, "doc_export_data", json!({ "doc": plain, "path": "static.xml", "what": "fields" }));
+    assert!(std::fs::read_to_string(dir.join("static.xml")).unwrap().contains("<name>Ada</name>"), "a static XFA form exports its data too");
 }
 
 #[test]
