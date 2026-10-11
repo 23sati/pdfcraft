@@ -100,7 +100,22 @@ pub enum SignatureImageError {
     #[error("Couldn't read the signature image: {0}")]
     Read(#[from] std::io::Error),
     #[error("Couldn't decode the signature image: {0}")]
-    Decode(#[from] image::ImageError),
+    Decode(#[source] image::ImageError),
+}
+
+impl From<image::ImageError> for SignatureImageError {
+    fn from(error: image::ImageError) -> Self {
+        // The decoder checks each side before our pixel-count check. Report those dimensions
+        // with the same actionable limits, rather than only "Image size exceeds limit".
+        // Allocation limits and unsupported limits are distinct decoder failures.
+        if let image::ImageError::Limits(limit) = &error
+            && matches!(limit.kind(), image::error::LimitErrorKind::DimensionError)
+        {
+            Self::Size
+        } else {
+            Self::Decode(error)
+        }
+    }
 }
 
 /// A validated image, normalized to PNG without source paths or metadata. Alpha is preserved.
@@ -247,6 +262,47 @@ mod tests {
         assert!(SignatureImage::from_bytes(&png(4096, 1025)).is_err());
         assert!(SignatureImage::read(std::io::repeat(0)).is_err());
         assert!(matches!(SignatureImage::from_bytes(b"GIF89a\x02\0\x02\0"), Err(SignatureImageError::Format)));
+    }
+
+    #[test]
+    fn signature_image_dimension_errors_explain_the_allowed_sizes() {
+        // A highly compressed image can be small on disk but too wide or tall to import.
+        for (w, h) in [(4097, 1), (1, 4097), (4096, 1025)] {
+            let bytes = png(w, h);
+            assert!(bytes.len() < MAX_SIGNATURE_IMAGE_BYTES);
+            let error = SignatureImage::from_bytes(&bytes).unwrap_err();
+            assert!(matches!(error, SignatureImageError::Size), "{w}x{h}: {error}");
+            let message = error.to_string();
+            for limit in ["4 MiB", "4 megapixels", "4096 pixels per side"] {
+                assert!(message.contains(limit), "{message}");
+            }
+        }
+        for (w, h) in [(4096, 1), (1, 4096)] {
+            assert_eq!(SignatureImage::from_bytes(&png(w, h)).unwrap().size(), [w as usize, h as usize]);
+        }
+    }
+
+    #[test]
+    fn signature_image_decoder_limits_distinguish_dimensions_from_memory() {
+        use image::error::{LimitError, LimitErrorKind};
+
+        let dimension = image::ImageError::Limits(LimitError::from_kind(LimitErrorKind::DimensionError));
+        assert!(matches!(SignatureImageError::from(dimension), SignatureImageError::Size));
+
+        let allocation = image::ImageError::Limits(LimitError::from_kind(LimitErrorKind::InsufficientMemory));
+        let message = allocation.to_string();
+        let error = SignatureImageError::from(allocation);
+        assert!(matches!(error, SignatureImageError::Decode(_)));
+        assert!(error.to_string().contains(&message));
+    }
+
+    #[test]
+    fn corrupt_signature_images_remain_decode_or_format_errors() {
+        // Recognized but corrupt PNG input is not a dimension-limit failure.
+        let error = SignatureImage::from_bytes(b"\x89PNG\r\n\x1a\ntruncated").unwrap_err();
+        assert!(matches!(error, SignatureImageError::Decode(_)));
+        assert!(error.to_string().starts_with("Couldn't decode the signature image:"));
+        assert!(matches!(SignatureImage::from_bytes(b"not an image"), Err(SignatureImageError::Format)));
     }
 
     #[test]
