@@ -2,7 +2,7 @@
 
 **Stage: alpha** · next: beta, ~26% (ready for real work 49% → 75%) and ~400–700 h away
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (closed issues synced: #774, #756 and the #799–#821 batch; earlier: localized shortcut labels, #496; readiness table with hours per audience; full number as weighted sum 49%; earlier: second look: ready 40% → 47%, mainstream 55% added; core-workflow gate applied → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (partial comment imports; closed issues synced: #774, #756 and the #799–#821 batch; earlier: localized shortcut labels, #496; readiness table with hours per audience; full number as weighted sum 49%; earlier: second look: ready 40% → 47%, mainstream 55% added; core-workflow gate applied → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
 PdfCraft's one-page summary: how close it is to Adobe Acrobat Pro's offline feature set, and what
 comes next. Adobe's cloud services (Document Cloud, Acrobat Sign requests, shared review, the AI
@@ -134,6 +134,8 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 ## Progress log
 
 Newest first: the date, what moved, and the new overall estimate.
+
+- **2026-10-11 (M5, partial comment imports):** Replacing a named comment through XFDF or FDF (including an indirect name in the source PDF) preserves its object identity, so existing replies and review statuses remain attached after saving, reopening and exporting again. Replaced pop-ups are still removed. Synthetic round-trip tests cover both formats, incremental and full saves; milestone and effort estimates unchanged.
 
 - **2026-10-11 (M14, absolute interface sizes):** A chosen Interface size is now absolute, as PhotoCraft's UI Scale is: "100%" is one screen pixel per point whatever scale the display reports, so on a 1080p screen whose system reports 200 % it draws at a true 100 % (#456, reported after the first change). Auto still keeps the display's scale and adds GNOME's text scaling, and its menu entry shows the size it draws at. The menu offers PhotoCraft's sizes (75–300 %).
 - **2026-10-11 (automation, #971):** `text_find` reads pages in growing batches (8, doubling to 128) and stops once `limit` is reached, so a bounded search on a long document no longer extracts and caches every page first. Results say `complete`, and a capped one gives `next` (`start_page`, `skip`) to continue. Still open from #971: a byte budget for the automation text cache and per-page warnings for pages whose text can't be extracted.
@@ -334,6 +336,7 @@ Newest first: the date, what moved, and the new overall estimate.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | M5: partial XFDF/FDF imports preserve existing replies and review statuses through save and export. Estimates unchanged. |
 | 2026-10-10 | minor | Readiness table with hours per audience; full number restated as the additive weighted sum over dimensions (47% → 49%; method aligned with the standard, no new evidence) |
 | 2026-10-10 | minor | Essentials-user score added (≈ 66%) |
 | 2026-10-10 | minor | Gate consistency check: convert and share re-judged partial, not blocking; stage pre-alpha → alpha |
