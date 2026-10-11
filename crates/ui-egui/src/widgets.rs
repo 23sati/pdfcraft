@@ -5,6 +5,17 @@ use egui::{Align2, Color32, CornerRadius, Rect, Response, Sense, Stroke, vec2};
 use crate::theme::{self, Tokens};
 use crate::{PdfCraftApp, icons};
 
+/// A modal dialog with room around its content. egui's default modal frame reuses the 6 px
+/// popup-menu margin, which put titles and fields almost against the dialog's edge.
+pub fn modal(ctx: &egui::Context, id: &'static str) -> egui::Modal {
+    let frame = egui::Frame::popup(&ctx.global_style()).inner_margin(egui::Margin::symmetric(DIALOG_MARGIN_X, DIALOG_MARGIN_Y)).corner_radius(10);
+    egui::Modal::new(egui::Id::new(id)).frame(frame)
+}
+
+/// The dialog's inner margin: 20 px at the sides, 18 above and below.
+pub const DIALOG_MARGIN_X: i8 = 20;
+pub const DIALOG_MARGIN_Y: i8 = 18;
+
 /// The keyboard focus ring of a custom-painted control: a 2 px accent outline just outside
 /// `rect`, drawn only while the control has keyboard focus (egui's own buttons do the same).
 /// Everything painted by hand in this module and `chrome` must call it, or Tab moves through

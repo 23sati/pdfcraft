@@ -280,7 +280,8 @@ fn initial_view_is_edited_and_honoured_on_open() {
         v.page = 1;
         v.language = Some("de-DE".into());
     }
-    h.run_steps(2);
+    // The dialog re-centres as its content settles; click where the button ends up.
+    h.run_steps(4);
     h.get_by_label("OK").click();
     h.run_steps(3);
     let s = h.state();
