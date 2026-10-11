@@ -130,6 +130,9 @@ try {
         $elements = $window.FindAll([Windows.Automation.TreeScope]::Descendants, [Windows.Automation.Condition]::TrueCondition)
         $observed = @($elements | ForEach-Object {
           [ordered]@{ name = $_.Current.Name; type = $_.Current.ControlType.ProgrammaticName;
+            className = $_.Current.ClassName; automationId = $_.Current.AutomationId;
+            framework = $_.Current.FrameworkId; handle = $_.Current.NativeWindowHandle;
+            patterns = @($_.GetSupportedPatterns() | ForEach-Object { $_.ProgrammaticName });
             offscreen = $_.Current.IsOffscreen; bounds = $_.Current.BoundingRectangle.ToString() }
         })
         $observed | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $Work "$id.controls.json") -Encoding utf8
