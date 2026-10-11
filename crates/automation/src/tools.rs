@@ -35,6 +35,10 @@ fn ocr_language() -> Value {
     json!({ "type": "string", "enum": codes, "description": "Document language (default en)." })
 }
 
+fn ocr_recognizer() -> Value {
+    json!({"type":"string", "enum":["modern","historical","historical-handwriting"], "default":"modern", "description":"historical uses print layout detection (including Fraktur); historical-handwriting reads upright horizontal handwriting (including Kurrent) in ONE text column only, without tables or marginal notes. Both require the optional historical add-on. Recognition never downloads it automatically."})
+}
+
 fn path(what: &str) -> Value {
     json!({ "type": "array", "items": { "type": "integer", "minimum": 1 }, "description": format!("{what}: 1-based positions from the top level, e.g. [2, 1] = the first child of the second bookmark.") })
 }
@@ -928,6 +932,7 @@ pub fn tools() -> Vec<ToolDef> {
                 json!({
                     "doc": doc(),
                     "pages": pages("to recognise (default: all)"),
+                    "recognizer": ocr_recognizer(),
                     "dpi": { "type": "number", "minimum": 72, "maximum": 600, "description": "Resolution pages are read at (default 300; a scanned page is read at most at its own resolution)." },
                     "auto_rotate": { "type": "boolean", "default": true }, "deskew": { "type": "boolean", "default": true }, "auto_crop": { "type": "boolean", "default": false }, "crop_margin": { "type": "number", "minimum": 0, "maximum": 20, "default": 2 }, "recognize": { "type": "boolean", "default": true }, "language": ocr_language(),
                     "skip_text_pages": { "type": "boolean", "description": "Leave pages that already contain text alone (default true)." },
@@ -940,6 +945,7 @@ pub fn tools() -> Vec<ToolDef> {
                 json!({
                     "paths": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
                     "folder": { "type": "string" },
+                    "recognizer": ocr_recognizer(),
                     "dpi": { "type": "number", "minimum": 72, "maximum": 600 },
                     "auto_rotate": { "type": "boolean", "default": true }, "deskew": { "type": "boolean", "default": true }, "auto_crop": { "type": "boolean", "default": false }, "crop_margin": { "type": "number", "minimum": 0, "maximum": 20, "default": 2 }, "recognize": { "type": "boolean", "default": true }, "language": ocr_language(),
                 }),
@@ -952,6 +958,14 @@ pub fn tools() -> Vec<ToolDef> {
             .ro()
             .cmd("ocr.recognize")
             .with(schema(json!({}), &[])),
+        t("ocr_addon_status", "Historical OCR add-on status", "Read local installation and checksum status for the optional historical print/handwriting model. Makes no network request. directory overrides the final historical-v1 folder and obeys --root.")
+            .ro()
+            .with(schema(json!({"directory":{"type":"string"}}), &[])),
+        t("ocr_addon_install", "Download historical OCR add-on", "Explicitly download and checksum-verify the optional Fraktur/Kurrent recognition model. No document is uploaded. Recognition then works offline. directory is the final historical-v1 folder; the default per-user installation path is refused when outside --root.")
+            .with(schema(json!({"directory":{"type":"string"}}), &[])),
+        t("ocr_addon_remove", "Remove historical OCR add-on", "Remove only the owned historical-v1 model files, keeping documents and other files. directory obeys --root. The add-on can be downloaded again later.")
+            .destructive()
+            .with(schema(json!({"directory":{"type":"string"}}), &[])),
         t("doc_export_all_images", "Export all images", "Write the images that pages use into a folder (`<name>_Page_<n>_Image_<k>.jpg|png`), each once: JPEG images unchanged, others as PNG with their soft mask as alpha. min_size skips images with fewer pixels on their shorter side. Images that can't be decoded yet (JPEG 2000, JBIG2, CCITT, separations) are listed under skipped. Includes unsaved edits.")
             .cmd("export.all_images")
             .with(schema(

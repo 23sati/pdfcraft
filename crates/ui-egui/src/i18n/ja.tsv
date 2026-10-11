@@ -2212,3 +2212,18 @@ key	Space	スペース
 	Crop scanner borders to the paper edge	スキャンの余白を用紙の端まで切り抜く
 	Safety margin (pt)	安全余白（pt）
 	Only clear paper edges are cropped. Indistinguishable white borders are kept.	明確な用紙の端だけを切り抜きます。区別できない白い余白は保持します。
+	Text style	文字の種類
+	Modern print	現代の印刷文字
+	Historical print (Fraktur)	歴史的な印刷文字（フラクトゥール）
+	Fraktur and Kurrent use an optional 13 MB add-on. After download, recognition works offline.	フラクトゥールとクレントには、任意でダウンロードできる13 MBのアドオンを使用します。ダウンロード後はオフラインで認識できます。
+	Historical spelling is preserved. Handwriting, abbreviations and complex layouts need checking.	歴史的な綴りは保持されます。手書き文字、略語、複雑なレイアウトは確認が必要です。
+	Preparing OCR add-on…	OCRアドオンを準備中…
+	Historical OCR add-on installed	歴史的文字用OCRアドオンをインストール済み
+	Remove add-on	アドオンを削除
+	Download historical OCR add-on (13 MB)	歴史的文字用OCRアドオンをダウンロード（13 MB）
+	Historical OCR add-ons require the desktop app.	歴史的文字用OCRアドオンにはデスクトップアプリが必要です。
+	Wait for text recognition to finish before changing add-ons	アドオンを変更する前に文字認識が完了するまでお待ちください
+	Automatic (historical model)	自動（歴史的文字モデル）
+	The historical model detects its supported scripts automatically; Japanese is not included.	歴史的文字モデルは対応する書体を自動検出します。日本語は含まれていません。
+	Historical handwriting (Kurrent)	歴史的な手書き文字（クレント）
+	Handwriting requires upright horizontal lines in one text column. Columns, tables and marginal notes are not supported.	手書き文字は、正しい向きの横書き行が1列に並んでいる必要があります。複数列、表、余白の注記には対応していません。

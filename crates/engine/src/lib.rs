@@ -21,6 +21,7 @@ pub mod export;
 pub mod js;
 pub mod links;
 pub mod ocr;
+pub mod ocr_addons;
 mod ocr_pdf;
 pub mod optimizer;
 pub mod signature_image;

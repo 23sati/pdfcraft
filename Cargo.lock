@@ -3716,7 +3716,12 @@ dependencies = [
  "pdfcraft-xfa",
  "pdfcraft-xfdf",
  "png 0.18.1",
+ "rustls-native-certs",
+ "serde",
+ "sha2",
+ "tempfile",
  "thiserror 2.0.21",
+ "ureq",
  "url",
 ]
 
@@ -3798,7 +3803,9 @@ dependencies = [
  "rten",
  "rten-imageproc",
  "rten-tensor",
+ "serde_json",
  "thiserror 2.0.21",
+ "unicode-normalization",
 ]
 
 [[package]]
