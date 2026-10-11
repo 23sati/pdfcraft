@@ -73,9 +73,17 @@ fn failed(e: impl std::fmt::Display) -> ToolError {
     ToolError::Failed(e.to_string())
 }
 
+impl From<pdfcraft_engine::EditError> for ToolError {
+    fn from(e: pdfcraft_engine::EditError) -> Self {
+        failed(e)
+    }
+}
+
 /// Default and maximum resolution for `page_render`.
 const DEFAULT_DPI: f64 = 96.0;
 const MAX_DPI: f64 = 600.0;
+/// How far a watermark may be moved from the page centre, in points (a page is at most 14,400).
+const WATERMARK_MAX_OFFSET: f64 = 20_000.0;
 
 /// Bookmarks in one page of the bookmark list, by default and at most.
 const BOOKMARK_PAGE: usize = 100;
@@ -192,6 +200,28 @@ impl Automation {
                 let n = pages.len();
                 let mut out = self.apply(&a, Edit::RotatePages { pages, degrees })?;
                 out["rotated"] = json!(n);
+                out
+            }
+            "page_enhance_camera" => {
+                let page = self.page(&a)?;
+                let given = a.nums::<8>("corners")?;
+                let doc = self.doc(&a)?;
+                let (id, info) = (doc.id, doc.info.pages.get(page).cloned().ok_or_else(|| failed("no such page"))?);
+                let corners = match given {
+                    Some(c) => [0, 1, 2, 3].map(|i| {
+                        let [x, y] = info.view_to_user(c[2 * i] as f32, c[2 * i + 1] as f32);
+                        [x as f64, y as f64]
+                    }),
+                    None => self.session.detect_camera_corners(id, page).ok_or_else(|| {
+                        failed("the document's edges could not be found on this page: pass `corners` [x1, y1, x2, y2, x3, y3, x4, y4]")
+                    })?,
+                };
+                self.session.enhance_camera_page(id, page, corners).map_err(failed)?;
+                let r = |v: f32| (v * 100.0).round() / 100.0;
+                let used: Vec<f32> = corners.iter().flat_map(|&[x, y]| info.user_to_view(x as f32, y as f32)).map(r).collect();
+                let mut out = summary(self.doc(&a)?);
+                out["corners"] = json!(used);
+                out["detected"] = json!(given.is_none());
                 out
             }
             "page_delete" => {
@@ -960,7 +990,10 @@ impl Automation {
                     opacity: a.opt_num("opacity")?.unwrap_or(d.opacity),
                     rotation: a.opt_num("rotation")?.unwrap_or(d.rotation),
                     behind: a.opt_bool("behind")?.unwrap_or(false),
-                    offset: [0.0; 2],
+                    offset: [
+                        a.opt_num("offset_x")?.unwrap_or(0.0).clamp(-WATERMARK_MAX_OFFSET, WATERMARK_MAX_OFFSET),
+                        a.opt_num("offset_y")?.unwrap_or(0.0).clamp(-WATERMARK_MAX_OFFSET, WATERMARK_MAX_OFFSET),
+                    ],
                 };
                 Edit::AddWatermark { pages, settings: wm, replace, file }
             }
@@ -1076,6 +1109,10 @@ impl Automation {
                     }
                     (None, None) => return Err(ToolError::InvalidArgs("text needs `text` or `path`".into())),
                 };
+                // The page font is Helvetica/WinAnsi: refuse what it would silently turn into `?`.
+                if let Some(c) = pdfcraft_engine::first_undrawable_plain(&text) {
+                    return Err(ToolError::InvalidArgs(pdfcraft_engine::undrawable_message(c)));
+                }
                 (format!("{title}.pdf"), self.session.create_from_text(&title, &text).map_err(failed)?)
             }
             other => return Err(ToolError::InvalidArgs(format!("unknown source {other:?}"))),
@@ -1212,8 +1249,8 @@ impl Automation {
 
     fn doc_create_multiple(&mut self, a: &Args) -> Result<Value> {
         let paths = a.strs("paths")?;
-        if paths.is_empty() || paths.len() > pdfcraft_engine::MAX_CREATE_FILES {
-            return Err(ToolError::InvalidArgs(format!("paths must list 1 to {} files", pdfcraft_engine::MAX_CREATE_FILES)));
+        if paths.is_empty() {
+            return Err(ToolError::InvalidArgs("paths must list at least one file".into()));
         }
         let separate = match a.opt_str("mode")? {
             None | Some("combine") => false,
@@ -1228,16 +1265,16 @@ impl Automation {
             Some(Value::Array(v)) if v.len() == paths.len() => v.iter().map(|x| x.as_str().map(str::to_owned)).collect(),
             Some(_) => return Err(ToolError::InvalidArgs("pages must list a range (or null) for each path".into())),
         };
-        let mut sources = Vec::new();
-        for (p, range) in paths.into_iter().zip(ranges) {
+        // Each file is read, converted and copied in turn, so a long list holds one file at a time.
+        let sources = paths.into_iter().zip(ranges).map(|(p, range)| -> std::result::Result<pdfcraft_engine::CombineSource, ToolError> {
             let path = self.resolve(p, false)?;
             let bytes = std::fs::read(&path).map_err(|e| failed(format!("{}: {e}", path.display())))?;
             let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
             let (_, pdf) = self.session.convert_to_pdf(&name, &Arc::new(bytes)).map_err(failed)?;
             let title = path.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-            sources.push((title, pdf, range));
-        }
-        let bytes = self.session.combine_ranges(&sources).map_err(failed)?;
+            Ok((title, pdf, range))
+        });
+        let bytes = self.session.combine_each(sources)?.ok_or_else(|| ToolError::InvalidArgs("paths must list at least one file".into()))?;
         self.deliver(a, "Combined", bytes)
     }
 
@@ -1345,7 +1382,10 @@ impl Automation {
                     if let Some(g) = group {
                         firsts.push((g, path.clone(), sources.len()));
                     }
-                    Arc::new(std::fs::read(&path).map_err(|e| failed(format!("{}: {e}", path.display())))?)
+                    let bytes = Arc::new(std::fs::read(&path).map_err(|e| failed(format!("{}: {e}", path.display())))?);
+                    // Images and text files are made into PDFs first (#569), as in the Combine files tab.
+                    let file_name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                    self.session.as_pdf(&file_name, &bytes).map_err(failed)?
                 }
             };
             let name = path.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
