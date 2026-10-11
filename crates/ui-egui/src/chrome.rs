@@ -146,13 +146,21 @@ pub fn tab_strip(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                 }
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     let (icon, label) = match app.theme_preference {
-                        ThemePreference::System => ("settings", tl!("Use system setting")),
+                        ThemePreference::System => ("monitor", tl!("Use system setting")),
                         ThemePreference::Light => ("sun", tl!("Light gray")),
                         ThemePreference::Dark => ("moon", tl!("Dark gray")),
                     };
                     let tip = format!("{}: {label}", tl!("Display theme"));
                     let response = icons::button(ui, icon, 28.0, false, &tip);
-                    egui::Popup::menu(&response).show(|ui| theme_menu(app, ui));
+                    // A click cycles System, Light, Dark; a right-click opens the menu.
+                    if response.clicked() {
+                        app.execute(match app.theme_preference {
+                            ThemePreference::System => "view.theme.light",
+                            ThemePreference::Light => "view.theme.dark",
+                            ThemePreference::Dark => "view.theme.system",
+                        });
+                    }
+                    egui::Popup::context_menu(&response).id(response.id.with("theme_menu")).show(|ui| appearance_menu(app, ui));
                     if icons::button(ui, "circle-help", 28.0, false, tl!("Keyboard shortcuts")).clicked() {
                         app.dialog = Some(Dialog::Shortcuts);
                     }
@@ -176,6 +184,19 @@ fn theme_menu(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
             app.execute(command);
             ui.close();
         }
+    }
+    ui.separator();
+    if ui.button(tl!("Appearance settings…")).clicked() {
+        app.dialog = Some(Dialog::Preferences);
+        ui.close();
+    }
+}
+
+/// The right-click menu on the title bar's theme button.
+fn appearance_menu(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
+    if ui.button(tl!("Appearance settings…")).clicked() {
+        app.dialog = Some(Dialog::Preferences);
+        ui.close();
     }
 }
 
