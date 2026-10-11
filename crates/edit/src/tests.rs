@@ -334,6 +334,13 @@ fn combined_marker_scan_matches_the_independent_scans() {
     let text_scan = assert_marker_scan_matches_legacy(&text_only, "one added text item", &[], 1);
     assert!(matches!(&text_scan.added[0].content, Content::Text(text) if text.text == "Added text"));
 
+    let mut indirect_params = fixture();
+    let params = indirect_params.add(Object::Dict(added_text_params()));
+    let text = tagged_stream(&mut indirect_params, "Added", Some(Object::Ref(params)));
+    set_page_contents(&mut indirect_params, text, None);
+    let indirect_scan = assert_marker_scan_matches_legacy(&indirect_params, "indirect PCAdded dictionary", &[], 1);
+    assert!(matches!(&indirect_scan.added[0].content, Content::Text(text) if text.text == "Added text"));
+
     let mut image_only = fixture();
     let image = image_only.add(Object::Stream(Stream::from_raw(Dict::new(), vec![0])));
     let image_item = tagged_stream(&mut image_only, "Added", Some(Object::Dict(added_image_params(image))));
