@@ -294,6 +294,7 @@ mod tests {
         let error = SignatureImageError::from(allocation);
         assert!(matches!(error, SignatureImageError::Decode(_)));
         assert!(error.to_string().contains(&message));
+        assert_eq!(std::error::Error::source(&error).unwrap().to_string(), message);
     }
 
     #[test]

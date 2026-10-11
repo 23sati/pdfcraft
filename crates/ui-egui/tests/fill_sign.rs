@@ -1235,3 +1235,36 @@ fn select_tool_picks_up_a_signature_over_a_form_field() {
     click(&mut h, 270.0, 190.0);
     assert_eq!(h.state().views[0].forms.focus.as_ref().map(|f| f.name.as_str()), Some("city"));
 }
+
+#[test]
+fn oversized_signature_image_shows_limits_and_preserves_the_draft_and_document() {
+    let _gpu = gpu();
+    let path = signature_file("dimension-limit");
+    let mut h = harness();
+    let original = SavedSig::Typed("Ada Lovelace".into());
+    h.state_mut().signature = Some(original.clone());
+    h.state_mut().execute("sign.fill.signature.change");
+    h.run_steps(2);
+    h.get_by_label("Image").click();
+    h.run_steps(2);
+    browse_image(&mut h, &path);
+    let draft = h.state().signature_draft.image.clone();
+    let document = h.state().session.get(h.state().views[0].id).unwrap().bytes.clone();
+    image::RgbaImage::from_pixel(4097, 1, image::Rgba([20, 30, 40, 255])).save(&path).unwrap();
+    assert!(std::fs::metadata(&path).unwrap().len() < 4 << 20);
+    browse_image(&mut h, &path);
+    let message = h.state().toast.as_ref().unwrap().0.clone();
+    for limit in ["4 MiB", "4 megapixels", "4096 pixels per side"] {
+        assert!(message.contains(limit), "{message}");
+    }
+    h.get_by_label(message.as_str());
+    assert_eq!(h.state().signature_draft.image, draft);
+    assert_eq!(h.state().signature, Some(original));
+    assert_eq!(h.state().session.get(h.state().views[0].id).unwrap().bytes, document);
+    assert!(items(&h).is_empty());
+    eprintln!("synthetic 4097x1 Browse rejection: {message}; prior draft, saved signature and document preserved");
+    if let Ok(path) = std::env::var("PDFCRAFT_SIGNATURE_SIZE_SHOT") {
+        h.render().unwrap().save(path).unwrap();
+    }
+    std::fs::remove_file(path).unwrap();
+}
