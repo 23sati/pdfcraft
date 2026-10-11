@@ -216,6 +216,8 @@ M0 → M1 → M2 → M3 → M4 must happen in order. After M4, M5–M12 can run 
 ## Log
 Newest first: the date, what moved, and the new overall estimate.
 
+- **2026-10-10 (M3, System appearance completion, #446/#881):** The Linux portal introduced by #881 now uses the standard numeric appearance setting and event-driven updates, with idle-window wakeups for initial and changed results. Native windows retain inherited appearance and both egui style branches use the selected palette. Manual choices and the Light default remain; unknown System appearance resolves to Light. Controlled protocol and UI checks cover the remaining gaps; the supplied EndeavourOS/GNOME report has not been reproduced on that desktop. Estimates unchanged.
+
 - **2026-10-10 (M9, #179 follow-up):** A Windows store certificate that can't sign is no longer left out of the Sign dialog silently: `windows::list` names it with the reason and Windows error code (no private key, a P-521/Brainpool/Ed25519 key, a key CNG can't open), the picker shows it greyed and unselectable, and `sign_windows_ids` returns it under `unusable`. A key that needs a permission prompt to open is listed instead of skipped. Reported by a user whose CA-issued identity showed in Acrobat but not here; a plain .p12 import into the CNG and legacy Microsoft providers was verified to list, so the next report will carry the reason. Store test adds a key-less certificate; overall estimate unchanged (about 30–35%).
 - **2026-10-10 (M10.2, JPEG scanning follow-up to #729):** Skip marker fill bytes and keep reading JFIF, APP14 and ICC metadata after the frame header, stopping before scan data or at EOI. Invalid segment lengths return errors; damaged or mismatched ICC profiles retain #729's device-space fallback. Synthetic regression cases added but not run at the contributor's request. Estimates unchanged.
 - **2026-10-10 (M13, desktop action outputs):** Desktop Action Wizard keeps every result when input basenames repeat, or when the destination already has a result from an earlier run. It preserves the original filename and extension for a free name and adds numbered suffixes for occupied names; the bounded search returns an error rather than reusing an occupied path. A real-shell regression drives Start twice and reopens the three-page and one-page results, checking that the original inputs and earlier output remain intact. This covers the desktop writer separately from the CLI/MCP action_run repair in #877. Milestone and effort estimates unchanged.
@@ -380,6 +382,7 @@ Newest first: the date, what moved, and the new overall estimate.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-10 | minor | Recorded the remaining System appearance repair after #881; estimates unchanged |
 | 2026-10-10 | minor | Readiness table with hours per audience; full number restated as the additive weighted sum over dimensions (47% → 49%; method aligned with the standard, no new evidence) |
 | 2026-10-10 | minor | Essentials-user score added (≈ 66%) |
 | 2026-10-10 | minor | Gate consistency check: convert and share re-judged partial, not blocking; stage pre-alpha → alpha |

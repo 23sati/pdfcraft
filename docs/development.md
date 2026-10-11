@@ -3,6 +3,26 @@
 Working instructions for agents and contributors are in `AGENTS.md` and `CLAUDE.md`. This page
 collects what the desktop app reads from its environment and where it writes its diagnostics.
 
+## Interface appearance
+
+Display theme saves System, Light or Dark separately from the palette currently drawn. New
+installations still default to Light. System follows native appearance events on macOS and
+Windows. The native window keeps its inherited appearance in every mode; both egui style branches
+use the selected application palette, so desktop changes cannot override a manual choice.
+
+On Linux the native app starts an XDG Settings portal subscription when System is first selected.
+It reads `org.freedesktop.appearance` / `color-scheme`, where numeric `1` requests Dark, `2` requests
+Light, and `0` means no preference. The subscription is installed before the initial read. Initial
+results and later `SettingChanged` signals wake an idle window. There is no periodic desktop
+polling, and signals received in a manual mode update the cache without requesting frames.
+
+System falls back to Light if no appearance is available, including an absent portal, an
+unsupported appearance backend, no preference, an unknown value or a failed connection. This
+does not rewrite the saved System choice. The watcher cancels when its window closes; it does not
+reconnect after a session-bus disconnection. Headless UI contexts use their supplied egui input and
+do not contact a desktop session bus. Page and document colours retain their existing behavior.
+
+
 ## Logs
 
 The desktop app writes its `log` records to standard error and to `logs/pdfcraft.log` in its
