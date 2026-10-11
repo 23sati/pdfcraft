@@ -619,24 +619,7 @@ pub fn remove_marks(doc: &mut Document, pages: &[usize], kind: MarkKind) -> Resu
 
 /// Which kinds of marks the document has (for enabling Update/Remove).
 pub fn marks_present(doc: &Document) -> Vec<MarkKind> {
-    let mut found = Vec::new();
-    for page in page_list(doc) {
-        let obj = doc.get(page.obj);
-        let Some(c) = obj.as_dict().and_then(|d| d.get(b"Contents").cloned()) else { continue };
-        let list = match &*doc.resolve(&c) {
-            Object::Array(a) => a.clone(),
-            _ => vec![c.clone()],
-        };
-        for o in list {
-            if let Some(t) = stream_tag(doc, &o)
-                && let Some(kind) = [MarkKind::HeaderFooter, MarkKind::Watermark, MarkKind::Background].into_iter().find(|m| m.tag() == t)
-                && !found.contains(&kind)
-            {
-                found.push(kind);
-            }
-        }
-    }
-    found
+    added::scan_markers(doc).marks
 }
 
 pub mod objects;
@@ -649,7 +632,10 @@ pub use images::{ImageChange, PageImage, change_image, page_images, reading_imag
 pub mod text;
 pub use text::{BlockStyle, LineEdit, TextBlock, TextLine, reading_blocks, replace_block, replace_line, rewrite_block, text_blocks, text_lines};
 pub mod added;
-pub use added::{Added, AddedImage, AddedText, Align, Content, Family, add_content, delete_content, first_undrawable, list_added, update_content};
+pub use added::{
+    Added, AddedImage, AddedText, Align, Content, Family, MarkerScan, add_content, delete_content, first_undrawable, list_added, scan_markers,
+    update_content,
+};
 
 #[cfg(test)]
 mod tests;
