@@ -129,23 +129,41 @@ function Run-Host([string] $name, [string] $mode, [switch] $AsAdmin) {
   $outFile = Join-Path $Work "out-$letter.txt"
   $code = $null
   if ($Elevated -and -not $NoDemote -and -not $AsAdmin) {
-    # Explorer runs un-elevated (medium integrity), and COM ignores per-user registrations for
-    # elevated callers: run the host as a normal user, like Explorer.
+    # Explorer runs un-elevated (filtered admin token, medium integrity), and COM ignores per-user
+    # registrations for elevated callers: run the host with the same kind of token. A scheduled task
+    # with RunLevel Limited gets exactly that; runas /trustlevel is the fallback.
     $bat = Join-Path $Work "run-$letter.cmd"
     Set-Content -LiteralPath $bat -Encoding ASCII -Value @(
       '@echo off',
+      ('whoami /groups | findstr /c:"Mandatory Label" > "' + $outFile + '.il"'),
       ('"' + $HostExe + '" ' + $Clsid + ' "' + $Pdf + '" ' + $mode + ' ' + $Seconds + ' "' + $shot + '" > "' + $outFile + '" 2>&1'),
       ('>"' + $outFile + '.done" echo %ERRORLEVEL%'))
-    $ErrorActionPreference = 'Continue'
-    & runas.exe /trustlevel:0x20000 $bat 2>&1 | ForEach-Object { Say "  runas: $_" }
-    $ErrorActionPreference = 'Stop'
+    $how = $null
+    $task = "LinkcoPreviewTest-$letter"
+    try {
+      $action = New-ScheduledTaskAction -Execute (Join-Path $env:WINDIR 'System32\cmd.exe') -Argument ('/c "' + $bat + '"')
+      $principal = New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType S4U -RunLevel Limited
+      Register-ScheduledTask -TaskName $task -Action $action -Principal $principal -Force | Out-Null
+      Start-ScheduledTask -TaskName $task
+      $how = 'scheduled task, RunLevel Limited (as Explorer)'
+    } catch {
+      Say "  (scheduled task failed: $($_.Exception.Message))"
+    }
+    if (-not $how) {
+      $ErrorActionPreference = 'Continue'
+      & runas.exe /trustlevel:0x20000 $bat 2>&1 | ForEach-Object { Say "  runas: $_" }
+      $ErrorActionPreference = 'Stop'
+      $how = 'runas /trustlevel:0x20000'
+    }
     $deadline = (Get-Date).AddSeconds($Seconds + 120)
     while (-not (Test-Path "$outFile.done") -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+    try { Unregister-ScheduledTask -TaskName $task -Confirm:$false -ErrorAction SilentlyContinue } catch { }
     if (Test-Path "$outFile.done") {
       $code = (Get-Content "$outFile.done" -Raw).Trim()
-      Say "  (ran as a normal user: runas /trustlevel:0x20000)"
+      $il = if (Test-Path "$outFile.il") { ((Get-Content "$outFile.il" -Raw) -replace '\s{2,}', ' ').Trim() } else { '?' }
+      Say "  (ran un-elevated: $how; $il)"
     } else {
-      Say "  (runas /trustlevel did not run the host; running it elevated instead)"
+      Say "  ($how did not run the host; running it elevated instead)"
     }
   }
   if ($null -eq $code) {
