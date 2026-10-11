@@ -550,6 +550,21 @@ impl PdfCraftApp {
         }
     }
 
+    /// Export a tab without claiming that an embedding host has persisted it. Commits existing
+    /// typing just like Save, and keeps the dirty flag until the caller actually saves the file.
+    pub fn export_pdf(&mut self, index: usize) -> Result<(String, Vec<u8>), String> {
+        let id = self.views.get(index).map(|v| v.id).ok_or("No document in that tab")?;
+        let previous = self.active;
+        let committed = self.commit_typing_in(id) && self.flatten_fill_sign_for_save(id);
+        self.active = previous;
+        if !committed {
+            return Err("Unable to commit pending text; resolve the document warning before saving".into());
+        }
+        let name = self.session.get(id).map(|d| d.name.clone()).ok_or("Document was closed")?;
+        let bytes = self.session.save_bytes(id).map_err(|e| e.to_string())?;
+        Ok((name, bytes.as_ref().clone()))
+    }
+
     /// Save the document shown in tab `index`. Returns `true` if it was written now. When it has
     /// to ask where (a new document, or Save As) it returns `false` and saves on a later frame,
     /// once the user has chosen.

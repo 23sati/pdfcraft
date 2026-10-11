@@ -9,6 +9,7 @@ mod craft;
 mod encodings;
 pub mod pdf;
 mod script;
+pub mod select;
 mod shaping;
 pub use craft::{
     CRAFT_FONTS, CraftFont, SHIPPORI_MINCHO, document_arabic_font, document_hebrew_font, document_japanese_font, document_japanese_font_for_style,

@@ -51,6 +51,7 @@ fn japanese_ui_text_uses_craft_fonts() {
 #[test]
 fn chinese_ui_text_prefers_the_chinese_face() {
     if pdfcraft_fonts::ui_chinese_fonts().is_empty() {
+        assert!(option_env!("CRAFT_FONTS_DIR").is_none(), "A craft-fonts build must include the Chinese interface face");
         eprintln!(
             "skipping chinese_ui_text_prefers_the_chinese_face: no Hans face bundled (set CRAFT_FONTS_DIR with an allowed Chinese face to run it)"
         );
@@ -255,6 +256,34 @@ fn primary_ui_fonts_cover_latin_and_cyrillic_catalogs() {
             missing.sort_unstable();
             missing.dedup();
             assert!(missing.is_empty(), "{code}: {name} lacks {missing:?}");
+        }
+    }
+}
+
+/// Every CJK character in both translation catalogs is present in the face actually kept on web.
+#[test]
+fn chinese_web_face_covers_both_catalogs() {
+    if option_env!("CRAFT_FONTS_DIR").is_none() {
+        return;
+    }
+    let faces: Vec<_> =
+        pdfcraft_fonts::ui_chinese_fonts().into_iter().filter(|f| pdfcraft_fonts::select::on_web(f.family, f.style, f.scripts)).collect();
+    assert!(!faces.is_empty(), "Web builds must include a Chinese face");
+    let mut defs = egui::FontDefinitions::default();
+    for face in &faces {
+        let name = face.name();
+        defs.font_data.insert(name.clone(), egui::FontData::from_static(face.bytes).into());
+        for stack in defs.families.values_mut() {
+            stack.push(name.clone());
+        }
+    }
+    let mut fonts = Fonts::new(TextOptions::default(), defs);
+    for catalog in [include_str!("../src/i18n/zh-hans.tsv"), include_str!("../src/i18n/zh-hant.tsv")] {
+        for line in catalog.lines().filter(|s| !s.starts_with('#')) {
+            let Some((_, translated)) = line.split_once('\t') else { continue };
+            for c in translated.chars().filter(|c| matches!(*c as u32, 0x3400..=0x9fff | 0xf900..=0xfaff)) {
+                assert!(fonts.has_glyph(&egui::FontId::proportional(14.0), c), "Missing Chinese glyph {c}");
+            }
         }
     }
 }

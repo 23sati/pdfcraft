@@ -4,6 +4,13 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
 #[cfg(target_arch = "wasm32")]
+mod browser;
+#[cfg(any(target_arch = "wasm32", test))]
+mod policy;
+#[cfg(any(target_arch = "wasm32", test))]
+mod shell;
+
+#[cfg(target_arch = "wasm32")]
 fn main() {
     use eframe::wasm_bindgen::JsCast;
     use pdfcraft_ui_egui::PdfCraftApp;
@@ -17,11 +24,16 @@ fn main() {
         else {
             return;
         };
-        let started = eframe::WebRunner::new()
+        let runner = eframe::WebRunner::new();
+        let suspended = std::rc::Rc::new(std::cell::Cell::new(false));
+        let app_suspended = suspended.clone();
+        let shared = std::rc::Rc::new(std::cell::RefCell::new(None));
+        let shared_created = shared.clone();
+        let started = runner
             .start(
-                canvas,
+                canvas.clone(),
                 options,
-                Box::new(|cc| {
+                Box::new(move |cc| {
                     let mut app = PdfCraftApp::new();
                     // "printcraft": settings saved under the app's former name, PrintCraft.
                     if let Some(json) = cc.storage.and_then(|s| s.get_string("pdfcraft").or_else(|| s.get_string("printcraft"))) {
@@ -71,10 +83,23 @@ fn main() {
                         app.host_dirty = Some(bridge.dirty_fn());
                         bridge.post_ready();
                     }
-                    Ok(Box::new(app))
+                    let app = std::rc::Rc::new(std::cell::RefCell::new(app));
+                    let ctx = cc.egui_ctx.clone();
+                    if let Ok(mut shared) = shared_created.try_borrow_mut() {
+                        *shared = Some((app.clone(), ctx.clone()));
+                    }
+                    Ok(Box::new(shell::Shell { app, suspended: app_suspended }))
                 }),
             )
             .await;
+        if started.is_ok() {
+            let state = shared.try_borrow().ok().and_then(|state| state.clone());
+            if let Some((app, ctx)) = state
+                && let Err(e) = browser::install(browser::Handle { app, suspended, ctx }, &canvas)
+            {
+                eframe::web_sys::console::error_1(&e);
+            }
+        }
         if let Err(e) = started {
             eframe::web_sys::console::error_1(&e);
             if query_param("host").as_deref() == Some("parent")
@@ -133,6 +158,7 @@ async fn fetch_bytes(url: &str) -> Result<Vec<u8>, String> {
 /// Only the parent window on the app's own origin is heard or answered.
 #[cfg(target_arch = "wasm32")]
 mod host {
+    use crate::browser;
     use eframe::wasm_bindgen::{JsCast, JsValue, closure::Closure};
 
     #[derive(Clone)]
@@ -150,7 +176,7 @@ mod host {
             if js_sys::Object::is(&parent, &window) {
                 return None;
             }
-            let origin = window.location().origin().ok()?;
+            let origin = browser::parent_origin(&window).ok()?;
             Some(Self { window, parent, origin })
         }
 
@@ -184,11 +210,16 @@ mod host {
                     return;
                 }
                 let data = event.data();
-                if string(&data, "type").as_deref() != Some("pdfcraft:open") {
+                if js_sys::Reflect::has(&data, &JsValue::from_str("requestId")).unwrap_or(false)
+                    || string(&data, "type").as_deref() != Some("pdfcraft:open")
+                {
                     return;
                 }
                 let name = string(&data, "name").filter(|n| !n.trim().is_empty()).unwrap_or_else(|| "document.pdf".to_string());
                 let Ok(bytes) = js_sys::Reflect::get(&data, &JsValue::from_str("bytes")) else { return };
+                if browser::byte_length(&bytes).is_err() {
+                    return;
+                }
                 let bytes = if let Some(array) = bytes.dyn_ref::<js_sys::Uint8Array>() {
                     array.to_vec()
                 } else if bytes.is_instance_of::<js_sys::ArrayBuffer>() {
