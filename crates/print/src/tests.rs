@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use super::*;
-use crate::spool::{Duplex, Job, Printer, lp_args, parse_lpstat, parse_windows_printers, windows_env_vars};
+use crate::spool::{Duplex, Job, Printer, lp_args, parse_lpstat};
 
 /// `n` pages of 200×300 (page 3 is landscape 300×200 when n ≥ 3); page i shows "(Page i+1)".
 /// Page 1 carries a printable square comment, a non-printing note, and a stamp.
@@ -439,55 +439,73 @@ fn the_spoolers_reply_drops_the_file_count_of_a_job_sent_on_stdin() {
 }
 
 #[test]
-fn windows_printers_carry_one_default_and_keep_their_names() {
-    // Windows marks the system default with a `*` no queue name may contain; names hold spaces,
-    // parentheses and non-ASCII letters, and the lines end with CRLF.
-    let printers = parse_windows_printers("*Microsoft Print to PDF\r\nHP LaserJet 400 (Copy 2)\r\nКопир Canon iR\r\n\r\n*XPS via USB\r\n");
-    assert_eq!(printers[0], Printer { name: "Microsoft Print to PDF".into(), default: true });
-    assert_eq!(printers[1], Printer { name: "HP LaserJet 400 (Copy 2)".into(), default: false });
-    assert_eq!(printers[2], Printer { name: "Копир Canon iR".into(), default: false });
-    // A spooler marking two defaults: the first still wins, so the dialog has one to preselect.
-    assert_eq!(printers[3], Printer { name: "XPS via USB".into(), default: false });
-    assert_eq!(parse_windows_printers("\r\n"), Vec::new());
+fn windows_printers_are_sorted_once_with_their_default() {
+    // Queue names hold spaces, commas, parentheses and non-ASCII letters; a connection can be
+    // listed twice; the default is matched whole, never by prefix.
+    let names = ["Zebra Label", "HP LaserJet 400 (Copy 2)", "Копир Canon iR", r"\\print01\Office, 2nd floor", "Zebra Label", " "];
+    let printers = spool::printer_list(names.map(String::from), Some(r"\\print01\Office, 2nd floor"));
+    assert_eq!(
+        printers,
+        [
+            Printer { name: "HP LaserJet 400 (Copy 2)".into(), default: false },
+            Printer { name: "Zebra Label".into(), default: false },
+            Printer { name: r"\\print01\Office, 2nd floor".into(), default: true },
+            Printer { name: "Копир Canon iR".into(), default: false },
+        ]
+    );
+    assert!(spool::printer_list(["Office".to_string()], Some("Office 2")).iter().all(|p| !p.default));
+    assert!(spool::printer_list(["Office".to_string()], None).iter().all(|p| !p.default));
 }
 
+/// Windows prints a job on one paper shape: sheets Auto orientation turned for landscape pages
+/// are turned back with `/Rotate`, the rest of the file untouched.
 #[test]
-fn the_windows_job_is_the_environment_of_the_print_script() {
-    let path = std::path::Path::new("C:\\Users\\me\\AppData\\Local\\Temp\\pdfcraft-print-42.pdf");
-    let job = Job {
-        printer: Some("HP \"Laser\" Jet".into()),
-        copies: 3,
-        duplex: Duplex::ShortEdge,
-        grayscale: true,
-        title: "Angebot.pdf".into(),
-        ..Job::default()
+fn windows_jobs_turn_mixed_sheets_to_one_shape() {
+    use pdfcraft_model::pages;
+    let shapes = |pdf: &[u8]| {
+        let doc = Document::open(Arc::new(pdf.to_vec())).unwrap();
+        pages(&doc).iter().map(|p| (p.display_size(&doc), p.rotation(&doc))).collect::<Vec<_>>()
     };
-    let vars = windows_env_vars(path, &job);
-    let env = |key: &str| vars.iter().find(|(k, _)| k == key).map(|(_, v)| v.as_str()).unwrap();
-    assert_eq!(env("PDFCRAFT_PRINT_FILE"), "C:\\Users\\me\\AppData\\Local\\Temp\\pdfcraft-print-42.pdf");
-    // Quotes and spaces in a printer name survive because nothing goes on the command line.
-    assert_eq!(env("PDFCRAFT_PRINT_PRINTER"), "HP \"Laser\" Jet");
-    assert_eq!(env("PDFCRAFT_PRINT_COPIES"), "3");
-    assert_eq!(env("PDFCRAFT_PRINT_COLLATE"), "1");
-    assert_eq!(env("PDFCRAFT_PRINT_DUPLEX"), "short-edge");
-    assert_eq!(env("PDFCRAFT_PRINT_GRAYSCALE"), "1");
-    assert_eq!(env("PDFCRAFT_PRINT_TITLE"), "Angebot.pdf");
-    // No printer chosen means the system default: an empty name, not the word "default".
-    let one = |j: &Job, key: &str| windows_env_vars(path, j).into_iter().find(|(k, _)| k == key).unwrap().1;
-    assert_eq!(one(&Job::default(), "PDFCRAFT_PRINT_PRINTER"), "");
-    assert_eq!(one(&Job { duplex: Duplex::Off, ..Job::default() }, "PDFCRAFT_PRINT_DUPLEX"), "off");
-    assert_eq!(one(&Job { duplex: Duplex::LongEdge, ..Job::default() }, "PDFCRAFT_PRINT_DUPLEX"), "long-edge");
+    // Page 3 of the fixture is landscape: Actual size on Letter gives portrait, portrait, landscape.
+    let mixed = impose(&fixture(3), &settings(vec![0, 1, 2], Layout::Size(SizeMode::Actual))).unwrap();
+    assert_eq!(shapes(&mixed)[2], ((792.0, 612.0), 0));
+    let spool::OneShape { pdf, sheet, count } = spool::one_sheet_shape(&mixed).unwrap();
+    assert_eq!((sheet, count), ((612.0, 792.0), 3));
+    assert_eq!(shapes(&pdf), [((612.0, 792.0), 0), ((612.0, 792.0), 0), ((612.0, 792.0), 270)], "the landscape sheet turned a quarter anticlockwise");
+
+    // A landscape first sheet makes it a landscape job: the portrait sheets turn the other way.
+    let landscape_first = impose(&fixture(3), &settings(vec![2, 0], Layout::Size(SizeMode::Actual))).unwrap();
+    let spool::OneShape { pdf, sheet, count } = spool::one_sheet_shape(&landscape_first).unwrap();
+    assert_eq!((sheet, count), ((792.0, 612.0), 2));
+    assert_eq!(shapes(&pdf), [((792.0, 612.0), 0), ((792.0, 612.0), 90)]);
+
+    // One shape already: the job is the print-ready PDF as it is.
+    let portrait = impose(&fixture(2), &settings(vec![0, 1], Layout::Size(SizeMode::Fit))).unwrap();
+    let spool::OneShape { pdf, sheet, .. } = spool::one_sheet_shape(&portrait).unwrap();
+    assert!(matches!(pdf, std::borrow::Cow::Borrowed(_)) && sheet == (612.0, 792.0));
+
+    // A sheet of another paper size can't share the ticket: refused, not shrunk or cut.
+    let mut doc = Document::open(Arc::new(portrait.clone())).unwrap();
+    let second = pages(&doc)[1].obj;
+    let mut dict = doc.get(second).as_dict().cloned().unwrap();
+    dict.set(b"MediaBox".to_vec(), Object::Array([0.0, 0.0, 612.0, 1008.0].iter().map(|v| Object::Real(*v)).collect()));
+    doc.set(second, Object::Dict(dict));
+    let legal = write_full(&doc, &SaveOptions::default()).unwrap();
+    assert!(matches!(spool::one_sheet_shape(&legal), Err(PrintError::Spool(_))));
+    assert!(spool::one_sheet_shape(b"not a pdf").is_err());
 }
 
 /// Run a PowerShell script for the Windows-only tests: its stdout, or everything it said when
-/// it failed — the tests print that as the skip reason.
+/// it failed — the tests print that as the skip reason. Any error stops the script and fails
+/// it: `-Command` otherwise exits 0 after a failed command, such as a parameter the cmdlet
+/// doesn't have. Started by its full path (#1106): given a bare name, Rust looks in the test
+/// binary's own folder before System32.
 #[cfg(windows)]
-fn windows_powershell(script: &str, envs: &[(&str, &str)]) -> Result<String, String> {
-    let mut c = std::process::Command::new("powershell");
-    c.args(["-NoProfile", "-NonInteractive", "-Command", script]);
-    for (k, v) in envs {
-        c.env(k, v);
-    }
+fn windows_powershell(script: &str) -> Result<String, String> {
+    let root = std::env::var_os("SystemRoot").unwrap_or_else(|| "C:\\Windows".into());
+    let exe = std::path::Path::new(&root).join("System32").join("WindowsPowerShell").join("v1.0").join("powershell.exe");
+    let mut c = std::process::Command::new(exe);
+    c.args(["-NoProfile", "-NonInteractive", "-Command", &format!("$ErrorActionPreference = 'Stop'; {script}")]);
     match c.output() {
         Ok(o) if o.status.success() => Ok(String::from_utf8_lossy(&o.stdout).into_owned()),
         Ok(o) => Err(format!("{} {}", String::from_utf8_lossy(&o.stderr).trim(), String::from_utf8_lossy(&o.stdout).trim())),
@@ -505,69 +523,45 @@ fn windows_lists_the_printers_the_system_knows() {
     assert!(printers.iter().filter(|p| p.default).count() <= 1, "{printers:?}");
 }
 
-/// Windows: PowerShell is started by its full path under System32, never by its bare name.
-/// Rust resolves a bare name in the app's own folder first, so a `powershell.exe` beside a
-/// portable install would run instead, for every printer list and every job.
+/// Windows, end to end: a job of portrait and landscape sheets reaches a paused test printer's
+/// queue as one job, under the document's title. PdfCraft starts no program to print it; the
+/// test uses PowerShell only to add, inspect and remove the printer. Its driver is the inbox
+/// "Generic / Text Only"; a machine that cannot add one (no rights, no driver) skips the test,
+/// as the CUPS tests skip where CUPS isn't running.
 #[cfg(windows)]
 #[test]
-fn windows_starts_powershell_by_its_full_path() {
-    let c = crate::spool::powershell_command("$null");
-    let program = std::path::Path::new(c.get_program());
-    assert!(program.is_absolute(), "{program:?}");
-    assert!(program.ends_with("System32/WindowsPowerShell/v1.0/powershell.exe"), "{program:?}");
-    assert!(program.is_file(), "{program:?}");
-}
-
-/// Windows: the embedded print script is valid PowerShell, checked on every machine — including
-/// runners that have no printer to print to.
-#[cfg(windows)]
-#[test]
-fn the_windows_print_script_parses() {
-    let path = std::env::temp_dir().join(format!("pdfcraft-print-script-{}.ps1", std::process::id()));
-    std::fs::write(&path, spool::WINDOWS_PRINT_SCRIPT).unwrap();
-    let errors = windows_powershell(
-        "$tokens = $null; $errors = $null; [System.Management.Automation.Language.Parser]::ParseFile($env:PDFCRAFT_TEST_SCRIPT, [ref]$tokens, [ref]$errors) > $null; $errors.Count",
-        &[("PDFCRAFT_TEST_SCRIPT", path.to_str().unwrap())],
-    );
-    let _ = std::fs::remove_file(&path);
-    assert_eq!(errors.as_deref().map(str::trim), Ok("0"), "parse errors: {errors:?}");
-}
-
-/// Windows, end to end: the script renders the job's sheets with Windows.Data.Pdf on any
-/// machine — CI included, no printer needed (the dry run writes the PNGs to the temporary
-/// folder) — and, where a paused test printer can be added, a real job lands in its queue.
-/// Its driver is the inbox "Generic / Text Only"; a machine that cannot add one (no rights, no
-/// driver) skips that half, as the CUPS tests skip where CUPS isn't running.
-#[cfg(windows)]
-#[test]
-fn the_print_script_renders_the_job_and_reaches_the_spooler() {
-    let pdf = impose(&fixture(2), &settings(vec![0, 1], Layout::Size(SizeMode::Fit))).unwrap();
-    // The printer name is deliberately wrong: the dry run stops before the driver is touched.
-    let job = Job { printer: Some("no such printer".into()), title: "test.pdf".into(), ..Job::default() };
-    let dry = spool::windows_submit(&pdf, &job, &[("PDFCRAFT_PRINT_DRYRUN", "1")]);
-    assert_eq!(dry.as_deref(), Ok("rendered 2 sheet(s)"), "{dry:?}");
-
+fn windows_jobs_reach_the_spooler() {
+    let pdf = impose(&fixture(3), &settings(vec![0, 1, 2], Layout::Size(SizeMode::Actual))).unwrap();
     const NAME: &str = "PdfCraft Test Print";
-    let added = windows_powershell(
-        &format!(
-            "if (-not (Get-Printer -Name '{NAME}' -ErrorAction SilentlyContinue)) {{ Add-Printer -Name '{NAME}' -DriverName 'Generic / Text Only' -PortName 'FILE:' }}; Set-Printer -Name '{NAME}' -IsPaused $true"
-        ),
-        &[],
-    );
+    // The printer goes on LPT1:, one of the ports every Windows install has, so the test adds
+    // no port: Remove-PrinterPort can't remove a local port again (it reports an invalid name).
+    // Not FILE:, which asks where to save; a paused FILE: queue never received the job. Paused
+    // through Win32_Printer, since Set-Printer can't pause a printer: the job stays in the queue
+    // and nothing is sent to the port.
+    let added = windows_powershell(&format!(
+        "if (-not (Get-Printer -Name '{NAME}' -ErrorAction SilentlyContinue)) {{ Add-Printer -Name '{NAME}' -DriverName 'Generic / Text Only' -PortName 'LPT1:' }}; $r = Invoke-CimMethod -InputObject (Get-CimInstance Win32_Printer -Filter 'Name=''{NAME}''') -MethodName Pause; if ($r.ReturnValue -ne 0) {{ throw ('Pause returned ' + $r.ReturnValue) }}"
+    ));
     if let Err(why) = added {
         eprintln!("skipping the real print: the test printer could not be prepared: {why}");
         return;
     }
-    let job = Job { printer: Some(NAME.into()), title: "test.pdf".into(), ..Job::default() };
+    assert!(spool::printers().iter().any(|p| p.name == NAME), "the new printer is listed");
+    let job = Job { printer: Some(NAME.into()), copies: 2, duplex: Duplex::LongEdge, title: "test.pdf".into(), ..Job::default() };
     let sent = spool::submit(&pdf, &job);
-    let queued = windows_powershell(
-        "if (Get-PrintJob -Name 'PdfCraft Test Print') { (Get-PrintJob -Name 'PdfCraft Test Print' | Measure-Object).Count } else { 0 }",
-        &[],
-    );
-    let cleaned = windows_powershell("Get-PrintJob -Name 'PdfCraft Test Print' | Remove-PrintJob; Remove-Printer -Name 'PdfCraft Test Print'", &[]);
-    assert!(sent.is_ok(), "{sent:?}");
-    assert_eq!(queued.as_deref().map(str::trim), Ok("1"), "the job is in the paused printer's queue: {queued:?}");
+    let queued =
+        windows_powershell(&format!("@(Get-PrintJob -PrinterName '{NAME}' | ForEach-Object {{ $_.DocumentName + ' ' + $_.TotalPages }}) -join '|'"));
+    // A printer that still has jobs is only marked for deletion, so the queue is emptied first.
+    // `exit 0`: `-Command` exits 1 when its last command failed, even silently (Get-Printer
+    // finding no printer).
+    let cleaned = windows_powershell(&format!(
+        "Get-PrintJob -PrinterName '{NAME}' | Remove-PrintJob; foreach ($i in 1..20) {{ if (-not (Get-PrintJob -PrinterName '{NAME}')) {{ break }}; Start-Sleep -Milliseconds 250 }}; Remove-Printer -Name '{NAME}'; if (Get-Printer -Name '{NAME}' -ErrorAction SilentlyContinue) {{ throw 'the printer is still there' }}; exit 0"
+    ));
+    assert_eq!(sent.as_deref(), Ok("spooled 3 sheet(s)"), "{sent:?}");
+    assert_eq!(queued.as_deref().map(str::trim), Ok("PdfCraft-test.pdf 3"), "one job of 3 sheets in the paused printer's queue: {queued:?}");
     assert!(cleaned.is_ok(), "the test printer is removed again: {cleaned:?}");
+    // Asking for a printer that isn't there is an error, never a job on another one.
+    let missing = spool::submit(&pdf, &Job { printer: Some(NAME.into()), ..Job::default() });
+    assert!(matches!(missing, Err(PrintError::Spool(ref m)) if m.contains(NAME)), "{missing:?}");
 }
 
 /// A PPD shaped like a Fiery's: installable options, multi-line PostScript in the choices, Latin-1
