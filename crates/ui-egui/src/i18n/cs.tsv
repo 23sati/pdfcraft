@@ -80,6 +80,7 @@
 	Signatures panel	Panel podpisů
 	Organize pages	Uspořádat stránky
 	New bookmark	Nová záložka
+	New bookmarks from structure	Nové záložky ze struktury
 	Rotate pages clockwise	Otočit stránky po směru hodinových ručiček
 	Rotate pages counterclockwise	Otočit stránky proti směru hodinových ručiček
 	Delete pages	Odstranit stránky
@@ -147,3 +148,8 @@
 	Paper & Ink	Papír a inkoust
 	Catppuccin	Motiv Catppuccin
 	Solarized	Motiv Solarized
+	Multiple words or phrases	Více slov nebo frází
+	One word or phrase per line	Jedno slovo nebo fráze na řádek
+	Import list…	Importovat seznam…
+	{n} word(s) or phrase(s)	Slova nebo fráze: {n}
+	{name} is too large for a word list (at most 1 MB).	{name} je pro seznam slov příliš velký (nejvýše 1 MB).
