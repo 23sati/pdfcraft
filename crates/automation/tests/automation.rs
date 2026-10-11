@@ -167,6 +167,36 @@ fn edit_undo_redo_and_save_round_trip() {
     assert_eq!(after.windows(5).filter(|w| w == b"%%EOF").count(), 2);
 }
 
+/// #569: images and text files combine with PDFs, each made into a PDF first.
+#[test]
+fn combine_takes_images_and_text_files() {
+    let dir = workdir("combine-images");
+    let mut png = Vec::new();
+    {
+        let mut encoder = png::Encoder::new(&mut png, 4, 2);
+        encoder.set_color(png::ColorType::Rgb);
+        encoder.set_depth(png::BitDepth::Eight);
+        encoder.write_header().unwrap().write_image_data(&[90; 24]).unwrap();
+    }
+    std::fs::write(dir.join("scan.png"), png).unwrap();
+    std::fs::write(dir.join("notes.txt"), "Some notes").unwrap();
+    std::fs::write(dir.join("broken.png"), b"\x89PNG\r\n\x1a\nbroken").unwrap();
+    std::fs::write(dir.join("report.docx"), b"PK\x03\x04").unwrap();
+    let mut a = auto(&dir);
+    let combined = ok(&mut a, "doc_combine", json!({ "paths": ["a.pdf", "scan.png", "notes.txt"], "pages": [null, null, "1"], "open": true }));
+    let doc = combined["document"]["doc"].as_u64().unwrap();
+    assert_eq!(combined["document"]["pages"], 5);
+    assert_eq!(page_text(&mut a, doc), ["Page 1", "Page 2", "Page 3", "", "Some notes"]);
+    let marks = ok(&mut a, "bookmark_list", json!({ "doc": doc }))["bookmarks"].clone();
+    let titles: Vec<&str> = marks.as_array().unwrap().iter().map(|b| b["title"].as_str().unwrap()).collect();
+    assert_eq!(titles, ["a", "scan", "notes"]);
+    // A file that can't be made into a PDF stops the combine, and says which.
+    for bad in ["broken.png", "report.docx"] {
+        let refused = a.call("doc_combine", &json!({ "paths": ["a.pdf", bad] }));
+        assert!(matches!(&refused, Err(ToolError::Failed(e)) if e.contains(bad)), "{bad}: {refused:?}");
+    }
+}
+
 #[test]
 fn combine_extract_and_split() {
     let dir = workdir("organize");
@@ -1397,6 +1427,40 @@ fn headers_watermarks_and_backgrounds_through_tools() {
 }
 
 #[test]
+fn watermarks_move_from_the_page_centre_through_tools() {
+    let dir = workdir("wm-offset");
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    // The top-left corner of "DRAFT" on page 1, in points (y grows downwards).
+    // Saved and reopened, so the search reads the file as another program would.
+    let mut saved = 0;
+    let mut corner = |a: &mut Automation| -> (f64, f64) {
+        saved += 1;
+        let path = format!("moved{saved}.pdf");
+        ok(a, "doc_save", json!({ "doc": doc, "path": path }));
+        let copy = ok(a, "doc_open", json!({ "path": path }))["doc"].as_u64().unwrap();
+        let found = ok(a, "text_find", json!({ "doc": copy, "query": "DRAFT" }));
+        let rect =
+            found["matches"][0]["rects"][0].as_array().unwrap_or_else(|| panic!("DRAFT is on the page: {found}; text: {:?}", page_text(a, copy)));
+        (rect[0].as_f64().unwrap(), rect[1].as_f64().unwrap())
+    };
+    // Both sit above the fixture's "Page 1" (at the page centre), or their letters would mix.
+    ok(&mut a, "doc_watermark", json!({ "doc": doc, "pages": [1], "text": "DRAFT", "rotation": 0, "font_size": 20, "offset_y": 60 }));
+    let centred = corner(&mut a);
+    ok(
+        &mut a,
+        "doc_watermark",
+        json!({ "doc": doc, "pages": [1], "text": "DRAFT", "rotation": 0, "font_size": 20, "offset_x": 30, "offset_y": 100, "replace": true }),
+    );
+    let moved = corner(&mut a);
+    assert!((moved.0 - centred.0 - 30.0).abs() < 1.0, "right: {centred:?} → {moved:?}");
+    assert!((centred.1 - moved.1 - 40.0).abs() < 1.0, "up is towards the top: {centred:?} → {moved:?}");
+    // Huge offsets are clamped, and a value that isn't a number is refused.
+    ok(&mut a, "doc_watermark", json!({ "doc": doc, "pages": [1], "text": "DRAFT", "offset_y": 1e300, "replace": true }));
+    assert!(matches!(a.call("doc_watermark", &json!({ "doc": doc, "text": "X", "offset_x": "left" })), Err(ToolError::InvalidArgs(_))));
+}
+
+#[test]
 fn exporting_images_and_text_through_tools() {
     let dir = workdir("export");
     let mut a = auto(&dir);
@@ -1935,6 +1999,26 @@ fn creating_and_reducing_through_tools() {
     assert_eq!(r["written"], false);
     assert!(!dir.join("notes-small.pdf").exists());
     assert!(matches!(a.call("doc_create", &json!({ "from": "images", "paths": ["notes.txt"] })), Err(ToolError::Failed(_))));
+}
+
+#[test]
+fn creating_from_text_refuses_what_the_font_cannot_draw() {
+    let dir = workdir("create-undrawable");
+    std::fs::write(dir.join("kr.txt"), "ABC 제안서 시험").unwrap();
+    let mut a = auto(&dir);
+    let refused = |r: Result<Vec<Content>, ToolError>| match r {
+        Err(ToolError::InvalidArgs(m) | ToolError::Failed(m)) => assert!(m.contains("U+C81C"), "{m}"),
+        other => panic!("expected a refusal, got {other:?}"),
+    };
+    assert!(matches!(a.call("doc_create", &json!({ "from": "text", "text": "ABC 제안서 시험" })), Err(ToolError::InvalidArgs(_))));
+    refused(a.call("doc_create", &json!({ "from": "text", "text": "ABC 제안서 시험" })));
+    refused(a.call("doc_create", &json!({ "from": "text", "path": "kr.txt" })));
+    // WinAnsi characters, line breaks and tabs are still fine.
+    let d = ok(&mut a, "doc_create", json!({ "from": "text", "text": "Price: 5 € at café\r\n\tnext\u{c}page two" }))["doc"].as_u64().unwrap();
+    assert_eq!(page_text(&mut a, d).len(), 2);
+    // #959: page_add_text refuses it too.
+    let doc = ok(&mut a, "doc_create", json!({ "from": "blank" }))["doc"].as_u64().unwrap();
+    refused(a.call("page_add_text", &json!({ "doc": doc, "page": 1, "text": "ABC 제안서 시험", "at": [20, 20] })));
 }
 
 #[test]
