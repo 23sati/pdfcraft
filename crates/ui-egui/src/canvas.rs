@@ -2684,7 +2684,9 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                         view.clicks = release_clicks;
                     }
                     let clicks = if view.clicks > 2 && tool != QuickTool::Select { 1 } else { view.clicks };
-                    if clicks >= 2 && over_text {
+                    // Only a double- or triple-click widens the selection: a stale click count
+                    // must not reselect cleared text on frames without one.
+                    if release_clicks > 0 && clicks >= 2 && over_text {
                         if view.selection.is_none() {
                             let span = text.nearest(vx, vy).and_then(|a| match clicks {
                                 2 => text.word_at(a),
