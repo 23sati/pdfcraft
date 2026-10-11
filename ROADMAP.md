@@ -135,6 +135,8 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 ## Progress log
 
+- **2026-10-11 (web, #168/#422/#498):** Added graphics-loss editing suspension and per-tab recovery downloads outside the canvas; direct and exact-parent-origin open/save/dirty APIs; Chinese web font selection and manifest-based license packaging adapted from #879. Browser QA pending; no automatic renderer restart or persistent undo recovery is claimed. Estimates unchanged.
+
 - **2026-10-11 (M10.5, focused follow-up to #599):** Carry the architectural/ANSI/large ISO paper presets, current-page matching at 100%, and previewed PDF scale into the current print dialog and `doc_print`. Retains the #847/#1007 spooler and background discovery. Driver substitution, physical calibration, vector Windows printing and managed-endpoint restrictions remain separate gaps. Overall estimates unchanged.
 
 Newest first: the date, what moved, and the new overall estimate.

@@ -3976,8 +3976,11 @@ version = "0.6.0"
 dependencies = [
  "eframe",
  "egui",
+ "egui_kittest",
  "js-sys",
+ "pdfcraft-engine",
  "pdfcraft-ui-egui",
+ "url",
  "wasm-bindgen-futures",
  "web-sys",
 ]

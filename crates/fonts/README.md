@@ -55,7 +55,7 @@ only Gothic Regular, so it cannot preserve bold. No new font assets or changes t
 needed.
 
 wasm32 builds embed only BIZ UDPGothic Regular and any `Arab`, `Telu` or `Hebr` face, to keep the web build small: the web build
-currently has no Chinese face, so Chinese there still shows the replacement glyph.
+also keeps Droid Sans Fallback for Simplified and Traditional Chinese.
 Font files are never
 committed here (`AGENTS.md` §1.4; team members: [craftrules `standards/fonts.md`](https://github.com/storytold/craftrules/blob/main/standards/fonts.md), internal).
 

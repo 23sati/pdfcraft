@@ -178,7 +178,7 @@ pub const SYSTEM_FALLBACK: &str = "system-fallback";
 /// `PDFCRAFT_SYSTEM_FONTS=0` leaves it out.
 pub fn installed_font_definitions(cjk: CjkPreference) -> FontDefinitions {
     #[cfg_attr(target_arch = "wasm32", expect(unused_mut))]
-    let mut fonts = font_definitions_for(cjk == CjkPreference::SimplifiedChinese);
+    let mut fonts = font_definitions_for(cjk != CjkPreference::Default);
     #[cfg(not(target_arch = "wasm32"))]
     {
         use crate::system_fonts::{Need, fallback};
