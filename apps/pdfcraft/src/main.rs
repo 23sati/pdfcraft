@@ -929,6 +929,36 @@ mod tests {
     }
 
     #[test]
+    fn pipeline_creation_error_is_returned_and_device_remains_usable() {
+        use eframe::{egui_wgpu, wgpu};
+        let mut native = super::native_options(false, eframe::Renderer::Wgpu);
+        let egui_wgpu::WgpuSetup::CreateNew(setup) = &native.wgpu_options.wgpu_setup else { panic!("default setup creates its own instance") };
+        let instance = pollster::block_on(native.wgpu_options.wgpu_setup.new_instance());
+        let options = wgpu::RequestAdapterOptions { power_preference: setup.power_preference, ..Default::default() };
+        let Ok(adapter) = pollster::block_on(instance.request_adapter(&options)) else {
+            assert!(std::env::var_os("PDFCRAFT_TEST_REQUIRE_GPU").is_none(), "a GPU adapter is required for this run");
+            eprintln!("skipping pipeline regression: no GPU adapter");
+            return;
+        };
+        let (device, queue) = pollster::block_on(adapter.request_device(&(setup.device_descriptor)(&adapter)))
+            .expect("the selected adapter must provide a test device");
+        native.wgpu_options.wgpu_setup =
+            egui_wgpu::WgpuSetup::Existing(egui_wgpu::WgpuSetupExisting { instance: instance.clone(), adapter, device, queue });
+        // Three samples is invalid on every backend, so this reproduces a pipeline error
+        // without depending on a particular driver. The unpatched constructor panics.
+        for samples in [3, 1, 3, 1] {
+            let options = egui_wgpu::RendererOptions { msaa_samples: samples, ..Default::default() };
+            let result = pollster::block_on(egui_wgpu::RenderState::create(&native.wgpu_options, &instance, None, options));
+            if samples == 3 {
+                let error = result.err().expect("invalid pipeline must return an error");
+                assert!(error.to_string().contains("egui_pipeline"), "{error}");
+            } else {
+                assert!(result.is_ok(), "the device must remain usable: {:?}", result.err());
+            }
+        }
+    }
+
+    #[test]
     fn winit_carries_the_windows_11_monitor_scale_fix() {
         // Issue #324: winit 0.30.13 as released nudges a window dragged onto a monitor with another
         // scale factor back onto the one it is leaving, so on Windows 11 it ends up on the wrong

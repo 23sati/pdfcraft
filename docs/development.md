@@ -58,7 +58,11 @@ panic, as upstream: an error in a later reconfigure (resizing, a lost surface); 
 during that first configure (wgpu reports it only to a callback, so the first frame panics, after
 the app has started); and a window shown at zero size, which is first configured on resize. If
 OpenGL can't start either, PdfCraft exits with both errors in the log. The fallback is logged at
-`error`, with the wgpu error. `PDFCRAFT_RENDERER` skips it or chooses OpenGL from the start.
+`error`, with the wgpu error. Renderer resource creation now uses the same scopes and returns
+`WgpuError::CreateRenderer` before the app is created, so a rejected `egui_pipeline` can also
+reach this retry instead of the uncaptured-error panic handler. This does not fix the failing
+driver's shader compilation, and explicit `PDFCRAFT_RENDERER=wgpu` still disables the retry.
+`PDFCRAFT_RENDERER` skips it or chooses OpenGL from the start.
 
 ## Environment variables
 
