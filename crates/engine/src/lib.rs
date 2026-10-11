@@ -96,6 +96,13 @@ pub fn typed_signature_shape(at: [f64; 2], text: &str, height: f64, rotation: i6
     let contours = o.contours.iter().map(|c| c.iter().map(|p| to_user((p[0] - left) / width, (p[1] - bottom) / span)).collect()).collect();
     Some(Shape::TypedSignature { rect, contours })
 }
+/// `text` in the script font as the graphic of a visible digital signature, as Fill & Sign types
+/// it. `None` for text with no outlines.
+pub fn typed_signature_graphic(text: &str) -> Option<pdfcraft_sign::Graphic> {
+    let o = script_outline(text);
+    o.contours.iter().any(|c| c.len() > 2).then_some(pdfcraft_sign::Graphic::Outlines(o.contours))
+}
+
 /// Comment geometry helpers (text-box line breaking) for frontends.
 pub use pdfcraft_annot::appearance as annot_text;
 pub use pdfcraft_annot::links::{Highlight as LinkHighlight, LinkAction, LinkItem, LinkStyle};
@@ -305,6 +312,7 @@ impl Document {
 
     /// Save image as: image `index` on `page` as a file (extension, bytes).
     pub fn page_image_file(&self, page: usize, index: usize) -> Result<(&'static str, Vec<u8>), String> {
+        self.check_copying().map_err(|e| e.to_string())?;
         let editor = self.editor.as_ref().ok_or("the document can't be read")?;
         let img = self.page_images(page).into_iter().nth(index).ok_or_else(|| format!("page {} has no image {}", page + 1, index + 1))?;
         if img.is_form {
@@ -418,6 +426,18 @@ impl Document {
     /// Printing is allowed (Table 22, bit 3).
     pub fn allows_printing(&self) -> bool {
         self.permissions().is_none_or(|p| p.print())
+    }
+
+    /// Copying or otherwise extracting text and images is allowed (Table 22, bit 5): copying
+    /// selected text, snapshots, Save Image As, exporting. Assistive technology may read the
+    /// content regardless (§7.6.4.2), so reading aloud and accessibility tools don't ask.
+    pub fn allows_copying(&self) -> bool {
+        self.permissions().is_none_or(|p| p.copy())
+    }
+
+    /// [`Self::allows_copying`], as the error to report when it isn't.
+    pub fn check_copying(&self) -> Result<(), EditError> {
+        if self.allows_copying() { Ok(()) } else { Err(EditError::NotPermitted("copying text and images")) }
     }
 
     /// Page changes (insert, delete, rotate, move, extract) are allowed.
@@ -2408,8 +2428,13 @@ impl Session {
             };
             e.cos.note_repair(line);
         }
-        let marks = editor.as_ref().map(|e| pdfcraft_edit::marks_present(&e.cos)).unwrap_or_default();
-        let added = editor.as_ref().map(|e| pdfcraft_edit::list_added(&e.cos)).unwrap_or_default();
+        let (marks, added) = editor
+            .as_ref()
+            .map(|e| {
+                let scan = pdfcraft_edit::scan_markers(&e.cos);
+                (scan.marks, scan.added)
+            })
+            .unwrap_or_default();
         let links = editor.as_ref().map(|e| pdfcraft_annot::links::list(&e.cos)).unwrap_or_default();
         let sig_cache = Arc::new(pdfcraft_sign::DigestCache::default());
         let signatures = editor.as_ref().map(|e| signatures_of(&e.cos, &bytes, &self.trust, &sig_cache)).unwrap_or_default();
@@ -2695,8 +2720,9 @@ impl Session {
         let mut form = pdfcraft_forms::fields(&editor.cos);
         xfa::mark_script_buttons(&editor.cos, &mut form);
         doc.form = Arc::new(form);
-        doc.marks = pdfcraft_edit::marks_present(&editor.cos);
-        doc.added = pdfcraft_edit::list_added(&editor.cos);
+        let marker_scan = pdfcraft_edit::scan_markers(&editor.cos);
+        doc.marks = marker_scan.marks;
+        doc.added = marker_scan.added;
         doc.links = pdfcraft_annot::links::list(&editor.cos);
         doc.signatures = signatures_of(&editor.cos, &bytes, &doc.trust, &doc.sig_cache);
         doc.display = display_bytes(Some(editor), &bytes);

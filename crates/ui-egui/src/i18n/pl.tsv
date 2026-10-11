@@ -850,6 +850,10 @@
 	The signature will be invisible.	Podpis będzie niewidoczny.
 	Distinguished name	Nazwa wyróżniająca
 	Labels	Etykiety
+	Graphic	Grafika
+	Signer's name	Nazwa podpisującego
+	Fill & Sign signature	Podpis z „Wypełnij i podpisz”
+	Choose image…	Wybierz obraz…
 	Permitted actions after certifying	Dozwolone działania po certyfikacji
 	No changes allowed	Zmiany niedozwolone
 	Annotations, form fill-in, and digital signatures	Adnotacje, wypełnianie formularzy i podpisy cyfrowe
@@ -2205,6 +2209,10 @@ key	Space	Spacja
 	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Ten plik zmienił się na dysku. Wczytaj go ponownie, aby zobaczyć nową wersję; niezapisane zmiany zostaną utracone.
 	Reload	Wczytaj ponownie
 	Couldn't reload {name}: {e}	Nie można ponownie wczytać {name}: {e}
+	Select page {label}	Wybierz stronę {label}
+	Rotate page {label} counterclockwise	Obróć stronę {label} w lewo
+	Rotate page {label} clockwise	Obróć stronę {label} w prawo
+	Delete page {label}	Usuń stronę {label}
 	Mouse wheel scroll speed	Szybkość przewijania kółkiem myszy
 scroll speed	Slow	Wolna
 scroll speed	Normal	Normalna
