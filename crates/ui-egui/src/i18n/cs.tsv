@@ -172,3 +172,17 @@ key	Esc	Esc
 key	Home	Home
 key	End	End
 key	Space	Mezerník
+
+# Shared panel docking
+	Reset panel layout	Obnovit rozložení panelů
+	Float panel	Uvolnit panel
+	Move to group	Přesunout do skupiny
+	Panels	Panely
+	Resize panels	Změnit velikost panelů
+	Resize panel window	Změnit velikost okna panelu
+	Tools	Nástroje
+	Inspector	Inspektor
+	Select page {label}	Vybrat stránku {label}
+	Rotate page {label} counterclockwise	Otočit stránku {label} proti směru hodinových ručiček
+	Rotate page {label} clockwise	Otočit stránku {label} po směru hodinových ručiček
+	Delete page {label}	Odstranit stránku {label}
