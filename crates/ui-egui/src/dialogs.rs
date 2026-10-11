@@ -25,6 +25,10 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
         app.view_draft = None;
         return;
     };
+    // Properties ▸ Fonts shows the fonts as they are now, after any content edits.
+    if let (Dialog::Properties(PropsTab::Fonts), Some((_, id))) = (dialog, app.active_ids()) {
+        app.session.refresh_fonts(id);
+    }
     // Seed the editable Description fields from the document when the dialog opens.
     if let (Dialog::Properties(_), Some((_, id))) = (dialog, app.active_ids())
         && app.props_draft.as_ref().is_none_or(|(d, _)| *d != id)
@@ -897,7 +901,9 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 return;
             }
             Dialog::Preferences => {
-                close = crate::js_ui::preferences_body(ui, app, &t);
+                // The settings outgrow a short window: scroll them rather than run off the screen.
+                let max = (ui.ctx().content_rect().height() - 120.0).max(200.0);
+                close = egui::ScrollArea::vertical().max_height(max).show(ui, |ui| crate::js_ui::preferences_body(ui, app, &t)).inner;
                 return;
             }
             Dialog::RecognizeText => {
