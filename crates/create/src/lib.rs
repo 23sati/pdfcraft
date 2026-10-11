@@ -314,7 +314,13 @@ fn png_image(name: &str, bytes: &[u8]) -> Result<Embedded, CreateError> {
         _ => (72.0, 72.0),
     };
     let icc = reader.info().icc_profile.as_ref().map(|p| p.to_vec());
-    let mut buf = vec![0; reader.output_buffer_size().ok_or_else(|| bad("image too large".into()))?];
+    // The decoded size comes from the header alone, so a file of a few bytes can claim any
+    // size: keep the TIFF ceiling, and ask for the memory fallibly (a failed allocation would
+    // abort the whole app, and no `catch_unwind` stops that).
+    let size = reader.output_buffer_size().filter(|n| *n <= MAX_PNG_DECODED_BYTES).ok_or_else(|| bad("image too large".into()))?;
+    let mut buf = Vec::new();
+    buf.try_reserve_exact(size).map_err(|_| bad("not enough memory for this image".into()))?;
+    buf.resize(size, 0);
     let frame = reader.next_frame(&mut buf).map_err(|e| bad(e.to_string()))?;
     let (w, h) = (frame.width, frame.height);
     let data = &buf[..frame.buffer_size()];
@@ -327,8 +333,14 @@ fn png_image(name: &str, bytes: &[u8]) -> Result<Embedded, CreateError> {
     };
     let has_alpha = channels == 2 || channels == 4;
     let colour_n = if has_alpha { channels - 1 } else { channels };
-    let mut colour = Vec::with_capacity(w as usize * h as usize * colour_n);
+    let mut colour = Vec::new();
+    colour
+        .try_reserve_exact((w as usize).saturating_mul(h as usize).saturating_mul(colour_n))
+        .map_err(|_| bad("not enough memory for this image".into()))?;
     let mut alpha = Vec::new();
+    if has_alpha {
+        alpha.try_reserve_exact((w as usize).saturating_mul(h as usize)).map_err(|_| bad("not enough memory for this image".into()))?;
+    }
     for px in data.chunks_exact(channels) {
         colour.extend_from_slice(&px[..colour_n]);
         if has_alpha {
@@ -387,6 +399,9 @@ fn decoded(name: &str, bytes: &[u8], format: image::ImageFormat) -> Result<Embed
 
 /// Most decoded bytes one TIFF page may take: room for the 768 MiB CMYK poster in #665, twice over.
 const MAX_TIFF_DECODED_BYTES: usize = 2 << 30;
+
+/// Most decoded bytes one PNG may take: the same ceiling as a TIFF page.
+const MAX_PNG_DECODED_BYTES: usize = MAX_TIFF_DECODED_BYTES;
 
 /// Every page of a TIFF (multi-page scans become multi-page PDFs).
 fn tiff_pages(name: &str, bytes: &[u8]) -> Result<Vec<Embedded>, CreateError> {
