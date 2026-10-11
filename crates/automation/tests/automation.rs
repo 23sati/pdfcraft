@@ -1728,6 +1728,10 @@ fn enhance_camera_image_finds_the_edges_by_itself() {
     let r = ok(&mut a, "page_enhance_camera", json!({ "doc": photo, "page": 1 }));
     assert_eq!(r["detected"], true);
     assert_eq!(r["undo"], "Enhance camera image");
+    // A clean-up level outside 0–100 is refused before anything changes.
+    let e = a.call("page_enhance_camera", &json!({ "doc": photo, "page": 1, "corners": [0, 0, 100, 0, 100, 100, 0, 100], "level": 101 }));
+    assert!(matches!(&e, Err(ToolError::InvalidArgs(m)) if m.contains("level")), "{e:?}");
+    ok(&mut a, "page_enhance_camera", json!({ "doc": photo, "page": 1, "corners": [0, 0, 100, 0, 100, 100, 0, 100], "level": 80 }));
     // One point per pixel: the corners it used are the sheet's.
     let used: Vec<f64> = r["corners"].as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect();
     for (k, p) in sheet.iter().enumerate() {

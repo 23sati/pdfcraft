@@ -6555,11 +6555,11 @@ title = "Despeckle"
 area = "I"
 tier = "P1"
 milestone = "M10"
-status = "planned"
-commands = []
-tools = []
-evidence = []
-notes = ""
+status = "partial"
+commands = ["ocr.enhance_camera"]
+tools = ["page_enhance_camera"]
+evidence = ["crates/engine/src/camera_clean.rs::a_shadow_and_a_yellow_cast_become_white_paper", "crates/engine/src/tests.rs::enhance_camera_page_at_a_level_whitens_a_shadowed_sheet", "crates/ui-egui/tests/camera.rs::the_clean_up_level_enhances_again_from_the_photo_and_keeps_the_turn"]
+notes = "Camera images only: from clean-up level 60, isolated dark pixels are removed. Missing: for scanned pages and as an OCR option."
 
 [[feature]]
 id = "ocr.background-removal"
@@ -6567,11 +6567,11 @@ title = "Background removal"
 area = "I"
 tier = "P1"
 milestone = "M10"
-status = "planned"
-commands = []
-tools = []
-evidence = []
-notes = ""
+status = "partial"
+commands = ["ocr.enhance_camera"]
+tools = ["page_enhance_camera"]
+evidence = ["crates/engine/src/camera_clean.rs::a_shadow_and_a_yellow_cast_become_white_paper", "crates/engine/src/tests.rs::enhance_camera_page_at_a_level_whitens_a_shadowed_sheet", "crates/ui-egui/tests/camera.rs::the_clean_up_level_enhances_again_from_the_photo_and_keeps_the_turn"]
+notes = "Camera images only: Enhance camera image's clean-up level (and page_enhance_camera level) evens out the paper's illumination per channel, so the background turns white and colour casts go; colour ink stays. Missing: the same for scanned pages and as an OCR option."
 
 [[feature]]
 id = "ocr.descreen"
@@ -6603,11 +6603,11 @@ title = "Edge shadow removal"
 area = "I"
 tier = "P2"
 milestone = "M10"
-status = "planned"
-commands = []
-tools = []
-evidence = []
-notes = ""
+status = "partial"
+commands = ["ocr.enhance_camera"]
+tools = ["page_enhance_camera"]
+evidence = ["crates/engine/src/camera_clean.rs::a_shadow_and_a_yellow_cast_become_white_paper", "crates/engine/src/tests.rs::enhance_camera_page_at_a_level_whitens_a_shadowed_sheet", "crates/ui-egui/tests/camera.rs::the_clean_up_level_enhances_again_from_the_photo_and_keeps_the_turn"]
+notes = "Camera images only: the clean-up level divides out a smooth illumination estimate, which removes shadows and darker edges on the straightened photo. Missing: for scanned pages (book gutters) and as an OCR option."
 
 [[feature]]
 id = "ocr.camera-perspective"
@@ -6619,7 +6619,7 @@ status = "partial"
 commands = ["ocr.enhance_camera"]
 tools = ["page_enhance_camera"]
 evidence = ["crates/engine/src/tests.rs::enhance_camera_page_straightens_the_sheet", "crates/automation/tests/automation.rs::enhance_camera_image_through_tools", "crates/ui-egui/tests/camera.rs::dragging_a_corner_then_enhance_page_straightens_the_page", "crates/ui-egui/tests/camera.rs::after_enhance_page_crop_and_organize_take_over", "crates/engine/src/tests.rs::detect_camera_corners_finds_the_sheet_in_user_space", "crates/automation/tests/automation.rs::enhance_camera_image_finds_the_edges_by_itself"]
-notes = "Four corners (any order, a convex quadrilateral) are warped to an upright page at the picture's own resolution, in one undoable step; comments, links and bookmarks stay. Scan & OCR ▸ Enhance camera image shows four corner handles on the current page (Enhance page / Cancel / Esc), then offers rotate either way, Crop pages and Organize pages for the enhanced page; page_enhance_camera does the same headlessly. The corners start on the document's edges when they are found (straight lines with an edge along most of each side, refined by a line fit; tested on synthetic photos with text, wood grain, shadows, strong perspective and a 30° turn), else inset 5%. Missing: turning the result upright (text orientation), rounded-corner cards keep their background in the corners, contrast and background cleanup, document types."
+notes = "Four corners (any order, a convex quadrilateral) are warped to an upright page at the picture's own resolution, in one undoable step; comments, links and bookmarks stay. Scan & OCR ▸ Enhance camera image shows four corner handles on the current page (Enhance page / Cancel / Esc), then offers rotate either way, Crop pages and Organize pages for the enhanced page; page_enhance_camera does the same headlessly. The corners start on the document's edges when they are found (straight lines with an edge along most of each side, refined by a line fit; tested on synthetic photos with text, wood grain, shadows, strong perspective and a 30° turn), else inset 5%. After Enhance page a clean-up slider (0–100, default 50) re-enhances from the straightened photo: even lighting, white paper, contrast, despeckle from 60 (camera_clean). Missing: turning the result upright (text orientation), rounded-corner cards keep their background in the corners, document types."
 
 [[feature]]
 id = "ocr.camera-document-type"

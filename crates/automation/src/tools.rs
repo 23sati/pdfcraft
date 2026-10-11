@@ -184,13 +184,15 @@ pub fn tools() -> Vec<ToolDef> {
                 }),
                 &["doc", "degrees"],
             )),
-        t("page_enhance_camera", "Enhance camera image", "Straighten a photographed document (Scan & OCR ▸ Enhance ▸ Camera image): the part of the page inside the four corners (x1, y1, … x4, y4 in top-left-origin points, any order, a convex quadrilateral; when omitted, the document's edges are found automatically, or an error says they could not be) is warped to an upright rectangle that replaces what the page shows, at the page picture's own resolution (at most 600 dpi). The page's comments, links and bookmarks stay. Undoable.")
+        t("page_enhance_camera", "Enhance camera image", "Straighten a photographed document (Scan & OCR ▸ Enhance ▸ Camera image): the part of the page inside the four corners (x1, y1, … x4, y4 in top-left-origin points, any order, a convex quadrilateral; when omitted, the document's edges are found automatically, or an error says they could not be) is warped to an upright rectangle that replaces what the page shows, at the page picture's own resolution (at most 600 dpi). mode is how it looks: original, colour (default), greyscale or bw (black and white, stored losslessly). level (0–100, default 0) then cleans the photo up: even lighting so the paper turns white (casts, shadows, dark edges), more contrast, and from 60 no isolated specks; colour ink stays colour. For bw the level is the threshold (higher keeps fainter strokes black). The page's comments, links and bookmarks stay. Undoable.")
             .cmd("ocr.enhance_camera")
             .with(schema(
                 json!({
                     "doc": doc(),
                     "page": { "type": "integer", "minimum": 1 },
                     "corners": { "type": "array", "items": { "type": "number" }, "minItems": 8, "maxItems": 8 },
+                    "level": { "type": "integer", "minimum": 0, "maximum": 100 },
+                    "mode": { "type": "string", "enum": ["original", "colour", "greyscale", "bw"] },
                 }),
                 &["doc", "page"],
             )),
