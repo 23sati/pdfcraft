@@ -133,7 +133,7 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 ## Progress log
 
-- **2026-10-11 (M5, related to #1075; validated on GGEO):** Signature-image decoder dimension-limit errors now use the existing message naming the 4 MiB, 4-megapixel and 4096-per-side limits. Two new synthetic regressions compiled and failed on the exact parent; all 12 signature-image tests and 23 Fill & Sign tests pass with the fix. A headless egui_kittest Browse-path check shows the actionable message while preserving the previous image draft, saved signature and PDF bytes. Strict workspace Clippy and all eight `cargo xtask ci` gates pass (2139 tests, 5 normally ignored). Non-dimension decoder errors retain their details and source. Encoded and normalized 4 MiB limits, 4096-per-side and 4-megapixel bounds and the configured 32 MiB decoder allocation limit are unchanged; that allocation setting is not a total-process-memory guarantee. No downsampling or expanded acceptance; oversized images remain refused, so this does not close #1075.
+- **2026-10-11 (M5, related to #1075; validated in the Linux test environment):** Signature-image decoder dimension-limit errors now use the existing message naming the 4 MiB, 4-megapixel and 4096-per-side limits. Two new synthetic regressions compiled and failed on the exact parent; all 12 signature-image tests and 23 Fill & Sign tests pass with the fix. A headless egui_kittest Browse-path check shows the actionable message while preserving the previous image draft, saved signature and PDF bytes. Strict workspace Clippy and all eight `cargo xtask ci` gates pass (2139 tests, 5 normally ignored). Non-dimension decoder errors retain their details and source. Encoded and normalized 4 MiB limits, 4096-per-side and 4-megapixel bounds and the configured 32 MiB decoder allocation limit are unchanged; that allocation setting is not a total-process-memory guarantee. No downsampling or expanded acceptance; oversized images remain refused, so this does not close #1075.
 
 Newest first: the date, what moved, and the new overall estimate.
 
@@ -319,7 +319,7 @@ Newest first: the date, what moved, and the new overall estimate.
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-11 | minor | M5: signature-image dimension-limit errors use the existing actionable size message; two baseline regressions fail, 12 engine and 23 Fill & Sign tests pass, and full CI passes on GGEO. Import limits and estimates unchanged; #1075 remains open. |
+| 2026-10-11 | minor | M5: signature-image dimension-limit errors use the existing actionable size message; two baseline regressions fail, 12 engine and 23 Fill & Sign tests pass, and full CI passes in the Linux test environment. Import limits and estimates unchanged; #1075 remains open. |
 | 2026-10-10 | minor | Readiness table with hours per audience; full number restated as the additive weighted sum over dimensions (47% → 49%; method aligned with the standard, no new evidence) |
 | 2026-10-10 | minor | Essentials-user score added (≈ 66%) |
 | 2026-10-10 | minor | Gate consistency check: convert and share re-judged partial, not blocking; stage pre-alpha → alpha |
