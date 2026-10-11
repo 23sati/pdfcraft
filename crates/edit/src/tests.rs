@@ -1795,13 +1795,25 @@ fn group_moves_preserve_small_offsets_under_large_transforms() {
     let before = editable_objects(&doc, 0).unwrap();
     let targets = before.iter().filter(|o| o.text.as_deref() != Some("Neighbour")).map(|o| o.target).collect::<Vec<_>>();
     assert_eq!(targets.len(), 2);
+    let image_before = images::page_images(&doc, 0).unwrap()[0].rect;
     let offset = [0.00123456789, -0.00987654321];
     move_objects(&mut doc, 0, &targets, offset).unwrap();
-    let after = editable_objects(&reopen(&doc), 0).unwrap();
+    let reopened = reopen(&doc);
+    let image_after = images::page_images(&reopened, 0).unwrap()[0].clone();
+    assert!(
+        close(image_after.rect, [image_before[0] + offset[0], image_before[1] + offset[1], image_before[2] + offset[0], image_before[3] + offset[1]]),
+        "full image placement preserves sub-point movement"
+    );
+    let after = editable_objects(&reopened, 0).unwrap();
     for old in before {
         let new = after.iter().find(|o| o.target == old.target).unwrap();
         let [dx, dy] = if targets.contains(&old.target) { offset } else { [0.0, 0.0] };
-        assert!(close(new.rect, [old.rect[0] + dx, old.rect[1] + dy, old.rect[2] + dx, old.rect[3] + dy]), "{old:?}: {new:?}");
+        if old.target.kind == crate::ObjectKind::Image {
+            // The full placement moves; the visible right/top edges stay at the page crop.
+            assert_eq!(Some(new.rect), image_after.visible_rect);
+        } else {
+            assert!(close(new.rect, [old.rect[0] + dx, old.rect[1] + dy, old.rect[2] + dx, old.rect[3] + dy]), "{old:?}: {new:?}");
+        }
     }
 }
 
@@ -2221,4 +2233,45 @@ fn centered_mixed_size_title_keeps_three_rows_when_changed() {
         let line = &lines[row[0]];
         assert!(((line.rect[0] + line.rect[2]) / 2.0 - 150.0).abs() < 0.01);
     }
+}
+
+#[test]
+fn image_selection_bounds_respect_clips_and_restore_graphics_state() {
+    let mut doc = image_page();
+    let page = pdfcraft_model::pages(&doc)[0].clone();
+    let content = b"q 1 0 0 1 10 20 cm 20 30 100 80 re W* n q 1200 0 0 1400 -500 -600 cm /Im0 Do Q Q q 200 0 0 100 100 100 cm /Im0 Do Q q 0 0 10 10 re W n 100 0 0 100 200 200 cm /Im0 Do Q";
+    let stream = doc.add(Object::Stream(Stream::flate(Dict::new(), content)));
+    doc.update_dict(page.obj, |d| d.set(b"Contents".to_vec(), Object::Ref(stream))).unwrap();
+    let before = images::page_images(&doc, 0).unwrap();
+    assert_eq!(before.len(), 3, "fully clipped placements retain source indexes");
+    assert_eq!(before[0].visible_rect, Some([30.0, 50.0, 130.0, 130.0]));
+    assert_eq!(before[1].visible_rect, Some(before[1].rect), "Q restores the prior clip");
+    assert_eq!(before[2].visible_rect, None);
+    let objects = crate::editable_objects(&doc, 0).unwrap();
+    assert_eq!(objects.len(), 2, "hidden images cannot intercept selection");
+    assert_eq!(objects[0].rect, before[0].visible_rect.unwrap());
+    let offset = [12.0, 14.0];
+    images::change_image(&mut doc, 0, 0, &images::ImageChange::Transform(pdfcraft_content::Matrix::translate(offset[0], offset[1]).0)).unwrap();
+    let reopened = reopen(&doc);
+    let after = images::page_images(&reopened, 0).unwrap();
+    assert_eq!(after[0].visible_rect, before[0].visible_rect, "moving the image does not move its fixed crop");
+    for (a, b) in after[0].rect.iter().zip(before[0].rect.iter()).enumerate() {
+        assert!((b.0 - b.1 - offset[a % 2]).abs() < 0.001);
+    }
+    assert_eq!(after[1].rect, before[1].rect, "neighbor placement unchanged");
+    assert_eq!(after[1].visible_rect, before[1].visible_rect);
+    assert_eq!(after[1].matrix, before[1].matrix);
+    assert_eq!(after[1].object, before[1].object);
+}
+
+#[test]
+fn image_clip_path_and_graphics_state_continue_across_content_streams() {
+    let mut doc = image_page();
+    let page = pdfcraft_model::pages(&doc)[0].clone();
+    let pieces: [&[u8]; 3] = [b"q 20 30 40 50 re W", b"n 1000 0 0 1000 -300 -400 cm /Im0 Do", b"Q q 50 0 0 50 100 200 cm /Im0 Do Q"];
+    let refs: Vec<_> = pieces.into_iter().map(|b| Object::Ref(doc.add(Object::Stream(Stream::flate(Dict::new(), b))))).collect();
+    doc.update_dict(page.obj, |d| d.set(b"Contents".to_vec(), Object::Array(refs))).unwrap();
+    let images = images::page_images(&doc, 0).unwrap();
+    assert_eq!(images[0].visible_rect, Some([20.0, 30.0, 60.0, 80.0]));
+    assert_eq!(images[1].visible_rect, Some([100.0, 200.0, 150.0, 250.0]));
 }

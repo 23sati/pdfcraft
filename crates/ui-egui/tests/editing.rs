@@ -2665,3 +2665,142 @@ fn inline_editor_preserves_source_font_and_previews_live_bounds() {
     h.run_steps(3);
     assert_eq!(h.state().session.get(h.state().views[0].id).unwrap().text_blocks(0)[0], source);
 }
+
+fn clipped_artwork_with_labels() -> Vec<u8> {
+    use pdfcraft_cos::{Dict, Document, Object, Stream, write_incremental};
+    let mut doc = Document::open(std::sync::Arc::new(fixture(2))).unwrap();
+    let mut image = Dict::new();
+    image.set(b"Type".to_vec(), Object::name("XObject"));
+    image.set(b"Subtype".to_vec(), Object::name("Image"));
+    image.set(b"Width".to_vec(), Object::Int(1));
+    image.set(b"Height".to_vec(), Object::Int(1));
+    image.set(b"BitsPerComponent".to_vec(), Object::Int(8));
+    image.set(b"ColorSpace".to_vec(), Object::name("DeviceRGB"));
+    let image = doc.add(Object::Stream(Stream::flate(image, &[220, 235, 245])));
+    for page in pdfcraft_model::pages(&doc) {
+        let contents = doc.add(Object::Stream(Stream::flate(Dict::new(),
+            b"q 30 170 130 80 re W* n q 800 0 0 900 -300 -400 cm /Im0 Do Q Q BT /F1 12 Tf 30 130 Td (Editable caption) Tj ET BT /F1 12 Tf 40 220 Td (Overlay) Tj ET")));
+        let mut resources = doc.resolve(page.dict.get(b"Resources").unwrap()).as_dict().unwrap().clone();
+        let mut xo = Dict::new();
+        xo.set(b"Im0".to_vec(), Object::Ref(image));
+        resources.set(b"XObject".to_vec(), Object::Dict(xo));
+        doc.update_dict(page.obj, |d| {
+            d.set(b"Resources".to_vec(), Object::Dict(resources));
+            d.set(b"Contents".to_vec(), Object::Ref(contents));
+        })
+        .unwrap();
+    }
+    write_incremental(&doc, &Default::default()).unwrap()
+}
+
+#[test]
+fn cropped_images_do_not_intercept_text_and_stay_inside_each_page() {
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 1100.0)).build_eframe(|_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("clipped.pdf", None, clipped_artwork_with_labels()).unwrap();
+        app
+    });
+    h.run_steps(4);
+    assert!(h.state_mut().execute("edit.edit_text"));
+    h.state_mut().views[0].fit = pdfcraft_ui_egui::canvas::Fit::Page;
+    assert!(h.state_mut().execute("view.layout.single"));
+    h.run_steps(3);
+    for page in 0..2 {
+        h.state_mut().views[0].go_to_page(page);
+        h.run_steps(3);
+        let r = h.state().views[0].page_screen_rect(page).unwrap();
+        let at = |x: f32, y: f32| egui::pos2(r.left() + x / 200.0 * r.width(), r.top() + (300.0 - y) / 300.0 * r.height());
+        for (x, y, label) in [(65.0, 134.0, "Editable caption"), (65.0, 224.0, "Overlay")] {
+            let p = at(x, y);
+            h.hover_at(p);
+            h.run_steps(1);
+            h.drag_at(p);
+            h.run_steps(1);
+            h.drop_at(p);
+            h.run_steps(3);
+            assert_eq!(h.state().views[0].line_editor.as_ref().unwrap().text, label);
+            assert!(h.state().views[0].image_selection.is_none(), "text wins even inside the visible artwork");
+            h.key_press(Key::Escape);
+            h.run_steps(2);
+        }
+        let p = at(95.0, 195.0);
+        h.hover_at(p);
+        h.run_steps(1);
+        h.drag_at(p);
+        h.run_steps(1);
+        h.drop_at(p);
+        h.run_steps(3);
+        assert!(h.state().views[0].image_selection.as_ref().is_some_and(|s| s.page == page));
+        for shape in &h.output().shapes {
+            if let egui::Shape::Rect(rect) = &shape.shape
+                && rect.stroke.color == egui::Color32::from_rgb(0x14, 0x73, 0xE6)
+                && rect.rect.width() > 50.0
+            {
+                assert!(r.expand(3.0).contains_rect(rect.rect), "no image frame escapes its own page");
+            }
+        }
+    }
+    assert!(!dirty(&h));
+}
+
+/// Local acceptance check for PDFs containing cropped artwork. No screenshots or source saves.
+#[test]
+#[ignore = "requires an explicitly supplied local PDF with cropped artwork"]
+fn private_document_cropped_artwork_does_not_block_text() {
+    let path = std::env::var("PDFCRAFT_CLIPPED_ARTWORK_PDF").expect("supply a local PDF path");
+    let original = std::fs::read(&path).unwrap();
+    let bytes = original.clone();
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 1100.0)).build_eframe(move |_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("private.pdf", None, bytes).unwrap();
+        app
+    });
+    h.run_steps(4);
+    assert!(h.state_mut().execute("edit.edit_text"));
+    h.state_mut().views[0].fit = pdfcraft_ui_egui::canvas::Fit::Page;
+    assert!(h.state_mut().execute("view.layout.single"));
+    h.run_steps(3);
+    let pages = h.state().session.get(h.state().views[0].id).unwrap().info.pages.len();
+    let mut checked = 0;
+    let mut cropped = 0;
+    for page in 0..pages {
+        h.state_mut().views[0].go_to_page(page);
+        h.run_steps(4);
+        let doc = h.state().session.get(h.state().views[0].id).unwrap();
+        let info = doc.info.pages[page].clone();
+        let blocks = doc.text_blocks(page);
+        let images = doc.page_images(page);
+        let r = h.state().views[0].page_screen_rect(page).unwrap();
+        for image in &images {
+            let visible = image.visible_rect.unwrap();
+            assert!(visible[0] >= f64::from(info.crop[0]) - 0.01 && visible[1] >= f64::from(info.crop[1]) - 0.01);
+            assert!(visible[2] <= f64::from(info.crop[2]) + 0.01 && visible[3] <= f64::from(info.crop[3]) + 0.01);
+            if image.rect != visible {
+                cropped += 1;
+            }
+        }
+        for (index, block) in blocks.iter().enumerate() {
+            let [x0, y0, x1, y1] = block.rect;
+            let v = info.user_to_view(((x0 + x1) / 2.0) as f32, ((y0 + y1) / 2.0) as f32);
+            let scale = r.width() / info.width;
+            let p = egui::pos2(r.left() + v[0] * scale, r.top() + v[1] * scale);
+            h.hover_at(p);
+            h.run_steps(1);
+            h.drag_at(p);
+            h.run_steps(1);
+            h.drop_at(p);
+            h.run_steps(3);
+            assert_eq!(h.state().views[0].line_editor.as_ref().map(|e| e.block), Some(index), "every source block can open directly");
+            assert!(h.state().views[0].image_selection.is_none());
+            h.key_press(Key::Escape);
+            h.run_steps(2);
+            checked += 1;
+        }
+    }
+    assert!(checked > 0 && cropped > 0);
+    assert!(!dirty(&h));
+    assert_eq!(std::fs::read(path).unwrap(), original);
+    println!("checked {pages} pages, {checked} text regions, {cropped} clipped image placements");
+}

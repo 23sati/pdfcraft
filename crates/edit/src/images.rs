@@ -13,6 +13,11 @@ use crate::EditError;
 pub struct PageImage {
     /// Its box in user space.
     pub rect: [f64; 4],
+    /// Conservative visible bounds after page and path clipping; None means fully hidden.
+    /// Rectangular clips are exact; curved paths use their control-point bounds.
+    pub visible_rect: Option<[f64; 4]>,
+    /// The fixed page/path clip in user space, independent of the image placement.
+    pub clip_rect: Option<[f64; 4]>,
     /// The placement: image unit square or Form coordinates → user space.
     pub matrix: [f64; 6],
     /// The XObject resource name and object.
@@ -59,6 +64,85 @@ fn xobjects(doc: &Document, page: &Dict) -> Dict {
         .unwrap_or_default()
 }
 
+fn intersection(a: [f64; 4], b: [f64; 4]) -> Option<[f64; 4]> {
+    let r = [a[0].max(b[0]), a[1].max(b[1]), a[2].min(b[2]), a[3].min(b[3])];
+    (r.iter().all(|v| v.is_finite()) && r[2] > r[0] && r[3] > r[1]).then_some(r)
+}
+
+#[derive(Clone, Copy)]
+struct Placement {
+    matrix: Matrix,
+    clip: [f64; 4],
+}
+
+/// Clipping is part of the saved graphics state; the current path is not. Path coordinates
+/// are transformed when constructed, not when W/W* is finally applied by a painting operator.
+struct ImageState {
+    placement: Placement,
+    stack: Vec<Placement>,
+    path: Option<[f64; 4]>,
+    pending_clip: bool,
+}
+
+impl ImageState {
+    fn point(&mut self, x: f64, y: f64) {
+        let (x, y) = self.placement.matrix.apply(x, y);
+        if !x.is_finite() || !y.is_finite() {
+            return;
+        }
+        self.path = Some(match self.path {
+            Some(r) => [r[0].min(x), r[1].min(y), r[2].max(x), r[3].max(y)],
+            None => [x, y, x, y],
+        });
+    }
+
+    fn apply(&mut self, op: &Op) {
+        match op.op.as_slice() {
+            b"q" => self.stack.push(self.placement),
+            b"Q" => self.placement = self.stack.pop().unwrap_or(self.placement),
+            b"cm" => {
+                if let Some(m) = op.nums::<6>() {
+                    self.placement.matrix = Matrix(m).then(&self.placement.matrix);
+                }
+            }
+            b"m" | b"l" => {
+                if let Some([x, y]) = op.nums::<2>() {
+                    self.point(x, y);
+                }
+            }
+            b"c" => {
+                if let Some([x1, y1, x2, y2, x3, y3]) = op.nums::<6>() {
+                    self.point(x1, y1);
+                    self.point(x2, y2);
+                    self.point(x3, y3);
+                }
+            }
+            b"v" | b"y" => {
+                if let Some([x1, y1, x2, y2]) = op.nums::<4>() {
+                    self.point(x1, y1);
+                    self.point(x2, y2);
+                }
+            }
+            b"re" => {
+                if let Some([x, y, w, h]) = op.nums::<4>() {
+                    for (x, y) in [(x, y), (x + w, y), (x, y + h), (x + w, y + h)] {
+                        self.point(x, y);
+                    }
+                }
+            }
+            b"W" | b"W*" => self.pending_clip = true,
+            b"n" | b"S" | b"s" | b"f" | b"F" | b"f*" | b"B" | b"B*" | b"b" | b"b*" => {
+                if self.pending_clip {
+                    self.placement.clip = self.path.and_then(|r| intersection(self.placement.clip, r)).unwrap_or([0.0; 4]);
+                }
+                self.path = None;
+                self.pending_clip = false;
+            }
+            _ => {}
+        }
+    }
+}
+
 /// The images and Form artwork page `page` (0-based) draws, in drawing order.
 /// Forms stay intact: no traversal or rewriting of their internal objects is needed.
 pub fn page_images(doc: &Document, page: usize) -> Result<Vec<PageImage>, EditError> {
@@ -66,76 +150,70 @@ pub fn page_images(doc: &Document, page: usize) -> Result<Vec<PageImage>, EditEr
     let xo = xobjects(doc, &p.dict);
     let mut out = Vec::new();
     // The graphics state carries over from one stream to the next.
-    let mut ctm = Matrix::IDENTITY;
-    let mut stack = Vec::new();
+    let mut state =
+        ImageState { placement: Placement { matrix: Matrix::IDENTITY, clip: p.crop(doc) }, stack: Vec::new(), path: None, pending_clip: false };
     for (si, (_, data)) in streams(doc, &p.dict).into_iter().enumerate() {
         for (i, op) in parse(&data).ops.iter().enumerate() {
-            match op.op.as_slice() {
-                b"q" => stack.push(ctm),
-                b"Q" => ctm = stack.pop().unwrap_or(ctm),
-                b"cm" => {
-                    if let Some(m) = op.nums::<6>() {
-                        ctm = Matrix(m).then(&ctm);
-                    }
-                }
-                b"Do" => {
-                    let Some(name) = op.name(0) else { continue };
-                    let Some(resource) = xo.get(name) else { continue };
-                    let obj = doc.resolve(resource);
-                    let Object::Stream(s) = &*obj else { continue };
-                    let is_form = s.dict.name(b"Subtype") == Some(b"Form");
-                    let (matrix, bounds) = if is_form {
-                        let Some(bounds) = s.dict.get(b"BBox").map(|v| doc.resolve(v)).and_then(|v| {
-                            v.as_array().and_then(|a| {
-                                if a.len() != 4 {
-                                    return None;
-                                }
-                                let mut b = [0.0; 4];
-                                for (n, v) in b.iter_mut().zip(a) {
-                                    *n = v.as_f64()?;
-                                }
-                                Some(b)
-                            })
-                        }) else {
-                            continue;
-                        };
-                        let matrix = match s.dict.get(b"Matrix") {
-                            Some(v) => {
-                                let v = doc.resolve(v);
-                                let Some(m) = v.as_array().and_then(|a| Matrix::from_operands(a)) else { continue };
-                                m
+            state.apply(op);
+            let ctm = state.placement.matrix;
+            if op.is("Do") {
+                let Some(name) = op.name(0) else { continue };
+                let Some(resource) = xo.get(name) else { continue };
+                let obj = doc.resolve(resource);
+                let Object::Stream(s) = &*obj else { continue };
+                let is_form = s.dict.name(b"Subtype") == Some(b"Form");
+                let (matrix, bounds) = if is_form {
+                    let Some(bounds) = s.dict.get(b"BBox").map(|v| doc.resolve(v)).and_then(|v| {
+                        v.as_array().and_then(|a| {
+                            if a.len() != 4 {
+                                return None;
                             }
-                            None => Matrix::IDENTITY,
-                        };
-                        (matrix.then(&ctm), bounds)
-                    } else if s.dict.name(b"Subtype") == Some(b"Image") {
-                        (ctm, [0.0, 0.0, 1.0, 1.0])
-                    } else {
+                            let mut b = [0.0; 4];
+                            for (n, v) in b.iter_mut().zip(a) {
+                                *n = v.as_f64()?;
+                            }
+                            Some(b)
+                        })
+                    }) else {
                         continue;
                     };
-                    let rect = matrix.bbox(bounds);
-                    if !bounds.iter().chain(matrix.0.iter()).chain(rect.iter()).all(|v| v.is_finite())
-                        || bounds[2] <= bounds[0]
-                        || bounds[3] <= bounds[1]
-                        || rect[2] <= rect[0]
-                        || rect[3] <= rect[1]
-                    {
-                        continue;
-                    }
-                    out.push(PageImage {
-                        rect,
-                        matrix: matrix.0,
-                        name: String::from_utf8_lossy(name).into_owned(),
-                        object: resource.as_ref(),
-                        is_form,
-                        width: if is_form { 0 } else { s.dict.int(b"Width").unwrap_or(0).clamp(0, u32::MAX as i64) as u32 },
-                        height: if is_form { 0 } else { s.dict.int(b"Height").unwrap_or(0).clamp(0, u32::MAX as i64) as u32 },
-                        stream: si,
-                        op: i,
-                        draw_matrix: ctm.0,
-                    });
+                    let matrix = match s.dict.get(b"Matrix") {
+                        Some(v) => {
+                            let v = doc.resolve(v);
+                            let Some(m) = v.as_array().and_then(|a| Matrix::from_operands(a)) else { continue };
+                            m
+                        }
+                        None => Matrix::IDENTITY,
+                    };
+                    (matrix.then(&ctm), bounds)
+                } else if s.dict.name(b"Subtype") == Some(b"Image") {
+                    (ctm, [0.0, 0.0, 1.0, 1.0])
+                } else {
+                    continue;
+                };
+                let rect = matrix.bbox(bounds);
+                if !bounds.iter().chain(matrix.0.iter()).chain(rect.iter()).all(|v| v.is_finite())
+                    || bounds[2] <= bounds[0]
+                    || bounds[3] <= bounds[1]
+                    || rect[2] <= rect[0]
+                    || rect[3] <= rect[1]
+                {
+                    continue;
                 }
-                _ => {}
+                out.push(PageImage {
+                    rect,
+                    visible_rect: intersection(rect, state.placement.clip),
+                    clip_rect: Some(state.placement.clip),
+                    matrix: matrix.0,
+                    name: String::from_utf8_lossy(name).into_owned(),
+                    object: resource.as_ref(),
+                    is_form,
+                    width: if is_form { 0 } else { s.dict.int(b"Width").unwrap_or(0).clamp(0, u32::MAX as i64) as u32 },
+                    height: if is_form { 0 } else { s.dict.int(b"Height").unwrap_or(0).clamp(0, u32::MAX as i64) as u32 },
+                    stream: si,
+                    op: i,
+                    draw_matrix: ctm.0,
+                });
             }
         }
     }
@@ -153,62 +231,62 @@ pub fn reading_images(doc: &Document, page: usize) -> Result<Vec<PageImage>, Edi
         path: Vec<ObjRef>,
         visits: usize,
     }
-    struct State {
-        ctm: Matrix,
-        stack: Vec<Matrix>,
-    }
-    fn walk(doc: &Document, data: &[u8], resources: &Dict, st: &mut State, stream: usize, forms: &mut Forms, out: &mut Vec<PageImage>) {
+    fn walk(doc: &Document, data: &[u8], resources: &Dict, st: &mut ImageState, stream: usize, forms: &mut Forms, out: &mut Vec<PageImage>) {
         let xo = resources.get(b"XObject").map(|x| doc.resolve(x)).and_then(|x| x.as_dict().cloned()).unwrap_or_default();
-        let (ctm, stack) = (&mut st.ctm, &mut st.stack);
         for (i, op) in parse(data).ops.iter().enumerate() {
-            match op.op.as_slice() {
-                b"q" => stack.push(*ctm),
-                b"Q" => *ctm = stack.pop().unwrap_or(*ctm),
-                b"cm" => {
-                    if let Some(m) = op.nums::<6>() {
-                        *ctm = Matrix(m).then(ctm);
+            st.apply(op);
+            let ctm = st.placement.matrix;
+            if op.is("Do") {
+                let Some(name) = op.name(0) else { continue };
+                if let Some(form) = crate::text::form_call(doc, resources, name, ctm, &forms.path, &mut forms.visits) {
+                    if let Some(r) = form.obj {
+                        forms.path.push(r);
                     }
+                    let bounds =
+                        xo.get(name).map(|o| doc.resolve(o)).and_then(|o| o.as_dict().and_then(|d| d.get(b"BBox")).map(|b| doc.resolve(b))).and_then(
+                            |b| {
+                                let a = b.as_array()?;
+                                let [x0, y0, x1, y1] = a.as_slice() else { return None };
+                                Some(form.ctm.bbox([x0.as_f64()?, y0.as_f64()?, x1.as_f64()?, y1.as_f64()?]))
+                            },
+                        );
+                    let clip = bounds.map_or(st.placement.clip, |b| intersection(st.placement.clip, b).unwrap_or([0.0; 4]));
+                    let mut inner =
+                        ImageState { placement: Placement { matrix: form.ctm, clip }, stack: Vec::new(), path: None, pending_clip: false };
+                    walk(doc, &form.data, &form.resources, &mut inner, stream, forms, out);
+                    if form.obj.is_some() {
+                        forms.path.pop();
+                    }
+                    continue;
                 }
-                b"Do" => {
-                    let Some(name) = op.name(0) else { continue };
-                    if let Some(form) = crate::text::form_call(doc, resources, name, *ctm, &forms.path, &mut forms.visits) {
-                        if let Some(r) = form.obj {
-                            forms.path.push(r);
-                        }
-                        let mut inner = State { ctm: form.ctm, stack: Vec::new() };
-                        walk(doc, &form.data, &form.resources, &mut inner, stream, forms, out);
-                        if form.obj.is_some() {
-                            forms.path.pop();
-                        }
-                        continue;
-                    }
-                    let Some(r) = xo.get(name).and_then(Object::as_ref) else { continue };
-                    let obj = doc.get(r);
-                    let Object::Stream(s) = &*obj else { continue };
-                    if s.dict.name(b"Subtype") != Some(b"Image") {
-                        continue;
-                    }
-                    out.push(PageImage {
-                        rect: ctm.bbox([0.0, 0.0, 1.0, 1.0]),
-                        matrix: ctm.0,
-                        name: String::from_utf8_lossy(name).into_owned(),
-                        object: Some(r),
-                        is_form: false,
-                        width: s.dict.int(b"Width").unwrap_or(0).max(0) as u32,
-                        height: s.dict.int(b"Height").unwrap_or(0).max(0) as u32,
-                        stream,
-                        op: i,
-                        draw_matrix: ctm.0,
-                    });
+                let Some(r) = xo.get(name).and_then(Object::as_ref) else { continue };
+                let obj = doc.get(r);
+                let Object::Stream(s) = &*obj else { continue };
+                if s.dict.name(b"Subtype") != Some(b"Image") {
+                    continue;
                 }
-                _ => {}
+                out.push(PageImage {
+                    rect: ctm.bbox([0.0, 0.0, 1.0, 1.0]),
+                    visible_rect: intersection(ctm.bbox([0.0, 0.0, 1.0, 1.0]), st.placement.clip),
+                    clip_rect: Some(st.placement.clip),
+                    matrix: ctm.0,
+                    name: String::from_utf8_lossy(name).into_owned(),
+                    object: Some(r),
+                    is_form: false,
+                    width: s.dict.int(b"Width").unwrap_or(0).max(0) as u32,
+                    height: s.dict.int(b"Height").unwrap_or(0).max(0) as u32,
+                    stream,
+                    op: i,
+                    draw_matrix: ctm.0,
+                });
             }
         }
     }
     let p = page_of(doc, page)?;
     let res = p.dict.get(b"Resources").map(|r| doc.resolve(r)).and_then(|r| r.as_dict().cloned()).unwrap_or_default();
     let mut out = Vec::new();
-    let mut st = State { ctm: Matrix::IDENTITY, stack: Vec::new() };
+    let mut st =
+        ImageState { placement: Placement { matrix: Matrix::IDENTITY, clip: p.crop(doc) }, stack: Vec::new(), path: None, pending_clip: false };
     let mut forms = Forms { path: Vec::new(), visits: 0 };
     for (si, (_, data)) in streams(doc, &p.dict).into_iter().enumerate() {
         walk(doc, &data, &res, &mut st, si, &mut forms, &mut out);

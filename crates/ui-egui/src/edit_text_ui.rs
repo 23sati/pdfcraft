@@ -364,15 +364,16 @@ pub(crate) fn image_input(
     images: &[pdfcraft_engine::PageImage],
     view: &mut DocView,
     action: &mut Option<ImageAction>,
+    allow_interaction: bool,
 ) -> bool {
-    let boxes: Vec<Rect> = images.iter().map(|im| xf.user_rect(info, page, im.rect.map(|v| v as f32))).collect();
+    let boxes: Vec<Rect> = images.iter().map(|im| im.visible_rect.map_or(Rect::NOTHING, |r| xf.user_rect(info, page, r.map(|v| v as f32)))).collect();
     let painter = ui.painter();
-    for b in &boxes {
-        painter.rect_stroke(*b, CornerRadius::ZERO, Stroke::new(0.75, ACCENT.gamma_multiply(0.35)), egui::StrokeKind::Outside);
-    }
     let pointer = ui.input(|i| i.pointer.hover_pos());
     let selected = view.image_selection.as_ref().filter(|s| s.page == page).map(|s| s.index).filter(|i| *i < boxes.len());
     for (i, b) in boxes.iter().enumerate() {
+        if !b.is_positive() {
+            continue;
+        }
         let selected_box = selected == Some(i);
         let hovered = ui.input(|inp| inp.pointer.hover_pos()).is_some_and(|p| b.contains(p));
         let stroke = if selected_box {
@@ -388,7 +389,7 @@ pub(crate) fn image_input(
         painter.rect_stroke(*b, CornerRadius::ZERO, stroke, egui::StrokeKind::Outside);
     }
     // The selected image: frame, corner handles, dragging.
-    if let Some(i) = selected {
+    if let Some(i) = selected.filter(|i| boxes.get(*i).is_some_and(|b| b.is_positive())) {
         let b = boxes[i];
         painter.rect_stroke(b, CornerRadius::ZERO, Stroke::new(1.5, ACCENT), egui::StrokeKind::Outside);
         let corners = [b.left_top(), b.right_top(), b.left_bottom(), b.right_bottom()];
@@ -402,7 +403,8 @@ pub(crate) fn image_input(
             );
         }
         let origin = ui.input(|i| i.pointer.press_origin());
-        if resp.drag_started()
+        if allow_interaction
+            && resp.drag_started()
             && let Some(o) = origin
         {
             let corner = corners.iter().position(|c| c.distance(o) < 8.0);
@@ -428,23 +430,38 @@ pub(crate) fn image_input(
                 }
                 None => b.translate(p - start),
             };
-            painter.rect_stroke(preview, CornerRadius::ZERO, Stroke::new(1.0, ACCENT), egui::StrokeKind::Middle);
+            // Move/resize the full placement by the change to its visible box. The PDF's
+            // fixed clip stays fixed, so the preview must show the same cropped result.
+            let raw = images.get(i).map_or(b, |im| xf.user_rect(info, page, im.rect.map(|v| v as f32)));
+            let factor = egui::vec2(preview.width() / b.width(), preview.height() / b.height());
+            let target = Rect::from_min_max(preview.min + (raw.min - b.min) * factor, preview.min + (raw.max - b.min) * factor);
+            let clip = images.get(i).and_then(|im| im.clip_rect).map_or(xf.rect, |r| xf.user_rect(info, page, r.map(|v| v as f32)));
+            let visible = target.intersect(clip).intersect(xf.rect);
+            if visible.is_positive() {
+                painter.rect_stroke(visible, CornerRadius::ZERO, Stroke::new(1.0, ACCENT), egui::StrokeKind::Middle);
+            }
             if resp.drag_stopped() {
                 if let Some(s) = view.image_selection.as_mut() {
                     s.drag = None;
                 }
                 if preview != b {
                     view.pending_edit =
-                        Some(Edit::EditPageImage { page, index: i, change: pdfcraft_engine::ImageEdit::Move(user_box(xf, info, page, preview)) });
+                        Some(Edit::EditPageImage { page, index: i, change: pdfcraft_engine::ImageEdit::Move(user_box(xf, info, page, target)) });
                 }
             }
             return true;
         }
-        if ui.input(|inp| inp.key_pressed(egui::Key::Delete) || inp.key_pressed(egui::Key::Backspace)) && !ui.ctx().egui_wants_keyboard_input() {
+        if allow_interaction
+            && ui.input(|inp| inp.key_pressed(egui::Key::Delete) || inp.key_pressed(egui::Key::Backspace))
+            && !ui.ctx().egui_wants_keyboard_input()
+        {
             view.image_selection = None;
             view.pending_edit = Some(Edit::EditPageImage { page, index: i, change: pdfcraft_engine::ImageEdit::Delete });
             return true;
         }
+    }
+    if !allow_interaction {
+        return false;
     }
     let Some(p) = pointer.filter(|p| xf.rect.contains(*p)) else { return false };
     let Some(hit) = boxes.iter().rposition(|b| b.contains(p)) else { return false };
@@ -577,6 +594,7 @@ pub(crate) fn page_input(
     }
     ui.ctx().set_cursor_icon(if on_edge { egui::CursorIcon::ResizeHorizontal } else { egui::CursorIcon::Text });
     if resp.clicked() {
+        view.image_selection = None;
         let l = &lines[hit];
         let source_lines = doc.text_lines(page);
         let text = l.editor_text.clone();

@@ -4000,3 +4000,54 @@ fn mixed_visual_region_edit_preview_save_reopen_and_undo_through_tools() {
     ok(&mut a, "edit_undo", json!({"doc":re}));
     assert_eq!(ok(&mut a, "text_paragraphs", json!({"doc":re,"page":1})), after);
 }
+
+#[test]
+fn clipped_image_bounds_and_text_edit_save_reopen_through_tools() {
+    use pdfcraft_cos::{Dict, Document, Object, Stream, write_incremental};
+    let dir = workdir("clipped-artwork");
+    let mut cos = Document::open(std::sync::Arc::new(fixture(1))).unwrap();
+    let page = pdfcraft_model::pages(&cos)[0].clone();
+    let mut image = Dict::new();
+    for (key, value) in [
+        ("Type", Object::name("XObject")),
+        ("Subtype", Object::name("Image")),
+        ("Width", Object::Int(1)),
+        ("Height", Object::Int(1)),
+        ("BitsPerComponent", Object::Int(8)),
+        ("ColorSpace", Object::name("DeviceRGB")),
+    ] {
+        image.set(key.as_bytes().to_vec(), value);
+    }
+    let image = cos.add(Object::Stream(Stream::flate(image, &[220, 235, 245])));
+    let mut resources = cos.resolve(page.dict.get(b"Resources").unwrap()).as_dict().unwrap().clone();
+    let mut xo = Dict::new();
+    xo.set(b"Im0".to_vec(), Object::Ref(image));
+    resources.set(b"XObject".to_vec(), Object::Dict(xo));
+    let contents = cos.add(Object::Stream(Stream::flate(
+        Dict::new(),
+        b"q 30 170 130 80 re W* n q 800 0 0 900 -300 -400 cm /Im0 Do Q Q BT /F1 12 Tf 30 130 Td (Editable caption) Tj ET",
+    )));
+    cos.update_dict(page.obj, |d| {
+        d.set(b"Resources".to_vec(), Object::Dict(resources));
+        d.set(b"Contents".to_vec(), Object::Ref(contents));
+    })
+    .unwrap();
+    std::fs::write(dir.join("clipped.pdf"), write_incremental(&cos, &Default::default()).unwrap()).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({"path":"clipped.pdf"}))["doc"].as_u64().unwrap();
+    let pixels = a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap();
+    let images = ok(&mut a, "page_images", json!({"doc":doc,"page":1}));
+    assert_eq!(images["images"][0]["visible_rect"], json!([30.0, 50.0, 160.0, 130.0]));
+    assert_eq!(images["images"][0]["rect"], json!([-300.0, -200.0, 500.0, 700.0]), "raw placement remains available for transforms");
+    let objects = ok(&mut a, "object_list", json!({"doc":doc,"page":1}));
+    let object = objects["objects"].as_array().unwrap().iter().find(|o| o["kind"] == "image").unwrap();
+    assert_eq!(object["rect"], images["images"][0]["visible_rect"]);
+    assert_eq!(a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap(), pixels, "inventory does not change rendering");
+    ok(&mut a, "text_edit", json!({"doc":doc,"page":1,"paragraph":1,"text":"Edited caption"}));
+    ok(&mut a, "doc_save", json!({"doc":doc,"path":"out/edited.pdf"}));
+    let re = ok(&mut a, "doc_open", json!({"path":"out/edited.pdf"}))["doc"].as_u64().unwrap();
+    assert_eq!(ok(&mut a, "text_paragraphs", json!({"doc":re,"page":1}))["paragraphs"][0]["editor_text"], "Edited caption");
+    assert_eq!(ok(&mut a, "page_images", json!({"doc":re,"page":1})), images, "image placement and crop survive text editing");
+    ok(&mut a, "edit_undo", json!({"doc":doc}));
+    assert_eq!(a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap(), pixels);
+}

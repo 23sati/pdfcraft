@@ -21,3 +21,15 @@ Forms have `pixels: [0, 0]`, since they have no single bitmap resolution. Use th
 number with `image_edit` (move, rotate, flip_horizontal, flip_vertical, delete).
 Coordinates are top-left-origin page points. `image_save` and `image_edit`'s replace action
 return a clear error for Form artwork.
+
+Selection frames follow the visible portion of artwork after page and path clipping. Clicking
+editable text takes precedence over overlapping artwork, including labels inside an image's
+visible rectangle. Hidden image placements have no selection frame. Rectangular clips are
+exact; curves and complex paths use conservative bounds, so holes are not excluded from hit
+testing. Moving or resizing an image changes its full placement while its existing clip remains
+fixed; the preview shows that cropped result.
+
+`page_images` retains `rect` as the full placement rectangle used by `image_edit` and adds
+`visible_rect` for selection (null when fully clipped). `object_list` reports visible artwork
+bounds while keeping the original source indexes. A selection frame does not create, remove
+or enlarge the PDF's clipping path.

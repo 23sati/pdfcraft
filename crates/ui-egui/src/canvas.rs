@@ -2303,9 +2303,11 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                         l
                     }
                 };
-                // Images first (they can sit under text boxes' corners); then paragraphs.
-                crate::edit_text_ui::image_input(ui, &resp, &xf, i, info, &images, view, &mut image_action)
-                    || crate::edit_text_ui::page_input(ui, &resp, &xf, i, doc, &lines, view)
+                // Editable text takes precedence over background/overlapping artwork. Both
+                // inventories are painted every frame, even when text owns the pointer.
+                let text_used = crate::edit_text_ui::page_input(ui, &resp, &xf, i, doc, &lines, view);
+                let image_used = crate::edit_text_ui::image_input(ui, &resp, &xf, i, info, &images, view, &mut image_action, !text_used);
+                text_used || image_used
             };
             let on_link = tool == QuickTool::Link && can_modify && crate::link_ui::page_input(ui, &resp, &xf, i, info, &doc_links, view);
             let consumed = on_objects || on_edit_text || on_link || on_content || boxing || on_field || comments::page_input(ui, &resp, &pcx, view);
