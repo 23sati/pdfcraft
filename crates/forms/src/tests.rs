@@ -73,6 +73,24 @@ fn ap(doc: &Document, w: &Widget) -> String {
     String::from_utf8_lossy(&s.decoded().unwrap()).into_owned()
 }
 
+/// Read the drawn strings together with the appearance's actual font after saving and reopening.
+fn appearance_text(doc: &Document, w: &Widget, font_name: &[u8]) -> (Object, Vec<Vec<u8>>) {
+    let widget = doc.get(w.obj);
+    let normal = widget.as_dict().unwrap().get(b"AP").unwrap().as_dict().unwrap().reference(b"N").unwrap();
+    let appearance = doc.get(normal);
+    let Object::Stream(stream) = appearance.as_ref() else { panic!("appearance stream") };
+    let resources = doc.resolve(stream.dict.get(b"Resources").unwrap());
+    let fonts = doc.resolve(resources.as_dict().unwrap().get(b"Font").unwrap());
+    let font = doc.resolve(fonts.as_dict().unwrap().get(font_name).unwrap());
+    let shown = pdfcraft_content::parse(&stream.decoded().unwrap())
+        .ops
+        .into_iter()
+        .filter(|op| op.is("Tj"))
+        .map(|op| op.operands[0].as_string().unwrap().bytes.clone())
+        .collect();
+    (font.as_ref().clone(), shown)
+}
+
 #[test]
 fn the_field_tree_is_read_with_inheritance() {
     let doc = fixture();
@@ -225,6 +243,93 @@ fn text_fields_get_new_appearances() {
     let Object::Stream(s) = &*doc.get(n) else { panic!() };
     let raw = s.decoded().unwrap();
     assert!(raw.windows(8).any(|x| x == b"(Z\xfcrich)"));
+}
+
+#[test]
+fn existing_field_font_encoding_keeps_italian_punctuation_visible() {
+    // ReportLab-style Helvetica: an indirect encoding dictionary with PDFDoc-like Differences.
+    // WinAnsi 0x92/0x97 would show trademark/Scaron in this font, not quoteright/emdash.
+    let objs: Vec<String> = vec![
+        "<< /Type /Catalog /Pages 2 0 R /AcroForm 4 0 R >>".into(),
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 600 800] >>".into(),
+        "<< /Type /Page /Parent 2 0 R /Annots [6 0 R] >>".into(),
+        "<< /Fields [6 0 R] /DA (/Helv 12 Tf 0 g) /DR << /Font << /Helv 5 0 R >> >> >>".into(),
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding 7 0 R >>".into(),
+        "<< /Type /Annot /Subtype /Widget /FT /Tx /T (localita) /Rect [50 700 450 730] /P 3 0 R >>".into(),
+        "<< /Type /Encoding /Differences [39 /quotesingle 96 /grave 132 /emdash 144 /quoteright 146 /trademark 151 /Scaron 224 /agrave] >>".into(),
+    ];
+    let mut doc = document(&objs);
+    let original_font = doc.get(ObjRef::new(5, 0)).as_ref().clone();
+    let value = "Città Sant’Angelo — qualità";
+    set_value(&mut doc, "localita", &FieldValue::Text(value.into())).unwrap();
+    let doc = reopen(&doc);
+    let all = fields(&doc);
+    let f = field(&all, "localita");
+    assert_eq!(f.value, [value], "the stored value and the drawn text must agree");
+    let (font, lines) = appearance_text(&doc, &f.widgets[0], b"Helv");
+    assert_eq!(font, original_font, "keep the existing field's font and encoding");
+    let metrics = pdfcraft_fonts::pdf::Metrics::from_dict(&doc, font.as_dict().unwrap());
+    let shown = lines.concat();
+    assert_eq!(metrics.decode(&shown), value, "decode the appearance with its actual font");
+    assert_eq!(shown, b"Citt\xe0 Sant\x90Angelo \x84 qualit\xe0");
+}
+
+#[test]
+fn unavailable_glyph_uses_an_appearance_font_without_changing_the_source_font() {
+    // A subset font with only A cannot draw the newly entered accented text. Replacing its
+    // encoding would corrupt every existing use of that font, so only the appearance falls back.
+    let objs: Vec<String> = vec![
+        "<< /Type /Catalog /Pages 2 0 R /AcroForm 4 0 R >>".into(),
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 600 800] >>".into(),
+        "<< /Type /Page /Parent 2 0 R /Annots [6 0 R] >>".into(),
+        "<< /Fields [6 0 R] /DA (/Original 12 Tf 0 g) /DR << /Font << /Original 5 0 R >> >> >>".into(),
+        "<< /Type /Font /Subtype /Type1 /BaseFont /ABCDEF+Custom /FirstChar 65 /LastChar 65 /Widths [600] /Encoding /WinAnsiEncoding >>".into(),
+        "<< /Type /Annot /Subtype /Widget /FT /Tx /T (localita) /Rect [50 700 450 730] /P 3 0 R >>".into(),
+    ];
+    let mut doc = document(&objs);
+    let original_font = doc.get(ObjRef::new(5, 0)).as_ref().clone();
+    let value = "Città Sant’Angelo — qualità";
+    set_value(&mut doc, "localita", &FieldValue::Text(value.into())).unwrap();
+    let doc = reopen(&doc);
+    assert_eq!(doc.get(ObjRef::new(5, 0)).as_ref(), &original_font);
+    let all = fields(&doc);
+    let f = field(&all, "localita");
+    assert_eq!(f.value, [value]);
+    let (font, lines) = appearance_text(&doc, &f.widgets[0], b"Helv");
+    let font = font.as_dict().unwrap();
+    assert_eq!(font.name(b"BaseFont"), Some(&b"Helvetica"[..]));
+    assert_eq!(font.name(b"Encoding"), Some(&b"WinAnsiEncoding"[..]));
+    let metrics = pdfcraft_fonts::pdf::Metrics::from_dict(&doc, font);
+    let shown = lines.concat();
+    assert_eq!(metrics.decode(&shown), value);
+    assert_eq!(shown, b"Citt\xe0 Sant\x92Angelo \x97 qualit\xe0");
+}
+
+#[test]
+fn multiline_wrapping_keeps_encodable_text_without_requiring_ascii_space() {
+    let objs: Vec<String> = vec![
+        "<< /Type /Catalog /Pages 2 0 R /AcroForm 4 0 R >>".into(),
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 600 800] >>".into(),
+        "<< /Type /Page /Parent 2 0 R /Annots [6 0 R] >>".into(),
+        "<< /Fields [6 0 R] /DA (/Helv 12 Tf 0 g) /DR << /Font << /Helv 5 0 R >> >> >>".into(),
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding 7 0 R >>".into(),
+        "<< /Type /Annot /Subtype /Widget /FT /Tx /T (localita) /Ff 4096 /Rect [50 500 130 550] /P 3 0 R >>".into(),
+        "<< /Type /Encoding /Differences [32 /.notdef 144 /quoteright 160 /nbspace 224 /agrave] >>".into(),
+    ];
+    let mut doc = document(&objs);
+    let original_font = doc.get(ObjRef::new(5, 0)).as_ref().clone();
+    // NBSP remains part of the word; wrapping splits it by character without adding spaces.
+    let value = "Città\u{a0}Sant’Angelo\nqualità";
+    set_value(&mut doc, "localita", &FieldValue::Text(value.into())).unwrap();
+    let doc = reopen(&doc);
+    let all = fields(&doc);
+    let f = field(&all, "localita");
+    assert_eq!(f.value, [value]);
+    let (font, lines) = appearance_text(&doc, &f.widgets[0], b"Helv");
+    assert_eq!(font, original_font);
+    assert!(lines.len() >= 3 && lines.iter().all(|line| !line.is_empty()));
+    let metrics = pdfcraft_fonts::pdf::Metrics::from_dict(&doc, font.as_dict().unwrap());
+    assert_eq!(metrics.decode(&lines.concat()), value.replace('\n', ""));
 }
 
 #[test]
