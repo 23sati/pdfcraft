@@ -852,3 +852,68 @@ fn right_click_on_a_picture_copies_it_at_full_size() {
     assert_eq!((w, hgt), (40, 30));
     assert_eq!(rgba, px.into_raw(), "the image's own pixels, not a rendering of the page");
 }
+
+/// A picture drawn through grouped Form artwork with a caption over it (as Word, InDesign and
+/// scanners with OCR write them): one click still selects it, and ⌘C copies the picture.
+#[test]
+fn a_picture_inside_form_artwork_under_text_is_selected_and_copied() {
+    let stream = |dict: &str, data: &[u8]| {
+        let mut o = format!("<< {dict} /Length {} >>\nstream\n", data.len()).into_bytes();
+        o.extend_from_slice(data);
+        o.extend_from_slice(b"\nendstream");
+        o
+    };
+    let objs: Vec<Vec<u8>> = vec![
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [4 0 R] /Count 1 /MediaBox [0 0 200 300] >>".to_vec(),
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /Contents 5 0 R /Resources << /Font << /F1 3 0 R >> /XObject << /Fm1 6 0 R >> >> >>".to_vec(),
+        stream("", b"q 180 0 0 280 10 10 cm /Fm1 Do Q BT /F1 40 Tf 15 130 Td (WWWWWWW) Tj ET"),
+        stream("/Type /XObject /Subtype /Form /BBox [0 0 1 1] /Resources << /XObject << /Im1 7 0 R >> >>", b"/Im1 Do"),
+        stream("/Type /XObject /Subtype /Image /Width 2 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8", &[255, 0, 0, 0, 0, 255]),
+    ];
+    let mut pdf = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offsets.push(pdf.len());
+        pdf.extend_from_slice(format!("{} 0 obj\n", i + 1).as_bytes());
+        pdf.extend_from_slice(o);
+        pdf.extend_from_slice(b"\nendobj\n");
+    }
+    let xref = pdf.len();
+    pdf.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+    for o in offsets {
+        pdf.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+    }
+    pdf.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objs.len() + 1).as_bytes());
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("scan.pdf", None, pdf).unwrap();
+        app
+    });
+    for _ in 0..40 {
+        h.run_steps(2);
+        if !h.state().render_pending() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    h.state_mut().system_clipboard = false;
+    let i = h.state().active.unwrap();
+    let r = h.state().views[i].page_screen_rect(0).expect("on screen");
+    // On the caption ("WWWWWWW" at y 130–170 of 300, from x 15).
+    let at = egui::pos2(r.left() + 60.0 / 200.0 * r.width(), r.top() + (300.0 - 145.0) / 300.0 * r.height());
+    h.hover_at(at);
+    h.run_steps(1);
+    h.event(egui::Event::PointerButton { pos: at, button: egui::PointerButton::Primary, pressed: true, modifiers: Default::default() });
+    h.event(egui::Event::PointerButton { pos: at, button: egui::PointerButton::Primary, pressed: false, modifiers: Default::default() });
+    h.run_steps(2);
+    assert_eq!(h.state().views[i].picked_image.map(|p| (p.page, p.index)), Some((0, 0)));
+    h.event(egui::Event::Copy);
+    h.run_steps(2);
+    let (name, bytes) = h.state().last_copied_file.clone().expect("the picture was copied");
+    assert_eq!(name, "scan p1 img1.png");
+    let png = image::load_from_memory_with_format(&bytes, image::ImageFormat::Png).unwrap().into_rgba8();
+    assert_eq!(png.into_raw(), vec![255, 0, 0, 255, 0, 0, 255, 255]);
+}

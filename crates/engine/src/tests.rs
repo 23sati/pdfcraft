@@ -3011,3 +3011,53 @@ fn copy_image_finds_the_image_under_a_point_and_decodes_it_at_full_size() {
     assert_eq!(rgba, px.into_raw());
     assert!(d.page_image_rgba(0, 1).is_err());
 }
+
+/// Copy Image: a JPEG drawn through grouped Form artwork (as Word, InDesign and scanners write
+/// them), with a caption over it and an empty full-page Form on top.
+#[test]
+fn copy_image_finds_a_picture_inside_form_artwork_under_text() {
+    let jpeg = jpeg_bytes();
+    let content = b"q 100 0 0 100 50 50 cm /Fm1 Do Q BT /F1 12 Tf 60 100 Td (Caption over the picture) Tj ET /Fm2 Do".to_vec();
+    let form = b"/Im1 Do".to_vec();
+    let stream = |dict: &str, data: &[u8]| {
+        let mut o = format!("<< {dict} /Length {} >>\nstream\n", data.len()).into_bytes();
+        o.extend_from_slice(data);
+        o.extend_from_slice(b"\nendstream");
+        o
+    };
+    let objs: Vec<Vec<u8>> = vec![
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [4 0 R] /Count 1 /MediaBox [0 0 200 300] >>".to_vec(),
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /Contents 5 0 R /Resources << /Font << /F1 3 0 R >> /XObject << /Fm1 6 0 R /Fm2 9 0 R >> >> >>".to_vec(),
+        stream("", &content),
+        stream("/Type /XObject /Subtype /Form /BBox [0 0 1 1] /Resources << /XObject << /Im1 7 0 R /Tiny 8 0 R >> >>", &form),
+        stream("/Type /XObject /Subtype /Image /Width 3 /Height 2 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode", &jpeg),
+        stream("/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8", &[255, 0, 0]),
+        stream("/Type /XObject /Subtype /Form /BBox [0 0 200 300]", b""),
+    ];
+    let mut out = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offsets.push(out.len());
+        out.extend_from_slice(format!("{} 0 obj\n", i + 1).as_bytes());
+        out.extend_from_slice(o);
+        out.extend_from_slice(b"\nendobj\n");
+    }
+    let xref = out.len();
+    out.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+    for o in offsets {
+        out.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+    }
+    out.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objs.len() + 1).as_bytes());
+    let mut s = Session::new();
+    let id = s.open("form.pdf", None, Arc::new(out), None).unwrap();
+    let d = s.get(id).unwrap();
+    assert_eq!(d.page_images(0).len(), 2, "{:?}", d.page_images(0));
+    // Under the caption, inside the picture: the Form holding it, not the empty Form on top.
+    assert_eq!(d.page_image_at(0, [100.0, 100.0]), Some(0));
+    assert_eq!(d.page_image_at(0, [10.0, 10.0]), None, "the empty full-page Form holds no picture");
+    // The largest picture in the group, as the JPEG stored in the PDF.
+    assert_eq!(d.page_image_copy_file(0, 0).unwrap(), ("jpg", jpeg));
+    assert!(d.page_image_copy_file(0, 1).is_err());
+}

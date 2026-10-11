@@ -16,6 +16,7 @@ pub mod actions;
 pub mod catalog;
 pub mod commands;
 pub mod compare;
+mod copy_image;
 pub mod dates;
 pub mod export;
 pub mod js;
@@ -309,37 +310,6 @@ impl Document {
             return Err("grouped Form artwork is not a bitmap; Save Image As is only available for raster images".into());
         }
         pdfcraft_create::image_file(&editor.cos, img.object.ok_or("the image has no object")?)
-    }
-
-    /// Copy Image: image `index` on `page` at its own resolution, as straight (unpremultiplied)
-    /// RGBA pixels (width, height, pixels) for the clipboard. Soft masks become alpha.
-    pub fn page_image_rgba(&self, page: usize, index: usize) -> Result<(u32, u32, Vec<u8>), String> {
-        /// Clipboards copy the whole bitmap; past this many pixels the copy is refused.
-        const MAX_COPY_PIXELS: u64 = 64_000_000;
-        let (_, bytes) = self.page_image_file(page, index)?;
-        let format = image::guess_format(&bytes).map_err(|e| e.to_string())?;
-        let mut reader = image::ImageReader::with_format(std::io::Cursor::new(bytes.as_slice()), format);
-        let mut limits = image::Limits::default();
-        limits.max_alloc = Some(MAX_COPY_PIXELS * 4);
-        reader.limits(limits);
-        let decoder = reader.into_decoder().map_err(|e| e.to_string())?;
-        let (w, h) = image::ImageDecoder::dimensions(&decoder);
-        if w == 0 || h == 0 {
-            return Err("the image is empty".into());
-        }
-        if u64::from(w) * u64::from(h) > MAX_COPY_PIXELS {
-            return Err(format!("the image is too large to copy ({w} × {h} pixels); use Save Image As"));
-        }
-        let rgba = image::DynamicImage::from_decoder(decoder).map_err(|e| e.to_string())?.into_rgba8();
-        Ok((rgba.width(), rgba.height(), rgba.into_raw()))
-    }
-
-    /// Copy Image: the topmost raster image on `page` under user-space point `at`, as its
-    /// index in [`Document::page_images`].
-    pub fn page_image_at(&self, page: usize, at: [f64; 2]) -> Option<usize> {
-        self.page_images(page)
-            .iter()
-            .rposition(|i| !i.is_form && i.object.is_some() && (i.rect[0]..=i.rect[2]).contains(&at[0]) && (i.rect[1]..=i.rect[3]).contains(&at[1]))
     }
 
     /// Edit a PDF ▸ Edit text: the paragraphs on `page` (0-based).

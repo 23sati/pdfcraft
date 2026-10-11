@@ -397,11 +397,12 @@ pub(crate) fn image_input(
                 *action = Some(ImageAction::Save(page, hit));
                 ui.close();
             }
-            if ui.add_enabled(raster, egui::Button::new(tl!("Copy Image"))).clicked() {
+            // Copying also finds the picture inside grouped Form artwork.
+            if ui.button(tl!("Copy Image")).clicked() {
                 *action = Some(ImageAction::Copy(page, hit));
                 ui.close();
             }
-            if ui.add_enabled(raster, egui::Button::new(tl!("Copy Image in Original Format"))).clicked() {
+            if ui.button(tl!("Copy Image in Original Format")).clicked() {
                 *action = Some(ImageAction::CopyFile(page, hit));
                 ui.close();
             }

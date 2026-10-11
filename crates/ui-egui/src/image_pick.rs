@@ -20,9 +20,9 @@ pub struct PickedImage {
 
 const BLUE: Color32 = Color32::from_rgb(0x3A, 0x7B, 0xF0);
 
-/// A click on page `page` (Select tool, not taken by anything else): selects the picture under
-/// it, or clears the selection. `over_text`: the click is on text, which text selection takes.
-#[allow(clippy::too_many_arguments)]
+/// A click on page `page` (Select tool, not taken by anything else) selects the picture under
+/// it, even with text drawn over it (scans with an OCR layer, captions); dragging or a double
+/// click still selects text, and clears the picture.
 pub(crate) fn page_input(
     resp: &egui::Response,
     xf: &PageXform,
@@ -30,10 +30,13 @@ pub(crate) fn page_input(
     info: &DocInfo,
     doc: &pdfcraft_engine::Document,
     pointer: Option<Pos2>,
-    over_text: bool,
     view: &mut DocView,
 ) {
     let Some(p) = pointer.filter(|p| xf.rect.contains(*p)) else { return };
+    if resp.drag_started() || resp.double_clicked() || resp.triple_clicked() {
+        view.picked_image = None;
+        return;
+    }
     if !resp.clicked() {
         return;
     }
@@ -41,11 +44,8 @@ pub(crate) fn page_input(
     let (vx, vy) = xf.screen_to_view(p);
     let u = info_page.view_to_user(vx, vy);
     let at = [f64::from(u[0]), f64::from(u[1])];
-    view.picked_image = if over_text {
-        None
-    } else {
-        doc.page_image_at(page, at).and_then(|index| doc.page_images(page).get(index).map(|i| PickedImage { page, index, rect: i.rect }))
-    };
+    view.picked_image =
+        doc.page_image_at(page, at).and_then(|index| doc.page_images(page).get(index).map(|i| PickedImage { page, index, rect: i.rect }));
 }
 
 /// The selected picture's highlight on page `page`.
@@ -97,7 +97,7 @@ impl PdfCraftApp {
         let Some((_, id)) = self.active_ids() else { return };
         let Some(doc) = self.session.get(id) else { return };
         let stem = safe_name(doc.name.rsplit_once('.').map_or(doc.name.as_str(), |(s, _)| s));
-        let file = doc.page_image_file(page, index);
+        let file = doc.page_image_copy_file(page, index);
         let copied = file.and_then(|(ext, bytes)| {
             let name = format!("{stem} p{} img{}.{ext}", page.saturating_add(1), index.saturating_add(1));
             self.put_file_on_clipboard(&name, &bytes)?;

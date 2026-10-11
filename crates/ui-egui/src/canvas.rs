@@ -2428,13 +2428,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
             }
 
             if tool == QuickTool::Select && !consumed {
-                let over_text = pointer.is_some_and(|p| {
-                    let (vx, vy) = xf.screen_to_view(p);
-                    view.texts
-                        .get(&i)
-                        .is_some_and(|t| t.glyphs.iter().any(|g| vx >= g.rect[0] && vx <= g.rect[2] && vy >= g.rect[1] && vy <= g.rect[3]))
-                });
-                crate::image_pick::page_input(&resp, &xf, i, info, doc, pointer, over_text, view);
+                crate::image_pick::page_input(&resp, &xf, i, info, doc, pointer, view);
             }
             crate::image_pick::paint(painter, &xf, i, info, view);
             comments::page_after_text(&resp, &pcx, view);
