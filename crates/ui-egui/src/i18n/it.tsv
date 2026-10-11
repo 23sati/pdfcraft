@@ -1218,6 +1218,8 @@
 	Searchable Image (Exact)	Immagine ricercabile (esatta)
 	Adds invisible text over each word; the page image is not changed	Aggiunge testo invisibile sopra ogni parola; l'immagine della pagina non viene modificata
 	Downsample to	Sottocampiona a
+	Also recognize pages that already have text	Riconosci anche le pagine che contengono già testo
+	Pictures on those pages are recognized too; words already in the page's text are not added again	Vengono riconosciute anche le immagini di queste pagine; le parole già presenti nel testo della pagina non vengono aggiunte di nuovo
 	Settings	Impostazioni
 	Optional	Facoltativo
 	Planned · {m}	Pianificato · {m}
@@ -2258,3 +2260,5 @@ scroll speed	Fast	Veloce
 	Original	Originale
 	Greyscale	Scala di grigi
 	Black and white	Bianco e nero
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Il driver di questa stampante non accetta le impostazioni fronte-retro da altri programmi, quindi vale la sua impostazione. Modificala in Proprietà…
+	Tools panel side	Lato del pannello Strumenti

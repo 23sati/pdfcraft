@@ -1222,6 +1222,8 @@
 	Searchable Image (Exact)	صورة قابلة للبحث (مطابقة)
 	Adds invisible text over each word; the page image is not changed	يضيف نصًا غير مرئي فوق كل كلمة؛ صورة الصفحة لا تتغير
 	Downsample to	تقليل العينات إلى
+	Also recognize pages that already have text	التعرف على الصفحات التي تحتوي على نص أيضًا
+	Pictures on those pages are recognized too; words already in the page's text are not added again	يُتعرَّف على الصور في هذه الصفحات أيضًا، ولا تُضاف مرة أخرى الكلمات الموجودة بالفعل في نص الصفحة
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	التعرف على النص غير مثبت: ملفات نماذجه مفقودة. أعد تثبيت PdfCraft، أو اضبط PDFCRAFT_MODELS على المجلد الذي يحتويها.
 	Settings	الإعدادات
 	Optional	اختياري
@@ -2270,3 +2272,5 @@ scroll speed	Fast	سريعة
 	Original	الأصل
 	Greyscale	تدرج رمادي
 	Black and white	أبيض وأسود
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	لا يقبل برنامج تشغيل هذه الطابعة إعدادات الطباعة على الوجهين من البرامج الأخرى، لذا يُطبَّق إعداده الخاص. غيّره من خصائص…
+	Tools panel side	جانب لوحة الأدوات

@@ -1215,6 +1215,8 @@
 	Searchable Image (Exact)	Imagen con búsqueda (exacta)
 	Adds invisible text over each word; the page image is not changed	Añade texto invisible sobre cada palabra; la imagen de la página no cambia
 	Downsample to	Reducir resolución a
+	Also recognize pages that already have text	Reconocer también las páginas que ya tienen texto
+	Pictures on those pages are recognized too; words already in the page's text are not added again	También se reconocen las imágenes de esas páginas; las palabras que ya están en el texto de la página no se vuelven a añadir
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	El reconocimiento de texto no está instalado: faltan sus archivos de modelo. Reinstala PdfCraft o define PDFCRAFT_MODELS con la carpeta que los contiene.
 	Settings	Ajustes
 	Optional	Opcional
@@ -2300,3 +2302,5 @@ scroll speed	Fast	Rápida
 	Original	Original
 	Greyscale	Escala de grises
 	Black and white	Blanco y negro
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	El controlador de esta impresora no acepta los ajustes de doble cara de otros programas, así que se aplica su propio ajuste. Cámbielo en Propiedades…
+	Tools panel side	Lado del panel de herramientas

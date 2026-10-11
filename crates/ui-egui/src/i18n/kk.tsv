@@ -1170,6 +1170,8 @@
 	Searchable Image (Exact)	Іздеуге болатын сурет (дәл)
 	Adds invisible text over each word; the page image is not changed	Әр сөздің үстіне көрінбейтін мәтін қосады; бет суреті өзгермейді
 	Downsample to	Ажыратымдылықты төмендету
+	Also recognize pages that already have text	Мәтіні бар беттерді де тану
+	Pictures on those pages are recognized too; words already in the page's text are not added again	Бұл беттердегі суреттер де танылады; беттің мәтінінде бұрыннан бар сөздер қайта қосылмайды
 	Settings	Параметрлер
 	Optional	Міндетті емес
 	Planned · {m}	Жоспарланған · {m}
@@ -2248,5 +2250,7 @@ scroll speed	Fast	Жылдам
 	Original	Түпнұсқа
 	Greyscale	Сұр реңктер
 	Black and white	Ақ-қара
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Бұл принтердің драйвері басқа бағдарламалардан екі жақты басып шығару баптауларын қабылдамайды, сондықтан өз баптауы қолданылады. Оны мына жерден өзгертіңіз: Сипаттар…
 	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Бұл өрістің қаріпі «{c}» ({code}) таңбасын сала алмайды, сондықтан PdfCraft оның орнына ? көрсетеді. Мән сақталады, ал басқа PDF қарау құралдары өрісті соған қарап қайта салады.
 	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	PdfCraft жазатын қаріптер «{c}» ({code}) таңбасын сала алмайды, сондықтан ол барлық PDF қарау құралдарында ? болып көрінеді. Мәтін сақталады.
+	Tools panel side	Құралдар панелінің жағы

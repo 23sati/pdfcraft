@@ -921,6 +921,8 @@
 	Searchable Image (Exact)	Изображение с възможност за търсене (точно)
 	Adds invisible text over each word; the page image is not changed	Добавя невидим текст върху всяка дума; изображението на страницата не се променя
 	Downsample to	Намали разделителната способност до
+	Also recognize pages that already have text	Разпознай и страници, които вече съдържат текст
+	Pictures on those pages are recognized too; words already in the page's text are not added again	Изображенията на тези страници също се разпознават; думите, които вече са в текста на страницата, не се добавят отново
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	Разпознаването на текст не е инсталирано: файловете на моделите му липсват. Инсталирайте PdfCraft отново или задайте в PDFCRAFT_MODELS папката, която ги съдържа.
 	Settings	Настройки
 	Protect	Защита
@@ -2212,3 +2214,5 @@ scroll speed	Fast	Висока
 	Original	Оригинал
 	Greyscale	Нива на сивото
 	Black and white	Черно-бяло
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Драйверът на този принтер не приема настройки за двустранен печат от други програми и прилага собствената си настройка. Променете я от Свойства…
+	Tools panel side	Страна на панела с инструменти

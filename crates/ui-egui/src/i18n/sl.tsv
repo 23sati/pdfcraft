@@ -623,6 +623,8 @@
 	Downloaded {name}	Preneseno: {name}
 	Downloading attachments on the web arrives with M3.10 ({n} bytes ready)	Prenos priponk v spletni različici pride z M3.10 (pripravljenih bajtov: {n})
 	Downsample to	Zmanjšaj vzorčenje na
+	Also recognize pages that already have text	Prepoznaj tudi strani, ki že vsebujejo besedilo
+	Pictures on those pages are recognized too; words already in the page's text are not added again	Prepoznane bodo tudi slike na teh straneh; besede, ki so že v besedilu strani, ne bodo dodane znova
 	Drag a rectangle around the area to copy	Povlecite pravokotnik okoli območja, ki ga želite kopirati
 	Drag a rectangle on a page to crop it; double-click a page for Set Page Boxes	Povlecite pravokotnik na strani, da jo obrežete; dvokliknite stran za nastavitev okvirjev strani
 	Drag a rectangle to create a link; double-click a link to edit it	Povlecite pravokotnik, da ustvarite povezavo; dvokliknite povezavo, da jo uredite
@@ -2255,5 +2257,7 @@ scroll speed	Fast	Hitro
 	Original	Izvirnik
 	Greyscale	Sivine
 	Black and white	Črno-belo
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Gonilnik tega tiskalnika ne sprejema nastavitev obojestranskega tiskanja iz drugih programov, zato velja njegova lastna nastavitev. Spremenite jo v Lastnosti…
 	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Pisava tega polja ne more prikazati »{c}« ({code}), zato PdfCraft namesto njega prikaže ?. Vrednost se shrani, drugi pregledovalniki PDF pa polje znova narišejo iz nje.
 	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Pisave, s katerimi piše PdfCraft, ne morejo prikazati »{c}« ({code}), zato se v vseh pregledovalnikih PDF prikaže kot ?. Besedilo se shrani.
+	Tools panel side	Stran podokna z orodji

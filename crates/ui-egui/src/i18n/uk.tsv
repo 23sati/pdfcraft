@@ -1220,6 +1220,8 @@
 	Searchable Image (Exact)	Зображення з пошуком (точне)
 	Adds invisible text over each word; the page image is not changed	Додає невидимий текст поверх кожного слова; зображення сторінки не змінюється
 	Downsample to	Знизити роздільну здатність до
+	Also recognize pages that already have text	Розпізнавати й сторінки, на яких уже є текст
+	Pictures on those pages are recognized too; words already in the page's text are not added again	Зображення на цих сторінках теж розпізнаються; слова, які вже є в тексті сторінки, повторно не додаються
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	Розпізнавання тексту не встановлено: бракує файлів моделей. Перевстановіть PdfCraft або задайте в PDFCRAFT_MODELS теку, у якій вони лежать.
 	Settings	Налаштування
 	Optional	Необов’язково
@@ -2271,3 +2273,5 @@ scroll speed	Fast	Швидка
 	Original	Оригінал
 	Greyscale	Відтінки сірого
 	Black and white	Чорно-білий
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Драйвер цього принтера не приймає налаштування двобічного друку від інших програм, тому діє його власне налаштування. Змініть його у вікні Властивості…
+	Tools panel side	Бік панелі інструментів

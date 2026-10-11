@@ -805,6 +805,8 @@
 	Searchable Image (Exact)	Αναζητήσιμη εικόνα (ακριβής)
 	Adds invisible text over each word; the page image is not changed	Προσθέτει αόρατο κείμενο πάνω από κάθε λέξη, χωρίς να αλλάζει την εικόνα της σελίδας
 	Downsample to	Μείωση ανάλυσης σε
+	Also recognize pages that already have text	Αναγνώριση και σελίδων που έχουν ήδη κείμενο
+	Pictures on those pages are recognized too; words already in the page's text are not added again	Αναγνωρίζονται και οι εικόνες αυτών των σελίδων· οι λέξεις που υπάρχουν ήδη στο κείμενο της σελίδας δεν προστίθενται ξανά
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	Η αναγνώριση κειμένου δεν είναι εγκατεστημένη: λείπουν τα αρχεία μοντέλων. Εγκαταστήστε ξανά το PdfCraft ή ορίστε το PDFCRAFT_MODELS στον φάκελο που τα περιέχει.
 	Planned · {m}	Προγραμματισμένο · {m}
 	Planned for milestone {m} — open to see what it will include	Προγραμματισμένο για το ορόσημο {m} — ανοίξτε για να δείτε τι θα περιλαμβάνει
@@ -2266,5 +2268,7 @@ scroll speed	Fast	Γρήγορη
 	Original	Πρωτότυπο
 	Greyscale	Κλίμακα του γκρι
 	Black and white	Ασπρόμαυρο
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Το πρόγραμμα οδήγησης αυτού του εκτυπωτή δεν δέχεται ρυθμίσεις εκτύπωσης διπλής όψης από άλλα προγράμματα, οπότε ισχύει η δική του ρύθμιση. Αλλάξτε τη στις Ιδιότητες…
 	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Η γραμματοσειρά αυτού του πεδίου δεν μπορεί να σχεδιάσει το «{c}» ({code}), γι' αυτό το PdfCraft δείχνει ? στη θέση του. Η τιμή αποθηκεύεται και άλλα προγράμματα προβολής PDF επανασχεδιάζουν το πεδίο από αυτήν.
 	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Οι γραμματοσειρές με τις οποίες γράφει το PdfCraft δεν μπορούν να σχεδιάσουν το «{c}» ({code}), γι' αυτό εμφανίζεται ως ? σε κάθε πρόγραμμα προβολής PDF. Το κείμενο αποθηκεύεται.
+	Tools panel side	Πλευρά πλαισίου εργαλείων

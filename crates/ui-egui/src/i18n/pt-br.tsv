@@ -866,6 +866,8 @@
 	Searchable Image (Exact)	Imagem pesquisável (Exata)
 	Adds invisible text over each word; the page image is not changed	Adiciona texto invisível sobre cada palavra; a imagem da página não é alterada
 	Downsample to	Reduzir amostragem para
+	Also recognize pages that already have text	Reconhecer também as páginas que já contêm texto
+	Pictures on those pages are recognized too; words already in the page's text are not added again	As imagens dessas páginas também são reconhecidas; as palavras que já estão no texto da página não são adicionadas novamente
 	Settings	Configurações
 	Protect	Proteger
 	Advanced options	Opções avançadas
@@ -2263,3 +2265,5 @@ scroll speed	Fast	Rápida
 	Original	Original
 	Greyscale	Escala de cinza
 	Black and white	Preto e branco
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	O driver desta impressora não aceita configurações de frente e verso de outros programas, então vale a configuração dele. Altere em Propriedades…
+	Tools panel side	Lado do painel Ferramentas
