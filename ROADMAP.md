@@ -135,6 +135,8 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 Newest first: the date, what moved, and the new overall estimate.
 
+- **2026-10-10 (M3, programmable themes):** Shared theme API and ten CLI/MCP tools, locked native storage, legacy migration and GUI synchronization. Workspace validation: 1,867 passed; formatting, Clippy, native build, assets, layers and parity pass. WASM and dependency-audit environment limits are recorded in `docs/theme-validation.md`; readiness estimates unchanged.
+
 - **2026-10-10 (M3, theme validation):** Workspace tests pass (1,765 passed); native build, formatting, Clippy, assets and layering validated. Environment/upstream check limits are recorded in `docs/theme-validation.md`.
 - **2026-10-09 (M3, theme foundation):** Add six preset identities, a shared typed palette and a versioned custom-theme library foundation. Editor remains a separate proposal in `docs/themes.md`; overall parity estimate unchanged.
 
@@ -293,7 +295,6 @@ Newest first: the date, what moved, and the new overall estimate.
   - Robustness sweep (963 of 983 files open, 0 crashes), text layer, find and select, tiles, web build, polish.
   - Overall ≈ 3–4%.
 - **2026-09-30 (session 1):** planning complete; viewer vertical slice.
-
 
 ## Revision history
 

@@ -1,105 +1,226 @@
 # Extensible application themes
 
-## Assessment and scope
+## Assessment and implemented scope
 
-Based on upstream main `68e91d4815ed43212895589411aa3d21b2a84bc3` (2026-10-09).
-This branch is independent of Windows single-instance PR #616.
+The original assessment used upstream main `68e91d4815ed43212895589411aa3d21b2a84bc3`.
+The branch now integrates upstream `798650e` without rewriting the two initial
+commits. Closed Windows PR #616 and its separate checkout are untouched.
 
 Upstream PR #212 (`42078a8`) unified the toolbar and View menu around
-ThemePreference and a single setter, preserving System as a user preference
-separate from its resolved Light/Dark appearance. Earlier #76 raised text
-contrast. The existing theme module provides semantic Tokens and maps them into
-egui Visuals; most custom chrome already uses them. Feedback colors and some
-widget defaults remained scattered. Font, spacing and layout changes are out of scope.
+ThemePreference and a single setter. Earlier #76 raised text contrast. Existing
+semantic Tokens already supplied most custom chrome, with some feedback colors
+and egui defaults scattered across components. Preferences lived as JSON inside
+eframe storage; System was resolved against OS appearance each frame.
 
-The existing settings are a JSON object stored by eframe, including on the web.
-The `theme` property contains legacy strings System, Light and Dark. The new
-presets add stable lowercase IDs without changing those legacy encodings or the
-default. Unknown selections retain the current preference. System still resolves
-OS appearance each frame. Explicit palettes do not follow OS changes.
+The initial theme commits added six presets and the custom storage model, but
+only activation was available through UI control. The follow-up adds all ten
+management operations to the existing CLI/MCP tool registry and a shared native
+store. Natural-language theme generation and a graphical custom-theme editor are
+**future work**. No new MCP server or third-party dependency package was added.
 
-## Architecture
+## Shared architecture
 
-Palette is the typed, resolved set of supported application colors; Tokens is a
-compatibility alias for its existing consumers. Light/dark kind is an egui hint,
-not theme identity. Built-ins and custom definitions resolve into the same type.
-The palette registry supplies stable token keys for serialization and the future
-editor. Hexadecimal color values are portable and human-readable. Layout metrics
-are not color tokens.
+`pdfcraft-themes` is the GUI-independent L7 theme domain. It owns ThemeKind,
+ThemePreference, Palette, ColorToken, PaletteDocument, ThemeDefinition, ThemeLibrary,
+and ThemeState. It reuses `ecolor` for typed colors; it has no egui, windowing or
+GPU dependency. The egui module reexports the model and adapts it to egui Visuals.
+Native storage reuses the existing platform staging helper, standard-library file
+locks, and the already-used ron/getrandom packages. No engine document state is
+involved in a theme edit.
 
-The versioned theme library is separate from the selected preference. Custom
-identities are stable IDs, not names; renaming never breaks references. Built-ins
-remain immutable; duplication creates a new definition with its own ID and base
-reference. Unknown fields and token data are retained, and unsupported definitions
-fall back for display. Missing/invalid tokens use the base palette. No theme-count
-limit is imposed. Existing serde/egui facilities suffice; no theme crate is needed.
+`ThemeState::execute(operation, arguments)` validates the operation on a copy,
+then commits all changes or none. `PdfCraftApp::manage_theme` and automation tools
+call this API. The same palette represents built-ins and custom themes. Built-ins
+are immutable. UUID identities are independent of editable names; duplicate names
+are allowed. Native creation generates UUID v4 IDs unless a caller supplies one;
+browser callers currently supply an ID obtained from browser entropy.
 
-Application surfaces, controls, focus, selection, text, feedback and shadows are
-covered. PDF paper, pixels, annotation colors, redaction, signature ink and document
-editing overlays retain their document semantics. Native OS file dialogs remain
-styled by the OS. System, Light and Dark retain their original visual mapping.
+Native `ThemeStore` transactions re-read the latest state under an advisory lock,
+apply one operation and atomically replace the JSON file. GUI selectors use that
+same path. The running GUI checks for external changes about once per second and
+reloads them. Custom themes appear in the existing selector, with a scrolling list.
+The future editor should use this API rather than another preference or file format.
 
-Settings inherit eframe's platform persistence and storage limits. A future editor
-must report storage errors and export backups; an unbounded collection does not
-promise infinite storage or durability beyond the existing backend.
+System, Light and Dark keep their historical appearance and encodings. System
+continues following OS appearance changes. A headless inspection of System returns
+the Light fallback palette and `follows_system: true`; it does not guess desktop
+appearance. PDF paper, pixels, annotations, redactions and signature ink are not
+application theme tokens. Native file dialogs remain styled by the OS.
 
-## Schema and token contract
+## Palette schema
 
-The current custom record has `schema_version`, UUID-shaped `id`, `name`, `kind`,
-`base_theme_id`, `palette`, `metadata`, optional `legacy_defaults`, and preserved
-unknown fields. For example (partial palettes are valid):
+The registry is exhaustive: adding a Palette color without registering it fails
+compilation. All 31 stable field names are exposed in `pdfcraft-cli tools` schemas.
+Values are `#RRGGBB` or `#RRGGBBAA`. Create and update accept partial objects;
+unknown patch keys and malformed colors reject the whole operation. Supplied
+hex values are retained without color correction (rendering uses egui's color
+precision). Inspect returns the complete palette; export retains the definition.
+
+| Group | Fields |
+|---|---|
+| Surfaces | `titlebar`, `chrome`, `panel`, `pasteboard`, `card`, `field` |
+| Borders | `border`, `divider` |
+| Text | `text`, `text_muted`, `text_faint`, `icon` |
+| Controls | `hover`, `pressed`, `selected`, `focus`, `selection_text` |
+| Accents | `accent`, `accent_text`, `accent_soft`, `on_accent`, `badge_new` |
+| Feedback | `success`, `warning`, `error`, `info`, `notice_bg`, `notice_text` |
+| Shadows | `page_shadow`, `window_shadow`, `popup_shadow` |
+
+Panel is shared by sidebars/tool panels; card by dialogs/popups; chrome by the
+mode bar/toolbar. Pasteboard is behind PDF pages. AccentText covers links and
+accent-button hover; OnAccent is their foreground. Focus covers focus/caret strokes.
+Layout metrics and fonts are not color tokens. `legacy_defaults` preserves the
+historical Light/Dark defaults in untouched copies; editing a role overrides its
+legacy consumers, while resetting to the legacy value restores that treatment.
+
+Inspect and editing results report contrast warnings without modifying colors.
+These are practical checks, not an accessibility certification. Translucent roles
+receive a warning because their contrast depends on underlying surfaces.
+
+## CLI command reference
+
+Use the existing runner; no graphical app is required:
+
+```sh
+pdfcraft-cli --help
+pdfcraft-cli tools
+pdfcraft-cli run theme_list store=/absolute/path/themes.json
+pdfcraft-cli run theme_inspect store=/absolute/path/themes.json id=ocean
+pdfcraft-cli run theme_create store=/absolute/path/themes.json name='Navy and cream' base_theme_id=ocean 'palette={"text":"#fff4df","accent":"#efbd88"}'
+pdfcraft-cli run theme_activate store=/absolute/path/themes.json id=custom:UUID
+```
+
+Every tool requires `store`, a JSON file path. Relative paths resolve under
+`--root` when supplied; the store, lock and legacy settings paths must remain
+inside that root. The parent folder must already exist. An explicit path avoids
+silently changing a user's desktop profile from a confined agent session.
+
+| Tool | Other arguments | Result/purpose |
+|---|---|---|
+| `theme_list` | none | Built-ins/custom entries, active ID, revision, diagnostics |
+| `theme_inspect` | `id` | Complete palette, metadata, warnings, revision |
+| `theme_create` | `name`, optional `base_theme_id`, `palette`, UUID `id` | New custom theme; base defaults to Light |
+| `theme_clone` | source `id`, `name`, optional UUID `new_id` | Independent copy with complete palette |
+| `theme_update` | custom `id`, `palette` | Validated partial color patch |
+| `theme_rename` | custom `id`, `name` | Rename without changing identity |
+| `theme_activate` | `id` | Persist selection; running native GUI reloads it |
+| `theme_delete` | custom `id` | Delete; active theme falls back to its built-in base or Light |
+| `theme_export` | custom `id` | Versioned definition JSON on stdout |
+| `theme_import` | `document` object | Import without overwriting an existing ID |
+
+Mutation tools accept optional `expected_revision` from list/inspect. A mismatch
+returns `revision_conflict`; inspect again and deliberately reapply the edit.
+Stable selection IDs are `system`, `light`, `dark`, `catppuccin`, `solarized`,
+`forest`, `ocean`, `sunset`, `paper-ink`, and `custom:<uuid>`. A creation/copy UUID
+argument omits the `custom:` prefix. System is a preference, not a clonable palette.
+
+JSON results go to stdout. Theme operation failures emit a JSON object to stderr
+and exit nonzero, for example:
+
+```json
+{"error":{"code":"builtin_protected","message":"…","tool":"theme_delete"}}
+```
+
+Codes include `invalid_args`, `not_found`, `conflict` (including ID collisions),
+`builtin_protected`, `unsupported_schema`, `revision_conflict`, `store_busy`,
+`invalid_store`, `invalid_legacy_settings`, `invalid_path`, `storage_error`,
+`storage_limit`, and `entropy_unavailable`. Retry `store_busy`; do not automatically
+retry a stale revision. General runner syntax/file errors retain CLI conventions.
+
+For structured workflows, `pdfcraft-cli run --script steps.json --root PROFILE`
+accepts the existing array format (each completed operation commits separately):
+
+```json
+[
+  {"tool":"theme_create","args":{"store":"themes.json","id":"01234567-89ab-4def-8123-456789abcdef","name":"Navy and cream","base_theme_id":"ocean","palette":{"text":"#fff4df","accent":"#efbd88"}}},
+  {"tool":"theme_activate","args":{"store":"themes.json","id":"custom:01234567-89ab-4def-8123-456789abcdef"}}
+]
+```
+
+## Import/export and storage compatibility
+
+Export returns the existing versioned definition directly, with no second wrapper:
 
 ```json
 {
   "schema_version": 1,
-  "id": "01234567-89ab-cdef-0123-456789abcdef",
-  "name": "My Ocean",
+  "id": "01234567-89ab-4def-8123-456789abcdef",
+  "name": "Navy and cream",
   "kind": "Dark",
   "base_theme_id": "ocean",
-  "palette": { "accent": "#67cbe7", "window_shadow": "#0000006e" },
-  "metadata": {}
+  "palette": {"text":"#fff4df","accent":"#efbd88"},
+  "metadata": {"author":"Example"}
 }
 ```
 
-The containing `theme_library` has a schema version and `themes` array. Selection
-stays under `theme`: existing strings `System`, `Light`, `Dark`; lowercase preset
-IDs; or `{ "Custom": "01234567-89ab-cdef-0123-456789abcdef" }`. Control options use
-`custom:<uuid>`. Display names are never identity keys. UUID generation belongs to
-the future creation UI; the core validates and accepts caller-supplied IDs.
+Pass that object as `theme_import`'s `document`. Missing colors inherit a concrete
+built-in base (or the record's light/dark kind). No recursive custom inheritance is
+used; cloning a custom theme freezes all currently supported roles. Imported
+unknown fields, metadata and unknown token values survive export and editing.
+Known invalid colors, unsupported imported versions and ID collisions are refused.
+Cloning generates a new ID; import never silently replaces an existing definition.
+Unsupported stored definitions remain available for diagnosis and safe display
+fallback, but cannot be activated, edited or cloned by this version.
 
-`ColorToken::ALL` is the exhaustive registry of 31 colors. Adding a Palette color
-without registering it fails compilation. Groups cover surfaces, text, controls,
-accents, feedback and shadows. Panel is shared by sidebars and tool panels; card
-is shared by dialogs and popup surfaces. Chrome is the toolbar/mode bar; pasteboard
-is the application surface behind PDF pages. AccentText is used for links and
-accent-button hover; OnAccent supplies their readable foreground. TextFaint is for
-hints/captions; egui also applies its disabled-opacity treatment. Focus supplies
-keyboard focus and text-cursor strokes. Every token has typed get/set access and
-hex serialization; no raw PDF content color is registered.
+Native `themes.json` stores `{schema_version, revision, theme, theme_library}` plus
+retained extension fields. The library keeps its existing versioned `themes` array.
+Selection retains legacy JSON strings `System`, `Light`, `Dark`, lowercase preset
+IDs, or `{"Custom":"<uuid>"}`. Future migrations must be explicit version-to-version
+transforms that preserve unknown data, not implicit rewrites.
 
-`legacy_defaults` preserves the original Light/Dark egui defaults and their
-historical feedback variations in an untouched copy. Changing a token overrides
-that role everywhere, including these legacy consumers. New presets use the full
-palette mapping. Resetting a copied legacy token restores its original treatment.
+The desktop store is next to `app.ron`:
 
-Base references currently resolve concrete built-ins, never recursive custom-theme
-inheritance. Definitions store their own values; a future duplicate of a custom
-theme should snapshot its resolved colors and keep its original built-in base.
-Unknown bases fall back to the record's light/dark kind. Unsupported versions and
-invalid entries remain stored but display safe fallbacks, with load diagnostics.
-Future migrations should be explicit version-to-version transforms of the retained
-raw envelope. The core already supports insert, replace, rename and remove; editor
-Save must persist the changed library and surface any backend storage error.
+- macOS: `~/Library/Application Support/PdfCraft/themes.json`
+- Linux/FreeBSD: `$XDG_DATA_HOME/pdfcraft/themes.json`, or `~/.local/share/pdfcraft/themes.json`
+- Windows: `%APPDATA%/PdfCraft/data/themes.json`
+- Portable mode: `PdfCraftData/themes.json` beside the executable
 
-Forest, Ocean, Sunset and Paper & Ink use all 14 existing translation catalogs;
-Catppuccin and Solarized retain their palette names. Both external inspirations are
-MIT-licensed, with notices in NOTICE and full licenses in `docs/licenses/`.
+GUI startup imports its restored theme preference/library only when this file does
+not exist. Headless operations at a file named `themes.json` can also migrate the
+adjacent `app.ron` (`pdfcraft` or legacy `printcraft` entry). CLI migration refuses
+malformed legacy data and leaves it intact. Other filenames are isolated stores
+with Light defaults. Former PrintCraft *folder* migration still belongs to desktop
+startup: run the upgraded app once before pointing the CLI at that older profile.
+
+The dedicated file is authoritative after migration. eframe settings retain a
+compatibility mirror, but GUI autosave never writes it back over `themes.json`.
+If a store is invalid/unreadable, the GUI keeps its last usable theme, reports the
+error, and refuses persistence edits; it still launches. The invalid file is never
+automatically replaced. Browser builds continue using eframe browser storage with
+the same model; native CLI tools do not edit browser storage. Cross-tab browser
+concurrency remains work for the future browser editor.
+
+A persistent `.lock` sidecar is used for standard-library OS advisory locks. The
+OS releases a lock when its file handle closes or the process crashes; the sidecar
+is deliberately never unlinked. Writes use a new adjacent staging file, sync its
+contents, and rename it over the target. Cooperating native clients cannot silently
+lose unrelated edits. `expected_revision` also protects edits made from an old
+snapshot. Manual edits or older app versions do not participate in this protocol.
+Power-loss durability remains subject to the filesystem. There is no entry-count
+cap; files have a 64 MiB practical safety bound. Reads/inspection do not create files.
+
+## MCP and future AI agents
+
+All ten tools are already exposed by `pdfcraft-cli mcp` through the same registry,
+validation and storage adapters. The existing stdio server remains opt-in. Compact
+mode discovers them via `tool_search` and invokes them via `tool_call`; ordinary
+`tools/call` also works. JSON Schemas include every palette field. Failed operations
+return `isError: true` and `structuredContent.error` with a stable code/message.
+No GUI manipulation is necessary to construct, inspect, save or activate a theme.
+
+A future agent can translate “professional navy and cream with warm accents” into
+a `theme_create` palette, inspect its warnings, refine it using `theme_update`, and
+activate it after the user's requested workflow. The application does not yet
+implement natural-language generation, a provider, or automatic contrast correction.
+
+Catppuccin and Solarized inspirations are MIT-licensed, with pinned notices in
+NOTICE and full licenses in `docs/licenses/`. Descriptive names are localized in
+all 15 current catalogs. Typography, layout, icons and PDF rendering are unchanged.
 
 ## Separate editor PR
 
-1. Add a theme library with virtualized rows, built-in and custom sections, and no
-   arbitrary entry cap. Offer Create, Duplicate, Rename and Delete. Generate a
-   random stable ID on creation using platform-supported entropy; never derive it
+1. Build on the shared operations to add a theme library with virtualized rows, built-in and custom sections, and no
+   arbitrary entry cap. Offer Create, Duplicate, Rename and Delete. Use the core’s native UUID generation (or browser entropy for WASM); never derive it
    from a label. Deleting the active custom theme selects its base or Light.
 2. Open a dedicated editor with collapsible Surfaces, Text, Controls, Borders,
    Feedback and Accents groups generated from the token registry. Each row has a
@@ -112,7 +233,7 @@ MIT-licensed, with notices in NOTICE and full licenses in `docs/licenses/`.
 4. Show contrast warnings for text/surface combinations (4.5:1), focus and important
    non-text affordances (3:1). Invalid syntax blocks Save; accessibility warnings
    are explicit and explain the affected roles. Do not silently rewrite colors.
-5. Import/export the versioned JSON definition, preserving unknown metadata.
+5. Add file pickers around the implemented import/export operations, preserving unknown metadata.
    Validate IDs, names, versions and colors. Imported ID collisions offer a new
    copy or explicit replacement. Unsupported schema versions are preserved but
    read-only; migrate only with an explicit versioned transformation and backup.
