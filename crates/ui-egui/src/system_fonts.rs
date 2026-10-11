@@ -14,20 +14,35 @@ use egui::FontData;
 const MAX_BYTES: u64 = 32 << 20;
 /// Faces tried in a collection (`.ttc`).
 const MAX_FACES: u32 = 16;
-/// Arabic letter alef: the face must have it to be worth loading.
+/// Arabic letter alef: the face must have it to be worth loading for Arabic script.
 const PROBE: char = '\u{0627}';
+/// Devanagari letter ka: the face must have it to cover Hindi.
+const DEVANAGARI_PROBE: char = '\u{0915}';
 
-/// The installed fallback face, read once. `None` when it is turned off or no candidate fits.
+/// The installed fallback face (Arabic script), read once. `None` when it is turned off or no candidate fits.
 pub fn fallback() -> Option<Arc<FontData>> {
     static CACHE: OnceLock<Option<Arc<FontData>>> = OnceLock::new();
     CACHE.get_or_init(load).clone()
+}
+
+/// The installed fallback face for Devanagari (Hindi) script, read once.
+pub fn devanagari_fallback() -> Option<Arc<FontData>> {
+    static CACHE: OnceLock<Option<Arc<FontData>>> = OnceLock::new();
+    CACHE.get_or_init(load_devanagari).clone()
 }
 
 fn load() -> Option<Arc<FontData>> {
     if std::env::var_os("PDFCRAFT_SYSTEM_FONTS").is_some_and(|v| v == "0") {
         return None;
     }
-    candidates().iter().find_map(|path| read(path))
+    candidates().iter().find_map(|path| read_probe(path, PROBE))
+}
+
+fn load_devanagari() -> Option<Arc<FontData>> {
+    if std::env::var_os("PDFCRAFT_SYSTEM_FONTS").is_some_and(|v| v == "0") {
+        return None;
+    }
+    devanagari_candidates().iter().find_map(|path| read_probe(path, DEVANAGARI_PROBE))
 }
 
 /// Well-known locations of faces with broad script coverage, best first.
@@ -54,13 +69,55 @@ fn candidates() -> Vec<PathBuf> {
     }
 }
 
+/// Well-known locations of Devanagari (Hindi) faces, best first.
+fn devanagari_candidates() -> Vec<PathBuf> {
+    if cfg!(windows) {
+        let dir = std::env::var_os("WINDIR").or_else(|| std::env::var_os("SystemRoot")).map_or_else(|| PathBuf::from(r"C:\Windows"), PathBuf::from);
+        ["Nirmala.ttf", "NirmalaB.ttf", "mangal.ttf", "aparaj.ttf", "utsah.ttf", "segoeui.ttf"].iter().map(|f| dir.join("Fonts").join(f)).collect()
+    } else if cfg!(target_os = "macos") {
+        [
+            "/System/Library/Fonts/Supplemental/DevanagariMT.ttc",
+            "/System/Library/Fonts/Supplemental/DevanagariSangamMN.ttc",
+            "/System/Library/Fonts/Supplemental/Kohinoor.ttc",
+            "/System/Library/Fonts/Kohinoor.ttc",
+            "/Library/Fonts/Arial Unicode.ttf",
+        ]
+        .iter()
+        .map(PathBuf::from)
+        .collect()
+    } else {
+        let files = [
+            "google-noto/NotoSansDevanagariUI-Regular.ttf",
+            "google-noto/NotoSansDevanagari-Regular.ttf",
+            "google-noto-vf/NotoSansDevanagari[wght].ttf",
+            "truetype/noto/NotoSansDevanagari-Regular.ttf",
+            "truetype/noto/NotoSansDevanagariUI-Regular.ttf",
+            "noto/NotoSansDevanagari-Regular.ttf",
+            "noto/NotoSansDevanagariUI-Regular.ttf",
+            "lohit-devanagari-fonts/Lohit-Devanagari.ttf",
+            "truetype/lohit-devanagari/Lohit-Devanagari.ttf",
+            "truetype/deva/Lohit-Devanagari.ttf",
+            "lohit-hindi/Lohit-Hindi.ttf",
+            "google-droid-sans-fonts/DroidSansDevanagari-Regular.ttf",
+            "samyak-fonts/Samyak-Devanagari.ttf",
+            "gargi/Gargi.ttf",
+        ];
+        ["/usr/share/fonts", "/usr/local/share/fonts"].iter().flat_map(|dir| files.iter().map(move |f| Path::new(dir).join(f))).collect()
+    }
+}
+
+#[cfg(test)]
 fn read(path: &Path) -> Option<Arc<FontData>> {
+    read_probe(path, PROBE)
+}
+
+fn read_probe(path: &Path, probe: char) -> Option<Arc<FontData>> {
     let meta = std::fs::metadata(path).ok()?;
     if !meta.is_file() || meta.len() > MAX_BYTES {
         return None;
     }
     let bytes = std::fs::read(path).ok()?;
-    let index = face_with(&bytes, PROBE)?;
+    let index = face_with(&bytes, probe)?;
     let mut data = FontData::from_owned(bytes);
     data.index = index;
     log::info!("interface font fallback: {}", path.display());

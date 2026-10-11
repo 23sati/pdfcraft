@@ -131,7 +131,7 @@ impl Tokens {
 }
 
 pub fn install_fonts(ctx: &egui::Context) {
-    ctx.set_fonts(font_definitions());
+    install_fonts_for(ctx, false);
 }
 
 /// Install the interface fonts with the CJK fallback order for the UI language (Chinese
@@ -143,19 +143,29 @@ pub fn install_fonts_for(ctx: &egui::Context, prefer_hans: bool) {
 
 /// The name of the installed face [`installed_font_definitions`] may add after the embedded ones.
 pub const SYSTEM_FALLBACK: &str = "system-fallback";
+/// The name of the installed Devanagari (Hindi) face [`installed_font_definitions`] may add.
+pub const SYSTEM_DEVANAGARI_FALLBACK: &str = "system-devanagari-fallback";
 
-/// What [`install_fonts_for`] installs: [`font_definitions_for`], then, on desktop, one face
-/// already installed on this machine as the last fallback of every family. It only draws
-/// characters no embedded face has (an Arabic file name in a build without craft-fonts);
-/// `PDFCRAFT_SYSTEM_FONTS=0` leaves it out.
+/// What [`install_fonts_for`] installs: [`font_definitions_for`], then, on desktop, faces
+/// already installed on this machine as the last fallbacks of every family. They only draw
+/// characters no embedded face has (such as Hindi or Arabic in a build without craft-fonts);
+/// `PDFCRAFT_SYSTEM_FONTS=0` leaves them out.
 pub fn installed_font_definitions(prefer_hans: bool) -> FontDefinitions {
     #[cfg_attr(target_arch = "wasm32", expect(unused_mut))]
     let mut fonts = font_definitions_for(prefer_hans);
     #[cfg(not(target_arch = "wasm32"))]
-    if let Some(data) = crate::system_fonts::fallback() {
-        fonts.font_data.insert(SYSTEM_FALLBACK.to_owned(), data);
-        for stack in fonts.families.values_mut() {
-            stack.push(SYSTEM_FALLBACK.to_owned());
+    {
+        if let Some(data) = crate::system_fonts::devanagari_fallback() {
+            fonts.font_data.insert(SYSTEM_DEVANAGARI_FALLBACK.to_owned(), data);
+            for stack in fonts.families.values_mut() {
+                stack.push(SYSTEM_DEVANAGARI_FALLBACK.to_owned());
+            }
+        }
+        if let Some(data) = crate::system_fonts::fallback() {
+            fonts.font_data.insert(SYSTEM_FALLBACK.to_owned(), data);
+            for stack in fonts.families.values_mut() {
+                stack.push(SYSTEM_FALLBACK.to_owned());
+            }
         }
     }
     fonts

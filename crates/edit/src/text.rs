@@ -543,6 +543,9 @@ pub fn text_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditErro
     }
     // Lines of only spaces aren't editable text.
     lines.retain(|l| !l.text.trim().is_empty());
+    for l in &mut lines {
+        l.text = reorder_indic_visual_to_logical(&l.text);
+    }
     Ok(lines)
 }
 
@@ -710,7 +713,180 @@ fn reading_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditError
     }
     let mut lines = w.lines;
     lines.retain(|l| !l.text.trim().is_empty());
+    for l in &mut lines {
+        l.text = reorder_indic_visual_to_logical(&l.text);
+    }
     Ok(lines)
+}
+
+/// Whether `c` is an Indic pre-base vowel sign that in visual order precedes its consonant cluster.
+pub fn is_indic_pre_base_vowel(c: char) -> bool {
+    matches!(
+        c,
+        '\u{093F}' // Devanagari Vowel Sign I (ि)
+        | '\u{09BF}' | '\u{09C7}' | '\u{09C8}' // Bengali I, E, AI
+        | '\u{0A3F}' // Gurmukhi I
+        | '\u{0ABF}' // Gujarati I
+        | '\u{0B3F}' | '\u{0B47}' // Oriya I, E
+        | '\u{0BC6}' | '\u{0BC7}' | '\u{0BC8}' // Tamil E, EE, AI
+        | '\u{0D46}' | '\u{0D47}' | '\u{0D48}' // Malayalam E, EE, AI
+    )
+}
+
+/// Whether `c` is an Indic consonant.
+pub fn is_indic_consonant(c: char) -> bool {
+    matches!(
+        c,
+        '\u{0915}'..='\u{0939}' | '\u{0958}'..='\u{095F}' | '\u{0978}'..='\u{097F}' // Devanagari
+        | '\u{0995}'..='\u{09B9}' | '\u{09DC}'..='\u{09DF}' // Bengali
+        | '\u{0A15}'..='\u{0A39}' | '\u{0A59}'..='\u{0A5E}' // Gurmukhi
+        | '\u{0A95}'..='\u{0AB9}' // Gujarati
+        | '\u{0B15}'..='\u{0B39}' | '\u{0B5C}'..='\u{0B5F}' // Oriya
+        | '\u{0B95}'..='\u{0BB9}' // Tamil
+        | '\u{0C15}'..='\u{0C39}' | '\u{0C58}'..='\u{0C5A}' // Telugu
+        | '\u{0C95}'..='\u{0CB9}' | '\u{0CDE}' // Kannada
+        | '\u{0D15}'..='\u{0D3A}' // Malayalam
+    )
+}
+
+/// Whether `c` is an Indic virama (halant / killer).
+pub fn is_indic_virama(c: char) -> bool {
+    matches!(
+        c,
+        '\u{094D}' // Devanagari
+        | '\u{09CD}' // Bengali
+        | '\u{0A4D}' // Gurmukhi
+        | '\u{0ACD}' // Gujarati
+        | '\u{0B4D}' // Oriya
+        | '\u{0BCD}' // Tamil
+        | '\u{0C4D}' // Telugu
+        | '\u{0CCD}' // Kannada
+        | '\u{0D4D}' // Malayalam
+    )
+}
+
+/// Whether `c` is an Indic nukta or modifier that attaches to a consonant.
+pub fn is_indic_nukta(c: char) -> bool {
+    matches!(
+        c,
+        '\u{093C}' // Devanagari
+        | '\u{09BC}' // Bengali
+        | '\u{0A3C}' // Gurmukhi
+        | '\u{0ABC}' // Gujarati
+        | '\u{0B3C}' // Oriya
+    )
+}
+
+/// Convert Indic text from visual glyph order (where pre-base vowels appear before their consonant cluster)
+/// to standard Unicode logical order.
+pub fn reorder_indic_visual_to_logical(text: &str) -> String {
+    let chars: Vec<char> = text.chars().collect();
+    let mut out = String::with_capacity(text.len());
+    let mut i = 0;
+    while i < chars.len() {
+        let ch = chars[i];
+        if is_indic_pre_base_vowel(ch) {
+            let prev_is_consonant = out.chars().last().is_some_and(is_indic_consonant);
+            if !prev_is_consonant && i + 1 < chars.len() && is_indic_consonant(chars[i + 1]) {
+                let mut v_end = i + 1;
+                while v_end < chars.len() && matches!(chars[v_end], '\u{0901}'..='\u{0903}' | '\u{0981}'..='\u{0983}' | '\u{0A01}'..='\u{0A03}') {
+                    v_end += 1;
+                }
+                if v_end < chars.len() && is_indic_consonant(chars[v_end]) {
+                    let mut c_end = v_end;
+                    while c_end < chars.len() {
+                        if is_indic_consonant(chars[c_end]) {
+                            c_end += 1;
+                            if c_end < chars.len() && is_indic_nukta(chars[c_end]) {
+                                c_end += 1;
+                            }
+                            if c_end < chars.len() && is_indic_virama(chars[c_end]) {
+                                c_end += 1;
+                                if c_end < chars.len() && matches!(chars[c_end], '\u{200C}' | '\u{200D}') {
+                                    c_end += 1;
+                                }
+                                if c_end < chars.len() && is_indic_consonant(chars[c_end]) {
+                                    continue;
+                                }
+                            }
+                            break;
+                        } else {
+                            break;
+                        }
+                    }
+                    for &c in &chars[v_end..c_end] {
+                        out.push(c);
+                    }
+                    for &v in &chars[i..v_end] {
+                        out.push(v);
+                    }
+                    i = c_end;
+                    continue;
+                }
+            }
+        }
+        out.push(ch);
+        i += 1;
+    }
+    out
+}
+
+/// Convert Indic text from standard Unicode logical order to visual display order for fonts
+/// that expect pre-base vowels before their consonant cluster.
+pub fn reorder_indic_logical_to_visual(text: &str) -> String {
+    let chars: Vec<char> = text.chars().collect();
+    let mut out = String::with_capacity(text.len());
+    let mut i = 0;
+    while i < chars.len() {
+        if is_indic_consonant(chars[i]) {
+            let cluster_start = i;
+            let mut c_end = i;
+            while c_end < chars.len() {
+                if is_indic_consonant(chars[c_end]) {
+                    c_end += 1;
+                    if c_end < chars.len() && is_indic_nukta(chars[c_end]) {
+                        c_end += 1;
+                    }
+                    if c_end < chars.len() && is_indic_virama(chars[c_end]) {
+                        c_end += 1;
+                        if c_end < chars.len() && matches!(chars[c_end], '\u{200C}' | '\u{200D}') {
+                            c_end += 1;
+                        }
+                        if c_end < chars.len() && is_indic_consonant(chars[c_end]) {
+                            continue;
+                        }
+                    }
+                    break;
+                } else {
+                    break;
+                }
+            }
+            if c_end < chars.len() && is_indic_pre_base_vowel(chars[c_end]) {
+                let v_start = c_end;
+                let mut v_end = v_start + 1;
+                while v_end < chars.len() && matches!(chars[v_end], '\u{0901}'..='\u{0903}' | '\u{0981}'..='\u{0983}' | '\u{0A01}'..='\u{0A03}') {
+                    v_end += 1;
+                }
+                for &v in &chars[v_start..v_end] {
+                    out.push(v);
+                }
+                for &c in &chars[cluster_start..c_end] {
+                    out.push(c);
+                }
+                i = v_end;
+                continue;
+            } else {
+                for &c in &chars[cluster_start..c_end] {
+                    out.push(c);
+                }
+                i = c_end;
+                continue;
+            }
+        }
+        out.push(chars[i]);
+        i += 1;
+    }
+    out
 }
 
 /// Text → the bytes that show it in the chosen font.
@@ -918,7 +1094,10 @@ pub fn replace_line(doc: &mut Document, page: usize, line: usize, text: &str) ->
     let first = target.ops.first().copied().filter(|i| *i < ops.len()).ok_or_else(|| EditError::Invalid("the page's content changed".into()))?;
     // The line's own font, when it can show every character.
     let font = fonts_res.get(target.font.as_bytes()).and_then(|f| doc.resolve(f).as_dict().cloned()).map(|d| Metrics::from_dict(doc, &d));
-    let reused = font.as_ref().and_then(|m| m.encode(&text));
+    let reused = font.as_ref().and_then(|m| {
+        let vis = reorder_indic_logical_to_visual(&text);
+        m.encode(&text).or_else(|| m.encode(&vis))
+    });
     let mut substituted = None;
     let mut replacement: Vec<Op> = Vec::new();
     // ' and " also move to the next line; keep that.
@@ -1171,7 +1350,10 @@ pub fn rewrite_block(doc: &mut Document, page: usize, block: usize, text: Option
     }
     let o_state = ts_state.clone();
     let metrics = fonts_res.get(font_name.as_bytes()).and_then(|f| doc.resolve(f).as_dict().cloned()).map(|d| Metrics::from_dict(doc, &d));
-    let reuse = style.family.is_none() && style.bold.is_none() && metrics.as_ref().is_some_and(|m| m.encode(&text).is_some());
+    let vis_text = reorder_indic_logical_to_visual(&text);
+    let reuse = style.family.is_none()
+        && style.bold.is_none()
+        && metrics.as_ref().is_some_and(|m| m.encode(&text).is_some() || m.encode(&vis_text).is_some());
     // The chosen style also determines the real Japanese fallback outlines and advances.
     let (family, bold, italic) = style.family.unwrap_or((source_family(&b.base_font), b.bold, b.italic));
     let bold = style.bold.unwrap_or(bold);
@@ -1198,15 +1380,18 @@ pub fn rewrite_block(doc: &mut Document, page: usize, block: usize, text: Option
     };
     let advance = |s: &str| -> f64 {
         let t = match (&metrics, reuse) {
-            (Some(m), true) => m
-                .encode(s)
-                .map(|bytes| {
-                    m.codes(&bytes)
-                        .iter()
-                        .map(|(c, l)| m.width(*c) * size + o_state.char_spacing + if m.is_space(*c, *l) { o_state.word_spacing } else { 0.0 })
-                        .sum::<f64>()
-                })
-                .unwrap_or(0.0),
+            (Some(m), true) => {
+                let vis = reorder_indic_logical_to_visual(s);
+                m.encode(s)
+                    .or_else(|| m.encode(&vis))
+                    .map(|bytes| {
+                        m.codes(&bytes)
+                            .iter()
+                            .map(|(c, l)| m.width(*c) * size + o_state.char_spacing + if m.is_space(*c, *l) { o_state.word_spacing } else { 0.0 })
+                            .sum::<f64>()
+                    })
+                    .unwrap_or(0.0)
+            }
             _ if let Some(fallback) = &type3 => {
                 fallback.codes.iter().map(|(ch, _, width)| s.chars().filter(|c| c == ch).count() as f64 * width * size).sum::<f64>()
                     + s.chars().count() as f64 * o_state.char_spacing
@@ -1219,7 +1404,13 @@ pub fn rewrite_block(doc: &mut Document, page: usize, block: usize, text: Option
     let mut substituted = None;
     let new_font = !reuse;
     let (show_font, encode): (String, Encoder) = if let Some(m) = metrics.clone().filter(|_| reuse) {
-        (font_name.clone(), Box::new(move |s: &str| m.encode(s)))
+        (
+            font_name.clone(),
+            Box::new(move |s: &str| {
+                let vis = reorder_indic_logical_to_visual(s);
+                m.encode(s).or_else(|| m.encode(&vis))
+            }),
+        )
     } else if let Some(fallback) = type3.clone() {
         let name = fallback.name.clone();
         let encoder = fallback.clone();

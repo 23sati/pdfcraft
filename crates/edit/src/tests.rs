@@ -2028,3 +2028,27 @@ fn group_move_budget_refusals_keep_the_original_page_selectable() {
         assert_eq!(editable_objects(&doc, 0).unwrap(), objects, "refusal retains a usable inventory");
     }
 }
+
+#[test]
+fn indic_visual_and_logical_reordering() {
+    // Single consonant with pre-base vowel: visual ि + क -> logical कि
+    let vis_ki = "\u{093F}\u{0915}";
+    let log_ki = "कि";
+    assert_eq!(text::reorder_indic_visual_to_logical(vis_ki), log_ki);
+    assert_eq!(text::reorder_indic_logical_to_visual(log_ki), vis_ki);
+
+    // Conjunct with pre-base vowel: visual ि + स + ् + थ + ि + त -> logical स्थिति
+    let vis_sthiti = "\u{093F}\u{0938}\u{094D}\u{0925}\u{093F}\u{0924}";
+    let log_sthiti = "स्थिति";
+    assert_eq!(text::reorder_indic_visual_to_logical(vis_sthiti), log_sthiti);
+    assert_eq!(text::reorder_indic_logical_to_visual(log_sthiti), vis_sthiti);
+
+    // Text already in logical order with multiple syllables: किताब
+    let log_kitab = "किताब";
+    assert_eq!(text::reorder_indic_visual_to_logical(log_kitab), log_kitab);
+
+    // Text without pre-base vowels: नमस्ते
+    let namaste = "नमस्ते";
+    assert_eq!(text::reorder_indic_visual_to_logical(namaste), namaste);
+    assert_eq!(text::reorder_indic_logical_to_visual(namaste), namaste);
+}
