@@ -30,8 +30,8 @@ Inoltre *Aiuto ▸ Verifica aggiornamenti* guarda le release di **questo** fork
    restano. Se c'è un conflitto non spinge nulla e apre una issue con etichetta `fork-sync` che dice
    quali file sistemare.
 2. Se la versione in `Cargo.toml` è nuova (non esiste ancora la release `vX.Y.Z` nel fork), avvia
-   **`.github/workflows/fork-release.yml`**, che compila macOS (universal), Windows x64 e Linux x86_64
-   e pubblica la release `vX.Y.Z` del fork.
+   **`.github/workflows/fork-release.yml`**, che compila l'installer Windows x64 (`.msi`) e la versione
+   portatile, e pubblica la release `vX.Y.Z` del fork.
 3. L'app, con *Aiuto ▸ Verifica aggiornamenti*, trova quella release e apre la pagina per scaricarla
    (PdfCraft non installa nulla da solo).
 
@@ -57,11 +57,12 @@ riattivali dalla scheda *Actions*.
 
 ## Primo avvio (build non firmate)
 
-Le build del fork non hanno un certificato a pagamento:
+La build del fork non ha un certificato a pagamento:
 
-- **macOS**: dopo aver copiato PdfCraft in Applicazioni, la prima volta clic destro sull'app ▸
-  *Apri* ▸ *Apri*. Se dice che è "danneggiata": `xattr -dr com.apple.quarantine /Applications/PdfCraft.app`.
 - **Windows**: SmartScreen ▸ *Ulteriori informazioni* ▸ *Esegui comunque*.
+
+Per avere anche macOS o Linux, copia i job corrispondenti da `.github/workflows/release.yml`
+in `fork-release.yml` (senza `environment: release` e con un runner standard, es. `macos-15`).
 
 ## Aggiungere altre modifiche
 

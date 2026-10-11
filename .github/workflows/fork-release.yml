@@ -3,8 +3,9 @@
 # Help ▸ Check for updates offers. Started by fork-sync.yml when the version changes, or by hand
 # (Actions ▸ Fork release ▸ Run workflow). See docs/fork.md.
 #
-# The builds are not signed with a paid certificate: macOS builds are ad-hoc signed and Windows
-# builds unsigned, so the first launch shows the usual system warning (docs/fork.md).
+# Windows x64 only (the platform this fork is used on; upstream's release.yml has the others).
+# The build is not signed with a paid certificate, so SmartScreen warns on first launch
+# (docs/fork.md).
 name: Fork release
 
 on:
@@ -36,36 +37,6 @@ jobs:
           . packaging/env.sh
           echo "version=$VERSION" >>"$GITHUB_OUTPUT"
           echo "date=$(date -u +%Y-%m-%d)" >>"$GITHUB_OUTPUT"
-
-  macos:
-    name: macOS universal
-    needs: version
-    runs-on: macos-15
-    env:
-      PDFCRAFT_VERSION: ${{ needs.version.outputs.version }}
-      PDFCRAFT_BUILD_DATE: ${{ needs.version.outputs.date }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Check out craft-fonts
-        uses: actions/checkout@v4
-        with:
-          repository: storytold/craft-fonts
-          path: craft-fonts
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-darwin, x86_64-apple-darwin
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: fork-release-macos
-      - name: Build and package (ad-hoc signed)
-        env:
-          CRAFT_FONTS_DIR: ${{ github.workspace }}/craft-fonts
-        run: packaging/macos/package.sh --arch universal
-      - uses: actions/upload-artifact@v4
-        with:
-          name: release-macos
-          path: dist/release/*
-          if-no-files-found: error
 
   windows:
     name: Windows x64
@@ -101,47 +72,9 @@ jobs:
           path: dist/release/*
           if-no-files-found: error
 
-  linux:
-    name: Linux x86_64
-    needs: version
-    runs-on: ubuntu-22.04
-    env:
-      PDFCRAFT_VERSION: ${{ needs.version.outputs.version }}
-      PDFCRAFT_BUILD_DATE: ${{ needs.version.outputs.date }}
-      NFPM_VERSION: 2.47.0
-    steps:
-      - uses: actions/checkout@v4
-      - name: Check out craft-fonts
-        uses: actions/checkout@v4
-        with:
-          repository: storytold/craft-fonts
-          path: craft-fonts
-      - name: Install build and packaging tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libxkbcommon-dev libwayland-dev libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev \
-            desktop-file-utils appstream python3-yaml zsync
-          curl -fsSL -o "$RUNNER_TEMP/nfpm.deb" \
-            "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_amd64.deb"
-          sudo dpkg -i "$RUNNER_TEMP/nfpm.deb"
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: fork-release-linux-x86_64
-      - name: Build and package (AppImage, deb, rpm, tar.gz)
-        env:
-          CRAFT_FONTS_DIR: ${{ github.workspace }}/craft-fonts
-        run: packaging/linux/package.sh
-      - uses: actions/upload-artifact@v4
-        with:
-          name: release-linux-x86_64
-          path: dist/release/*
-          if-no-files-found: error
-
   publish:
     name: Publish the fork release
-    needs: [version, macos, windows, linux]
+    needs: [version, windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
