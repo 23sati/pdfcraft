@@ -115,6 +115,7 @@ mod system_fonts;
 pub mod theme;
 pub mod ui_scale;
 pub mod updates;
+mod wheel_boost;
 mod wheel_pager;
 mod widgets;
 

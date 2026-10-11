@@ -9,12 +9,11 @@
 //! the OS sends after it (macOS and Wayland report touch phases), or, without phases, a burst
 //! of input with no pause longer than `BURST_GAP_SECS`.
 
+// Smooth input turns a page once it has moved one notch worth of points.
+// Shared with the continuous-scroll boost so the two stay in sync.
+use super::wheel_boost::NOTCH_POINTS;
 use egui::{MouseWheelUnit, TouchPhase};
 
-/// How far one wheel notch scrolls, in points (egui's native `line_scroll_speed`). Smooth
-/// input turns a page once it has moved this far, so a light swipe turns and resting fingers
-/// don't; smooth line deltas count this many points per line.
-const NOTCH_POINTS: f32 = 40.0;
 /// A phase-less point delta at least this big is a wheel notch: egui draws the same line
 /// between wheel steps, which it smooths, and trackpad input, which it passes through.
 const MIN_NOTCH_POINTS: f32 = 8.0;
