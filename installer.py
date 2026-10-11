@@ -178,7 +178,8 @@ namespace LinkcoSetup
         public const string ThumbnailProviderClsid = "{3D8CDE4B-E969-481F-BEB0-5E3B98287416}";
         public const string ThumbnailCategoryGuid = "{e357fccd-a995-4576-b01f-234630154e96}";
         public const string PreviewHandlerCategoryGuid = "{8895b1c6-b41f-4c1c-a562-0d564250836f}";
-        public const string PrevHostAppId64 = "{6d2b5079-2f0b-48dd-ab7f-97cec514d30b}";
+        // The handler's own preview host (AppID whose DllSurrogate is prevhost.exe), as in PreviewHandler.cs.
+        public const string LinkcoAppId = "{1C0ADB7B-F017-4384-BF73-95AA5BC5D084}";
         public const string EdgePreviewHandlerClsid = "{3A84F9C2-6164-485C-A7D9-4B27F8AC009E}";
 
         [System.Runtime.InteropServices.DllImport("shell32.dll")]
@@ -512,11 +513,17 @@ namespace LinkcoSetup
             string codeBase = new Uri(fullDllPath).AbsoluteUri;
             string asmName = AssemblyName.GetAssemblyName(fullDllPath).FullName;
 
+            using (RegistryKey appId = root.CreateSubKey(@"Software\Classes\AppID\" + LinkcoAppId))
+            {
+                appId.SetValue("", "Linkco PDF Preview Host");
+                appId.SetValue("DllSurrogate", @"%SystemRoot%\system32\prevhost.exe", RegistryValueKind.ExpandString);
+            }
+
             using (RegistryKey clsidKey = root.CreateSubKey(@"Software\Classes\CLSID\" + PreviewHandlerClsid))
             {
                 clsidKey.SetValue("", "Linkco PDF Preview Handler");
                 clsidKey.SetValue("DisplayName", "Linkco PDF Preview Handler");
-                clsidKey.SetValue("AppID", PrevHostAppId64);
+                clsidKey.SetValue("AppID", LinkcoAppId);
                 clsidKey.SetValue("DisableLowILProcessIsolation", 1, RegistryValueKind.DWord);
                 using (RegistryKey inproc = clsidKey.CreateSubKey("InprocServer32"))
                 {
@@ -638,6 +645,7 @@ namespace LinkcoSetup
             RestoreOrRemoveShellEx(root, @"Software\Classes\SystemFileAssociations\.pdf\ShellEx\" + PreviewHandlerCategoryGuid, "PreviousSysPdfPreviewHandler", false);
             root.DeleteSubKeyTree(@"Software\Classes\CLSID\" + PreviewHandlerClsid, false);
             root.DeleteSubKeyTree(@"Software\Classes\LinkcoPDFEditor.PreviewHandler", false);
+            root.DeleteSubKeyTree(@"Software\Classes\AppID\" + LinkcoAppId, false);
 
             // File Explorer thumbnail provider (schema 4+).
             foreach (string own in new string[] { "LinkcoPDFEditor.Document", "PdfCraft.Document" })

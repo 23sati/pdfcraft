@@ -8,9 +8,10 @@
 //   csc /nologo /target:library /optimize+ /platform:anycpu /codepage:65001 /out:LinkcoPdfPreviewHandler.dll
 //       /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll PreviewHandler.cs
 //
-// Hosted out-of-process by Windows' standard Preview Host (prevhost.exe, AppID
-// {6d2b5079-2f0b-48dd-ab7f-97cec514d30b}). Page rasterization is delegated to pdfcraft-cli.exe,
-// which ships beside this DLL:
+// Hosted out-of-process by its own instance of Windows' Preview Host (prevhost.exe as the
+// DllSurrogate of AppID {1C0ADB7B-F017-4384-BF73-95AA5BC5D084}, as Microsoft requires for managed
+// handlers; not the shared {6d2b5079-2f0b-48dd-ab7f-97cec514d30b}, where other vendors' handlers
+// and runtimes live). Page rasterization is delegated to pdfcraft-cli.exe, which ships beside this DLL:
 //
 //   pdfcraft-cli preview <file.pdf> --page N --width PX --max-px 4096 --out <temp.png>
 //
@@ -46,6 +47,7 @@ using System.Drawing.Text;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Text;
@@ -1420,7 +1422,20 @@ namespace LinkcoPdfPreview
         public const string HandlerProgId = "LinkcoPDFEditor.PreviewHandler";
         public const string HandlerName = "Linkco PDF Preview Handler";
         public const string PreviewHandlerCategoryGuid = "{8895b1c6-b41f-4c1c-a562-0d564250836f}";
+        /// <summary>Windows' shared preview host. No longer used for this handler (see LinkcoAppId).</summary>
         public const string PrevHostAppId = "{6d2b5079-2f0b-48dd-ab7f-97cec514d30b}";
+
+        /// <summary>
+        /// Linkco's own AppID, whose DllSurrogate is prevhost.exe: Explorer starts a dedicated
+        /// prevhost.exe for this handler instead of the one shared by every vendor's handlers.
+        /// Microsoft requires this for managed preview handlers ("Providing Your Own Process for a
+        /// Preview Handler"): in the shared host another handler's runtime (.NET 8 handlers such as
+        /// PowerToys', other CLR versions) or crash takes this one down with it, which Explorer
+        /// reports as "an error in the Linkco PDF Preview Handler".
+        /// </summary>
+        public const string LinkcoAppId = "{1C0ADB7B-F017-4384-BF73-95AA5BC5D084}";
+        public const string LinkcoAppIdName = "Linkco PDF Preview Host";
+        public const string PreviewSurrogate = @"%SystemRoot%\system32\prevhost.exe";
         public const string DotNetComCategory = "{62C8FE65-4EBB-45e7-B440-6E39B2CDBF29}";
         public const string EdgePreviewHandlerClsid = "{3A84F9C2-6164-485C-A7D9-4B27F8AC009E}";
         public const string LinkcoConfigKey = @"Software\Linkco\Linkco PDF Editor";
@@ -1429,7 +1444,7 @@ namespace LinkcoPdfPreview
         /// Bumped whenever the registry layout changes, so LinkcoPDFEditor.exe re-registers (repairs)
         /// existing installs on its next start. Keep in sync with apps/pdfcraft/src/windows_preview.rs.
         /// </summary>
-        public const int RegistrationSchema = 4;
+        public const int RegistrationSchema = 5;
 
         /// <summary>ProgIDs owned by Linkco PDF Editor (or its upstream PdfCraft).</summary>
         private static readonly string[] OwnProgIds = new string[]
@@ -1488,13 +1503,26 @@ namespace LinkcoPdfPreview
 
         public LinkcoPdfPreviewHandler()
         {
-            PreviewLog.InstallCrashLogger();
-            PreviewEnvironment.SweepStaleFilesOnce();
+            // An exception thrown from a COM constructor makes CoCreateInstance fail, which Explorer
+            // reports as "an error in the preview handler"; nothing here is needed to preview.
+            try { PreviewLog.InstallCrashLogger(); } catch { }
+            try { PreviewEnvironment.SweepStaleFilesOnce(); } catch { }
         }
+
+        // Every COM entry point is a guarded wrapper around a NoInlining *Core method: an exception
+        // raised while the JIT compiles a method (a type or assembly that fails to load) happens
+        // before that method's own try block runs, and would otherwise escape to prevhost.exe.
 
         // ------------------------------------------------------------------ initialization
 
         public void Initialize(string pszFilePath, uint grfMode)
+        {
+            try { InitializeFileCore(pszFilePath); }
+            catch (Exception ex) { PreviewLog.Error("IInitializeWithFile.Initialize", ex); _initError = "This PDF document could not be opened for preview."; }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void InitializeFileCore(string pszFilePath)
         {
             try
             {
@@ -1510,6 +1538,13 @@ namespace LinkcoPdfPreview
         }
 
         public void Initialize(IStream pstream, uint grfMode)
+        {
+            try { InitializeStreamCore(pstream); }
+            catch (Exception ex) { PreviewLog.Error("IInitializeWithStream.Initialize", ex); _initError = "This PDF document could not be read for preview."; }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void InitializeStreamCore(IStream pstream)
         {
             try
             {
@@ -1552,6 +1587,13 @@ namespace LinkcoPdfPreview
 
         public void SetWindow(IntPtr hwnd, ref RECT rect)
         {
+            try { SetWindowCore(hwnd, ref rect); }
+            catch (Exception ex) { PreviewLog.Error("SetWindow", ex); }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void SetWindowCore(IntPtr hwnd, ref RECT rect)
+        {
             try
             {
                 _parentHwnd = hwnd;
@@ -1570,6 +1612,13 @@ namespace LinkcoPdfPreview
 
         public void SetRect(ref RECT rect)
         {
+            try { SetRectCore(ref rect); }
+            catch (Exception ex) { PreviewLog.Error("SetRect", ex); }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void SetRectCore(ref RECT rect)
+        {
             try
             {
                 _bounds = rect;
@@ -1582,6 +1631,13 @@ namespace LinkcoPdfPreview
         }
 
         public void DoPreview()
+        {
+            try { DoPreviewCore(); }
+            catch (Exception ex) { PreviewLog.Error("DoPreview", ex); }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void DoPreviewCore()
         {
             try
             {
@@ -1610,6 +1666,13 @@ namespace LinkcoPdfPreview
         }
 
         public void Unload()
+        {
+            try { UnloadCore(); }
+            catch (Exception ex) { PreviewLog.Error("Unload", ex); }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void UnloadCore()
         {
             try
             {
@@ -1640,6 +1703,13 @@ namespace LinkcoPdfPreview
 
         public void SetFocus()
         {
+            try { SetFocusCore(); }
+            catch (Exception ex) { PreviewLog.Error("SetFocus", ex); }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void SetFocusCore()
+        {
             if (_control != null && !_control.IsDisposed)
             {
                 try { _control.Focus(); } catch { }
@@ -1648,10 +1718,20 @@ namespace LinkcoPdfPreview
 
         public void QueryFocus(out IntPtr phwnd)
         {
-            phwnd = NativeMethods.GetFocus();
+            phwnd = IntPtr.Zero;
+            try { phwnd = NativeMethods.GetFocus(); }
+            catch (Exception ex) { PreviewLog.Error("QueryFocus", ex); }
         }
 
         public int TranslateAccelerator(ref MSG pmsg)
+        {
+            try { return TranslateAcceleratorCore(ref pmsg); }
+            catch (Exception ex) { PreviewLog.Error("TranslateAccelerator", ex); }
+            return NativeMethods.S_FALSE;
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private int TranslateAcceleratorCore(ref MSG pmsg)
         {
             // Let Explorer handle its own shortcuts (Alt+P, F5, Tab out of the pane, …).
             IPreviewHandlerFrame frame = _frame;
@@ -1666,22 +1746,34 @@ namespace LinkcoPdfPreview
 
         public void SetBackgroundColor(uint color)
         {
-            _background = ColorFromColorRef(color);
-            _hasBackground = true;
-            ApplyVisuals();
+            try
+            {
+                _background = ColorFromColorRef(color);
+                _hasBackground = true;
+                ApplyVisuals();
+            }
+            catch (Exception ex) { PreviewLog.Error("SetBackgroundColor", ex); }
         }
 
         public void SetFont(ref LOGFONT plf)
         {
-            _fontFace = string.IsNullOrEmpty(plf.lfFaceName) ? null : plf.lfFaceName;
-            ApplyVisuals();
+            try
+            {
+                _fontFace = string.IsNullOrEmpty(plf.lfFaceName) ? null : plf.lfFaceName;
+                ApplyVisuals();
+            }
+            catch (Exception ex) { PreviewLog.Error("SetFont", ex); }
         }
 
         public void SetTextColor(uint color)
         {
-            _textColor = ColorFromColorRef(color);
-            _hasTextColor = true;
-            ApplyVisuals();
+            try
+            {
+                _textColor = ColorFromColorRef(color);
+                _hasTextColor = true;
+                ApplyVisuals();
+            }
+            catch (Exception ex) { PreviewLog.Error("SetTextColor", ex); }
         }
 
         private static Color ColorFromColorRef(uint color)
@@ -1689,6 +1781,7 @@ namespace LinkcoPdfPreview
             return Color.FromArgb((int)(color & 0xFF), (int)((color >> 8) & 0xFF), (int)((color >> 16) & 0xFF));
         }
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
         private void ApplyVisuals()
         {
             if (_control == null || _control.IsDisposed)
@@ -1710,7 +1803,15 @@ namespace LinkcoPdfPreview
 
         public void GetWindow(out IntPtr phwnd)
         {
-            phwnd = (_control != null && !_control.IsDisposed) ? _control.Handle : _parentHwnd;
+            phwnd = _parentHwnd;
+            try { phwnd = ControlWindow(); }
+            catch (Exception ex) { PreviewLog.Error("GetWindow", ex); }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private IntPtr ControlWindow()
+        {
+            return (_control != null && !_control.IsDisposed && _control.IsHandleCreated) ? _control.Handle : _parentHwnd;
         }
 
         public void ContextSensitiveHelp(bool fEnterMode)
@@ -1719,12 +1820,16 @@ namespace LinkcoPdfPreview
 
         public void SetSite(object pUnkSite)
         {
-            _site = pUnkSite;
-            _frame = null;
-            if (pUnkSite != null)
+            try
             {
-                try { _frame = pUnkSite as IPreviewHandlerFrame; } catch { _frame = null; }
+                _site = pUnkSite;
+                _frame = null;
+                if (pUnkSite != null)
+                {
+                    try { _frame = pUnkSite as IPreviewHandlerFrame; } catch { _frame = null; }
+                }
             }
+            catch (Exception ex) { PreviewLog.Error("SetSite", ex); }
         }
 
         public void GetSite(ref Guid riid, out object ppvSite)
@@ -1768,7 +1873,13 @@ namespace LinkcoPdfPreview
                 return;
 
             IntPtr handle = _control.Handle;
-            NativeMethods.SetParent(handle, _parentHwnd);
+            if (NativeMethods.SetParent(handle, _parentHwnd) == IntPtr.Zero)
+            {
+                int err = Marshal.GetLastWin32Error();
+                if (err != 0)
+                    PreviewLog.Write("SetParent failed: " + new System.ComponentModel.Win32Exception(err).Message +
+                        " (" + err.ToString(CultureInfo.InvariantCulture) + ")");
+            }
             NativeMethods.MakeChildWindow(handle);
             NativeMethods.ShowWindow(handle, NativeMethods.SW_SHOW);
             if (!_control.Visible)
@@ -1989,7 +2100,11 @@ namespace LinkcoPdfPreview
             }
 
             sb.AppendLine("  Effective COM server:  " + DescribeEffectiveServer(ClsidBraced));
+            sb.AppendLine("  Preview host process:  " + DescribeHostAppId());
+            sb.AppendLine("  .NET Framework:        " + DescribeNetFramework());
             sb.AppendLine("  COM activation test:   " + ActivationTest(ClsidString));
+            foreach (string other in OtherPdfPreviewHandlers())
+                sb.AppendLine("  Other .pdf previewer:  " + other);
 
             // Explorer only honours DisableLowILProcessIsolation from HKLM: a per-user registration
             // runs in the low-integrity preview host (which this handler supports; it is slower to start).
@@ -2016,6 +2131,143 @@ namespace LinkcoPdfPreview
             foreach (string line in RecentHostCrashes(3, 4))
                 sb.AppendLine("    " + line);
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// The AppID (preview host process) of the registration COM uses: Linkco's own prevhost.exe,
+        /// or the shared one left by an older registration.
+        /// </summary>
+        internal static string DescribeHostAppId()
+        {
+            foreach (RegistryHive hive in new RegistryHive[] { RegistryHive.CurrentUser, RegistryHive.LocalMachine })
+            {
+                try
+                {
+                    using (RegistryKey root = PreviewEnvironment.OpenHive(hive))
+                    using (RegistryKey clsid = root.OpenSubKey(@"Software\Classes\CLSID\" + ClsidBraced, false))
+                    {
+                        if (clsid == null)
+                            continue;
+                        string label = hive == RegistryHive.CurrentUser ? "HKCU" : "HKLM";
+                        string appId = clsid.GetValue("AppID") as string;
+                        if (string.IsNullOrEmpty(appId))
+                            return label + ", no AppID  [BROKEN: Explorer cannot host it; start Linkco PDF Editor once or reinstall]";
+                        if (string.Equals(appId, PrevHostAppId, StringComparison.OrdinalIgnoreCase))
+                            return label + ", shared prevhost " + appId + "  [OLD: shared with other apps' handlers; start Linkco PDF Editor once or reinstall]";
+                        string surrogate = null;
+                        foreach (RegistryHive h in new RegistryHive[] { RegistryHive.CurrentUser, RegistryHive.LocalMachine })
+                        {
+                            using (RegistryKey r = PreviewEnvironment.OpenHive(h))
+                            using (RegistryKey a = r.OpenSubKey(@"Software\Classes\AppID\" + appId, false))
+                            {
+                                if (a != null)
+                                {
+                                    surrogate = a.GetValue("DllSurrogate", null, RegistryValueOptions.DoNotExpandEnvironmentNames) as string;
+                                    break;
+                                }
+                            }
+                        }
+                        if (string.IsNullOrEmpty(surrogate))
+                            return label + ", AppID " + appId + " has no DllSurrogate  [BROKEN: start Linkco PDF Editor once or reinstall]";
+                        return label + ", AppID " + appId + " -> " + surrogate +
+                            (string.Equals(appId, LinkcoAppId, StringComparison.OrdinalIgnoreCase) ? "  [own host - OK]" : "");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    return "unreadable (" + ex.Message + ")";
+                }
+            }
+            return "(not registered)";
+        }
+
+        /// <summary>The installed .NET Framework 4.x release (the handler needs 4.0 or later; 4.8 recommended).</summary>
+        internal static string DescribeNetFramework()
+        {
+            try
+            {
+                using (RegistryKey hklm = PreviewEnvironment.OpenHive(RegistryHive.LocalMachine))
+                using (RegistryKey k = hklm.OpenSubKey(@"SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full", false))
+                {
+                    if (k == null)
+                        return "4.x not installed  [BROKEN: install .NET Framework 4.8]";
+                    object release = k.GetValue("Release");
+                    string version = k.GetValue("Version") as string ?? "?";
+                    int r = release is int ? (int)release : 0;
+                    return version + " (release " + r.ToString(CultureInfo.InvariantCulture) + ")" +
+                        (r >= 528040 ? "  [OK]" : "  [old: install .NET Framework 4.8]");
+                }
+            }
+            catch (Exception ex)
+            {
+                return "unreadable (" + ex.Message + ")";
+            }
+        }
+
+        /// <summary>
+        /// Other apps' preview handlers registered for .pdf (e.g. PowerToys, Adobe, a browser), with
+        /// where they are registered. Explorer picks one; the "Explorer .pdf handler" line shows which.
+        /// </summary>
+        internal static List<string> OtherPdfPreviewHandlers()
+        {
+            List<string> found = new List<string>();
+            string choice = ReadUserChoiceProgId(".pdf");
+            List<string> places = new List<string>();
+            places.Add(@"Software\Classes\.pdf\ShellEx\" + PreviewHandlerCategoryGuid);
+            places.Add(@"Software\Classes\SystemFileAssociations\.pdf\ShellEx\" + PreviewHandlerCategoryGuid);
+            if (!string.IsNullOrEmpty(choice))
+                places.Add(@"Software\Classes\" + choice + @"\ShellEx\" + PreviewHandlerCategoryGuid);
+            foreach (RegistryHive hive in new RegistryHive[] { RegistryHive.CurrentUser, RegistryHive.LocalMachine })
+            {
+                string label = hive == RegistryHive.CurrentUser ? "HKCU" : "HKLM";
+                try
+                {
+                    using (RegistryKey root = PreviewEnvironment.OpenHive(hive))
+                    {
+                        foreach (string place in places)
+                        {
+                            using (RegistryKey k = root.OpenSubKey(place, false))
+                            {
+                                string clsid = k == null ? null : k.GetValue("") as string;
+                                if (string.IsNullOrEmpty(clsid) || string.Equals(clsid, ClsidBraced, StringComparison.OrdinalIgnoreCase))
+                                    continue;
+                                found.Add(clsid + " " + PreviewHandlerDisplayName(clsid) + "  (" + label + @"\" + place.Substring(@"Software\Classes\".Length) + ")");
+                            }
+                        }
+                    }
+                }
+                catch { }
+            }
+            return found;
+        }
+
+        private static string PreviewHandlerDisplayName(string clsid)
+        {
+            if (string.Equals(clsid, "{A5A41CC7-02CB-41D4-8C9B-9087040D6098}", StringComparison.OrdinalIgnoreCase))
+                return "\"PowerToys PDF Preview Handler\" (turn it off in PowerToys > File Explorer add-ons to use Linkco's)";
+            foreach (RegistryHive hive in new RegistryHive[] { RegistryHive.CurrentUser, RegistryHive.LocalMachine })
+            {
+                try
+                {
+                    using (RegistryKey root = PreviewEnvironment.OpenHive(hive))
+                    {
+                        using (RegistryKey list = root.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\PreviewHandlers", false))
+                        {
+                            string name = list == null ? null : list.GetValue(clsid) as string;
+                            if (!string.IsNullOrEmpty(name))
+                                return "\"" + name + "\"";
+                        }
+                        using (RegistryKey c = root.OpenSubKey(@"Software\Classes\CLSID\" + clsid, false))
+                        {
+                            string name = c == null ? null : c.GetValue("") as string;
+                            if (!string.IsNullOrEmpty(name))
+                                return "\"" + name + "\"";
+                        }
+                    }
+                }
+                catch { }
+            }
+            return "(unnamed)";
         }
 
         /// <summary>
@@ -2674,8 +2926,13 @@ namespace LinkcoPdfPreview
                 using (RegistryKey hkcu = PreviewEnvironment.OpenHive(RegistryHive.CurrentUser))
                 using (RegistryKey cfg = hkcu.OpenSubKey(LinkcoConfigKey, false))
                 using (RegistryKey inproc = hkcu.OpenSubKey(@"Software\Classes\CLSID\" + ClsidBraced + @"\InprocServer32", false))
+                using (RegistryKey clsid = hkcu.OpenSubKey(@"Software\Classes\CLSID\" + ClsidBraced, false))
+                using (RegistryKey appId = hkcu.OpenSubKey(@"Software\Classes\AppID\" + LinkcoAppId, false))
                 {
-                    if (cfg == null || inproc == null)
+                    if (cfg == null || inproc == null || clsid == null || appId == null)
+                        return false;
+                    if (!string.Equals(clsid.GetValue("AppID") as string, LinkcoAppId, StringComparison.OrdinalIgnoreCase) ||
+                        string.IsNullOrEmpty(appId.GetValue("DllSurrogate", null, RegistryValueOptions.DoNotExpandEnvironmentNames) as string))
                         return false;
                     object schema = cfg.GetValue("PreviewHandlerSchema");
                     return schema is int && (int)schema == RegistrationSchema &&
@@ -2697,9 +2954,15 @@ namespace LinkcoPdfPreview
             string cliPath = Path.Combine(dllDir, "pdfcraft-cli.exe");
             string codeBase = new Uri(fullDllPath).AbsoluteUri;
 
+            using (RegistryKey appId = root.CreateSubKey(@"Software\Classes\AppID\" + LinkcoAppId))
+            {
+                appId.SetValue("", LinkcoAppIdName);
+                appId.SetValue("DllSurrogate", PreviewSurrogate, RegistryValueKind.ExpandString);
+            }
+
             using (RegistryKey clsidKey = WriteComServer(root, ClsidBraced, HandlerName, typeof(LinkcoPdfPreviewHandler), HandlerProgId, codeBase))
             {
-                clsidKey.SetValue("AppID", PrevHostAppId);
+                clsidKey.SetValue("AppID", LinkcoAppId);
                 // The handler starts pdfcraft-cli.exe and reads the PDF by path; the Low-IL sandbox
                 // of prevhost.exe would block both.
                 clsidKey.SetValue("DisableLowILProcessIsolation", 1, RegistryValueKind.DWord);
@@ -3182,6 +3445,7 @@ namespace LinkcoPdfPreview
 
             root.DeleteSubKeyTree(@"Software\Classes\CLSID\" + ClsidBraced, false);
             root.DeleteSubKeyTree(@"Software\Classes\" + HandlerProgId, false);
+            try { root.DeleteSubKeyTree(@"Software\Classes\AppID\" + LinkcoAppId, false); } catch { }
 
             using (RegistryKey cfg = root.OpenSubKey(LinkcoConfigKey, true))
             {
@@ -3434,8 +3698,8 @@ namespace LinkcoPdfPreview
 
         public LinkcoPdfThumbnailProvider()
         {
-            PreviewLog.InstallCrashLogger();
-            PreviewEnvironment.SweepStaleFilesOnce();
+            try { PreviewLog.InstallCrashLogger(); } catch { }
+            try { PreviewEnvironment.SweepStaleFilesOnce(); } catch { }
         }
 
         public void Initialize(string pszFilePath, uint grfMode)
@@ -3950,6 +4214,14 @@ namespace LinkcoPdfPreview
         }
 
         private void RenderWorker(object state)
+        {
+            // An exception escaping a thread-pool thread terminates the preview host.
+            try { RenderWorkerCore(state); }
+            catch (Exception ex) { PreviewLog.Error("RenderWorker (the watchdog will give up on this page)", ex); }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void RenderWorkerCore(object state)
         {
             RenderJob job = (RenderJob)state;
             RenderResult result;

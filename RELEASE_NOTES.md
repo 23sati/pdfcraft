@@ -65,6 +65,23 @@ v1.0.0 is the first final release of Linkco PDF Editor. It contains everything f
 - **No more "error in the Linkco PDF Preview Handler" from our own code:**
   - an exception in the pane's message handling, timers or render delivery is logged and shown as a message in the pane. Before, it could reach WinForms and end the Windows preview host, which Explorer reports as that error;
   - an exception that does end the host is now written to `preview.log` with its stack trace.
+- **Own preview host process:** the handler now runs in its own `prevhost.exe`, under its own AppID `{1C0ADB7B-F017-4384-BF73-95AA5BC5D084}` with `DllSurrogate` set to `prevhost.exe`. Before, it ran in the preview host that Windows shares between all apps' preview handlers. Microsoft requires this for .NET preview handlers. In the shared host:
+  - another app's handler could take ours down with it, e.g. a crash, or another .NET runtime such as the .NET 8 handlers of PowerToys;
+  - Explorer reported that as "an error in the Linkco PDF Preview Handler".
+
+  The app, the Setup EXE, the NSIS installer and the MSI all register this host, and uninstalling removes it. The registration schema went from 4 to 5, so existing installations re-register the next time Linkco PDF Editor starts.
+- **Hardened COM entry points:**
+  - every method Explorer calls catches its own failures, including failures while .NET is still loading the code (a missing or broken framework assembly). This covers the constructors, the colour and font settings, `GetWindow`, `SetSite`, focus and keyboard handling;
+  - the background render thread can no longer end the host with an exception;
+  - a failed `SetParent` is logged.
+- **Installers:**
+  - the NSIS installer now stops running preview hosts before replacing the DLL, so the old code can't stay loaded;
+  - it also repairs the installing user's own registration, which takes precedence over the machine-wide one and could still point at an older build or a deleted portable copy.
+- **`diagnose-preview.ps1 -Repair`:** for the current user, unblocks the DLL and engine, re-registers the installed DLL, stops stale preview hosts, then prints the diagnosis.
+- **More checks in `Diagnose()`:**
+  - which preview host the handler gets (own, or the old shared one), and whether its `DllSurrogate` is set;
+  - the installed .NET Framework 4.x release;
+  - any other app's `.pdf` preview handler, by name. The PowerToys PDF previewer is named with how to turn it off.
 
 ### 4. About and version
 - **Help ▸ About** now credits the developer: "Developer: Muhammad Bilal (Linkco)", in all interface languages.

@@ -180,7 +180,11 @@
         <RegistryValue Root="HKLM" Key="Software\Linkco\Linkco PDF Editor" Name="InstallDir" Value="[INSTALLFOLDER]" Type="string" />
         <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}" Value="Linkco PDF Preview Handler" Type="string" />
         <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}" Name="DisplayName" Value="Linkco PDF Preview Handler" Type="string" />
-        <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}" Name="AppID" Value="{6d2b5079-2f0b-48dd-ab7f-97cec514d30b}" Type="string" />
+        <!-- Its own preview host process: Microsoft requires a dedicated prevhost.exe (an AppID whose
+             DllSurrogate is prevhost.exe) for .NET preview handlers, instead of the shared one. -->
+        <RegistryValue Root="HKLM" Key="Software\Classes\AppID\{1C0ADB7B-F017-4384-BF73-95AA5BC5D084}" Value="Linkco PDF Preview Host" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\AppID\{1C0ADB7B-F017-4384-BF73-95AA5BC5D084}" Name="DllSurrogate" Value="%SystemRoot%\system32\prevhost.exe" Type="expandable" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}" Name="AppID" Value="{1C0ADB7B-F017-4384-BF73-95AA5BC5D084}" Type="string" />
         <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}" Name="DisableLowILProcessIsolation" Value="1" Type="integer" />
         <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}\InprocServer32" Value="mscoree.dll" Type="string" />
         <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}\InprocServer32" Name="ThreadingModel" Value="Apartment" Type="string" />

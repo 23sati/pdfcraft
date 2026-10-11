@@ -62,6 +62,13 @@ try {
   if ($null -eq ($handlerType.GetMethods() | Where-Object { $_.Name -eq 'UnregisterPreviewHandlerForAllUsers' -and $_.IsStatic -and $_.IsPublic })) {
     throw "LinkcoPdfPreviewHandler is missing UnregisterPreviewHandlerForAllUsers"
   }
+  # A .NET preview handler needs its own preview host process (AppID with DllSurrogate = prevhost.exe),
+  # matching installer.nsi, pdfcraft.wxs and installer.py.
+  $appIdField = $handlerType.GetField('LinkcoAppId')
+  if ($null -eq $appIdField -or $appIdField.GetValue($null) -ne '{1C0ADB7B-F017-4384-BF73-95AA5BC5D084}') {
+    throw "LinkcoPdfPreviewHandler.LinkcoAppId must be {1C0ADB7B-F017-4384-BF73-95AA5BC5D084}"
+  }
+  Write-Output "  [PASS] Own preview host AppID {1C0ADB7B-F017-4384-BF73-95AA5BC5D084}."
 
   # Uninstall cleanup of another user's profile, whose registry comes as two hives (NTUSER.DAT and
   # UsrClass.dat). Simulated with two scratch keys under HKCU, so no admin rights are needed and
@@ -76,6 +83,9 @@ try {
     $cl.CreateSubKey("CLSID\$preview\InprocServer32").SetValue('CodeBase', 'file:///C:/Gone/LinkcoPdfPreviewHandler.dll')
     $cl.CreateSubKey("CLSID\$thumbs\InprocServer32").SetValue('CodeBase', 'file:///C:/Gone/LinkcoPdfPreviewHandler.dll')
     $cl.CreateSubKey("CLSID\$other").SetValue('', 'Other PDF previewer')
+    $appId = '{1C0ADB7B-F017-4384-BF73-95AA5BC5D084}'; $sharedHost = '{6d2b5079-2f0b-48dd-ab7f-97cec514d30b}'
+    $cl.CreateSubKey("AppID\$appId").SetValue('DllSurrogate', '%SystemRoot%\system32\prevhost.exe')
+    $cl.CreateSubKey("AppID\$sharedHost").SetValue('DllSurrogate', '%SystemRoot%\system32\prevhost.exe')
     $cl.CreateSubKey(".pdf\ShellEx\$pvCat").SetValue('', $preview)                       # replaced $other: backed up
     $cl.CreateSubKey("Vendor.PdfFile\ShellEx\$pvCat").SetValue('', $preview)             # replaced $other: backed up
     $cl.CreateSubKey("FormerDefault.Pdf\ShellEx\$pvCat").SetValue('', $preview)          # an old default app, no backup
@@ -91,6 +101,8 @@ try {
     $val = { param($root, $path) $k = $root.OpenSubKey($path); if ($k) { $k.GetValue('') } }
     if ($cl.OpenSubKey("CLSID\$preview") -or $cl.OpenSubKey("CLSID\$thumbs")) { throw 'COM registrations were not removed' }
     if (-not $cl.OpenSubKey("CLSID\$other")) { throw "Another app's CLSID was removed" }
+    if ($cl.OpenSubKey("AppID\$appId")) { throw 'Our preview host AppID was not removed' }
+    if (-not $cl.OpenSubKey("AppID\$sharedHost")) { throw "Windows' shared preview host AppID was removed" }
     if ((& $val $cl ".pdf\ShellEx\$pvCat") -ne $other) { throw '.pdf preview handler was not restored' }
     if ((& $val $cl "Vendor.PdfFile\ShellEx\$pvCat") -ne $other) { throw 'ProgID preview handler was not restored' }
     if ($cl.OpenSubKey('FormerDefault.Pdf')) { throw 'A ProgID that only pointed at us was left behind' }

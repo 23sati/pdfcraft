@@ -62,6 +62,11 @@ Section "${APP_NAME} (required)" SecCore
   SetRegView 64
   SetShellVarContext all
 
+  ; A running preview host keeps the previous LinkcoPdfPreviewHandler.dll loaded (locked, and
+  ; .NET would keep using the old code); Explorer starts it again on the next preview.
+  nsExec::Exec '"$SYSDIR\taskkill.exe" /F /IM prevhost.exe'
+  Pop $0
+
   SetOutPath "$INSTDIR"
   File "${BIN_DIR}\pdfcraft.exe"
   File "${BIN_DIR}\pdfcraft-cli.exe"
@@ -99,7 +104,10 @@ Section "${APP_NAME} (required)" SecCore
   WriteRegStr HKLM "Software\Linkco\Linkco PDF Editor" "PreviousPdfPreviewHandler" $0
   WriteRegStr HKLM "Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}" "" "Linkco PDF Preview Handler"
   WriteRegStr HKLM "Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}" "DisplayName" "Linkco PDF Preview Handler"
-  WriteRegStr HKLM "Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}" "AppID" "{6d2b5079-2f0b-48dd-ab7f-97cec514d30b}"
+  ; Its own preview host process (a .NET handler must not share Windows' common prevhost.exe).
+  WriteRegStr HKLM "Software\Classes\AppID\{1C0ADB7B-F017-4384-BF73-95AA5BC5D084}" "" "Linkco PDF Preview Host"
+  WriteRegExpandStr HKLM "Software\Classes\AppID\{1C0ADB7B-F017-4384-BF73-95AA5BC5D084}" "DllSurrogate" "%SystemRoot%\system32\prevhost.exe"
+  WriteRegStr HKLM "Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}" "AppID" "{1C0ADB7B-F017-4384-BF73-95AA5BC5D084}"
   WriteRegDWORD HKLM "Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}" "DisableLowILProcessIsolation" 1
   WriteRegStr HKLM "Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}\InprocServer32" "" "mscoree.dll"
   WriteRegStr HKLM "Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}\InprocServer32" "ThreadingModel" "Apartment"
@@ -130,6 +138,13 @@ Section "${APP_NAME} (required)" SecCore
   StrCmp $0 "" +2
   StrCmp $0 "{3D8CDE4B-E969-481F-BEB0-5E3B98287416}" 0 +2
   WriteRegStr HKLM "Software\Classes\SystemFileAssociations\.pdf\ShellEx\{e357fccd-a995-4576-b01f-234630154e96}" "" "{3D8CDE4B-E969-481F-BEB0-5E3B98287416}"
+
+  ; This user's own registration (HKCU) overrides the one above: repair it so it points at this
+  ; installation, not at an older build or portable copy. Same code path as the app's start-up.
+  ${DisableX64FSRedirection}
+  nsExec::Exec `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -Command "$$d=(Resolve-Path 'LinkcoPdfPreviewHandler.dll').Path; $$t=[Reflection.Assembly]::Load([IO.File]::ReadAllBytes($$d)).GetType('LinkcoPdfPreview.LinkcoPdfPreviewHandler'); try { $$t::RegisterPreviewHandler($$d, $$true) } catch {}"`
+  Pop $0
+  ${EnableX64FSRedirection}
 
   ; Uninstaller & Windows Installed Apps entry
   WriteUninstaller "$INSTDIR\Uninstall.exe"
@@ -166,6 +181,8 @@ Section "Uninstall"
   Pop $0
   ${EnableX64FSRedirection}
   SetOutPath "$TEMP"
+  nsExec::Exec '"$SYSDIR\taskkill.exe" /F /IM prevhost.exe'
+  Pop $0
 
   Delete "$DESKTOP\${APP_NAME}.lnk"
   Delete "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk"
@@ -186,6 +203,7 @@ Section "Uninstall"
 
   DeleteRegValue HKLM "Software\Microsoft\Windows\CurrentVersion\PreviewHandlers" "{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}"
   DeleteRegKey HKLM "Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}"
+  DeleteRegKey HKLM "Software\Classes\AppID\{1C0ADB7B-F017-4384-BF73-95AA5BC5D084}"
   ReadRegStr $0 HKLM "Software\Linkco\Linkco PDF Editor" "PreviousPdfPreviewHandler"
   StrCmp $0 "" 0 +3
   DeleteRegKey HKLM "Software\Classes\.pdf\ShellEx\{8895b1c6-b41f-4c1c-a562-0d564250836f}"

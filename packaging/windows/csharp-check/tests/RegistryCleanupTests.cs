@@ -8,19 +8,23 @@ public static class Program {
     const string P = "{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}", T = "{3D8CDE4B-E969-481F-BEB0-5E3B98287416}";
     const string PV = "{8895b1c6-b41f-4c1c-a562-0d564250836f}", TH = "{e357fccd-a995-4576-b01f-234630154e96}";
     const string OTHER = "{0D3C1E7A-5B9F-4C2D-8E61-7F4A2B9C3D10}", ACRO = "{DC6EFB56-9CFA-464D-8880-44885D7DC193}";
+    const string APPID = "{1C0ADB7B-F017-4384-BF73-95AA5BC5D084}", SHARED_HOST = "{6d2b5079-2f0b-48dd-ab7f-97cec514d30b}";
     static int fails;
     static void Check(bool ok, string what) { Console.WriteLine((ok ? "  ok   " : "  FAIL ") + what); if (!ok) fails++; }
     static string Val(RegistryKey root, string path) { using (var k = root.OpenSubKey(path)) return k == null ? null : k.GetValue("") as string; }
     static bool Has(RegistryKey root, string path) { using (var k = root.OpenSubKey(path)) return k != null; }
     static void Set(RegistryKey root, string path, string name, string v) { using (var k = root.CreateSubKey(path)) k.SetValue(name, v); }
 
-    // A user's registry as the app (schema 4) leaves it, Classes in `cl`, the rest in `sw`.
+    // A user's registry as the app (schema 5) leaves it, Classes in `cl`, the rest in `sw`.
     static void Populate(RegistryKey sw, RegistryKey cl, string clsPrefix) {
         Set(cl, clsPrefix + "CLSID\\" + P + "\\InprocServer32", "CodeBase", "file:///C:/Gone/LinkcoPdfPreviewHandler.dll");
         Set(cl, clsPrefix + "CLSID\\" + T + "\\InprocServer32", "CodeBase", "file:///C:/Gone/LinkcoPdfPreviewHandler.dll");
         Set(cl, clsPrefix + "LinkcoPDFEditor.PreviewHandler\\CLSID", "", P);
         Set(cl, clsPrefix + "LinkcoPDFEditor.ThumbnailProvider\\CLSID", "", T);
         Set(cl, clsPrefix + "CLSID\\" + OTHER, "", "Other PDF previewer (per user)");
+        Set(cl, clsPrefix + "CLSID\\" + P, "AppID", APPID);
+        Set(cl, clsPrefix + "AppID\\" + APPID, "DllSurrogate", "%SystemRoot%\\system32\\prevhost.exe");
+        Set(cl, clsPrefix + "AppID\\" + SHARED_HOST, "DllSurrogate", "%SystemRoot%\\system32\\prevhost.exe"); // Windows': kept
         Set(cl, clsPrefix + ".pdf\\ShellEx\\" + PV, "", P);
         Set(cl, clsPrefix + "SystemFileAssociations\\.pdf\\ShellEx\\" + PV, "", P);
         Set(cl, clsPrefix + "Vendor.PdfFile\\ShellEx\\" + PV, "", P);
@@ -48,6 +52,8 @@ public static class Program {
         Check(!Has(cl, c + "CLSID\\" + P) && !Has(cl, c + "CLSID\\" + T), "our COM servers removed");
         Check(!Has(cl, c + "LinkcoPDFEditor.PreviewHandler") && !Has(cl, c + "LinkcoPDFEditor.ThumbnailProvider"), "our ProgIDs removed");
         Check(Has(cl, c + "CLSID\\" + OTHER), "other app's CLSID kept");
+        Check(!Has(cl, c + "AppID\\" + APPID), "our preview host AppID removed");
+        Check(Has(cl, c + "AppID\\" + SHARED_HOST), "Windows' shared preview host AppID kept");
         Check(Val(cl, c + ".pdf\\ShellEx\\" + PV) == OTHER, ".pdf preview handler restored (per-user CLSID)");
         Check(!Has(cl, c + "SystemFileAssociations\\.pdf\\ShellEx\\" + PV), "SFA preview: backup app gone -> removed");
         Check(Val(cl, c + "Vendor.PdfFile\\ShellEx\\" + PV) == OTHER && Val(cl, c + "Vendor.PdfFile") == "Vendor PDF", "vendor ProgID restored, ProgID kept");

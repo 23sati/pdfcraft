@@ -154,6 +154,12 @@ Assert-Equal $previewRow[1] 'PdfcraftPreviewHandler' 'PDF Preview Handler compon
 Assert-Equal $previewRow[2] '2' 'PDF Preview Handler HKLM root'
 $threadingRow = Read-Row 'SELECT `Value` FROM `Registry` WHERE `Key` = ''Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}\InprocServer32'' AND `Name` = ''ThreadingModel''' 1
 Assert-Equal $threadingRow[0] 'Apartment' 'PDF Preview Handler ThreadingModel'
+# Its own preview host process (Microsoft requires it for .NET preview handlers).
+$appIdRow = Read-Row 'SELECT `Value` FROM `Registry` WHERE `Key` = ''Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}'' AND `Name` = ''AppID''' 1
+Assert-Equal $appIdRow[0] '{1C0ADB7B-F017-4384-BF73-95AA5BC5D084}' 'PDF Preview Handler AppID (own preview host)'
+$surrogateRow = Read-Row 'SELECT `Value` FROM `Registry` WHERE `Key` = ''Software\Classes\AppID\{1C0ADB7B-F017-4384-BF73-95AA5BC5D084}'' AND `Name` = ''DllSurrogate''' 1
+# REG_EXPAND_SZ values are stored as "#%<value>" in the Registry table.
+Assert-Equal ($surrogateRow[0] -like '#%*\prevhost.exe') $true 'preview host DllSurrogate is prevhost.exe (expandable)'
 $thumbRow = Read-Row ('SELECT `Value`, `Component_` FROM `Registry` WHERE `Key` = ''Software\Classes\SystemFileAssociations\.pdf\ShellEx\{e357fccd-a995-4576-b01f-234630154e96}'' AND `Name` IS NULL') 2
 Assert-Equal $thumbRow[0] '{3D8CDE4B-E969-481F-BEB0-5E3B98287416}' 'PDF thumbnail provider CLSID'
 $thumbClass = Read-Row ('SELECT `Value` FROM `Registry` WHERE `Key` = ''Software\Classes\CLSID\{3D8CDE4B-E969-481F-BEB0-5E3B98287416}\InprocServer32'' AND `Name` = ''Class''') 1
