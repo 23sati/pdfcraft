@@ -1747,7 +1747,6 @@
 	Text must contrast enough with its background for people with low vision. Check the colours by eye or with a contrast tool.	Besedilo mora imeti dovolj kontrasta z ozadjem za slabovidne ljudi. Barve preverite na oko ali z orodjem za kontrast.
 	Text recognition is already running	Prepoznavanje besedila že poteka
 	Text recognition isn't installed: its models are missing (run `cargo xtask models`, or set PDFCRAFT_MODELS).	Prepoznavanje besedila ni nameščeno: manjkajo njegovi modeli (zaženite `cargo xtask models` ali nastavite PDFCRAFT_MODELS).
-	Text recognition isn't installed: its models are missing (run `cargo xtask models`, or set PRINTCRAFT_MODELS).	Prepoznavanje besedila ni nameščeno: manjkajo njegovi modeli (zaženite `cargo xtask models` ali nastavite PRINTCRAFT_MODELS).
 	Text to find	Besedilo za iskanje
 	Text to insert	Besedilo za vstavljanje
 	That didn't work: an internal error stopped it ({m}).	To ni uspelo: ustavila ga je notranja napaka ({m}).
@@ -2006,7 +2005,6 @@
 	the document is protected by a password	dokument je zaščiten z geslom
 	the image is empty	slika je prazna
 	the password is incorrect	geslo je napačno
-	the text recognition models are not installed (run `cargo xtask models`, or set PRINTCRAFT_MODELS)	modeli za prepoznavanje besedila niso nameščeni (zaženite `cargo xtask models` ali nastavite PRINTCRAFT_MODELS)
 	the title must not be empty	naslov ne sme biti prazen
 	there are no pages to print	ni strani za tiskanje
 	there are no redaction marks to apply	ni oznak za počrnitev, ki bi jih bilo mogoče uveljaviti
