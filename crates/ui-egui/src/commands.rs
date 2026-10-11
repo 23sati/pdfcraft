@@ -570,6 +570,11 @@ impl PdfCraftApp {
             "page.duplicate" => {
                 self.apply_edit(Edit::DuplicatePages { pages: targets });
             }
+            "ocr.enhance_camera" => {
+                // The corners appear on the current page (camera_ui::page_input).
+                self.quick_tool = crate::QuickTool::EnhanceCamera;
+                self.notify_tr("Drag the corners onto the document's edges, then choose Enhance page.");
+            }
             "page.crop" => {
                 self.quick_tool = crate::QuickTool::Crop;
                 self.notify_tr("Drag a rectangle on a page to crop it; double-click a page for Set Page Boxes");

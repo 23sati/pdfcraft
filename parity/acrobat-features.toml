@@ -6592,10 +6592,10 @@ area = "I"
 tier = "P1"
 milestone = "M10"
 status = "partial"
-commands = []
+commands = ["ocr.enhance_camera"]
 tools = ["page_enhance_camera"]
-evidence = ["crates/engine/src/tests.rs::enhance_camera_page_straightens_the_sheet", "crates/automation/tests/automation.rs::enhance_camera_image_through_tools"]
-notes = "Four corners (any order, a convex quadrilateral) are warped to an upright page at the picture's own resolution, in one undoable step; comments, links and bookmarks stay. Headless only (page_enhance_camera). Missing: the corner handles in the UI, automatic edge detection, contrast and background cleanup, document types."
+evidence = ["crates/engine/src/tests.rs::enhance_camera_page_straightens_the_sheet", "crates/automation/tests/automation.rs::enhance_camera_image_through_tools", "crates/ui-egui/tests/camera.rs::dragging_a_corner_then_enhance_page_straightens_the_page"]
+notes = "Four corners (any order, a convex quadrilateral) are warped to an upright page at the picture's own resolution, in one undoable step; comments, links and bookmarks stay. Scan & OCR ▸ Enhance camera image shows four corner handles on the current page (Enhance page / Cancel / Esc); page_enhance_camera does the same headlessly. Missing: automatic edge detection (the corners start inset 5% from the page's edges), contrast and background cleanup, document types."
 
 [[feature]]
 id = "ocr.camera-document-type"

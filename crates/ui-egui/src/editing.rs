@@ -148,9 +148,43 @@ impl PdfCraftApp {
             Some(crate::canvas::ViewAction::Split) => self.dialog = Some(crate::Dialog::Split),
             Some(crate::canvas::ViewAction::CopyPages { cut }) => self.copy_pages(cut),
             Some(crate::canvas::ViewAction::PastePages) => self.paste_pages(),
+            Some(crate::canvas::ViewAction::EnhanceCamera) => self.enhance_camera(i),
+            Some(crate::canvas::ViewAction::CancelCamera) => {
+                if let Some(view) = self.views.get_mut(i) {
+                    view.camera = None;
+                }
+                if self.quick_tool == crate::QuickTool::EnhanceCamera {
+                    self.quick_tool = crate::QuickTool::Select;
+                }
+            }
             None => {}
         }
         applied
+    }
+
+    /// Enhance ▸ Camera image: straighten what the corners on tab `i` enclose. On success the
+    /// tool closes; on failure the corners stay so they can be adjusted.
+    fn enhance_camera(&mut self, i: usize) {
+        let Some(view) = self.views.get(i) else { return };
+        let (id, Some(q)) = (view.id, view.camera) else { return };
+        let Some(page) = self.session.get(id).and_then(|d| d.info.pages.get(q.page).cloned()) else { return };
+        let corners = q.corners.map(|[x, y]| {
+            let [u, v] = page.view_to_user(x, y);
+            [u as f64, v as f64]
+        });
+        match self.session.enhance_camera_page(id, q.page, corners) {
+            Ok(()) => {
+                if let (Some(doc), Some(view)) = (self.session.get(id), self.views.get_mut(i)) {
+                    view.document_changed(&doc.info);
+                    view.camera = None;
+                }
+                self.quick_tool = crate::QuickTool::Select;
+            }
+            Err(e) => {
+                let label = crate::i18n::action_label("Enhance camera image");
+                self.notify_fmt("{label} failed: {e}", &[("label", &label), ("e", &e.to_string())]);
+            }
+        }
     }
 
     /// Organize ▸ Copy / Cut: remember the selected pages (the document as it is now); Cut also

@@ -183,6 +183,7 @@ pub fn tools() -> Vec<ToolDef> {
                 &["doc", "degrees"],
             )),
         t("page_enhance_camera", "Enhance camera image", "Straighten a photographed document (Scan & OCR ▸ Enhance ▸ Camera image): the part of the page inside the four corners (x1, y1, … x4, y4 in top-left-origin points, any order, a convex quadrilateral) is warped to an upright rectangle that replaces what the page shows, at the page picture's own resolution (at most 600 dpi). The page's comments, links and bookmarks stay. Undoable.")
+            .cmd("ocr.enhance_camera")
             .with(schema(
                 json!({
                     "doc": doc(),
