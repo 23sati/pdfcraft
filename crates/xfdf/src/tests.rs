@@ -562,6 +562,123 @@ fn the_last_same_named_record_controls_its_reply_parent() {
     }
 }
 
+#[test]
+fn indirectly_named_protected_comments_and_popups_are_not_replaced() {
+    let xfdf = br#"<xfdf><annots><redact page="0" name="n1" rect="0,0,1,1" flags="invisible,hidden,noview,print"><contents>Updated</contents></redact></annots></xfdf>"#;
+    let fdf = b"%FDF-1.2\n1 0 obj\n<< /FDF << /Annots [<< /Subtype /Redact /NM (n1) /Page 0 /Rect [0 0 1 1] /F 39 /Contents (Updated) >>] >> >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n";
+    let annotation_refs = |doc: &Document| {
+        pdfcraft_model::pages(doc)[0]
+            .dict
+            .get(b"Annots")
+            .map(|a| doc.resolve(a))
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(Object::as_ref)
+            .collect::<Vec<_>>()
+    };
+    for (subtype, flags) in [("Text", LOCKED), ("Redact", 0)] {
+        let mut original = blank();
+        let page = pdfcraft_model::pages(&original)[0].obj;
+        let name = original.add(PdfString::text("n1"));
+        let mut protected = Dict::new();
+        protected.set(b"Type".to_vec(), Object::name("Annot"));
+        protected.set(b"Subtype".to_vec(), Object::name(subtype));
+        protected.set(b"NM".to_vec(), Object::Ref(name));
+        protected.set(b"Rect".to_vec(), arr(&[10.0, 10.0, 30.0, 30.0]));
+        protected.set(b"F".to_vec(), Object::Int(flags));
+        protected.set(b"Contents".to_vec(), PdfString::text("Original"));
+        protected.set(b"CustomData".to_vec(), PdfString::text("preserved"));
+        let parent = original.add(protected);
+        let mut popup = Dict::new();
+        popup.set(b"Subtype".to_vec(), Object::name("Popup"));
+        popup.set(b"Rect".to_vec(), arr(&[40.0, 10.0, 140.0, 60.0]));
+        popup.set(b"Parent".to_vec(), Object::Ref(parent));
+        let popup = original.add(popup);
+        original.update_dict(parent, |d| d.set(b"Popup".to_vec(), Object::Ref(popup))).unwrap();
+        let mut annots = annotation_refs(&original);
+        annots.extend([parent, popup]);
+        original.update_dict(page, |d| d.set(b"Annots".to_vec(), Object::Array(annots.into_iter().map(Object::Ref).collect()))).unwrap();
+        let original = Arc::new(write_full(&original, &SaveOptions::default()).unwrap());
+        for data in [xfdf.as_slice(), fdf.as_slice()] {
+            let mut doc = Document::open(original.clone()).unwrap();
+            let before = annotation_refs(&doc);
+            let parent = before.iter().copied().find(|r| text_of(&doc, doc.get(*r).as_dict().unwrap(), b"NM").as_deref() == Some("n1")).unwrap();
+            let protected = doc.get(parent);
+            let popup_ref = protected.as_dict().unwrap().reference(b"Popup").unwrap();
+            let popup = doc.get(popup_ref);
+            assert!(protected.as_dict().unwrap().get(b"NM").unwrap().as_ref().is_some());
+            assert_eq!(import(&mut doc, data).unwrap().comments, 1);
+            let after = annotation_refs(&doc);
+            assert_eq!(after.len(), before.len() + 1);
+            assert!(after.contains(&parent) && after.contains(&popup_ref));
+            assert_eq!(doc.get(parent), protected, "the protected {subtype} must not change, including its unknown data");
+            assert_eq!(doc.get(popup_ref), popup, "the protected comment's popup must not change");
+            let added = after.into_iter().find(|r| !before.contains(r)).unwrap();
+            let added = doc.get(added);
+            let added = added.as_dict().unwrap();
+            assert!(added.get(b"NM").is_none(), "the imported comment must relinquish the protected name");
+            assert_eq!(added.int(b"F"), Some(4), "an imported redaction stays printable with Invisible/Hidden/NoView removed");
+            let reopened = Document::open(Arc::new(write_incremental(&doc, &SaveOptions::default()).unwrap())).unwrap();
+            assert_eq!(reopened.get(parent), protected);
+            assert_eq!(reopened.get(popup_ref), popup);
+        }
+    }
+}
+
+#[test]
+fn imported_redact_marks_cannot_replace_a_locked_mark_or_hide_themselves() {
+    let mut doc = blank();
+    let page = pdfcraft_model::pages(&doc)[0].obj;
+    // A locked redaction mark the user placed, with a known /NM.
+    let mut mark = Dict::new();
+    mark.set(b"Type".to_vec(), Object::name("Annot"));
+    mark.set(b"Subtype".to_vec(), Object::name("Redact"));
+    mark.set(b"NM".to_vec(), PdfString::text("mark1"));
+    mark.set(b"Rect".to_vec(), Object::Array(vec![60.into(), 660.into(), 560.into(), 678.into()]));
+    mark.set(b"F".to_vec(), Object::Int(128)); // Locked
+    let mark_ref = doc.add(Object::Dict(mark));
+    let mut annots =
+        doc.get(page).as_dict().and_then(|p| p.get(b"Annots").cloned()).and_then(|a| doc.resolve(&a).as_array().cloned()).unwrap_or_default();
+    annots.push(Object::Ref(mark_ref));
+    doc.update_dict(page, |p| p.set(b"Annots".to_vec(), Object::Array(annots))).unwrap();
+
+    // A reviewer's XFDF: shrink the locked mark to a 1×1 corner by reusing its /NM, and add a
+    // redaction mark imported as Hidden that would remove other content unseen.
+    let xfdf = concat!(
+        r#"<xfdf xmlns="http://ns.adobe.com/xfdf/"><annots>"#,
+        r#"<redact page="0" name="mark1" rect="0,0,1,1" title="Reviewer"/>"#,
+        r#"<redact page="0" name="ghost" rect="60,600,560,620" flags="hidden" title="Reviewer"/>"#,
+        r#"</annots></xfdf>"#,
+    );
+    import(&mut doc, xfdf.as_bytes()).unwrap();
+
+    let refs: Vec<ObjRef> = doc
+        .get(page)
+        .as_dict()
+        .and_then(|p| p.get(b"Annots").cloned())
+        .and_then(|a| doc.resolve(&a).as_array().cloned())
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|a| a.as_ref())
+        .collect();
+    // The locked mark is still there, unchanged (same object, same geometry, still its /NM).
+    assert!(refs.contains(&mark_ref), "the locked redaction mark was replaced");
+    let locked = doc.get(mark_ref).as_dict().cloned().unwrap();
+    assert_eq!(nums_of(&doc, locked.get(b"Rect")), vec![60.0, 660.0, 560.0, 678.0], "the locked mark's geometry was changed");
+    assert_eq!(locked.get(b"NM").and_then(|n| n.as_string().map(|s| s.to_text())).as_deref(), Some("mark1"));
+    assert_eq!(locked.int(b"F"), Some(128), "the locked mark lost its Locked flag");
+    // Every redaction mark on the page is visible (none Invisible/Hidden/NoView): the import's two
+    // marks were added beside the protected one, both drawable for review.
+    let redacts: Vec<Dict> =
+        refs.iter().map(|r| doc.get(*r).as_dict().cloned().unwrap()).filter(|d| d.name(b"Subtype") == Some(b"Redact".as_slice())).collect();
+    assert_eq!(redacts.len(), 3, "the imported marks should be added, not merged away");
+    for d in &redacts {
+        assert_eq!(d.int(b"F").unwrap_or(0) & (1 | 2 | 32), 0, "a redaction mark is hidden from review: {d:?}");
+    }
+}
+
 /// The `/Vertices` of every annotation on the document's pages, by subtype.
 fn vertices(doc: &Document) -> Vec<(String, Vec<f64>)> {
     let mut out = Vec::new();
@@ -653,6 +770,42 @@ fn xfdf_keeps_callout_leader_inset_and_ending() {
     let want = callout_keys(&src);
     assert_eq!(want.1.len(), 6, "{want:?}");
     assert_eq!(callout_keys(&dst), want, "{xfdf}");
+}
+
+/// Run `f` on a thread with a small stack, as a deep recursion would overflow it.
+fn on_small_stack<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> T {
+    std::thread::Builder::new().stack_size(256 << 10).spawn(f).unwrap().join().unwrap()
+}
+
+#[test]
+fn deeply_nested_xml_is_refused_before_parsing() {
+    // A file nested far deeper than any stack holds used to overflow roxmltree's recursive
+    // parser, which aborts the process. It must be refused without recursing.
+    let deep = |root: &str| format!("<{root}>{}{}</{root}>", "<a>".repeat(100_000), "</a>".repeat(100_000));
+    let xfdf = deep("xfdf");
+    let xml = deep("fields");
+    let (imported, table, values) = on_small_stack(move || {
+        let mut doc = blank();
+        (import(&mut doc, xfdf.as_bytes()), import(&mut doc, xml.as_bytes()), data_values(xfdf.as_bytes()))
+    });
+    for r in [imported.map(|_| ()), table.map(|_| ()), values.map(|_| ())] {
+        assert!(matches!(&r, Err(DataError::Malformed(m)) if m.contains("deep")), "{r:?}");
+    }
+}
+
+#[test]
+fn wide_or_commented_xml_is_not_mistaken_for_deep() {
+    // Thousands of siblings, self-closing tags, `>` in attribute values, and tags inside
+    // comments, CDATA and processing instructions add no depth.
+    let mut x = String::from("<?xml version=\"1.0\"?><!-- <a><a><a> --><xfdf><fields>");
+    for i in 0..5_000 {
+        x.push_str(&format!("<field name=\"f{i} > g\"><value>v</value></field><empty/><![CDATA[<b><b>]]><?pi <c> ?>"));
+    }
+    x.push_str("</fields></xfdf>");
+    assert_eq!(check_form_xml_depth(&x), Ok(()));
+    let nested = |n: usize| format!("{}{}", "<a>".repeat(n), "</a>".repeat(n));
+    assert_eq!(check_form_xml_depth(&nested(MAX_XML_DEPTH)), Ok(()));
+    assert!(check_form_xml_depth(&nested(MAX_XML_DEPTH + 1)).is_err());
 }
 
 #[test]
