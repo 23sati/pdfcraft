@@ -461,6 +461,9 @@ pub fn action_label(text: &str) -> String {
     {
         return fmt(t("Change {key}"), &[("key", t(key))]);
     }
+    if let Some(n) = text.strip_prefix("Delete ").and_then(|rest| rest.strip_suffix(" fields")).and_then(|n| n.parse::<u64>().ok()) {
+        return trn(current(), n, "Delete {n} field", "Delete {n} fields");
+    }
     t(text).to_owned()
 }
 
@@ -1282,6 +1285,9 @@ mod tests {
         assert_eq!(trn(cs, 3, "{n} page", "{n} pages"), "3 stránky");
         assert_eq!(trn(cs, 5, "{n} page", "{n} pages"), "5 stránek");
         assert_eq!(trn(cs, 0, "{n} field", "{n} fields"), "0 polí");
+        assert_eq!(trn(cs, 1, "{n} byte", "{n} bytes"), "1 bajt");
+        assert_eq!(trn(cs, 512, "{n} byte", "{n} bytes"), "512 bajtů");
+        assert_eq!(trn(cs, 3, "{n} image optimized", "{n} images optimized"), "3 obrázky optimalizovány");
         assert_eq!(tr(cs, "October"), "Říjen");
         let month = tr_ctx(cs, "calendar date", "October");
         assert_eq!(fmt(tr(cs, "{month} {day}, {y}"), &[("month", month), ("day", "9"), ("y", "2026")]), "9. října 2026");
@@ -1289,6 +1295,8 @@ mod tests {
         assert_eq!(command_label("Undo Insert pages from Zpráva {n}.pdf"), "Zpět: Vložit stránky ze souboru Zpráva {n}.pdf");
         assert_eq!(command_label("Redo Fill in Kontakt {key}"), "Znovu: Vyplnit Kontakt {key}");
         assert_eq!(action_label("Change Title"), "Změnit: Název");
+        assert_eq!(action_label("Delete 3 fields"), "Odstranit 3 pole");
+        assert_eq!(action_label("Delete 12 fields"), "Odstranit 12 polí");
         assert_eq!(fmt(t("{n} pages selected"), &[("n", "3")]), "Vybráno stránek: 3");
         set_current(Lang::EN);
     }
