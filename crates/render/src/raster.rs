@@ -883,6 +883,48 @@ impl RenderPool {
     }
 }
 
+/// A pool's threads after [`RenderPool::retire`]. Idle ones exit at once; one still rendering is
+/// told to stop at its next drawing operator and exits when its render returns, which a single
+/// long operator (such as decoding a huge image) can delay.
+pub struct Retiring(Vec<JoinHandle<()>>);
+
+impl Retiring {
+    /// The threads that haven't exited yet.
+    pub fn running(&mut self) -> usize {
+        self.0.retain(|h| !h.is_finished());
+        self.0.len()
+    }
+
+    /// Whether every thread has exited.
+    pub fn exited(&self) -> bool {
+        self.0.iter().all(JoinHandle::is_finished)
+    }
+}
+
+impl RenderPool {
+    /// No replacement threads: when the watchdog gives up on a render, the request (and any
+    /// later one) is answered with an error instead of starting another thread. For a caller that
+    /// bounds how many render threads exist at once: the stuck thread keeps running until its
+    /// operator returns, and a replacement would run beside it.
+    pub fn without_replacements(self) -> Self {
+        *lock(&self.replacements_left) = 0;
+        self
+    }
+
+    /// This pool's threads that haven't exited (workers and replacements; 0 when rendering inline).
+    pub fn threads(&self) -> usize {
+        lock(&self._workers).iter().filter(|h| !h.is_finished()).count()
+    }
+
+    /// Drop the pool but keep its threads' handles, for a caller that bounds how many render
+    /// threads run at once: a render the watchdog gave up on can outlive its pool.
+    pub fn retire(self) -> Retiring {
+        let handles = std::mem::take(&mut *lock(&self._workers));
+        drop(self);
+        Retiring(handles)
+    }
+}
+
 impl Drop for RenderPool {
     fn drop(&mut self) {
         #[cfg(not(target_arch = "wasm32"))]
@@ -1296,6 +1338,58 @@ mod tests {
 
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
+    fn a_retired_pool_counts_its_threads_until_they_exit() {
+        // Idle: its thread leaves as soon as the pool is gone.
+        let mut idle = RenderPool::new(Arc::new(ONE_PAGE_TWICE.to_vec()), 1, RenderConfig::default()).retire();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while idle.running() > 0 && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert_eq!(idle.running(), 0);
+        // Busy in a step that can't be interrupted: still counted after the pool is dropped.
+        let pool = RenderPool::new(Arc::new(ONE_PAGE_TWICE.to_vec()), 1, RenderConfig::default());
+        *lock(&pool.shared.slow_page) = Some((0, std::time::Duration::from_secs(2)));
+        pool.set_queue(vec![RenderRequest { page: 0, scale: 1.0, ..Default::default() }]);
+        while pool.shared.render_started.load(Ordering::Relaxed) == 0 && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        let mut busy = pool.retire();
+        assert_eq!(busy.running(), 1, "the render is still under way");
+        while busy.running() > 0 && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert_eq!(busy.running(), 0, "and the thread exits when it returns");
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn a_pool_without_replacements_never_runs_a_second_thread() {
+        // The watchdog gives up on a render stuck in one long step; with no replacement, the
+        // request is answered with an error and the stuck thread is the only one.
+        let mut pool = RenderPool::new(Arc::new(ONE_PAGE_TWICE.to_vec()), 1, RenderConfig::default()).without_replacements();
+        pool.set_stuck_after(std::time::Duration::from_millis(50));
+        *lock(&pool.shared.slow_page) = Some((0, std::time::Duration::from_secs(2)));
+        pool.set_queue(vec![RenderRequest { page: 0, scale: 1.0, ..Default::default() }]);
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        let answer = loop {
+            assert!(pool.threads() <= 1, "{} render threads", pool.threads());
+            if let Some(page) = pool.try_recv() {
+                break page;
+            }
+            assert!(std::time::Instant::now() < deadline, "the stuck render is answered");
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        };
+        assert!(answer.error.is_some(), "answered with an error, not a second attempt");
+        assert!(pool.threads() <= 1);
+        let mut retired = pool.retire();
+        while retired.running() > 0 {
+            assert!(std::time::Instant::now() < deadline, "the stuck thread exits when its step ends");
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
     fn page_panic_retires_shared_generation_and_healthy_pages_use_private_parsers() {
         let pool = RenderPool::new(Arc::new(ONE_PAGE_TWICE.to_vec()), 3, RenderConfig::default());
         *lock(&pool.shared.panic_page) = Some(0);
@@ -1661,7 +1755,11 @@ mod tests {
         let object = Object::from_bytes(data.as_bytes()).unwrap();
         assert_eq!(Function::new(&object).unwrap().eval([0.5].into_iter().collect()).unwrap().as_slice(), &[0.5]);
         let over = format!("<< /FunctionType 3 /Domain [0 1] /Functions [{data}] /Bounds [] /Encode [0 1] >>");
-        assert!(Function::new(&Object::from_bytes(over.as_bytes()).unwrap()).is_none());
+        // The 64 functions above nest exactly 128 levels (each dictionary and its /Functions
+        // array, then the leaf's /Domain array), the parser's nesting cap. 65 nest 130, so the
+        // parser refuses them before the function-depth guard sees them (a refusal either way).
+        // `function_limits_depth_guard_refuses_a_chain_of_references` tests the guard itself.
+        assert!(Object::from_bytes(over.as_bytes()).is_none(), "the parser refuses direct nesting past its cap");
 
         // One root plus 10,000 leaves is one node past the common budget. This input remains
         // below a megabyte and does not attempt excessive recursion or an allocation failure.
@@ -1675,6 +1773,43 @@ mod tests {
             );
             let object = Object::from_bytes(data.as_bytes()).unwrap();
             assert_eq!(Function::new(&object).is_some(), children == 9999);
+        }
+    }
+    /// Stitching functions that each name the next through `N 0 R` nest no direct objects, so
+    /// the parser's nesting cap doesn't stop them and the function-depth guard does.
+    #[test]
+    fn function_limits_depth_guard_refuses_a_chain_of_references() {
+        use hayro::hayro_interpret::Function;
+        use hayro_syntax::object::{Object, ObjectIdentifier};
+        for functions in [64, 65] {
+            // Objects 4 onwards: each stitching function names the next one; the last is a leaf.
+            let objects: String = (4..4 + functions)
+                .map(|number| {
+                    let body = if number < 3 + functions {
+                        format!("<< /FunctionType 3 /Domain [0 1] /Functions [{} 0 R] /Bounds [] /Encode [0 1] >>", number + 1)
+                    } else {
+                        "<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 1 >>".to_owned()
+                    };
+                    format!("{number} 0 obj {body} endobj\n")
+                })
+                .collect();
+            let parsed = hayro_syntax::Pdf::new(
+                format!(
+                    "%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n\
+                     2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n\
+                     3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 20 20] >> endobj\n\
+                     {objects}trailer << /Root 1 0 R >>\n%%EOF"
+                )
+                .into_bytes(),
+            )
+            .unwrap();
+            let object = parsed.xref().get::<Object<'_>>(ObjectIdentifier::new(4, 0)).unwrap();
+            let function = Function::new(&object);
+            if functions == 64 {
+                assert_eq!(function.unwrap().eval([0.5].into_iter().collect()).unwrap().as_slice(), &[0.5]);
+            } else {
+                assert!(function.is_none(), "65 functions are one past the function-depth guard");
+            }
         }
     }
     #[test]
@@ -3353,6 +3488,222 @@ trailer << /Root 1 0 R >>
         assert_eq!(&page.rgba[((38 * 40 + 1) * 4)..][..4], &[255, 0, 0, 255], "the rest of the page draws");
     }
 
+    /// `depth` direct arrays (`array`), dictionaries with a key (`dict`) or both in turn (`mixed`)
+    /// around `null`.
+    fn nested(depth: usize, kind: &str) -> String {
+        let is_dict = |level| kind == "dict" || (kind == "mixed" && level % 2 == 0);
+        let mut value = String::new();
+        for level in 0..depth {
+            value.push_str(if is_dict(level) { "<< /N " } else { "[" });
+        }
+        value.push_str("null");
+        for level in (0..depth).rev() {
+            value.push_str(if is_dict(level) { " >>" } else { "]" });
+        }
+        value
+    }
+
+    /// `depth` dictionaries nested without keys (`<< << >> >>`), closed or not.
+    fn keyless(depth: usize, closed: bool) -> String {
+        let mut value = "<< ".repeat(depth);
+        if closed {
+            value.push_str(&">> ".repeat(depth));
+        }
+        value
+    }
+
+    /// A 40 × 40 page that runs `content`, with a correct xref table and `trailer` at the end
+    /// of a trailer that also points at an `/Info` title.
+    fn nesting_pdf(trailer: &str, content: &str) -> Vec<u8> {
+        let mut bytes = b"%PDF-1.7\n".to_vec();
+        let mut offsets = vec![0];
+        for (index, body) in [
+            "<< /Type /Catalog /Pages 2 0 R >>".to_string(),
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_string(),
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 40 40] /Contents 4 0 R /Resources << >> >>".to_string(),
+            format!("<< /Length {} >> stream\n{content}\nendstream", content.len()),
+            "<< /Title (Nested) >>".to_string(),
+        ]
+        .iter()
+        .enumerate()
+        {
+            offsets.push(bytes.len());
+            bytes.extend_from_slice(format!("{} 0 obj\n{body}\nendobj\n", index + 1).as_bytes());
+        }
+        let xref = bytes.len();
+        bytes.extend_from_slice(b"xref\n0 6\n0000000000 65535 f \n");
+        for offset in &offsets[1..] {
+            bytes.extend_from_slice(format!("{offset:010} 00000 n \n").as_bytes());
+        }
+        bytes.extend_from_slice(format!("trailer << /Size 6 /Root 1 0 R /Info 5 0 R {trailer} >>\nstartxref\n{xref}\n%%EOF\n").as_bytes());
+        bytes
+    }
+
+    /// Opens `bytes` and renders its one page, which must render without an error.
+    fn nesting_render(bytes: Vec<u8>) -> RenderedPage {
+        let parsed = Pdf::new(bytes.clone()).expect("xref repair can recover the catalog when the trailer is malformed");
+        assert_eq!(parsed.pages().len(), 1);
+        let mut renderer = PageRenderer::new(Arc::new(bytes), RenderConfig::default());
+        let page = renderer.render(RenderRequest { page: 0, kind: RequestKind::Pixels, scale: 1.0, ..Default::default() });
+        assert!(page.error.is_none(), "{:?}", page.error);
+        assert_eq!((page.width, page.height), (40, 40));
+        page
+    }
+
+    /// Direct arrays and dictionaries used to recurse without a bound while skipping even
+    /// unused trailer values and content operands. Exercise the vendored patch in workspace CI.
+    #[test]
+    fn deeply_nested_direct_objects_do_not_overflow_the_stack() {
+        use hayro_syntax::object::Object;
+        use hayro_syntax::reader::{Reader, ReaderExt};
+        let pdf = |unused: &str, content: &str| nesting_pdf(&format!("/Unused {unused}"), content);
+        let paint = "1 0 0 rg 0 0 4 4 re f";
+        for kind in ["array", "dict", "mixed"] {
+            // Run the crash reproducer first, so the unpatched red state is a stack overflow.
+            let page = nesting_render(pdf(&nested(100_000, kind), paint));
+            assert_eq!(&page.rgba[((38 * 40 + 1) * 4)..][..4], &[255, 0, 0, 255], "{kind}: repaired trailer");
+            for depth in [20, 128, 129] {
+                let value = nested(depth, kind);
+                let siblings = format!("{value} [] []");
+                let mut reader = Reader::new(siblings.as_bytes());
+                assert_eq!(reader.skip::<Object<'_>>(false).is_some(), depth <= 128, "{kind}: depth {depth}");
+                if depth > 128 {
+                    assert_eq!(reader.offset(), 0, "failed skips restore the offset");
+                    reader.jump(value.len());
+                }
+                // A failed skip must unwind its depth; successful siblings must not accumulate it.
+                for _ in 0..2 {
+                    reader.skip_white_spaces();
+                    assert!(reader.skip::<Object<'_>>(false).is_some());
+                }
+                let page = nesting_render(pdf(&value, paint));
+                assert_eq!(&page.rgba[((38 * 40 + 1) * 4)..][..4], &[255, 0, 0, 255], "{kind}: depth {depth}");
+            }
+            // Many siblings exercise the offset constructor and ensure depth is per nesting.
+            let siblings = "[] ".repeat(256);
+            let mut reader = Reader::new_with(siblings.as_bytes(), 0);
+            for _ in 0..256 {
+                assert!(reader.skip::<Object<'_>>(false).is_some());
+                reader.skip_white_spaces();
+            }
+        }
+        // Content-stream arrays take the Object path, rather than MaybeRef<Object>.
+        for depth in [100_000, 20, 128, 129] {
+            let value = nested(depth, "array");
+            let mut reader = Reader::new(value.as_bytes());
+            assert_eq!(reader.skip::<Object<'_>>(true).is_some(), depth <= 128, "content: depth {depth}");
+            let content = format!("{value} discard {paint}");
+            let page = nesting_render(pdf("null", &content));
+            if depth <= 128 {
+                assert_eq!(&page.rgba[((38 * 40 + 1) * 4)..][..4], &[255, 0, 0, 255], "content: depth {depth}");
+            }
+        }
+    }
+
+    /// A dictionary with an object where a key belongs is repaired by reading that object, not
+    /// skipping it, and that read recursed without a bound when the object was another such
+    /// dictionary: `<<` 100,000 times aborted the process. Here as a content-stream operand.
+    #[test]
+    fn dictionaries_nested_without_keys_in_content_do_not_overflow_the_stack() {
+        for closed in [true, false] {
+            let content = format!("1 0 0 rg 0 0 4 4 re f {} discard", keyless(100_000, closed));
+            let page = nesting_render(nesting_pdf("", &content));
+            assert_eq!(px40(&page, 1, 38), &[255, 0, 0, 255], "closed: {closed}");
+        }
+    }
+
+    /// The same, where a key of the trailer belongs: the xref table can't be used, and repair
+    /// finds the catalog.
+    #[test]
+    fn dictionaries_nested_without_keys_in_the_trailer_do_not_overflow_the_stack() {
+        for closed in [true, false] {
+            let page = nesting_render(nesting_pdf(&keyless(100_000, closed), "1 0 0 rg 0 0 4 4 re f"));
+            assert_eq!(px40(&page, 1, 38), &[255, 0, 0, 255], "closed: {closed}");
+        }
+    }
+
+    /// The same as the properties of marked content (`/Tag <<<<<< … BDC`).
+    #[test]
+    fn dictionaries_nested_without_keys_as_marked_content_properties_do_not_overflow_the_stack() {
+        for closed in [true, false] {
+            let properties = if closed { "<<".repeat(100_000) + &">>".repeat(100_000) } else { "<<".repeat(100_000) };
+            let content = format!("1 0 0 rg 0 0 4 4 re f /Tag {properties} BDC 0 0 1 rg 36 36 4 4 re f EMC");
+            let page = nesting_render(nesting_pdf("", &content));
+            assert_eq!(px40(&page, 1, 38), &[255, 0, 0, 255], "closed: {closed}");
+        }
+    }
+
+    /// Through the same three paths, dictionaries without keys are read up to the nesting cap
+    /// (128 dictionaries in all) and refused one past it.
+    #[test]
+    fn dictionaries_nested_without_keys_are_read_up_to_the_nesting_cap() {
+        use hayro_syntax::object::{FromBytes, Object};
+        use hayro_syntax::reader::{Reader, ReaderExt};
+        let (red, blue, white) = ([255, 0, 0, 255], [0, 0, 255, 255], [255, 255, 255, 255]);
+        for depth in [128, 129] {
+            let within = depth <= 128;
+            let value = keyless(depth, true);
+            assert_eq!(Object::from_bytes(value.as_bytes()).is_some(), within, "object: {depth}");
+            assert_eq!(Reader::new(value.as_bytes()).read_without_context::<Object<'_>>().is_some(), within, "operand: {depth}");
+            // Content reading stops at an operand it can't read, so the blue square is drawn
+            // only when the dictionaries were read.
+            let properties = "<<".repeat(depth) + &">>".repeat(depth);
+            for (path, operand) in [("operand", format!("{value} discard")), ("BDC", format!("/Tag {properties} BDC"))] {
+                let content = format!("1 0 0 rg 0 0 4 4 re f {operand} 0 0 1 rg 36 36 4 4 re f");
+                let page = nesting_render(nesting_pdf("", &content));
+                assert_eq!(px40(&page, 1, 38), &red, "{path}: {depth}");
+                assert_eq!(px40(&page, 38, 1), if within { &blue } else { &white }, "{path}: {depth}");
+            }
+            // The trailer is the outermost dictionary. Within the cap it is read (with its
+            // /Info); past it, repair recovers the catalog but not the trailer.
+            let bytes = nesting_pdf(&keyless(depth - 1, true), "1 0 0 rg 0 0 4 4 re f");
+            let parsed = Pdf::new(bytes.clone()).expect("the trailer or repair finds the catalog");
+            assert_eq!(parsed.metadata().title, within.then(|| b"Nested".to_vec()), "trailer: {depth}");
+            assert_eq!(px40(&nesting_render(bytes), 1, 38), &red, "trailer: {depth}");
+        }
+    }
+
+    /// The cap must also fit small stacks: skip, read, iterate down with the array iterators and
+    /// format (`{:?}`) the deepest nesting it admits, of arrays, dictionaries, both and
+    /// dictionaries without keys, on a 512 KiB thread in a debug build. Measured when this was
+    /// written (macOS arm64, dev profile): at most about 100 KiB, for `{:?}` of 128 dictionaries.
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn nesting_at_the_cap_fits_a_512_kib_stack() {
+        use hayro_syntax::object::{FromBytes, Object};
+        use hayro_syntax::reader::{Reader, ReaderExt};
+        let worker = std::thread::Builder::new().stack_size(512 * 1024).spawn(|| {
+            // (kind, arrays and dictionaries `{:?}` shows, levels walked down to the end)
+            for (kind, arrays, dicts, levels) in [("array", 128, 0, 129), ("dict", 0, 128, 129), ("mixed", 64, 64, 129), ("keyless", 0, 1, 1)] {
+                let value = if kind == "keyless" { keyless(128, true) } else { nested(128, kind) };
+                assert!(Reader::new(value.as_bytes()).skip::<Object<'_>>(false).is_some(), "{kind}: skip");
+                assert!(Reader::new(value.as_bytes()).skip::<Object<'_>>(true).is_some(), "{kind}: skip in content");
+                assert!(Reader::new(value.as_bytes()).read_without_context::<Object<'_>>().is_some(), "{kind}: operand");
+                let object = Object::from_bytes(value.as_bytes()).expect("the cap admits 128 levels");
+                let shown = format!("{object:?}");
+                assert_eq!((shown.matches("Array(").count(), shown.matches("Dict(").count()), (arrays, dicts), "{kind}: {{:?}}");
+                let (mut walked, mut next) = (0, Some(object));
+                while let Some(object) = next.take() {
+                    walked += 1;
+                    next = match object {
+                        Object::Array(array) => {
+                            assert_eq!(array.raw_iter().count(), 1, "{kind}: raw_iter");
+                            assert!(array.flex_iter().next::<Object<'_>>().is_some(), "{kind}: flex_iter");
+                            array.iter::<Object<'_>>().next()
+                        }
+                        Object::Dict(dict) => dict.get::<Object<'_>>("N"),
+                        _ => None,
+                    };
+                }
+                assert_eq!(walked, levels, "{kind}: iterate");
+            }
+        });
+        // A stack overflow aborts the process; a failed check is a panic, shown as it is.
+        if let Err(panic) = worker.expect("spawn a 512 KiB thread").join() {
+            std::panic::resume_unwind(panic);
+        }
+    }
+
     /// From the nightly `cargo xtask fuzz`: many small inline images, each with "EI" (followed
     /// by a space) inside its data, and no text anywhere. To decide whether such an "EI" ends the
     /// data, the parser re-read the rest of the stream as content, and that re-read did the same
@@ -3488,6 +3839,152 @@ trailer << /Root 1 0 R >>
                 .unwrap_or_else(|_| panic!("{what}: a JBIG2 symbol dictionary must not stall the renderer"));
             assert!(page.error.is_none(), "{what}: {:?}", page.error);
             assert_eq!(&page.rgba[((38 * 40 + 1) * 4)..][..4], &[255, 0, 0, 255], "{what}: the rest of the page draws");
+        }
+    }
+
+    /// Item 1 of storytold/pdfcraft#623: a page's content used to be cut at `MAX_DECODED_STREAM`,
+    /// so everything after the cut was lost (the text and the title block of the A1 sample). Content
+    /// that expands by a few times over is read to its end, however large it is.
+    #[test]
+    fn page_content_past_the_old_cap_renders() {
+        let limit = hayro::hayro_syntax::MAX_DECODED_STREAM;
+        // Blocks of a comment and a run of blanks. Each compresses about thirty times over, well
+        // within the budget that `ContentReader` allows.
+        let mut content = Vec::with_capacity(limit + (8 << 20));
+        let mut state = 0x2545_f491_4f6c_dd1d_u64;
+        while content.len() < limit + (8 << 20) {
+            content.push(b'%');
+            for _ in 0..3 {
+                state = state.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+                content.push(b'a' + ((state >> 33) % 26) as u8);
+            }
+            content.push(b'\n');
+            content.resize(content.len() + 128, b' ');
+        }
+        content.extend_from_slice(b"1 0 0 rg 0 0 4 4 re f");
+        let mut z = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+        std::io::Write::write_all(&mut z, &content).unwrap();
+        let stream = z.finish().unwrap();
+        assert!(content.len() < 64 * stream.len(), "the content expands by less than the budget allows");
+
+        let mut pdf = b"%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 40 40] /Contents 4 0 R >> endobj\n".to_vec();
+        pdf.extend_from_slice(format!("4 0 obj << /Filter /FlateDecode /Length {} >> stream\n", stream.len()).as_bytes());
+        pdf.extend_from_slice(&stream);
+        pdf.extend_from_slice(b"\nendstream endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n");
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut r = PageRenderer::new(Arc::new(pdf), RenderConfig::default());
+            let _ = tx.send(r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 1.0, tag: 0 }));
+        });
+        let page = rx.recv_timeout(std::time::Duration::from_secs(120)).expect("a large page must render");
+        assert!(page.error.is_none(), "{:?}", page.error);
+        assert!(!page.warnings.contains(&RenderWarning::ContentTruncated), "nothing was cut");
+        assert_eq!(&page.rgba[((38 * 40 + 1) * 4)..][..4], &[255, 0, 0, 255], "the square after the old cap draws");
+    }
+
+    /// The content stream is interpreted a window at a time. An inline image with more data than
+    /// a window is read whole, and what follows it is still drawn.
+    #[test]
+    fn inline_images_longer_than_a_window_are_read_whole() {
+        let mut content = b"q 300 0 0 300 0 0 cm BI /W 300 /H 300 /BPC 8 /CS /G ID ".to_vec();
+        content.extend(std::iter::repeat_n(0x80_u8, 300 * 300));
+        content.extend_from_slice(b" EI Q 1 0 0 rg 0 0 4 4 re f");
+        let pdf = one_page_pdf(&content, "");
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut r = PageRenderer::new(Arc::new(pdf), RenderConfig::default());
+            let _ = tx.send(r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 1.0, tag: 0 }));
+        });
+        let page = rx.recv_timeout(std::time::Duration::from_secs(60)).expect("an inline image must not stall the renderer");
+        assert!(page.error.is_none(), "{:?}", page.error);
+        let pixel = |x: u32, y: u32| {
+            let offset = ((y * page.width + x) * 4) as usize;
+            [page.rgba[offset], page.rgba[offset + 1], page.rgba[offset + 2], page.rgba[offset + 3]]
+        };
+        assert_eq!(pixel(1, 38), [255, 0, 0, 255], "the square after the image draws");
+        let grey = pixel(30, 5);
+        assert!(grey[0] == grey[1] && grey[1] == grey[2] && grey[0] < 255, "the image covers the page: {grey:?}");
+    }
+
+    /// A one-page PDF whose content is the stream `stream`, with the entries `dict` in its
+    /// dictionary.
+    fn one_page_pdf(stream: &[u8], dict: &str) -> Vec<u8> {
+        let mut pdf = b"%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 40 40] /Contents 4 0 R >> endobj\n".to_vec();
+        pdf.extend_from_slice(format!("4 0 obj << {dict} /Length {} >> stream\n", stream.len()).as_bytes());
+        pdf.extend_from_slice(stream);
+        pdf.extend_from_slice(b"\nendstream endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n");
+        pdf
+    }
+
+    /// A page whose content expands far beyond its compressed stream stops at the expansion budget,
+    /// which is 64 times the compressed size and at least `MAX_DECODED_STREAM`, and the page says so.
+    #[test]
+    fn content_bombs_stop_at_the_budget_and_say_so() {
+        let bomb = zlib_zeros(hayro::hayro_syntax::MAX_DECODED_STREAM + (32 << 20));
+        let pdf = one_page_pdf(&bomb, "/Filter /FlateDecode");
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut r = PageRenderer::new(Arc::new(pdf), RenderConfig::default());
+            let _ = tx.send(r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 1.0, tag: 0 }));
+        });
+        let page = rx.recv_timeout(std::time::Duration::from_secs(60)).expect("a content bomb must not stall the renderer");
+        assert!(page.error.is_none(), "{:?}", page.error);
+        assert!(page.warnings.contains(&RenderWarning::ContentTruncated), "the cut content is observable");
+    }
+
+    /// A stream read in pieces of any size gives the same bytes: stored and dynamic blocks, and in
+    /// a `/Contents` array a stream that is not Flate-coded, between two that are.
+    #[test]
+    fn content_reader_returns_the_same_bytes_in_any_pieces() {
+        use hayro::hayro_syntax::Pdf;
+        use std::io::Write;
+        let mut plain = Vec::new();
+        for i in 0..40_000_u32 {
+            plain.extend_from_slice(format!("{} {} l\n", i % 977, i % 613).as_bytes());
+        }
+        let zlib = |data: &[u8], level| {
+            let mut z = flate2::write::ZlibEncoder::new(Vec::new(), level);
+            z.write_all(data).unwrap();
+            z.finish().unwrap()
+        };
+        let read = |pdf: Vec<u8>, piece: usize| {
+            let doc = Pdf::new(pdf).expect("parses");
+            let page = doc.pages().first().expect("one page");
+            let mut content = page.content_reader();
+            let mut out = Vec::new();
+            while content.read_into(&mut out, piece) > 0 {}
+            out
+        };
+        let pieces = [1, 3, 64, 4096, 65_536, 1_000_000];
+
+        for level in [flate2::Compression::none(), flate2::Compression::best()] {
+            let pdf = one_page_pdf(&zlib(&plain, level), "/Filter /FlateDecode");
+            for piece in pieces {
+                assert!(read(pdf.clone(), piece) == plain, "piece {piece}");
+            }
+        }
+
+        // A `/Contents` array: Flate, then ASCIIHex (decoded whole), then Flate. As before, each
+        // stream is followed by a space.
+        let hex: String = plain[..100].iter().map(|b| format!("{b:02x}")).collect::<String>() + ">";
+        let first = zlib(&plain, flate2::Compression::default());
+        let last = zlib(&plain[..50], flate2::Compression::default());
+        let mut expected = plain.clone();
+        expected.push(b' ');
+        expected.extend_from_slice(&plain[..100]);
+        expected.push(b' ');
+        expected.extend_from_slice(&plain[..50]);
+        expected.push(b' ');
+        let mut pdf = b"%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 40 40] /Contents [4 0 R 5 0 R 6 0 R] >> endobj\n".to_vec();
+        pdf.extend_from_slice(format!("4 0 obj << /Filter /FlateDecode /Length {} >> stream\n", first.len()).as_bytes());
+        pdf.extend_from_slice(&first);
+        pdf.extend_from_slice(format!("\nendstream endobj\n5 0 obj << /Filter /ASCIIHexDecode /Length {} >> stream\n", hex.len()).as_bytes());
+        pdf.extend_from_slice(hex.as_bytes());
+        pdf.extend_from_slice(format!("\nendstream endobj\n6 0 obj << /Filter /FlateDecode /Length {} >> stream\n", last.len()).as_bytes());
+        pdf.extend_from_slice(&last);
+        pdf.extend_from_slice(b"\nendstream endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n");
+        for piece in pieces {
+            assert!(read(pdf.clone(), piece) == expected, "the array: piece {piece}");
         }
     }
 

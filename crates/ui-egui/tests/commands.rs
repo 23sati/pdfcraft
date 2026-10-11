@@ -155,6 +155,39 @@ fn disabled_commands_explain_themselves() {
 }
 
 #[test]
+fn a_tool_chosen_with_no_document_asks_for_one_and_runs_on_it() {
+    let dir = std::env::temp_dir().join(format!("pdfcraft-tool-open-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("picked.pdf");
+    std::fs::write(&path, fixture(2)).unwrap();
+    let pick = path.to_string_lossy().into_owned();
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.pick_override = Some(vec![pick]);
+        app
+    });
+    h.run_steps(2);
+    h.state_mut().run_command("export.text");
+    assert!(h.state().toast.as_ref().is_none_or(|t| t.0 != "Open a document first"));
+    h.run_steps(3);
+    assert!(h.state().active.is_some(), "the picked file is open");
+    assert!(matches!(h.state().dialog, Some(Dialog::Export(_))), "and the tool runs on it: {:?}", h.state().dialog);
+    // Cancelled: nothing opens and nothing runs.
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(|_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.pick_override = Some(Vec::new());
+        app
+    });
+    h.run_steps(2);
+    h.state_mut().run_command("export.text");
+    h.run_steps(3);
+    assert!(h.state().active.is_none() && h.state().dialog.is_none());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn shortcuts_run_registered_commands() {
     let mut h = harness();
     h.key_press_modifiers(Modifiers::COMMAND, Key::D);
@@ -309,6 +342,38 @@ fn the_shortcuts_dialog_lists_the_real_bindings() {
     h.get_by_label("⇧⌘S");
     h.get_by_label("⌘1");
     h.get_by_label("Zoom in / out (also pinch or ⌘-scroll)");
+}
+
+#[test]
+fn localized_shortcuts_update_immediately_and_keep_command_ids_and_key_bindings() {
+    let mut h = harness();
+    h.ctx.set_os(OperatingSystem::Windows);
+    h.state_mut().set_option("language", "de").unwrap();
+    h.state_mut().execute("help.shortcuts");
+    h.run_steps(3);
+    h.get_by_label("Strg+Umschalt+S");
+    h.state_mut().set_option("language", "en").unwrap();
+    h.run_steps(2);
+    h.get_by_label("Ctrl+Shift+S");
+    h.state_mut().set_option("language", "de").unwrap();
+    h.ctx.set_os(OperatingSystem::Mac);
+    h.run_steps(2);
+    h.get_by_label("⇧⌘S");
+    h.key_press(Key::Escape);
+    h.run_steps(2);
+    h.ctx.set_os(OperatingSystem::Windows);
+    h.key_press_modifiers(Modifiers::CTRL | Modifiers::COMMAND, Key::K);
+    h.run_steps(3);
+    assert!(h.state().palette_open, "the localized Strg+K display still binds Ctrl+K");
+    // Searching by the stable command id still works in a translated interface.
+    h.state_mut().set_option("palette", "view.read_mode").unwrap();
+    h.run_steps(2);
+    h.key_press(Key::Enter);
+    h.run_steps(3);
+    assert_eq!(h.state().mode, pdfcraft_ui_egui::Mode::Read);
+    assert!(!h.state().palette_open);
+    let doc = h.state().session.get(h.state().views[0].id).unwrap();
+    assert!(!doc.dirty);
 }
 
 /// Menu ▸ View open, with egui told the app runs on `os`.
