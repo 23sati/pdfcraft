@@ -53,11 +53,11 @@ $Csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path $Csc)) { $Csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe' }
 $Dll = Join-Path $App 'LinkcoPdfPreviewHandler.dll'
 & $Csc /nologo /target:library /optimize+ /platform:anycpu /codepage:65001 /warn:4 "/out:$Dll" `
-  /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll (Join-Path $PSScriptRoot 'PreviewHandler.cs') | Out-Null
+  /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll (Join-Path $PSScriptRoot 'PreviewHandler.cs') | ForEach-Object { Say "  csc: $_" }
 if ($LASTEXITCODE -ne 0) { throw 'PreviewHandler.cs did not compile' }
 $HostExe = Join-Path $Work 'PreviewHostTest.exe'
 & $Csc /nologo /target:exe /platform:x64 /codepage:65001 "/out:$HostExe" /r:System.Windows.Forms.dll /r:System.Drawing.dll `
-  (Join-Path $PSScriptRoot 'preview-host-test\PreviewHostTest.cs') | Out-Null
+  (Join-Path $PSScriptRoot 'preview-host-test\PreviewHostTest.cs') | ForEach-Object { Say "  csc: $_" }
 if ($LASTEXITCODE -ne 0) { throw 'PreviewHostTest.cs did not compile' }
 if ($Cli) { Copy-Item -LiteralPath (Resolve-Path $Cli).Path -Destination (Join-Path $App 'pdfcraft-cli.exe') }
 
