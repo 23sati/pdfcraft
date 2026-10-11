@@ -1149,3 +1149,18 @@ fn many_self_closing_elements_do_not_accumulate_into_the_bound() {
     xml.push_str("</subform></template>");
     assert!(crate::parse::parse(&xml).is_ok(), "two thousand self-closing draws are two levels deep, not two thousand");
 }
+
+/// The bound must hold on a worker thread too, whose default stack (2 MiB) is a quarter of the
+/// main thread's: a template exactly at the limit parses there without overflowing.
+#[test]
+fn template_at_the_depth_limit_parses_on_a_worker_thread() {
+    let depth = crate::MAX_XML_DEPTH - 1;
+    let mut xml = String::from(r#"<template xmlns="http://www.xfa.org/schema/xfa-template/3.3/">"#);
+    for i in 0..depth {
+        xml.push_str(&format!(r#"<subform name="s{i}">"#));
+    }
+    xml.push_str(&"</subform>".repeat(depth));
+    xml.push_str("</template>");
+    let parsed = std::thread::spawn(move || crate::parse::parse(&xml).is_ok()).join();
+    assert!(matches!(parsed, Ok(true)), "a template at the limit parses on a default-stack thread");
+}
