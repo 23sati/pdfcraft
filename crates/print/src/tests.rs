@@ -631,3 +631,30 @@ fn a_scaled_appearance_is_not_scaled_twice() {
     assert!(close(m.0[0], 2.0) && close(m.0[3], 2.0), "{:?}", m.0);
     assert!(close(m.0[4], 10.0) && close(m.0[5], 10.0), "{:?}", m.0);
 }
+
+#[test]
+fn architectural_sheets_preserve_full_scale() {
+    let index = matching_paper((2592.0, 1728.0)).unwrap();
+    assert_eq!(PAPERS[index].0, "ARCH D (24 x 36 in)");
+    assert_eq!(matching_paper((1728.0, 2592.0)), Some(index));
+    assert_eq!(matching_paper((f64::NAN, 2592.0)), None);
+    let s = Settings { pages: vec![0], paper: PAPERS[index].1, layout: Layout::Size(SizeMode::Actual), ..Settings::default() };
+    let sheets = layout(&[(2592.0, 1728.0)], &s).unwrap();
+    assert_eq!(sheets[0].size, (2592.0, 1728.0));
+    assert_eq!(sheets[0].placed[0].matrix.0, [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+    let fit = layout(&[(2592.0, 1728.0)], &Settings { layout: Layout::Size(SizeMode::Fit), ..s }).unwrap();
+    assert!(fit[0].placed[0].matrix.0[0] < 1.0, "Fit adds margins and must not masquerade as full scale");
+}
+
+#[test]
+fn paper_matching_accepts_rounded_metric_sizes_but_not_custom_or_invalid_sizes() {
+    for (i, (_, (w, h))) in PAPERS.iter().enumerate() {
+        assert_eq!(matching_paper((*w, *h)), Some(i));
+        assert_eq!(matching_paper((*h, *w)), Some(i));
+        assert_eq!(matching_paper((w.round(), h.round())), Some(i));
+        assert_eq!(matching_paper((w + 0.51, *h)), None);
+    }
+    for size in [(0.0, 0.0), (-1728.0, 2592.0), (f64::INFINITY, 2592.0), (1728.0, f64::NAN), (1000.0, 1000.0)] {
+        assert_eq!(matching_paper(size), None);
+    }
+}
