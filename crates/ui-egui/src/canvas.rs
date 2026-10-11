@@ -338,6 +338,10 @@ pub struct DocView {
     frame_visible: HashSet<usize>,
     /// Thumbnails that are out of date (still shown until their replacement arrives).
     stale_thumbs: HashSet<usize>,
+    /// Tiles that are out of date (still shown until their replacement arrives).
+    stale_tiles: HashSet<(usize, u64, u32, u32)>,
+    /// Scale tag of the current zoom level, as last drawn.
+    current_scale_tag: u64,
     /// Print dialog: the current sheet's pages at the preview pane's device resolution.
     print_pages: HashMap<usize, (u64, TextureHandle)>,
     /// Sharp tiles of large pages: (page, scale tag, tile x, tile y) → texture. Tiles of an
@@ -412,7 +416,7 @@ pub struct DocView {
     pub camera: Option<crate::camera_ui::CameraQuad>,
     /// Enhance ▸ Camera image: the page just enhanced, while the bar offers rotate, crop and
     /// organize.
-    pub camera_done: Option<usize>,
+    pub camera_done: Option<crate::camera_ui::CameraDone>,
     /// Use a certificate: a signature rectangle being drawn, or an empty signature field clicked.
     pub sign: crate::sign_ui::SignView,
     /// Organize: the pages being dragged to a new place.
@@ -494,6 +498,8 @@ pub enum ViewAction {
     CameraRotate {
         clockwise: bool,
     },
+    /// After Enhance page: enhance again at the slider's clean-up level.
+    CameraLevel,
     /// After Enhance page: leave the tool for this command (Crop pages, Organize pages).
     CameraNext(&'static str),
 }
@@ -572,6 +578,8 @@ impl DocView {
             frame_queue: Vec::new(),
             frame_visible: HashSet::new(),
             stale_thumbs: HashSet::new(),
+            stale_tiles: HashSet::new(),
+            current_scale_tag: 0,
             print_pages: HashMap::new(),
             tiles: HashMap::new(),
             texts: HashMap::new(),
@@ -751,6 +759,8 @@ impl DocView {
         // Pages may have moved: a sharp render of another page would be worse than a soft one.
         self.grid_pages.clear();
         self.tiles.clear();
+        self.stale_tiles.clear();
+        self.forms.unbaked.clear();
         self.texts.clear();
         self.text_failed.clear();
         self.errors.clear();
@@ -764,7 +774,7 @@ impl DocView {
     }
 
     /// Only `page` changed (a comment was added, edited or removed): re-render that page and
-    /// re-read its text, keep everything else.
+    /// re-read its text, keep everything else. Out-of-date tiles stay on screen until replacements arrive.
     pub fn page_changed(&mut self, page: usize) {
         if let Some(p) = self.pages.get_mut(&page) {
             p.tag = STALE_TAG;
@@ -775,7 +785,18 @@ impl DocView {
         if let Some(slot) = self.print_pages.get_mut(&page) {
             slot.0 = STALE_TAG;
         }
-        self.tiles.retain(|(p, _, _, _), _| *p != page);
+        let current_tag = if self.current_scale_tag != 0 {
+            self.current_scale_tag
+        } else {
+            self.tiles.keys().filter(|k| k.0 == page).map(|k| k.1).max().unwrap_or(0)
+        };
+        self.tiles.retain(|key, _| key.0 != page || key.1 == current_tag);
+        self.stale_tiles.retain(|key| key.0 != page || key.1 == current_tag);
+        for &key in self.tiles.keys() {
+            if key.0 == page && key.1 == current_tag {
+                self.stale_tiles.insert(key);
+            }
+        }
         self.texts.remove(&page);
         self.text_failed.remove(&page);
         self.errors.remove(&page);
@@ -1253,6 +1274,7 @@ impl DocView {
         self.grid_pages.clear();
         self.print_pages.clear();
         self.stale_thumbs.clear();
+        self.stale_tiles.clear();
         self.waiting_since.clear();
         // Signature previews own a separate renderer and image/background textures.
         self.signature_drag = Default::default();
@@ -1320,7 +1342,7 @@ impl DocView {
                 }
                 tile_bytes = tile_bytes.saturating_add(bytes);
                 tile_tags.insert(req.tag);
-                if !self.tiles.contains_key(&key) {
+                if !self.tiles.contains_key(&key) || self.stale_tiles.contains(&key) {
                     queue.push(*req);
                 }
             } else {
@@ -1351,6 +1373,7 @@ impl DocView {
         // Tiles of an earlier zoom (not a demanded scale) stay while the canvas keeps them, a
         // bounded few under a page whose current tiles are still missing (OLD_TILES).
         self.tiles.retain(|key, _| tiles.contains(key) || !tile_tags.contains(&key.1));
+        self.stale_tiles.retain(|key| self.tiles.contains_key(key));
         queue.extend(grid);
         // Opening (or turning to) a page queues its pixels alongside thumbnails and
         // text extraction. The workers would otherwise spend the first seconds on
@@ -1481,8 +1504,13 @@ impl DocView {
         // The length was checked above, so the renderer's buffer becomes the texture data as is.
         let img = texture_image([r.width as usize, r.height as usize], r.rgba);
         if let Some(t) = r.request.tile {
+            let key = (page, r.request.tag, t.x / TILE, t.y / TILE);
             let tex = ctx.load_texture(format!("tile-{:?}-{page}-{}-{}", self.id, t.x, t.y), img, TextureOptions::LINEAR);
-            self.tiles.insert((page, r.request.tag, t.x / TILE, t.y / TILE), tex);
+            self.tiles.insert(key, tex);
+            self.stale_tiles.remove(&key);
+            if !self.stale_tiles.iter().any(|k| k.0 == page) {
+                self.forms.unbaked.retain(|(_, p)| *p != page);
+            }
         } else if r.request.tag & PRINT_TAG != 0 {
             let tex = ctx.load_texture(format!("print-{:?}-{page}", self.id), img, TextureOptions::LINEAR);
             self.print_pages.insert(page, (r.request.tag, tex));
@@ -1498,6 +1526,9 @@ impl DocView {
             self.pages.insert(page, PageTex { tag: r.request.tag, tex });
             self.signature_drag.page_received(page);
             self.waiting_since.remove(&page);
+            if !self.stale_tiles.iter().any(|k| k.0 == page) {
+                self.forms.unbaked.retain(|(_, p)| *p != page);
+            }
         }
         bytes
     }
@@ -1926,6 +1957,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         Some(Notice::Reload) => {}
         Some(Notice::Repairs) => app.dialog = Some(crate::Dialog::Properties(crate::PropsTab::Advanced)),
         Some(Notice::Security) => app.dialog = Some(crate::Dialog::Properties(crate::PropsTab::Security)),
+        Some(Notice::Unlock) => app.unlock_prompt = Some(crate::UnlockPrompt::new(doc, None)),
         Some(Notice::Signatures) => app.right = Some(RightPanel::Signatures),
         Some(Notice::FieldHighlights(on)) => app.view_defaults.highlight_fields = on,
         None => {}
@@ -2110,6 +2142,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     let ppp = ui.ctx().pixels_per_point();
     let scale = view.render_scale(ppp);
     let tag = scale_tag(scale);
+    view.current_scale_tag = tag;
     let hand = app.quick_tool == QuickTool::Hand;
     let tool = app.quick_tool;
     // Text selection runs for the Select tool and for the markup tools (highlight…).
@@ -2133,6 +2166,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         | QuickTool::Snapshot => false,
     };
     let prefs = &app.comment_prefs;
+    let units = app.units;
     let allowed = doc.allows_annotation();
     let comments_hidden = doc.comments_hidden();
     let form = doc.form.clone();
@@ -2156,6 +2190,14 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     };
     let mut open_signature = false;
     let mut hover_text: Option<(Pos2, String)> = None;
+    // A dialog, save prompt or palette covers the page. Hover tips are drawn above those
+    // windows, so a comment under the pointer would otherwise float over the dialog.
+    let page_covered = app.dialog.is_some()
+        || app.close_request.is_some()
+        || app.palette_open
+        || app.password_prompt.is_some()
+        || app.pending_link.is_some()
+        || app.updates.open;
     let mut clicked_link: Option<LinkTarget> = None;
     let mut canvas_action: Option<comments::CanvasAction> = None;
     let mut field_menu: Option<FieldMenu> = None;
@@ -2358,7 +2400,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
             // Comments: tools, selection, moving and resizing come before text selection.
             let pcx = comments::PageCx { page: i, xf: &xf, info, tool, prefs, allowed, hidden: comments_hidden };
             if let QuickTool::Measure(measure_tool) = tool {
-                crate::measure_ui::page_input(ui, &resp, doc, view, &pcx, measure_tool);
+                crate::measure_ui::page_input(ui, &resp, doc, view, &pcx, measure_tool, units);
             }
 
             // Form fields take clicks first with the Select tool (as Acrobat fills fields in
@@ -2700,7 +2742,8 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                 }
             }
             // Fill & Sign keeps its placement cursor clear of link/comment hover feedback.
-            if !matches!(tool, QuickTool::Fill(_))
+            if !page_covered
+                && !matches!(tool, QuickTool::Fill(_))
                 && let Some(p) = pointer
             {
                 for l in info.links.iter().filter(|l| l.page == i) {
@@ -3243,6 +3286,8 @@ enum Notice {
     Repairs,
     /// Highlight fields was turned on or off.
     FieldHighlights(bool),
+    /// Unlock… (enter the permissions password).
+    Unlock,
 }
 
 /// The notice bar above the pages: the signature status first (Acrobat's signature bar), then
@@ -3292,6 +3337,7 @@ fn notices(
         return None;
     }
     let mut open_security = false;
+    let mut unlock = false;
     let mut open_repairs = false;
     let mut toggled = None;
     let msg = if secured {
@@ -3349,12 +3395,18 @@ fn notices(
         if secured && crate::widgets::pill_button(ui, tl!("Security settings"), false).clicked() {
             open_security = true;
         }
+        if secured && doc.can_unlock() && crate::widgets::pill_button(ui, tl!("Unlock…"), true).clicked() {
+            unlock = true;
+        }
         if repaired && !secured && info.fields.is_empty() && crate::widgets::pill_button(ui, tl!("Details"), false).clicked() {
             open_repairs = true;
         }
     });
     if open_repairs {
         return Some(Notice::Repairs);
+    }
+    if unlock {
+        return Some(Notice::Unlock);
     }
     open_security.then_some(Notice::Security).or(toggled)
 }
@@ -3436,12 +3488,14 @@ fn quick_bar(app: &mut PdfCraftApp, area: Rect, ui: &mut egui::Ui) {
                                         ui.painter().rect_filled(row, CornerRadius::same(4), t.hover);
                                     }
                                     icons::paint(ui, Rect::from_min_size(row.min + vec2(8.0, 6.0), vec2(16.0, 16.0)), tool.icon(), 16.0, t.text);
-                                    ui.painter().text(
+                                    let reserve = if on { 28.0 } else { 8.0 };
+                                    crate::widgets::paint_left(
+                                        ui,
                                         row.left_center() + vec2(34.0, 0.0),
-                                        Align2::LEFT_CENTER,
                                         tl!(tool.label()),
                                         theme::regular(13.0),
                                         t.text,
+                                        (row.width() - 34.0 - reserve).max(0.0),
                                     );
                                     if on {
                                         icons::paint(
@@ -3501,12 +3555,14 @@ fn quick_bar(app: &mut PdfCraftApp, area: Rect, ui: &mut egui::Ui) {
                                     ui.painter().rect_filled(row, CornerRadius::same(4), t.hover);
                                 }
                                 icons::paint(ui, Rect::from_min_size(row.min + vec2(8.0, 6.0), vec2(16.0, 16.0)), tool.icon(), 16.0, t.text);
-                                ui.painter().text(
+                                let reserve = if on { 28.0 } else { 8.0 };
+                                crate::widgets::paint_left(
+                                    ui,
                                     row.left_center() + vec2(34.0, 0.0),
-                                    Align2::LEFT_CENTER,
                                     tl!(tool.label()),
                                     theme::regular(13.0),
                                     t.text,
+                                    (row.width() - 34.0 - reserve).max(0.0),
                                 );
                                 if on {
                                     icons::paint(
@@ -3791,7 +3847,17 @@ fn organize_grid(view: &mut DocView, info: &DocInfo, editable: bool, dirty: bool
                     ui.painter().image(tex.id(), pr, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
                 }
                 ui.painter().rect_stroke(pr, CornerRadius::ZERO, Stroke::new(1.0, t.border), egui::StrokeKind::Outside);
-                ui.painter().text(pos2(c.center().x, c.bottom() - 48.0), Align2::CENTER_CENTER, &p.label, theme::medium(12.0), t.text_muted);
+                let label_font = theme::medium(12.0);
+                let label_w = (c.width() - 12.0).max(0.0);
+                let page_label = crate::widgets::fit_line(&p.label, label_w, |s| crate::widgets::text_width(ui, s, &label_font));
+                let label_pos = pos2(c.center().x, c.bottom() - 48.0);
+                ui.painter().with_clip_rect(Rect::from_center_size(label_pos, vec2(label_w, 18.0))).text(
+                    label_pos,
+                    Align2::CENTER_CENTER,
+                    page_label,
+                    label_font,
+                    t.text_muted,
+                );
                 // The checkbox toggles just this page without requiring a modifier. Keep it
                 // outside the page image, including on very tall or wide pages.
                 let mut checked = view.selected.contains(&i);

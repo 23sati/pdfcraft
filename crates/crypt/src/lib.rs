@@ -180,6 +180,18 @@ impl SecurityHandler {
         Ok(Self { dict, key, auth, recovered_user })
     }
 
+    /// Upgrade to owner access with the owner (permissions) password, as when a restricted
+    /// document is unlocked after opening. The user password, or any other, is `WrongPassword`.
+    /// Both passwords unlock the same file key, so what was decrypted so far stays valid; a
+    /// different key is refused too.
+    pub fn authenticate_owner(&self, id0: &[u8], password: &str) -> Result<Self, CryptError> {
+        let owner = Self::open(self.dict.clone(), id0, Some(password))?;
+        if owner.auth != Auth::Owner || owner.key != self.key {
+            return Err(CryptError::WrongPassword);
+        }
+        Ok(owner)
+    }
+
     pub fn auth(&self) -> Auth {
         self.auth
     }

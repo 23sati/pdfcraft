@@ -141,6 +141,8 @@
 	Portable mode is off: {folder} can't be written ({error}). Settings are kept in your user folder instead.	Přenosný režim je vypnutý: do složky {folder} nelze zapisovat ({error}). Nastavení se místo toho ukládá do vaší uživatelské složky.
 	PdfCraft is drawing without a graphics processor, so it may be slow. Updating the graphics driver may help.	PdfCraft vykresluje bez grafického procesoru, takže může být pomalý. Pomoci může aktualizace grafického ovladače.
 	Go to page…	Přejít na stránku…
+	Margins	Okraje
+	For page sizes and margins.	Pro velikosti stránek a okraje.
 	Open arrow	Otevřená šipka
 	Closed arrow	Uzavřená šipka
 	Butt	Tupý konec
@@ -2305,8 +2307,20 @@ scroll speed	Fast	Rychlá
 	Delete page {label}	Odstranit stránku {label}
 
 # Architectural print controls (follow-up to #599).
-	PDF page: {w} × {h} in	Stránka PDF: {w} × {h} palců
+	PDF page: {size}	Stránka PDF: {size}
 	Match page at 100%	Papír podle stránky, 100 %
 	PDF scale: {scale}%	Měřítko PDF: {scale} %
 	Printer paper and scaling may differ. Check driver settings.	Papír a měřítko tiskárny se mohou lišit. Zkontrolujte nastavení ovladače.
 	Drawing scale changes. Use Actual size for full-scale plans.	Měřítko výkresu se změní. Pro plány ve skutečném měřítku použijte volbu Skutečná velikost.
+
+# Permissions password and camera clean-up modes.
+	Enter permissions password…	Zadat heslo oprávnění…
+	Permissions password	Heslo oprávnění
+	“{name}” has security restrictions. Enter its permissions password to lift them.	Dokument „{name}“ má bezpečnostní omezení. Pro jejich zrušení zadejte heslo oprávnění.
+	This document has no restrictions to lift	Tento dokument nemá žádná omezení ke zrušení
+	Restrictions lifted	Omezení zrušena
+	Couldn't unlock {name}: {e}	Soubor {name} nelze odemknout: {e}
+	Clean-up	Vyčištění
+	Original	Originál
+	Greyscale	Stupně šedi
+	Black and white	Černobílé

@@ -35,6 +35,8 @@ pub enum Handling {
 #[derive(Clone, Debug, PartialEq)]
 pub struct PrintDraft {
     pub printers: Vec<spool::Printer>,
+    /// The unit the sheet size is shown in (Preferences).
+    pub units: crate::units::Unit,
     /// The printers are still being listed in the background (see [`PrinterSource`]).
     pub printers_loading: bool,
     /// The user chose the printer, so a list arriving late doesn't move it to the default.
@@ -82,6 +84,7 @@ impl Default for PrintDraft {
     fn default() -> Self {
         PrintDraft {
             printers: Vec::new(),
+            units: Default::default(),
             printers_loading: false,
             printer_picked: false,
             printer: None,
@@ -136,7 +139,9 @@ impl PrintDraft {
         } else {
             print::select_pages(count, range.as_deref(), labels, self.subset, self.reverse)
         }
-        .map_err(|e| e.to_string())?;
+        // What the person got wrong about what to print is said in their language: the engine hands
+        // the wording over whole and the page numbers apart from it.
+        .map_err(|e| e.said(&crate::i18n::words))?;
         let layout = match self.handling {
             Handling::Size => Layout::Size(match self.size {
                 SizeMode::Custom(_) => SizeMode::Custom(self.custom_scale),
@@ -223,6 +228,7 @@ impl PdfCraftApp {
             printers,
             printers_loading,
             printer_picked: false,
+            units: self.units,
             printer: default,
             current_page: current,
             sheet: 0,
@@ -619,7 +625,7 @@ pub(crate) fn body(
             }
             if let Some(&source) = sizes.get(d.current_page) {
                 ui.horizontal_wrapped(|ui| {
-                    ui.label(crate::i18n::fmt(tl!("PDF page: {w} × {h} in"), &[("w", &format!("{:.2}", source.0 / 72.0)), ("h", &format!("{:.2}", source.1 / 72.0))]));
+                    ui.label(crate::i18n::fmt(tl!("PDF page: {size}"), &[("size", &d.units.size(source.0, source.1))]));
                     let matched = print::matching_paper(source);
                     if ui.add_enabled(matched.is_some(), egui::Button::new(tl!("Match page at 100%"))).clicked()
                         && let Some(paper) = matched
@@ -640,7 +646,7 @@ pub(crate) fn body(
                 ui.radio_value(&mut d.which, Which::Range, tl!("Pages"));
                 let r = ui.add_enabled(
                     d.which == Which::Range,
-                    egui::TextEdit::singleline(&mut d.range).hint_text(format!("1-{}", sizes.len())).desired_width(110.0),
+                    crate::widgets::line(&mut d.range).hint_text(format!("1-{}", sizes.len())).desired_width(110.0),
                 );
                 if r.gained_focus() {
                     d.which = Which::Range;
@@ -664,7 +670,7 @@ pub(crate) fn body(
             });
             ui.add_space(6.0);
             widgets::section_title(ui, tl!("Page Sizing & Handling"));
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 for (h, label) in [
                     (Handling::Size, tl!("Size")),
                     (Handling::Poster, tl!("Poster")),
@@ -858,8 +864,7 @@ pub(crate) fn body(
                 }
             });
             if let Some(s) = sheets.get(d.sheet) {
-                let (w, h) = (s.size.0 / 72.0, s.size.1 / 72.0);
-                ui.label(egui::RichText::new(format!("{w:.2} × {h:.2} in")).small().color(t.text_muted));
+                ui.label(egui::RichText::new(d.units.size(s.size.0, s.size.1)).small().color(t.text_muted));
                 if d.handling == Handling::Size
                     && let Some(p) = s.placed.first()
                 {

@@ -221,7 +221,17 @@ impl Automation {
                         failed("the document's edges could not be found on this page: pass `corners` [x1, y1, x2, y2, x3, y3, x4, y4]")
                     })?,
                 };
-                self.session.enhance_camera_page(id, page, corners).map_err(failed)?;
+                let level = match a.opt_int("level")? {
+                    None => 0,
+                    Some(l @ 0..=100) => l as u8,
+                    Some(l) => return Err(ToolError::InvalidArgs(format!("level must be between 0 and 100, not {l}"))),
+                };
+                let look = match a.opt_str("mode")? {
+                    None => pdfcraft_engine::camera_clean::Look::Colour,
+                    Some(m) => pdfcraft_engine::camera_clean::Look::from_name(m)
+                        .ok_or_else(|| ToolError::InvalidArgs(format!("unknown mode {m:?} (original, colour, greyscale, bw)")))?,
+                };
+                self.session.enhance_camera_page_at(id, page, corners, look, level).map_err(failed)?;
                 let r = |v: f32| (v * 100.0).round() / 100.0;
                 let used: Vec<f32> = corners.iter().flat_map(|&[x, y]| info.user_to_view(x as f32, y as f32)).map(r).collect();
                 let mut out = summary(self.doc(&a)?);
@@ -246,12 +256,12 @@ impl Automation {
             "doc_split" => self.doc_split(&a)?,
             "edit_undo" => {
                 let id = self.doc(&a)?.id;
-                let label = self.session.undo(id).map_err(failed)?;
+                let label = self.session.undo(id).map_err(failed)?.to_string();
                 json!({ "undone": label, "document": summary(self.doc(&a)?) })
             }
             "edit_redo" => {
                 let id = self.doc(&a)?.id;
-                let label = self.session.redo(id).map_err(failed)?;
+                let label = self.session.redo(id).map_err(failed)?.to_string();
                 json!({ "redone": label, "document": summary(self.doc(&a)?) })
             }
             "command_list" => self.command_list(&a)?,
