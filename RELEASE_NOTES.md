@@ -57,7 +57,14 @@ v1.0.0 is the first final release of Linkco PDF Editor. It contains everything f
 - **Diagnostics:** `preview.log` (in `%USERPROFILE%\AppData\LocalLow\LinkcoPdfPreview`) now records each step with timings: stream copy, pane size, each render's result. `Diagnose()` (and `test-windows-integration.ps1`) now also:
   - starts the engine as the preview does, and reports whether it ran and how long it took;
   - says whether the preview host runs at low or normal integrity;
-  - shows the last 15 log lines.
+  - shows the last 15 log lines;
+  - says which registration Windows actually uses (per-user or machine-wide), and whether its DLL exists or is blocked;
+  - creates the handler through COM as Explorer does, and reports the exact error if that fails;
+  - lists recent preview-host crashes from the Windows Application log.
+- **New script, `packaging\windows\diagnose-preview.ps1`:** finds the registered DLL itself and prints all of the above. Add `-Pdf <file>` to check one file as well.
+- **No more "error in the Linkco PDF Preview Handler" from our own code:**
+  - an exception in the pane's message handling, timers or render delivery is logged and shown as a message in the pane. Before, it could reach WinForms and end the Windows preview host, which Explorer reports as that error;
+  - an exception that does end the host is now written to `preview.log` with its stack trace.
 
 ### 4. About and version
 - **Help ▸ About** now credits the developer: "Developer: Muhammad Bilal (Linkco)", in all interface languages.

@@ -1377,6 +1377,30 @@ namespace LinkcoPdfPreview
         {
             Write("ERROR " + where + ": " + (ex == null ? "(null)" : ex.GetType().Name + ": " + ex.Message));
         }
+
+        private static int _crashLoggerInstalled;
+
+        /// <summary>
+        /// Records an exception that is about to end the host process (prevhost.exe / dllhost.exe),
+        /// with its stack, so "an error in the Linkco PDF Preview Handler" can be traced. Logging only.
+        /// </summary>
+        public static void InstallCrashLogger()
+        {
+            if (Interlocked.Exchange(ref _crashLoggerInstalled, 1) != 0)
+                return;
+            try
+            {
+                AppDomain.CurrentDomain.UnhandledException += delegate(object sender, UnhandledExceptionEventArgs e)
+                {
+                    Exception ex = e.ExceptionObject as Exception;
+                    string text = ex == null ? Convert.ToString(e.ExceptionObject, CultureInfo.InvariantCulture) : ex.ToString();
+                    if (text != null && text.Length > 4000)
+                        text = text.Substring(0, 4000);
+                    Write("FATAL unhandled exception in " + Process.GetCurrentProcess().ProcessName + " (terminating=" + e.IsTerminating + "): " + text);
+                };
+            }
+            catch { }
+        }
     }
 
     [ComVisible(true)]
@@ -1464,6 +1488,7 @@ namespace LinkcoPdfPreview
 
         public LinkcoPdfPreviewHandler()
         {
+            PreviewLog.InstallCrashLogger();
             PreviewEnvironment.SweepStaleFilesOnce();
         }
 
@@ -1963,6 +1988,9 @@ namespace LinkcoPdfPreview
                 }
             }
 
+            sb.AppendLine("  Effective COM server:  " + DescribeEffectiveServer(ClsidBraced));
+            sb.AppendLine("  COM activation test:   " + ActivationTest(ClsidString));
+
             // Explorer only honours DisableLowILProcessIsolation from HKLM: a per-user registration
             // runs in the low-integrity preview host (which this handler supports; it is slower to start).
             object lowIl = null;
@@ -1983,7 +2011,168 @@ namespace LinkcoPdfPreview
             sb.AppendLine("  Preview log:           " + log);
             foreach (string line in TailLines(log, 15))
                 sb.AppendLine("    " + line);
+
+            sb.AppendLine("  Recent crashes (Windows Application log, last 3 days):");
+            foreach (string line in RecentHostCrashes(3, 4))
+                sb.AppendLine("    " + line);
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// Which registration COM actually uses for <paramref name="clsidBraced"/> (HKCU overrides HKLM),
+        /// whether its DLL exists, and the DLL's assembly version.
+        /// </summary>
+        internal static string DescribeEffectiveServer(string clsidBraced)
+        {
+            foreach (RegistryHive hive in new RegistryHive[] { RegistryHive.CurrentUser, RegistryHive.LocalMachine })
+            {
+                try
+                {
+                    using (RegistryKey root = PreviewEnvironment.OpenHive(hive))
+                    using (RegistryKey inproc = root.OpenSubKey(@"Software\Classes\CLSID\" + clsidBraced + @"\InprocServer32", false))
+                    {
+                        if (inproc == null)
+                            continue;
+                        string label = hive == RegistryHive.CurrentUser ? "HKCU" : "HKLM";
+                        string codeBase = inproc.GetValue("CodeBase") as string;
+                        string assembly = inproc.GetValue("Assembly") as string;
+                        string path = CodeBaseToPath(codeBase);
+                        if (path == null)
+                            return label + ", CodeBase missing or unreadable (" + (codeBase ?? "null") + ")  [BROKEN: re-register]";
+                        if (!File.Exists(path))
+                            return label + ", " + path + "  [BROKEN: the DLL does not exist; start Linkco PDF Editor once or reinstall]";
+                        string version = "?";
+                        try { version = AssemblyName.GetAssemblyName(path).Version.ToString(); } catch (Exception ex) { version = "unreadable: " + ex.Message; }
+                        bool marked = File.Exists(path + ":Zone.Identifier");
+                        return label + ", " + path + " (assembly " + version + ", registered as " + (assembly ?? "?") + ")" +
+                            (marked ? "  [BLOCKED: downloaded-file mark; run Unblock-File on it]" : "");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    return "unreadable (" + ex.Message + ")";
+                }
+            }
+            return "(not registered)";
+        }
+
+        private static string CodeBaseToPath(string codeBase)
+        {
+            if (string.IsNullOrEmpty(codeBase))
+                return null;
+            try
+            {
+                if (codeBase.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+                {
+                    string p = codeBase.Substring(5).TrimStart('/');
+                    if (p.Length >= 2 && p[1] == ':')
+                        return Uri.UnescapeDataString(p).Replace('/', '\\');
+                    return new Uri(codeBase).LocalPath;
+                }
+                return codeBase;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Creates the handler through COM, as Explorer's preview host does, so a registration or
+        /// assembly-load problem shows up as a concrete error instead of Explorer's generic
+        /// "This file can't be previewed because of an error in the Linkco PDF Preview Handler".
+        /// </summary>
+        internal static string ActivationTest(string clsid)
+        {
+            object instance = null;
+            try
+            {
+                Type t = Type.GetTypeFromCLSID(new Guid(clsid), true);
+                instance = Activator.CreateInstance(t);
+                if (instance == null)
+                    return "FAILED (COM returned no object)";
+                // Ask by IID: when called from PowerShell the object comes from the COM-loaded copy of this
+                // DLL, whose IPreviewHandler is a different .NET type from the caller's.
+                bool previewer = false;
+                IntPtr unknown = Marshal.GetIUnknownForObject(instance);
+                try
+                {
+                    Guid iid = typeof(IPreviewHandler).GUID;
+                    IntPtr ppv;
+                    previewer = Marshal.QueryInterface(unknown, ref iid, out ppv) == 0;
+                    if (ppv != IntPtr.Zero)
+                        Marshal.Release(ppv);
+                }
+                finally
+                {
+                    Marshal.Release(unknown);
+                }
+                string from = "";
+                try { from = instance.GetType().Assembly.Location; } catch { }
+                return previewer
+                    ? "OK" + (from.Length > 0 ? " (" + from + ")" : "")
+                    : "FAILED (the object does not implement IPreviewHandler)";
+            }
+            catch (Exception ex)
+            {
+                Exception inner = ex is TargetInvocationException && ex.InnerException != null ? ex.InnerException : ex;
+                return "FAILED (0x" + Marshal.GetHRForException(inner).ToString("X8", CultureInfo.InvariantCulture) + " " +
+                    inner.GetType().Name + ": " + inner.Message + ")";
+            }
+            finally
+            {
+                if (instance != null && Marshal.IsComObject(instance))
+                {
+                    try { Marshal.ReleaseComObject(instance); } catch { }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Application-log errors from the last <paramref name="days"/> days that mention the preview
+        /// host, this DLL or the engine (Application Error, .NET Runtime, Windows Error Reporting).
+        /// </summary>
+        internal static List<string> RecentHostCrashes(int days, int max)
+        {
+            List<string> found = new List<string>();
+            try
+            {
+                DateTime since = DateTime.Now.AddDays(-days);
+                using (EventLog log = new EventLog("Application"))
+                {
+                    EventLogEntryCollection entries = log.Entries;
+                    int scanned = 0;
+                    for (int i = entries.Count - 1; i >= 0 && scanned < 5000 && found.Count < max; i--, scanned++)
+                    {
+                        EventLogEntry entry = entries[i];
+                        if (entry.TimeGenerated < since)
+                            break;
+                        if (entry.EntryType != EventLogEntryType.Error)
+                            continue;
+                        string source = entry.Source ?? "";
+                        if (source != "Application Error" && source != ".NET Runtime" && source != "Windows Error Reporting" && source != "Application Hang")
+                            continue;
+                        string message = entry.Message ?? "";
+                        if (message.IndexOf("prevhost", StringComparison.OrdinalIgnoreCase) < 0 &&
+                            message.IndexOf("LinkcoPdfPreview", StringComparison.OrdinalIgnoreCase) < 0 &&
+                            message.IndexOf("pdfcraft-cli", StringComparison.OrdinalIgnoreCase) < 0)
+                            continue;
+                        string flat = message.Replace("\r", " ").Replace("\n", " ");
+                        while (flat.Contains("  "))
+                            flat = flat.Replace("  ", " ");
+                        if (flat.Length > 900)
+                            flat = flat.Substring(0, 900) + "\u2026";
+                        found.Add(entry.TimeGenerated.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture) + " " + source + ": " + flat);
+                    }
+                }
+                if (found.Count == 0)
+                    found.Add("(none)");
+            }
+            catch (Exception ex)
+            {
+                found.Add("(Application log unreadable: " + ex.Message + ")");
+            }
+            return found;
         }
 
         /// <summary>Starts pdfcraft-cli.exe exactly as the preview pane does and reports how it went.</summary>
@@ -3245,6 +3434,7 @@ namespace LinkcoPdfPreview
 
         public LinkcoPdfThumbnailProvider()
         {
+            PreviewLog.InstallCrashLogger();
             PreviewEnvironment.SweepStaleFilesOnce();
         }
 
@@ -3828,11 +4018,35 @@ namespace LinkcoPdfPreview
                 r = _completed;
                 _completed = null;
             }
-            if (r != null)
+            if (r == null)
+                return;
+            try
+            {
                 OnRenderComplete(r);
+            }
+            catch (Exception ex)
+            {
+                // An exception here would reach WinForms' thread-exception handler, which in the preview
+                // host means an error dialog or a dead host ("an error in the Linkco PDF Preview Handler").
+                PreviewLog.Error("OnRenderComplete", ex);
+                r.DisposeBitmap();
+                try { ShowMessage("This PDF document could not be previewed.", true); } catch { }
+            }
         }
 
         private void OnWatchdogTick(object sender, EventArgs e)
+        {
+            try
+            {
+                WatchdogTick();
+            }
+            catch (Exception ex)
+            {
+                PreviewLog.Error("Watchdog", ex);
+            }
+        }
+
+        private void WatchdogTick()
         {
             if (IsDisposed)
                 return;
@@ -4229,12 +4443,19 @@ namespace LinkcoPdfPreview
 
         private void OnRerenderTimer(object sender, EventArgs e)
         {
-            _rerenderTimer.Stop();
-            if (IsDisposed || _loading || string.IsNullOrEmpty(_pdfPath) || _totalPages <= 0)
-                return;
-            CachedPage c = CurrentRaster;
-            if (c != null && ComputeRequestWidth() > c.RequestedWidth)
-                RequestRender(_currentPage);
+            try
+            {
+                _rerenderTimer.Stop();
+                if (IsDisposed || _loading || string.IsNullOrEmpty(_pdfPath) || _totalPages <= 0)
+                    return;
+                CachedPage c = CurrentRaster;
+                if (c != null && ComputeRequestWidth() > c.RequestedWidth)
+                    RequestRender(_currentPage);
+            }
+            catch (Exception ex)
+            {
+                PreviewLog.Error("OnRerenderTimer", ex);
+            }
         }
 
         // ------------------------------------------------------------------ layout
@@ -4623,14 +4844,23 @@ namespace LinkcoPdfPreview
 
         protected override void WndProc(ref Message m)
         {
-            if (m.Msg == NativeMethods.WM_DPICHANGED_AFTERPARENT)
+            // Mouse, keyboard, size and paint handlers all run from here. An exception must never escape
+            // into the preview host's message loop (WinForms would show a dialog or end prevhost.exe).
+            try
             {
-                RefreshDpi();
-                ClampScroll();
-                Invalidate();
-                ScheduleSharperRaster();
+                if (m.Msg == NativeMethods.WM_DPICHANGED_AFTERPARENT)
+                {
+                    RefreshDpi();
+                    ClampScroll();
+                    Invalidate();
+                    ScheduleSharperRaster();
+                }
+                base.WndProc(ref m);
             }
-            base.WndProc(ref m);
+            catch (Exception ex)
+            {
+                PreviewLog.Error("WndProc 0x" + m.Msg.ToString("X4", CultureInfo.InvariantCulture), ex);
+            }
         }
 
         // ------------------------------------------------------------------ painting
