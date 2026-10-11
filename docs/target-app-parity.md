@@ -1,6 +1,6 @@
 # PdfCraft parity with Adobe Acrobat Pro
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** minor (gap 12 gains the first generated-fixture Poppler render comparison; readiness and hours unchanged; earlier: closed issues synced and feature breadth and readiness estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** minor (gap 12 gains a render oracle against Poppler and MuPDF; readiness and hours unchanged; earlier: closed issues synced and feature breadth and readiness estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
 The authoritative assessment of how close PdfCraft is to Acrobat Pro. [ROADMAP.md](../ROADMAP.md)
 summarizes it; [gaps.md](gaps.md) lists every shortfall one by one; the deep-dive checklists are
@@ -69,9 +69,10 @@ never been measured side by side with Acrobat, and the first public releases (0.
   2026-10-10); release packaging (`.github/workflows/release.yml`); and knowledge of Acrobat Pro's
   feature set from Adobe's public documentation.
 - **Not measured, and the largest uncertainty:** no side-by-side comparison of rendering, text
-  extraction or form behaviour against Acrobat exists yet. The first generated-fixture render
-  comparison against Poppler is available through `cargo xtask render-oracle`; it reports pixel
-  deltas without an acceptance threshold. Every "ready" figure below is an estimate.
+  extraction or form behaviour against Acrobat exists yet. `cargo xtask render-oracle` compares
+  ten generated pages with Poppler and MuPDF and fails pages past limits set from the current
+  renderer, so it guards against regressions but measures no Acrobat parity. Every "ready" figure
+  below is an estimate.
 
 ### Weights
 
@@ -293,7 +294,7 @@ licensed OCR or AI model.
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-11 | minor | Added the first generated-fixture rendering comparison against Poppler. It is diagnostic only; Acrobat captures and broader fidelity coverage remain open. Readiness estimates unchanged |
+| 2026-10-11 | minor | Added the render oracle (ten generated pages against Poppler and MuPDF, per-page limits). It catches rendering regressions; Acrobat captures remain open. Readiness estimates unchanged |
 | 2026-10-11 | minor | Synced with closed issues: encrypted output opens in Acrobat (#774, #836), Windows prints (#756, #847), column select (#740), 1:1 touchpad scrolling (#759), same-page multi-object move (#844), #825 and the #799–#821 fix batch. Text only: scores, readiness and hours not re-judged |
 | 2026-10-10 | minor | Readiness table: hours to ≈ 95% per audience (full 780–1,400, mainstream 500–900, essentials 180–330). Full number restated as the standard's additive weighted sum over dimensions with written weights: 47% → 49%. Method aligned with the standard, no new evidence |
 | 2026-10-10 | minor | Added the essentials-user score (≈ 66%): weighted depth of 13 everyday features, discounted for launch, discoverability and opening others' files |
