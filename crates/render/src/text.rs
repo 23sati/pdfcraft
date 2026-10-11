@@ -849,8 +849,11 @@ fn arrange(glyphs: &[TextGlyph]) -> (Vec<usize>, Vec<u32>, Vec<bool>) {
                 let cjk = pt.chars().any(is_cjk) && ct.chars().any(is_cjk) && gap < s.h * 0.5;
                 let tight_cluster = (pt.chars().any(is_complex) || ct.chars().any(is_complex)) && gap < s.h * 0.6;
                 if gap > threshold && !cjk && !tight_cluster && !pt.trim().is_empty() && !ct.trim().is_empty() {
-                    // Mark the space before glyph `c` wherever it ended up after RTL reversal.
-                    if let Some(pos) = idx.iter().position(|x| *x == c.max(p)) {
+                    // Mark the space before glyph `c` wherever it ended up after RTL reversal. Left-to-right
+                    // glyphs are already in x order, so a run drawn after its right-hand neighbour must not
+                    // be picked by content index.
+                    let marked = if pt.chars().any(is_rtl) || ct.chars().any(is_rtl) { c.max(p) } else { c };
+                    if let Some(pos) = idx.iter().position(|x| *x == marked) {
                         spaces[pos] = true;
                     }
                 }
@@ -1137,6 +1140,15 @@ mod tests {
         word(&mut v, "Right2", 200.0, 24.0, 6.0);
         let t = layout(v);
         assert_eq!(t.plain_text(), "Left1\nLeft2\nRight1\nRight2");
+    }
+
+    #[test]
+    fn runs_drawn_right_to_left_keep_their_own_glyphs_and_the_space_between() {
+        let mut v = Vec::new();
+        // The right-hand run is drawn first, as in a chart whose data labels precede the axis labels.
+        word(&mut v, "19.4", 50.0, 10.0, 6.0);
+        word(&mut v, "20.0", 20.0, 10.0, 6.0);
+        assert_eq!(layout(v).plain_text(), "20.0 19.4");
     }
 
     #[test]
