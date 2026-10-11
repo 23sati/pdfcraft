@@ -88,7 +88,7 @@
 	Convert	Konvertieren
 	E-Sign	E-Signatur
 	Print ({key})	Drucken ({key})
-	Save (M4)	Speichern (M4)
+	Save ({key})	Speichern ({key})
 	Document properties ({key})	Dokumenteigenschaften ({key})
 	Find tools and commands	Tools und Befehle suchen
 	Fit to height	Seitenhöhe
@@ -2201,3 +2201,6 @@ key	Space	Leertaste
 	Resize panel window	Größe des Bereichsfensters ändern
 	Tools	Werkzeuge
 	Inspector	Inspektor
+	Enhance camera image	Kamerafoto verbessern
+	Drag the corners onto the document's edges, then choose Enhance page.	Ziehen Sie die Ecken auf die Kanten des Dokuments und wählen Sie dann Seite verbessern.
+	Enhance page	Seite verbessern

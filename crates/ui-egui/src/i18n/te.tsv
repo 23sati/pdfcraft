@@ -92,7 +92,7 @@ comment menu	Edit	సవరించు
 	Convert	మార్పిడి
 	E-Sign	ఇ-సంతకం
 	Print ({key})	ముద్రించు ({key})
-	Save (M4)	సేవ్ చేయి (M4)
+	Save ({key})	సేవ్ చేయి ({key})
 	Document properties ({key})	పత్ర లక్షణాలు ({key})
 	Find tools and commands	సాధనాలను, కమాండ్‌లను కనుగొను
 	Fit to height	ఎత్తుకు సరిపోయేలా
@@ -2130,3 +2130,6 @@ key	Space	స్పేస్
 	Resize panel window	ప్యానెల్ విండో పరిమాణం మార్చు
 	Tools	సాధనాలు
 	Inspector	పరిశీలకుడు
+	Enhance camera image	కెమెరా చిత్రాన్ని మెరుగుపరచు
+	Drag the corners onto the document's edges, then choose Enhance page.	మూలలను పత్రం అంచుల వరకు లాగి, ఆపై పేజీని మెరుగుపరచు ఎంచుకోండి.
+	Enhance page	పేజీని మెరుగుపరచు

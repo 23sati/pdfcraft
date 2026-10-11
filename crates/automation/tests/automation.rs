@@ -1664,6 +1664,62 @@ fn editing_page_images_through_tools() {
 }
 
 #[test]
+fn enhance_camera_image_through_tools() {
+    let dir = workdir("enhance-camera");
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    ok(&mut a, "doc_export_images", json!({ "doc": doc, "folder": "src", "dpi": 72, "pages": [1] }));
+    let photo = ok(&mut a, "doc_create", json!({ "from": "images", "paths": ["src/a_page_1.png"] }))["doc"].as_u64().unwrap();
+    // A 200 × 300 pt page at one pixel per point; the corners, in any order, keep a 160 × 240 part.
+    let r = ok(&mut a, "page_enhance_camera", json!({ "doc": photo, "page": 1, "corners": [180, 270, 20, 30, 20, 270, 180, 30] }));
+    assert_eq!(r["undo"], "Enhance camera image");
+    assert_eq!(r["pages"], 1);
+    let images = ok(&mut a, "page_images", json!({ "doc": photo, "page": 1 }));
+    assert_eq!(images["count"], 1);
+    assert_eq!(images["images"][0]["pixels"], json!([160, 240]));
+    assert_eq!(images["images"][0]["rect"], json!([0.0, 0.0, 160.0, 240.0]));
+    for bad in [json!([0, 0, 10, 10, 20, 20, 30, 30]), json!([0, 0, 10]), json!("corners")] {
+        let e = a.call("page_enhance_camera", &json!({ "doc": photo, "page": 1, "corners": bad }));
+        assert!(matches!(e, Err(ToolError::InvalidArgs(_) | ToolError::Failed(_))), "{bad}: {e:?}");
+    }
+    // Without corners on a page with no photo, the edges can't be found: an error that says so.
+    let e = a.call("page_enhance_camera", &json!({ "doc": photo, "page": 1 }));
+    assert!(matches!(&e, Err(ToolError::Failed(m)) if m.contains("corners")), "{e:?}");
+    assert!(matches!(
+        a.call("page_enhance_camera", &json!({ "doc": photo, "page": 9, "corners": [0, 0, 9, 0, 9, 9, 0, 9] })),
+        Err(ToolError::InvalidArgs(_))
+    ));
+}
+
+#[test]
+fn enhance_camera_image_finds_the_edges_by_itself() {
+    let dir = workdir("enhance-camera-auto");
+    // A 600 × 450 photo: a white sheet, tilted, on a dark table.
+    let sheet = [[90.0, 60.0], [500.0, 30.0], [525.0, 405.0], [60.0, 375.0]];
+    let inside = |x: f64, y: f64| {
+        (0..4).all(|i| {
+            let (a, b): ([f64; 2], [f64; 2]) = (sheet[i], sheet[(i + 1) % 4]);
+            (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]) >= 0.0
+        })
+    };
+    let img = image::RgbImage::from_fn(600, 450, |x, y| {
+        if inside(x as f64 + 0.5, y as f64 + 0.5) { image::Rgb([240, 238, 232]) } else { image::Rgb([70, 60, 50]) }
+    });
+    img.save(dir.join("photo.jpg")).unwrap();
+    let mut a = auto(&dir);
+    let photo = ok(&mut a, "doc_create", json!({ "from": "images", "paths": ["photo.jpg"] }))["doc"].as_u64().unwrap();
+    let r = ok(&mut a, "page_enhance_camera", json!({ "doc": photo, "page": 1 }));
+    assert_eq!(r["detected"], true);
+    assert_eq!(r["undo"], "Enhance camera image");
+    // One point per pixel: the corners it used are the sheet's.
+    let used: Vec<f64> = r["corners"].as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect();
+    for (k, p) in sheet.iter().enumerate() {
+        let (x, y) = (used[2 * k], used[2 * k + 1]);
+        assert!((x - p[0]).hypot(y - p[1]) < 4.0, "{used:?} vs {sheet:?}");
+    }
+}
+
+#[test]
 fn editing_form_artwork_through_tools() {
     use pdfcraft_cos::{Dict, Document, Object, SaveOptions, Stream, write_incremental};
     let dir = workdir("form-artwork");
