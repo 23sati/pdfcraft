@@ -363,6 +363,13 @@ if ($IsAdmin) {
         Say "  --- $($part[1]) ---"
         if (Test-Path $f) { foreach ($l in ((Get-Content -LiteralPath $f) | Where-Object { "$_".Trim() } | Select-Object -Last 40)) { Say "    $l" } } else { Say "    (missing)" }
       }
+      # Gate: the realistic per-user scenario must work end to end.
+      $localOut = if (Test-Path "$U\local.txt") { Get-Content "$U\local.txt" -Raw } else { '' }
+      $problems = @()
+      if ($localOut -notmatch 'RESULT: every call succeeded') { $problems += 'a preview handler call failed' }
+      if ($localOut -notmatch 'handler window thread: answers messages') { $problems += 'the pane window does not answer messages (it cannot paint)' }
+      if ($Cli -and $localOut -notmatch 'PrintWindow\): [^\r\n]*?([1-9][0-9]?|100)\.[0-9]% white') { $problems += 'no rendered page was painted' }
+      if ($problems.Count -gt 0) { $script:GateFailed = $true; Say "  GATE FAILED: $($problems -join '; ')" } else { Say "  GATE OK: per-user registration previews like File Explorer" }
       Show-FusionLog
     }
     try { Unregister-ScheduledTask -TaskName 'LinkcoPreviewTest-U' -Confirm:$false -ErrorAction SilentlyContinue } catch { }
@@ -393,3 +400,4 @@ if ($IsAdmin) {
 }
 [IO.File]::WriteAllLines($Report, $lines)
 Write-Output "Report: $Report"
+if ($script:GateFailed) { exit 1 }
