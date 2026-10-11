@@ -238,6 +238,19 @@ impl PdfCraftApp {
             _ => false,
         };
         if self.apply_edit(edit) {
+            // Tab can wrap to the same field (including another widget of that field).
+            // Its new editor was opened before this edit ran, so it still holds the old
+            // value. Refresh from the accepted form before Save can commit that stale draft.
+            if typed
+                && let Some(view) = self.views.get_mut(i)
+                && let Some(focus) = view.forms.focus.as_mut()
+                && focus.request_focus
+                && committed.as_ref().is_some_and(|draft| draft.name == focus.name)
+                && let Some(field) = self.session.get(view.id).and_then(|doc| doc.form.iter().find(|field| field.name == focus.name))
+            {
+                focus.text = field.value.first().cloned().unwrap_or_default();
+                focus.picked = field.value.clone();
+            }
             if let Some(page) = signature_page
                 && let Some(view) = self.views.get_mut(i)
             {
