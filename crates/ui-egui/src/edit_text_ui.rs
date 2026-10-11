@@ -469,8 +469,7 @@ pub(crate) fn page_input(
                 // edge) moves the paragraph with it.
                 let width = (l.rect[2] - l.rect[0]) + (to[2] - to[0]) - (from[2] - from[0]);
                 let shift = to[0] - from[0];
-                let style =
-                    pdfcraft_engine::BlockStyle { width: Some(width), offset: (shift != 0.0).then_some([shift, 0.0]), ..Default::default() };
+                let style = pdfcraft_engine::BlockStyle { width: Some(width), offset: (shift != 0.0).then_some([shift, 0.0]), ..Default::default() };
                 Edit::EditTextBlock { page, block: d.block, text: l.text.clone(), style }
             } else {
                 // Translation must keep the selected source operators. Rewriting unchanged text

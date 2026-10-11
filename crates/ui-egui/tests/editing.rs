@@ -2109,9 +2109,8 @@ fn paragraph_drag_shot(h: &mut Harness<'static, PdfCraftApp>, name: &str) {
 
 fn check_paragraph_overlap_drag(identical: bool, reopen_between: bool) {
     let (stationary, moving) = if identical { ("Repeated", "Repeated") } else { ("Stationary beta", "Moving alpha") };
-    let content = format!(
-        "BT /F1 12 Tf 60 220 Td ({stationary}) Tj ET BT /F1 12 Tf 250 100 Td (Keep here) Tj ET BT /F1 12 Tf 60 320 Td ({moving}) Tj ET"
-    );
+    let content =
+        format!("BT /F1 12 Tf 60 220 Td ({stationary}) Tj ET BT /F1 12 Tf 250 100 Td (Keep here) Tj ET BT /F1 12 Tf 60 320 Td ({moving}) Tj ET");
     let mut saved_base = paragraph_drag_fixture(&content, 0, 1);
     let mut h = paragraph_drag_harness(saved_base.clone(), 0);
     let before = dragged_paragraphs(&h);
@@ -2214,10 +2213,8 @@ fn ordinary_paragraph_drags_preserve_partial_overlap_and_touching_labels() {
 
 #[test]
 fn ordinary_paragraph_drags_preserve_multiline_kerning_strings() {
-    let content = concat!(
-        "BT /F1 12 Tf 60 220 Td (Keep here) Tj ET ",
-        "BT /F1 12 Tf 14 TL 60 320 Td [(First) -120 ( line)] TJ T* (Second line) Tj ET"
-    );
+    let content =
+        concat!("BT /F1 12 Tf 60 220 Td (Keep here) Tj ET ", "BT /F1 12 Tf 14 TL 60 320 Td [(First) -120 ( line)] TJ T* (Second line) Tj ET");
     let mut h = paragraph_drag_harness(paragraph_drag_fixture(content, 0, 1), 0);
     let mut expected = dragged_paragraphs(&h);
     assert_eq!(expected.len(), 2);
