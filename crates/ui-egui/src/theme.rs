@@ -266,7 +266,9 @@ pub fn apply(ctx: &egui::Context, kind: ThemeKind) {
     v.widgets.noninteractive.bg_stroke = Stroke::new(1.0, t.divider);
     v.widgets.inactive.weak_bg_fill = Color32::TRANSPARENT;
     v.widgets.inactive.bg_fill = t.field;
-    v.widgets.inactive.bg_stroke = Stroke::NONE;
+    // The edge of a text field, checkbox and radio button (egui draws it from this stroke) is
+    // visible at 3:1 (WCAG 1.4.11); transparent buttons have no fill and no frame, so they stay quiet.
+    v.widgets.inactive.bg_stroke = Stroke::new(1.0, t.field_border);
     v.widgets.hovered.weak_bg_fill = t.hover;
     v.widgets.hovered.bg_fill = t.hover;
     v.widgets.hovered.bg_stroke = Stroke::NONE;
