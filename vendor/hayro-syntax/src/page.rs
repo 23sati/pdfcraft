@@ -270,35 +270,47 @@ impl<'a> ContentReader<'a> {
     fn new(streams: Vec<Stream<'a>>, separated: bool, cap: usize) -> Self {
         let mut counted = BTreeSet::new();
         let mut compressed = 0_usize;
-        for stream in &streams {
-            if counted.insert(stream.obj_id()) {
-                compressed = compressed.saturating_add(stream.raw_data().len());
-            }
-        }
-        let budget = cap.max(MAX_CONTENT_EXPANSION.saturating_mul(compressed));
-
         let mut pieces = VecDeque::new();
         let mut materialized = 0_usize;
         // The bytes that the streams decoded whole take up, separators included, as `page_stream`
         // counted them against `MAX_DECODED_STREAM`.
         let mut whole_used = 0_usize;
+        let mut accepting_pieces = true;
         for stream in streams {
-            match stream.incremental() {
+            let newly_counted = counted.insert(stream.obj_id());
+            if !accepting_pieces {
+                if newly_counted {
+                    compressed = compressed.saturating_add(stream.raw_data().len());
+                }
+                continue;
+            }
+
+            let incremental = stream.incremental();
+            let left = cap.saturating_sub(whole_used);
+            if matches!(&incremental, Incremental::Whole) && left == 0 {
+                accepting_pieces = false;
+                if newly_counted {
+                    compressed = compressed.saturating_add(stream.raw_data().len());
+                }
+                continue;
+            }
+
+            let raw = stream.raw_data();
+            if newly_counted {
+                compressed = compressed.saturating_add(raw.len());
+            }
+
+            match incremental {
                 Incremental::Plain => pieces.push_back(Piece::Plain {
-                    data: stream.raw_data(),
+                    data: raw,
                     pos: 0,
                 }),
                 Incremental::Flate => {
-                    let data = stream.raw_data();
-                    let state = FlateState::new(&data);
-                    pieces.push_back(Piece::Flate { data, state });
+                    let state = FlateState::new(&raw);
+                    pieces.push_back(Piece::Flate { data: raw, state });
                 }
                 Incremental::Whole => {
-                    let left = cap.saturating_sub(whole_used);
-                    if left == 0 {
-                        break;
-                    }
-                    let Ok(data) = stream.decoded_within(left) else {
+                    let Ok(data) = stream.decoded_raw_within(raw, left) else {
                         continue;
                     };
                     let data = data.into_owned();
@@ -313,6 +325,7 @@ impl<'a> ContentReader<'a> {
                 pieces.push_back(Piece::Separator { written: false });
             }
         }
+        let budget = cap.max(MAX_CONTENT_EXPANSION.saturating_mul(compressed));
 
         Self {
             pieces,
@@ -891,6 +904,30 @@ mod content_reader_tests {
         pdf
     }
 
+    /// A one-page PDF with an array of content references to `streams`.
+    fn page_pdf_array(streams: &[(&[u8], &str)], refs: &[usize]) -> Vec<u8> {
+        let contents = refs
+            .iter()
+            .map(|index| format!("{} 0 R", 4 + index))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let mut pdf = format!(
+            "%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 40 40] /Contents [{contents}] >> endobj\n"
+        )
+        .into_bytes();
+        for (index, (stream, dict)) in streams.iter().enumerate() {
+            let object = 4 + index;
+            pdf.extend_from_slice(
+                format!("{object} 0 obj << {dict} /Length {} >> stream\n", stream.len())
+                    .as_bytes(),
+            );
+            pdf.extend_from_slice(stream);
+            pdf.extend_from_slice(b"\nendstream endobj\n");
+        }
+        pdf.extend_from_slice(b"trailer << /Root 1 0 R >>\n%%EOF\n");
+        pdf
+    }
+
     /// The content of the first page, read `piece` bytes at a time, with a budget of `cap`.
     fn read_content(pdf: Vec<u8>, cap: usize, piece: usize) -> (Vec<u8>, bool) {
         let doc = Pdf::new(pdf).expect("parses");
@@ -900,6 +937,89 @@ mod content_reader_tests {
         while content.read_into(&mut out, piece) > 0 {}
 
         (out, content.truncated())
+    }
+
+    #[test]
+    fn plain_and_whole_pieces_keep_their_bytes() {
+        let plain = b"q 1 0 0 1 0 0 cm Q\n";
+        let whole = b"q 0 0 m Q\n";
+        let encoded: String = whole.iter().map(|byte| format!("{byte:02x}")).collect::<String>() + ">";
+
+        for piece in [1, 7, 4096, 65_536] {
+            let (plain_out, plain_truncated) = read_content(page_pdf(plain, ""), 1 << 20, piece);
+            assert_eq!(plain_out, plain, "plain piece {piece}");
+            assert!(!plain_truncated, "plain piece {piece}");
+
+            let (whole_out, whole_truncated) = read_content(
+                page_pdf(encoded.as_bytes(), "/Filter /ASCIIHexDecode"),
+                1 << 20,
+                piece,
+            );
+            assert_eq!(whole_out, whole, "whole piece {piece}");
+            assert!(!whole_truncated, "whole piece {piece}");
+        }
+    }
+
+    #[test]
+    fn repeated_content_reference_counts_compressed_bytes_once() {
+        let data = vec![b'q'; 1 << 16];
+        let pdf = page_pdf_array(&[(data.as_slice(), "")], &[0, 0]);
+        let doc = Pdf::new(pdf).expect("parses");
+        let page = doc.pages().first().expect("one page");
+        let mut content = page.content_reader_within(1 << 20);
+        let expected_budget = 64 * data.len();
+        assert_eq!(content.budget, expected_budget);
+
+        let mut out = Vec::new();
+        while content.read_into(&mut out, 4096) > 0 {}
+        let mut expected = data.clone();
+        expected.push(b' ');
+        expected.extend_from_slice(&data);
+        expected.push(b' ');
+        assert!(
+            out == expected,
+            "expected {} bytes, got {}",
+            expected.len(),
+            out.len()
+        );
+        assert!(!content.truncated());
+    }
+
+    #[test]
+    fn whole_cap_still_counts_later_unique_streams() {
+        let first = vec![b'q'; 1 << 20];
+        let later = vec![b'Q'; 12_000];
+        let hex = |data: &[u8]| {
+            data.iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
+                + ">"
+        };
+        let first_raw = hex(&first);
+        let later_raw = hex(&later);
+        let pdf = page_pdf_array(
+            &[
+                (first_raw.as_bytes(), "/Filter /ASCIIHexDecode"),
+                (later_raw.as_bytes(), "/Filter /ASCIIHexDecode"),
+            ],
+            &[0, 1],
+        );
+        let cap = 1 << 20;
+        let doc = Pdf::new(pdf).expect("parses");
+        let page = doc.pages().first().expect("one page");
+        let mut content = page.content_reader_within(cap);
+        let expected_budget = 64 * (first_raw.len() + later_raw.len());
+        assert!(expected_budget > cap);
+        assert_eq!(content.budget, expected_budget);
+        assert_eq!(content.materialized_len(), cap);
+        assert_eq!(content.pieces.len(), 2, "only the first whole stream and separator are kept");
+
+        let mut out = Vec::new();
+        while content.read_into(&mut out, 65_536) > 0 {}
+        let mut expected = first;
+        expected.push(b' ');
+        assert_eq!(out, expected);
+        assert!(!content.truncated());
     }
 
     #[test]

@@ -211,7 +211,25 @@ impl<'a> Stream<'a> {
         image_params: &ImageDecodeParams,
         max: usize,
     ) -> Result<FilterResult<'a>, DecodeFailure> {
-        let data = self.raw_data();
+        self.decode_raw_within(self.raw_data(), image_params, max)
+    }
+
+    /// PdfCraft patch: decode caller-supplied raw/decrypted bytes with the same filters and limits.
+    pub(crate) fn decoded_raw_within(
+        &self,
+        data: Cow<'a, [u8]>,
+        max: usize,
+    ) -> Result<Cow<'a, [u8]>, DecodeFailure> {
+        self.decode_raw_within(data, &ImageDecodeParams::default(), max)
+            .map(|r| r.data)
+    }
+
+    fn decode_raw_within(
+        &self,
+        data: Cow<'a, [u8]>,
+        image_params: &ImageDecodeParams,
+        max: usize,
+    ) -> Result<FilterResult<'a>, DecodeFailure> {
         let filters_and_params = self.filters_and_params();
         let count = filters_and_params.filters.len();
 
