@@ -315,8 +315,8 @@ fn png_image(name: &str, bytes: &[u8]) -> Result<Embedded, CreateError> {
     };
     let icc = reader.info().icc_profile.as_ref().map(|p| p.to_vec());
     // The decoded size comes from the header alone, so a file of a few bytes can claim any
-    // size: keep the TIFF ceiling, and ask for the memory fallibly (a failed allocation would
-    // abort the whole app, and no `catch_unwind` stops that).
+    // size: keep the ceiling, and ask for the memory fallibly (a failed allocation would abort
+    // the whole app, and no `catch_unwind` stops that).
     let size = reader.output_buffer_size().filter(|n| *n <= MAX_PNG_DECODED_BYTES).ok_or_else(|| bad("image too large".into()))?;
     let mut buf = Vec::new();
     buf.try_reserve_exact(size).map_err(|_| bad("not enough memory for this image".into()))?;
@@ -397,8 +397,9 @@ fn decoded(name: &str, bytes: &[u8], format: image::ImageFormat) -> Result<Embed
     Ok(rgba_image(rgba.as_raw(), rgba.dimensions(), (72.0, 72.0)))
 }
 
-/// Most decoded bytes one TIFF page may take: room for the 768 MiB CMYK poster in #665, twice over.
-const MAX_TIFF_DECODED_BYTES: usize = 2 << 30;
+/// Most decoded bytes one TIFF page or PNG may take: room for the 768 MiB CMYK poster in #665,
+/// twice over.
+const MAX_DECODED_BYTES: usize = 2 << 30;
 
 /// Most decoded bytes one PNG may take: the same ceiling as a TIFF page.
 const MAX_PNG_DECODED_BYTES: usize = MAX_TIFF_DECODED_BYTES;
@@ -413,7 +414,7 @@ fn tiff_pages(name: &str, bytes: &[u8]) -> Result<Vec<Embedded>, CreateError> {
     // 12000x16000 CMYK is 768 MiB. Raise it, but keep a ceiling so a tiny file claiming
     // enormous dimensions can't ask for unbounded memory.
     let mut limits = Limits::default();
-    limits.decoding_buffer_size = MAX_TIFF_DECODED_BYTES;
+    limits.decoding_buffer_size = MAX_DECODED_BYTES;
     let mut dec = Decoder::new(std::io::Cursor::new(bytes)).map_err(|e| bad(e.to_string()))?.with_limits(limits);
     let mut out = Vec::new();
     loop {

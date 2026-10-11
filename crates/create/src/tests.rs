@@ -226,7 +226,7 @@ fn png_claiming(w: u32, h: u32) -> Vec<u8> {
 }
 
 #[test]
-fn a_png_claiming_enormous_dimensions_is_refused() {
+fn a_tiny_png_claiming_huge_dimensions_is_refused_before_allocating() {
     // 68 bytes claiming 13 GiB (and 1 TiB) of pixels: refused before anything is allocated,
     // where it used to abort the process when the allocation failed.
     for (w, h) in [(60_000, 60_000), (1 << 20, 1 << 18)] {
@@ -234,6 +234,25 @@ fn a_png_claiming_enormous_dimensions_is_refused() {
         assert_eq!(png.len(), 68);
         let r = from_images(&[("huge.png".into(), png)]);
         assert!(matches!(&r, Err(CreateError::Image(_, m)) if m.contains("too large")), "{w}x{h}");
+    }
+}
+
+/// Likewise a PNG: the png crate's limits don't cover the frame buffer, which its header sizes
+/// (60000x60000 RGBA is 14.4 GB). Refused before anything is allocated, not after.
+#[test]
+fn a_png_claiming_enormous_dimensions_is_refused() {
+    let mut png = Vec::new();
+    {
+        let mut enc = png::Encoder::new(&mut png, 60_000, 60_000);
+        enc.set_color(png::ColorType::Rgba);
+        enc.set_depth(png::BitDepth::Eight);
+        let mut w = enc.write_header().unwrap();
+        // A zlib stream holding one zero byte: far too little data, but a well-formed start.
+        w.write_chunk(png::chunk::IDAT, &[0x78, 0x01, 0x01, 0x01, 0x00, 0xFE, 0xFF, 0x00, 0x00, 0x01, 0x00, 0x01]).unwrap();
+    }
+    match from_images(&[("huge.png".into(), png)]) {
+        Err(CreateError::Image(_, m)) => assert!(m.contains("too large"), "{m}"),
+        other => panic!("expected a refusal, got {:?}", other.map(|_| ())),
     }
 }
 

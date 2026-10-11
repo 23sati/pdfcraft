@@ -2,7 +2,7 @@
 
 **Stage: alpha** · next: beta, ~26% (ready for real work 49% → 75%) and ~400–700 h away
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-10 · **Change:** minor (localized shortcut labels, #496; readiness table with hours per audience; full number as weighted sum 49%; earlier: second look: ready 40% → 47%, mainstream 55% added; core-workflow gate applied → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (closed issues synced: #774, #756 and the #799–#821 batch; earlier: localized shortcut labels, #496; readiness table with hours per audience; full number as weighted sum 49%; earlier: second look: ready 40% → 47%, mainstream 55% added; core-workflow gate applied → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
 PdfCraft's one-page summary: how close it is to Adobe Acrobat Pro's offline feature set, and what
 comes next. Adobe's cloud services (Document Cloud, Acrobat Sign requests, shared review, the AI
@@ -40,17 +40,17 @@ and add a line to the [progress log](#progress-log); when a gap closes, remove i
 **Why alpha:** all six of Acrobat Pro's everyday workflows can be completed end to end on macOS
 (the [alpha gate](docs/roadmap.md#alpha-gate)), and users praise them (7.6k stars, ≈ 217k downloads
 of 0.4–0.5, switching reports such as #179). Two are only partial: editing (no CJK/RTL) and convert
-and share (password-protected files we write don't open in Acrobat or Reader, #774; no in-app
-Office→PDF; Word export loses layout, #773). Those, unmeasured quality against Acrobat, the borrowed
-`hayro` renderer, no printing on Windows (#756) and 245 open issues keep it far from beta.
+and share (no in-app Office→PDF; Word export loses layout, #773; password-protected files open in
+Acrobat since #836, #774). Those, unmeasured quality against Acrobat, the borrowed `hayro` renderer,
+no printing on the web and 245 open issues keep it far from beta.
 
 ### Readiness by audience
 
 | Audience | Ready | Opus 5.5 agent-hours to ≈ 95% | Work that dominates |
 |---|---|---|---|
 | Full Acrobat Pro (ready for real work) | ≈ 49% | ≈ 780–1,400 h (≈ 300–550 h wall clock with 3–5 agents; 60–70% parallelizes) | Own renderer and fidelity harness, editing existing content, OCR and Office conversion, Preflight and PDF/A/X/UA, accessibility tagging, signatures for institutions |
-| Mainstream practitioner | ≈ 55% | ≈ 500–900 h (≈ 200–400 h wall clock; ≈ 60% parallelizes) | Rendering fidelity, editing existing text (CJK, RTL, subsets), conversion (Word layout, Excel, PowerPoint, Office→PDF), OCR languages, Windows printing, the bug backlog |
-| Essentials user | ≈ 66% | ≈ 180–330 h (≈ 90–180 h wall clock; ≈ 50% parallelizes) | Rendering fidelity on everyday files, Windows printing, launch and GPU stability, encrypted output Acrobat opens (#774), simple text fixes, Word export layout, Chinese UI glyphs |
+| Mainstream practitioner | ≈ 55% | ≈ 500–900 h (≈ 200–400 h wall clock; ≈ 60% parallelizes) | Rendering fidelity, editing existing text (CJK, RTL, subsets), conversion (Word layout, Excel, PowerPoint, Office→PDF), OCR languages, the bug backlog |
+| Essentials user | ≈ 66% | ≈ 180–330 h (≈ 90–180 h wall clock; ≈ 50% parallelizes) | Rendering fidelity on everyday files, launch and GPU stability, simple text fixes, Word export layout, Chinese UI glyphs |
 
 Hours are calibrated as in [Effort and calibration](docs/target-app-parity.md#effort-and-calibration) (≈ 1k kept lines per agent-hour for new features, 3–10× slower for hardening and fidelity). The audiences are nested subsets, so essentials ≤ mainstream ≤ full.
 
@@ -121,8 +121,8 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 | Rank | Milestone | Estimate (h) |
 |---|---|---|
-| 0 | Convert and share: encrypted output opens in Acrobat (#774), Create PDF from Office, Word export that keeps layout (#773) | 40–70 |
-| 1 | Backlog and platform: crash and wrong-result reports, Windows printing (#756), Chinese UI face (#826) | 65–120 |
+| 0 | Convert and share: Create PDF from Office, Word export that keeps layout (#773) | 32–55 |
+| 1 | Backlog and platform: crash and wrong-result reports, web printing, Chinese UI face (#826) | 65–120 |
 | 2 | Fidelity harness against Acrobat and the renderer decision (M2; owner decision on #841) | 110–190 |
 | 3 | Editing existing content (M7) | 100–180 |
 | 4 | OCR languages and Office export/import (M10) | 95–175 |
@@ -134,6 +134,23 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 ## Progress log
 
 Newest first: the date, what moved, and the new overall estimate.
+
+- **2026-10-11 (M14, absolute interface sizes):** A chosen Interface size is now absolute, as PhotoCraft's UI Scale is: "100%" is one screen pixel per point whatever scale the display reports, so on a 1080p screen whose system reports 200 % it draws at a true 100 % (#456, reported after the first change). Auto still keeps the display's scale and adds GNOME's text scaling, and its menu entry shows the size it draws at. The menu offers PhotoCraft's sizes (75–300 %).
+- **2026-10-11 (automation, #971):** `text_find` reads pages in growing batches (8, doubling to 128) and stops once `limit` is reached, so a bounded search on a long document no longer extracts and caches every page first. Results say `complete`, and a capped one gives `next` (`start_page`, `skip`) to continue. Still open from #971: a byte budget for the automation text cache and per-page warnings for pages whose text can't be extracted.
+- **2026-10-11 (docs, closed issues):** The progress docs caught up with issues closed on 2026-10-10: encrypted output opens in Acrobat (#774, #836; gap 1 closed, rank 0 is 32–55 h), Windows prints (#756, #847), column select (#740), 1:1 touchpad scrolling (#759), same-page multi-object move (#844), and the #799–#821 batch of wrong-result fixes including the #816 panic. Scores and readiness not re-judged; overall estimate unchanged.
+- **2026-10-11 (M7, watermark placement):** A watermark can be moved from the page centre by a horizontal and a vertical offset in points: Add/Update Watermark has an "Offset from centre" row (the preview follows it, for text and for pictures) and `doc_watermark` takes `offset_x` and `offset_y`. A non-finite offset is refused instead of written into the page. `edit.watermark-appearance` stays partial: no offset from the page edge or in page units, no print/screen-only variants, no repeat. Image and PDF watermarks, already shipped, no longer appear as missing. The overall estimate is unchanged.
+- **2026-10-11 (M12, XFA script time limits):** An XFA script's time limit (1 s for scripts that run unasked, on open and on every change) counted the engine's start-up too: the script's thread, a new context and, for the first script in a process, the engine's own set-up (≈ 60–170 ms when idle). On a busy machine a trivial initialize script could pass the limit, be abandoned and turn the form's scripts off; that made `xfa_buttons_run_their_scripts_in_the_app` and `messages_from_scripts_run_on_open_show_right_away` flaky (under full CPU load 25 of 40 runs of the test binary failed, with "ran longer than 1.0 s and was abandoned" in the console). The limit now runs from when the engine is ready; start-up has its own 10 s cap, so nothing waits forever, and a trivial warm-up script takes the first-in-process set-up. Under the same load none of 40 runs fails, and runaway scripts are abandoned as before. The two UI tests print the script console when they fail. Overall unchanged.
+- **2026-10-11 (M4, #569):** Combine files takes images and text files as well as PDFs. PNG, JPEG, TIFF, GIF, BMP, JPEG 2000 and .txt files become PDFs as they are added (Add files…, drops, folder scans), so each is an ordinary row with its pages, thumbnails and page range; a file that can't be read (a damaged image or PDF, a type that can't be converted) stays in the list with why in its Warnings, and Combine asks before leaving such files out (Cancel changes nothing); password-protected files still have to be unlocked first. `doc_combine` accepts the same types, and a converted file's bookmark drops its extension. A PNG whose header claims more than 2 GiB of pixels is now refused before its buffer is allocated (the png crate's limits don't cover it), as TIFF already was. Office documents and HTML are still not converted. Overall estimate unchanged.
+- **2026-10-11 (M3, Windows renderer startup):** Renderer-creation GPU errors return through the existing scoped handler so Auto startup can use the existing OpenGL fallback. A real-device invalid/valid pipeline regression covers error propagation and device reuse; the independent Windows hostile-argument fixture reports unavailable symbolic-link privileges. The underlying x86 DX12 compiler error remains unresolved; see `docs/windows-renderer-startup.md`. Milestone and effort estimates unchanged.
+
+- **2026-10-11 (M6):** Existing simple field-font encodings and Differences are respected when generating appearances; an unencodable value uses a separate Helvetica appearance font without changing the source font. Synthetic reopen regressions cover punctuation, subset fallback and multiline text. Exact font metrics/layout and broader Unicode fallback remain incomplete. Estimates unchanged.
+
+- **2026-10-11 (M6):** Tab and Shift-Tab wrapping to the same field or another widget of that field refresh the newly opened editor from the accepted value before Save. Synthetic UI regressions cover both directions, same-frame Save, validation refusal and undo/redo. Estimates unchanged.
+
+- **2026-10-11 (M13):** CLI run and MCP reject missing, empty, repeated and option-valued --root arguments before any tool/script execution or MCP initialization. A single-hyphen directory name remains valid; synthetic CLI regressions preserve a would-be overwritten file. Estimates unchanged.
+
+- **2026-10-11 (M14, #307, Plan 2):** Forms now return terminal fields and the page-widget adoption count from one enumeration, and engine open reuses that result while retaining XFA script-button marking. The 12,000-page/no-form PDF (1,442,052 bytes) and 2,500-orphan-widget PDF (673,432 bytes) produce byte-identical `doc_open`/`doc_info` outputs against upstream `33c14e07cfd742a82bf03baa6b103c01008fa68c`, including the orphan repair note. After one warm-up per binary and three interleaved base/candidate rounds, median open times were 0.16/0.15 s and 0.08/0.07 s, with median peak RSS 62.69/59.98 MiB and 33.28/32.20 MiB. Workspace tests, Clippy, formatting, focused forms/engine/organize tests, and the WASM check pass. A behavior-preserving local binding in `organize` also lets the workspace Clippy gate pass. No estimate change.
+- **2026-10-11 (M14, Traditional Chinese semantics):** Corrected accessibility pass/fail labels, the inverted script-accessibility rule, Taiwan row/column terminology and form choice/read-only labels; added the missing table-row explanation. Catalog regressions cover the rule metadata and preserve field names. Milestone and effort estimates unchanged.
 
 - **2026-10-10 (M14, interface size):** Preferences ▸ Interface size scales the whole interface (50–250 %, setting `ui_scale`, control option `ui-scale`); 50 % brings an interface the system draws at 200 % back to 100 % (#456). Auto, the default, follows the desktop's text scaling: on Linux and the BSDs the desktop app reads GNOME's `text-scaling-factor` once at launch, so with Large Text (1.25) on a 1× display the interface no longer draws 13 px labels that show their pixels next to the system's text. The size is egui's zoom factor, so `pixels_per_point` grows with it and page rasters stay one texel per screen pixel; egui's own ⌘+/⌘− interface zoom is turned off so those keys stay page zoom. Still missing: KDE's font DPI and Windows' "Make text bigger" aren't read (both scale only text there), and egui's text is still greyscale-antialiased without the system's gamma, so small text looks rougher than GTK's at 100 %.
 - **2026-10-10 (M14, #496):** Shortcut displays share a UI formatter across toolbar search, registry menus, command palette, Help and tooltips. Modifier and key names use a dedicated catalog context in every bundled translation; missing entries keep the English key name rather than a command translation. German shows Strg/Umschalt/Entf, macOS retains its symbols, and runtime language changes refresh the display. Regression coverage checks localized layout widths, English/German switching, platform conventions and unchanged command execution. Milestone and effort estimates unchanged.
