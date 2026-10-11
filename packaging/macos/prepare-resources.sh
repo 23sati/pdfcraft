@@ -13,13 +13,8 @@ cp -R "$here/resources/"* "$destination/"
 # of macOS languages. Only directory names are generated; every fallback is the
 # same contributor-original English catalog. Script-specific Chinese aliases
 # ensure regional preferences resolve through the matching native script.
-fallbacks="$(osascript <<'APPLESCRIPT'
-use framework "Foundation"
-set languageCodes to current application's NSLocale's ISOLanguageCodes() as list
-set AppleScript's text item delimiters to linefeed
-return languageCodes as text
-APPLESCRIPT
-)"
+# Keep AppleScript outside shell substitutions for macOS /bin/bash 3.2.
+fallbacks="$(osascript "$here/list-languages.applescript")"
 while IFS= read -r language; do
   case "$language" in en|de|fr|es|nl|it|hu) continue ;; esac
   if [[ ! "$language" =~ ^[a-z]{2,3}$ ]]; then echo "Unexpected ISO language code: $language" >&2; exit 1; fi
