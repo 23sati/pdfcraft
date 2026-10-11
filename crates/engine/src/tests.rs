@@ -2212,6 +2212,25 @@ fn dynamic_xfa_forms_are_laid_out_on_open_filled_and_saved_incrementally() {
 }
 
 #[test]
+fn a_signed_xfa_signature_box_shows_the_picture_the_file_holds() {
+    let mut s = Session::new().with_clock(|| 1_700_000_000);
+    let id = s.open("signed.pdf", None, Arc::new(pdfcraft_xfa::fixtures::signed_shell()), None).expect("opens");
+    let doc = s.get(id).unwrap();
+    assert_eq!(doc.xfa.as_ref().map(|x| (x.pages, x.fields)), Some((1, 2)));
+    let mut r = pdfcraft_render::PageRenderer::new(doc.bytes.clone(), doc.config.clone());
+    let out = r.render(pdfcraft_render::RenderRequest { page: 0, scale: 1.0, ..Default::default() });
+    assert!(out.error.is_none(), "{:?}", out.error);
+    let at = |x: u32, y: u32| -> [u8; 4] {
+        let i = ((y * out.width + x) * 4) as usize;
+        out.rgba[i..i + 4].try_into().unwrap()
+    };
+    // The signed box (3in by 1in from half an inch in) is filled with the signature's blue
+    // picture; the unsigned one below it is not.
+    assert_eq!(at(36 + 108, 36 + 36), [0, 0, 255, 255]);
+    assert_ne!(at(36 + 108, 36 + 72 + 36), [0, 0, 255, 255]);
+}
+
+#[test]
 fn an_xfa_form_without_a_template_opens_with_its_placeholder_and_a_warning() {
     let bytes = Arc::new(pdfcraft_xfa::fixtures::shell("<xdp:xdp xmlns:xdp=\"http://ns.adobe.com/xdp/\"></xdp:xdp>"));
     let mut s = Session::new();
