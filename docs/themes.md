@@ -3,7 +3,7 @@
 ## Assessment and implemented scope
 
 The original assessment used upstream main `68e91d4815ed43212895589411aa3d21b2a84bc3`.
-The branch now integrates upstream `798650e` without rewriting the two initial
+The branch now integrates upstream `b8ddf71` without rewriting the two initial
 commits. Closed Windows PR #616 and its separate checkout are untouched.
 
 Upstream PR #212 (`42078a8`) unified the toolbar and View menu around
@@ -42,7 +42,8 @@ reloads them. Custom themes appear in the existing selector, with a scrolling li
 The future editor should use this API rather than another preference or file format.
 
 System, Light and Dark keep their historical appearance and encodings. System
-continues following OS appearance changes. A headless inspection of System returns
+continues following OS appearance changes, including upstream’s Linux desktop
+appearance watcher when winit has no answer. A headless inspection of System returns
 the Light fallback palette and `follows_system: true`; it does not guess desktop
 appearance. PDF paper, pixels, annotations, redactions and signature ink are not
 application theme tokens. Native file dialogs remain styled by the OS.
@@ -215,7 +216,7 @@ implement natural-language generation, a provider, or automatic contrast correct
 
 Catppuccin and Solarized inspirations are MIT-licensed, with pinned notices in
 NOTICE and full licenses in `docs/licenses/`. Descriptive names are localized in
-all 15 current catalogs. Typography, layout, icons and PDF rendering are unchanged.
+all 16 current catalogs. Typography, layout, icons and PDF rendering are unchanged.
 
 ## Separate editor PR
 

@@ -219,6 +219,23 @@ pub fn apply_palette(ctx: &egui::Context, t: Palette) {
 mod tests {
     use super::*;
 
+    /// "Use system setting" draws what the operating system says, dark or light.
+    #[test]
+    fn following_the_system_draws_what_the_system_says() {
+        assert_eq!(ThemePreference::System.resolve(Some(ThemeKind::Dark), ThemeKind::Light), ThemeKind::Dark);
+        assert_eq!(ThemePreference::System.resolve(Some(ThemeKind::Light), ThemeKind::Dark), ThemeKind::Light);
+    }
+
+    /// An operating system that says nothing leaves the last choice standing, and an explicit
+    /// Light or Dark is never overridden by what the system says.
+    #[test]
+    fn an_answerless_system_leaves_the_choice_and_an_explicit_one_stands() {
+        assert_eq!(ThemePreference::System.resolve(None, ThemeKind::Light), ThemeKind::Light);
+        assert_eq!(ThemePreference::System.resolve(None, ThemeKind::Dark), ThemeKind::Dark);
+        assert_eq!(ThemePreference::Light.resolve(Some(ThemeKind::Dark), ThemeKind::Dark), ThemeKind::Light);
+        assert_eq!(ThemePreference::Dark.resolve(Some(ThemeKind::Light), ThemeKind::Light), ThemeKind::Dark);
+    }
+
     /// WCAG 2 contrast ratio between two opaque colours.
     fn contrast(a: Color32, b: Color32) -> f32 {
         let lum = |c: Color32| {

@@ -1,27 +1,29 @@
 # Theme foundation and automation validation
 
-Validated on macOS on 2026-10-10 on `feature/extensible-themes`. Original commits
+Validated on macOS on 2026-10-11 on `feature/extensible-themes`. Original commits
 `70e2846` and `af43d9a` are preserved. Upstream main
-`798650e8a09607471dec48e1aa7949a4d37b9aec` was fetched, reviewed and merged as
-`dc687c1`. Closed PR #616 and its separate checkout remain untouched at
+`798650e8a09607471dec48e1aa7949a4d37b9aec` was merged as `dc687c1`, then
+`b8ddf71e30959dc8a5ca4b66c40b8fcaea68cf76` was fetched, reviewed and integrated
+without rewriting existing commits. The latest merge retains Linux desktop
+appearance tracking and adds the preset names to Polish. Closed PR #616 and its separate checkout remain untouched at
 `2a884c911205332160808e05b326d6862a78a711`.
 
 ## Passed
 
-- `cargo test --workspace --no-fail-fast`: **1,867 passed, zero failed, six ignored**.
+- `cargo test --workspace --no-fail-fast`: **2,124 passed, zero failed, six ignored**.
   This repeats and expands the original 1,765-test baseline after upstream integration.
   The six existing ignores concern network access, two optional corpus tests, a
   timing probe, a local signature diagnostic and a temporary macOS keychain test.
 - `cargo fmt --all -- --check` and
   `cargo clippy --workspace --all-targets -- -D warnings`.
 - `cargo build -p pdfcraft -p pdfcraft-cli` on native macOS.
-- `cargo xtask assets`: 260 repository assets, six dependency assets, 22 build inputs.
+- `cargo xtask assets`: 264 repository assets, six dependency assets, 22 build inputs.
 - `cargo xtask layers`: 35 crates, no layering violations.
-- `cargo xtask parity`: passed. Upstream fixed the duplicate keys that blocked the
-  original run; that earlier blocker is no longer present.
 - Focused final reruns: all 20 shared-core/store tests, all nine theme integration
   tests, and the adjusted MCP structured-error regression. The core tests include
-  refusal of a standalone export accidentally supplied as a store.
+  refusal of a standalone export accidentally supplied as a store. A new unit
+  regression verifies Linux desktop appearance fallback through the shared palette
+  without overriding explicitly selected presets.
 
 Native control-channel and screenshot tests need loopback/GPU access, so the full
 workspace and visual runs used an execution environment with those facilities.
@@ -57,7 +59,12 @@ Light, Dark, all six presets, and a custom navy-and-cream theme. The custom menu
 inspected and selected through the existing GUI selector. PDF paper stayed white.
 System-font loading was disabled; images and logs are ignored local artifacts.
 
-## Remaining environment limits
+## Remaining upstream and environment limits
+
+- `cargo xtask parity` fails on a duplicate `evidence` key at line 5254 in
+  `parity/acrobat-features.toml`. Parsing the same file from unmodified upstream
+  `b8ddf71` reproduces the failure. The earlier `798650e` validation passed; this
+  later upstream failure is not reported as a successful check.
 
 - `cargo xtask wasm` was attempted and failed because this Rust installation lacks
   the `wasm32-unknown-unknown` standard library. Browser compilation/persistence
