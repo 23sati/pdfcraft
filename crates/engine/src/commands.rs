@@ -203,17 +203,11 @@ pub const COMMANDS: &[CommandSpec] = &[
     // View menu (where it would show twice). The palette and ⌘3 still run it.
     c("view.fit_visible", "Fit visible", None, Some(Shortcut::cmd("3")), Document, "scan"),
     c("view.marquee_zoom", "Marquee zoom", VIEW, None, Document, "zoom-in"),
-<<<<<<< HEAD
-    c("edit.snapshot", "Take a snapshot", EDIT, None, Copying, "camera"),
-||||||| 74be522c
-    c("edit.snapshot", "Take a snapshot", EDIT, None, Document, "camera"),
-=======
     // Acrobat's column select: drag a rectangle and select only the text inside it. Alt/Option-
     // drag with the Select tool does the same; this is the way in where the desktop takes
     // Alt-drag for moving windows (several Linux window managers).
     c("edit.column_select", "Column select", EDIT, None, Document, "text-select"),
-    c("edit.snapshot", "Take a snapshot", EDIT, None, Document, "camera"),
->>>>>>> origin/main
+    c("edit.snapshot", "Take a snapshot", EDIT, None, Copying, "camera"),
     c("view.full_screen", "Full screen mode", VIEW, Some(Shortcut::cmd("L")), Document, "maximize"),
     c("view.read_mode", "Read mode", VIEW, Some(Shortcut { command: true, shift: false, mac_ctrl: true, key: "H" }), Document, "book-open"),
     c("view.focus_page_input", "Go to page…", VIEW, Some(Shortcut::cmd_shift("N")), Document, "text-cursor-input"),
