@@ -736,7 +736,7 @@ mod tests {
         let error = pdfcraft_engine::ocr::OcrError::NoModels.to_string();
         let notice = "Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.";
         assert!(include_str!("../ocr_ui.rs").contains(notice), "keep in step with ocr_ui.rs");
-        for code in ["bg", "de", "es", "fr", "hu", "ja", "ru", "te", "uk", "zh-hans", "zh-hant"] {
+        for code in ["bg", "cs", "de", "es", "fr", "hu", "ja", "ru", "te", "uk", "zh-hans", "zh-hant"] {
             let lang = Lang::from_code(code).expect("registered");
             assert!(has(lang, notice) && has(lang, &error), "{code}");
         }
@@ -799,7 +799,7 @@ mod tests {
             labels.insert(label.to_string());
         }
         assert!(labels.len() > 20 && labels.contains("Comb of characters"), "the scan found the dialog's labels: {labels:?}");
-        for code in ["bg", "de", "es", "fr", "hu", "it", "ja", "pt-br", "ru", "te", "uk", "zh-hans", "zh-hant"] {
+        for code in ["bg", "cs", "de", "es", "fr", "hu", "it", "ja", "pt-br", "ru", "te", "uk", "zh-hans", "zh-hant"] {
             let lang = Lang::from_code(code).expect("registered");
             let missing: Vec<_> = labels.iter().filter(|l| !has(lang, l)).collect();
             assert!(missing.is_empty(), "{code} lacks Shared Field Properties labels: {missing:#?}");
@@ -1240,6 +1240,57 @@ mod tests {
         let mut restored = crate::PdfCraftApp::default();
         restored.restore(&app.persist());
         assert_eq!(restored.language, "cs");
+    }
+
+    /// Czech translates every registered command, menu and All tools label.
+    #[test]
+    fn czech_covers_commands_and_catalogue() {
+        let cs = Lang::from_code("cs").expect("cs registered");
+        for command in pdfcraft_engine::commands::COMMANDS {
+            assert!(has(cs, command.label), "missing command: {}", command.label);
+            if let Some(menu) = command.menu {
+                assert!(has(cs, menu), "missing menu: {menu}");
+            }
+        }
+        for group in pdfcraft_engine::catalog::TOOL_GROUPS {
+            assert!(has(cs, group.label), "missing group: {}", group.label);
+            for section in group.sections {
+                assert!(has(cs, section.title), "missing section: {}", section.title);
+                for item in section.items {
+                    assert!(has(cs, item.label), "missing item: {}", item.label);
+                }
+            }
+        }
+    }
+
+    /// Czech translates every `tl!("…")` literal in the UI source.
+    #[test]
+    fn czech_covers_ui_literals() {
+        let cs = Lang::from_code("cs").expect("cs registered");
+        let literals = ui_literals();
+        assert!(literals.len() > 900, "source scan found only {} literals", literals.len());
+        let missing: Vec<_> = literals.iter().filter(|label| !has(cs, label)).collect();
+        assert!(missing.is_empty(), "untranslated Czech UI literals: {missing:#?}");
+    }
+
+    /// Czech counts take three forms (1; 2–4; 0 and 5+), dates use the genitive month after the
+    /// day, and history labels keep captured names.
+    #[test]
+    fn czech_plurals_dates_and_history_labels() {
+        let cs = Lang::from_code("cs").expect("cs registered");
+        assert_eq!(trn(cs, 1, "{n} page", "{n} pages"), "1 stránka");
+        assert_eq!(trn(cs, 3, "{n} page", "{n} pages"), "3 stránky");
+        assert_eq!(trn(cs, 5, "{n} page", "{n} pages"), "5 stránek");
+        assert_eq!(trn(cs, 0, "{n} field", "{n} fields"), "0 polí");
+        assert_eq!(tr(cs, "October"), "Říjen");
+        let month = tr_ctx(cs, "calendar date", "October");
+        assert_eq!(fmt(tr(cs, "{month} {day}, {y}"), &[("month", month), ("day", "9"), ("y", "2026")]), "9. října 2026");
+        set_current(cs);
+        assert_eq!(command_label("Undo Insert pages from Zpráva {n}.pdf"), "Zpět: Vložit stránky ze souboru Zpráva {n}.pdf");
+        assert_eq!(command_label("Redo Fill in Kontakt {key}"), "Znovu: Vyplnit Kontakt {key}");
+        assert_eq!(action_label("Change Title"), "Změnit: Název");
+        assert_eq!(fmt(t("{n} pages selected"), &[("n", "3")]), "Vybráno stránek: 3");
+        set_current(Lang::EN);
     }
 
     #[test]
