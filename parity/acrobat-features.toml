@@ -10060,3 +10060,15 @@ commands = []
 tools = []
 evidence = []
 notes = ""
+
+[[feature]]
+id = "misc.hot-folder"
+title = "Standalone watched-folder document processing"
+area = "N"
+tier = "P1"
+milestone = "M13"
+status = "partial"
+commands = []
+tools = ["hot_folder_configure", "hot_folder_status", "hot_folder_poll", "hot_folder_retry", "hot_folder_run_now", "hot_folder_source", "hot_folder_project", "hot_folder_service"]
+evidence = ["crates/engine/src/hot_folder.rs::hot_folder_settling_and_durable_receipts_prevent_duplicates_and_overwrites", "crates/automation/tests/hot_folder.rs::hot_folder_tools_produce_searchable_output_and_preserve_source", "apps/pdfcraft-hot-folder/src/ui.rs::hot_folder_ui_has_seven_languages_and_persists_a_stopped_task"]
+notes = "Separate native application: local/network/FTP/Outlook/open-project sources, PDF/images, durable receipts, calendar scheduling, OCR and scan preprocessing, JSON analysis without OCR, grouped PDF/Office/XLSX/EPUB/image outputs, safe source policies, task import/export and seven UI languages. Boot services use restricted accounts. Full proprietary project/output parity remains partial; see docs/hot-folder.md. No implicit service or MCP startup."

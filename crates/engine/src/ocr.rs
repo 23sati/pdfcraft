@@ -16,6 +16,8 @@ use crate::{DocId, Edit, EditError, Session};
 
 /// Recognize Text settings.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(not(target_arch = "wasm32"), serde(default, deny_unknown_fields))]
 pub struct OcrSettings {
     /// Resolution pages are rendered at for recognition (Acrobat's "Downsample to" choices).
     pub dpi: f32,
