@@ -21,8 +21,9 @@ The existing engine/CLI save APIs remain the headless document-processing interf
 ## Parent messages
 
 Embed with `?host=parent`. By default only a parent on the app's own origin is accepted.
-For cross-origin deployments explicitly add `&parentOrigin=https%3A%2F%2Fhost.example` to the
-iframe URL. This is exactly one trusted HTTP(S) origin, including its port when nondefault;
+For cross-origin deployments, the owner of the app deployment adds
+`<meta name="pdfcraft-parent-origin" content="https://host.example">` to its own index.html.
+An iframe URL parameter cannot grant access. This is exactly one trusted HTTP(S) origin, including its port when nondefault;
 paths, credentials, wildcards and opaque origins are rejected. It grants the configured parent
 access to the documents in this frame, so configure it only in a trusted embedding page.
 
@@ -60,11 +61,11 @@ permission behavior still require manual browser verification.
 
 ## Chinese interface fonts (#498)
 
-The build pins craft-fonts at `2caca391ea8cdd8b3be14a53be8662746ee50385`, the allowed Apache-2.0
+The build pins craft-fonts at `2cc8f61096afe714240e73f439086105bc7061af`, the allowed Apache-2.0
 Droid Sans Fallback face from AOSP used by upstream PR #879. No font binary is committed here.
-The web selection rules retain that face, the Japanese UI face, and Arabic/Telugu/Hebrew faces.
+The web selection rules retain that face, the Japanese UI face, and Arabic/Telugu/Hebrew/Thai faces.
 Both Chinese interface languages prefer the Chinese face. Tests cover the web selection rules
 and every CJK character in the Simplified/Traditional catalogs. Packages copy the manifest's
 license files, including Apache NOTICE, rather than only OFL.txt. Font selection and packaging
-code is adapted from @kekeandzeyu's PR #879; newer upstream Hebrew support and system fallback
+code is adapted from @kekeandzeyu's PR #879; newer upstream Hebrew/Thai support and system fallback
 are preserved. Builds without CRAFT_FONTS_DIR remain supported and cannot promise CJK coverage.

@@ -75,10 +75,10 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> (boo
         ui.add_space(8.0);
     };
     group(ui, "Pages", &mut |ui| {
-        ui.radio_value(&mut d.pages, OcrPages::All, tl!("All pages"));
-        ui.radio_value(&mut d.pages, OcrPages::Current, tl!("Current page"));
+        widgets::radio_value(ui, &mut d.pages, OcrPages::All, tl!("All pages"));
+        widgets::radio_value(ui, &mut d.pages, OcrPages::Current, tl!("Current page"));
         ui.horizontal(|ui| {
-            ui.radio_value(&mut d.pages, OcrPages::Range, tl!("From"));
+            widgets::radio_value(ui, &mut d.pages, OcrPages::Range, tl!("From"));
             let on = d.pages == OcrPages::Range;
             ui.add_enabled(on, egui::DragValue::new(&mut d.from).range(1..=pages));
             ui.label(tl!("to"));

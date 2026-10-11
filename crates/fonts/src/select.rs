@@ -14,7 +14,7 @@ pub const BARRED_FAMILIES: [&str; 5] = ["Source Han", "Source Serif", "Source Sa
 pub const WEB_FACES: [(&str, &str); 2] = [("BIZ UDPGothic", "Regular"), ("Droid Sans Fallback", "Regular")];
 
 /// Scripts whose faces wasm32 builds keep whatever their name: they are small.
-const WEB_SCRIPTS: [&str; 3] = ["Arab", "Telu", "Hebr"];
+const WEB_SCRIPTS: [&str; 4] = ["Arab", "Telu", "Hebr", "Thai"];
 
 /// Whether `family` is one AGENTS.md §1.1 forbids ([`BARRED_FAMILIES`]).
 pub fn barred(family: &str) -> bool {
@@ -47,6 +47,7 @@ mod tests {
         assert!(on_web("Noto Sans Arabic", "Regular", &["Arab"]));
         assert!(on_web("Noto Sans Telugu", "Regular", &["Telu"]));
         assert!(on_web("Noto Sans Hebrew", "Regular", &["Hebr"]));
+        assert!(on_web("Noto Sans Thai", "Regular", &["Thai"]));
         // Serif and bold Japanese, and any other Chinese face, stay desktop-only.
         assert!(!on_web("BIZ UDPGothic", "Bold", &["Jpan", "Latn"]));
         assert!(!on_web("Shippori Mincho", "Regular", &["Jpan", "Latn"]));

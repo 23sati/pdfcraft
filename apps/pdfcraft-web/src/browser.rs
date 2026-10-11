@@ -28,7 +28,7 @@ pub fn byte_length(bytes: &JsValue) -> Result<u32, JsValue> {
     }
     // Inspect the JS number before narrowing: modern engines can allocate buffers beyond u32.
     let length = field(bytes, "byteLength")?.as_f64().ok_or_else(|| error("Invalid PDF byte length"))?;
-    if !length.is_finite() || length < 1.0 || length > f64::from(super::policy::MAX_BYTES) || length.fract() != 0.0 {
+    if !length.is_finite() || !(1.0..=f64::from(super::policy::MAX_BYTES)).contains(&length) || length.fract() != 0.0 {
         return Err(error("PDF input must be between 1 byte and 128 MiB"));
     }
     let len = length as u32; // bounded above before the cast
@@ -40,7 +40,14 @@ pub fn byte_length(bytes: &JsValue) -> Result<u32, JsValue> {
 
 /// An embedding deployment can opt into ONE exact parent origin; never accept '*' or opaque origins.
 pub fn parent_origin(window: &web_sys::Window) -> Result<String, JsValue> {
-    super::policy::parent_origin(&window.location().origin()?, super::query_param("parentOrigin").as_deref()).map_err(|e| error(&e))
+    let configured = window
+        .document()
+        .ok_or_else(|| error("No document"))?
+        .query_selector("meta[name=\"pdfcraft-parent-origin\"]")?
+        .and_then(|element| element.get_attribute("content"));
+    // Only the deployment's own HTML grants cross-origin access. An arbitrary iframe URL
+    // query must never grant a foreign parent access to documents fetched with this origin's cookies.
+    super::policy::parent_origin(&window.location().origin()?, configured.as_deref()).map_err(|e| error(&e))
 }
 
 #[derive(Clone)]

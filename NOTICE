@@ -29,6 +29,9 @@ list (author, source, license) is in ATTRIBUTION.md.
   build only BIZ UDPGothic Regular, Droid Sans Fallback and Noto Sans Arabic). Those packages carry
   each font's licence file: OFL-<family>.txt, and NOTICE-droid-sans-fallback.txt for Droid Sans
   Fallback. "Droid" is a trademark of Google.
+- Noto Sans Thai from craft-fonts, Copyright 2022 The Noto Project Authors
+  (https://github.com/notofonts/thai), under SIL OFL 1.1; its licence is
+  fonts/noto-sans-thai/OFL.txt in the optional build input (also embedded on the web).
 - hayro (rendering, via crates.io) — Apache-2.0 OR MIT. Its `embed-fonts` feature bundles the Foxit
   standard-14 Type 1 fonts under BSD-3-Clause ("Copyright 2014 PDFium Authors"), and hayro-cmap bundles
   Adobe CMap resources under BSD-3-Clause.

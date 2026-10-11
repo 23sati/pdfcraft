@@ -38,7 +38,7 @@ pub use pdfcraft_organize::LabelStyle;
 pub use pdfcraft_organize::view::{InitialView, Layout as InitialLayout, Magnification, Navigation};
 
 pub use pdfcraft_cos::Algorithm;
-pub use pdfcraft_create::{CONVERTIBLE, ImageResolution, SourceKind, decode_text, source_kind};
+pub use pdfcraft_create::{CONVERTIBLE, CreateError, ImageResolution, SourceKind, decode_text, source_kind};
 pub use pdfcraft_edit::{
     Added, AddedImage, AddedText, Align as TextAlign, Background, Content as AddedContent, Family as FontFamily, HeaderFooter, MarkKind, Watermark,
 };
@@ -49,7 +49,7 @@ pub use pdfcraft_forms::{
 };
 
 pub use pdfcraft_a11y as a11y;
-pub use pdfcraft_edit::{BlockStyle, PageImage, TextBlock, TextLine, first_undrawable, first_undrawable_plain, undrawable_message};
+pub use pdfcraft_edit::{BlockStyle, PageImage, TextBlock, TextLine, first_undrawable};
 pub use pdfcraft_measure as measure;
 pub use pdfcraft_xfa::Report as XfaLayout;
 
@@ -72,7 +72,7 @@ pub enum ImageEdit {
     },
     Delete,
 }
-pub use pdfcraft_fonts::{MAX_SIGNATURE_CHARS, ScriptOutline, script_outline};
+pub use pdfcraft_fonts::{MAX_SIGNATURE_CHARS, ScriptOutline, script_missing, script_outline};
 
 /// Fill & Sign: `text` in the script font as a typed signature, its left edge at `at` (user
 /// space, vertically centred) and `height` points tall. `None` for text with no outlines.
@@ -291,6 +291,81 @@ pub struct Document {
     /// XFA forms: what was approximated, rewritten or could not be written to the XFA data
     /// (also in `info.warnings`, kept there when the document is re-read).
     pub xfa_warnings: Vec<String>,
+    /// What the last successful [`Session::apply`] wrote that its fonts can't draw: kept as typed,
+    /// drawn with `?` in its place (see [`TextNotice`]). The interface shows it; tools return it.
+    pub edit_notices: Vec<TextNotice>,
+}
+
+/// Text an edit stored as typed but drew with `?` in place of `ch`, because the font it is drawn
+/// with (a form field's, or the standard fonts for comments) can't draw that character. Acrobat
+/// keeps such text too, drawing it with fonts PdfCraft can't embed yet.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TextNotice {
+    /// The form field's full name, or `None` for a comment.
+    pub field: Option<String>,
+    /// The page (0-based) of the comment or of the field's widget.
+    pub page: usize,
+    pub ch: char,
+    /// Other PDF viewers redraw it from the stored text (a form field, with `/NeedAppearances`
+    /// set); otherwise the `?` shows in every viewer.
+    pub redrawn_elsewhere: bool,
+}
+
+impl std::fmt::Display for TextNotice {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ch = format!("\"{}\" (U+{:04X})", self.ch.escape_debug(), u32::from(self.ch));
+        let page = self.page + 1;
+        match (&self.field, self.redrawn_elsewhere) {
+            (Some(name), true) => write!(
+                f,
+                "form field {name:?} (page {page}) holds {ch}, which its font can't draw: the value is saved, PdfCraft shows ? in its place, and other PDF viewers redraw the field from the value"
+            ),
+            (Some(name), false) => write!(
+                f,
+                "form field {name:?} (page {page}) holds {ch}, which its font can't draw: the value is saved, but this PDF/A document can't ask other viewers to redraw it, so ? shows in its place everywhere"
+            ),
+            (None, _) => write!(
+                f,
+                "a comment on page {page} has {ch}, which the standard fonts can't draw: its text is saved, but its appearance shows ? in its place in every viewer"
+            ),
+        }
+    }
+}
+
+/// What `next` drew with `?` that `prev` didn't (a new or redrawn appearance carrying
+/// `pdfcraft_fonts::UNDRAWN_MARK`), one notice per field or comment, in page order.
+fn undrawn_notices(prev: &pdfcraft_cos::Document, next: &pdfcraft_cos::Document) -> Vec<TextNotice> {
+    let Ok(pages) = pdfcraft_annot::page_refs(next) else { return Vec::new() };
+    let redrawn_elsewhere = pdfcraft_forms::need_appearances(next);
+    let mut names: Option<std::collections::HashMap<pdfcraft_cos::ObjRef, String>> = None;
+    let mut out: Vec<TextNotice> = Vec::new();
+    for (page, p) in pages.iter().enumerate() {
+        let annots = next.get(*p).as_dict().and_then(|d| d.get(b"Annots").cloned()).map(|a| next.resolve(&a));
+        for r in annots.as_deref().and_then(pdfcraft_cos::Object::as_array).into_iter().flatten().filter_map(pdfcraft_cos::Object::as_ref) {
+            let now = next.get(r);
+            let Some(d) = now.as_dict() else { continue };
+            let Some(ch) = pdfcraft_fonts::undrawn_mark(d) else { continue };
+            // Only what this edit drew: a new annotation, or a new appearance.
+            let was = prev.get(r);
+            if was.as_dict().is_some_and(|w| w.get(b"AP") == d.get(b"AP") && pdfcraft_fonts::undrawn_mark(w) == Some(ch)) {
+                continue;
+            }
+            let field = (d.name(b"Subtype") == Some(b"Widget")).then(|| {
+                let names = names.get_or_insert_with(|| {
+                    pdfcraft_forms::fields(next)
+                        .into_iter()
+                        .flat_map(|f| f.widgets.iter().map(|w| (w.obj, f.name.clone())).collect::<Vec<_>>())
+                        .collect()
+                });
+                names.get(&r).cloned().unwrap_or_default()
+            });
+            if field.is_some() && out.iter().any(|n| n.field == field) {
+                continue;
+            }
+            out.push(TextNotice { redrawn_elsewhere: redrawn_elsewhere && field.is_some(), field, page, ch });
+        }
+    }
+    out
 }
 
 impl Document {
@@ -851,6 +926,19 @@ impl Protection {
             && [&self.open_password, &self.permissions_password].into_iter().flatten().any(|p| p.chars().any(|c| !(' '..='~').contains(&c)))
         {
             return bad("this compatibility level supports only plain ASCII passwords; use AES-256 (Acrobat X and later)");
+        }
+        // Encryption keys on a password as `effective_password` gives it (AES-256: SASLprep,
+        // which drops soft hyphens and folds compatibility forms; older levels: the first 32
+        // bytes, padded). One that comes out as the empty password opens the file without asking,
+        // and an open password that comes out as the permissions password lifts the restrictions.
+        let effective = |p: &str| pdfcraft_cos::effective_password(self.algorithm, p);
+        let (open, permissions) = (self.open_password.as_deref().map(effective), self.permissions_password.as_deref().map(effective));
+        let empty = effective("");
+        if open.iter().chain(&permissions).any(|p| *p == empty) {
+            return bad("passwords can't be empty or made only of characters that passwords ignore, such as soft hyphens");
+        }
+        if open.is_some() && open == permissions {
+            return bad("the open password and the permissions password must be different (PDF readers treat these two as the same password)");
         }
         Ok(())
     }
@@ -1954,7 +2042,34 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
                 pdfcraft_cos::Object::Stream(s) => (s.dict.int(b"Width").unwrap_or(1) as u32, s.dict.int(b"Height").unwrap_or(1) as u32),
                 _ => (1, 1),
             };
-            pdfcraft_forms::set_button_icon(doc, name, img, px)?;
+            // An XFA image field keeps the picture in the data too (as Designer saves it), and a
+            // laid-out form shows it from there: so only pictures the layout can show, and only
+            // for image fields (a laid-out one carries its SOM path; a static form's field name
+            // is its path).
+            let is_xfa = pdfcraft_xfa::read_packets(doc).ok().flatten().is_some();
+            let image_field = is_xfa
+                && pdfcraft_forms::fields(doc).iter().any(|f| f.name == *name && f.button == Some(pdfcraft_forms::af::ButtonAction::ImportIcon));
+            if image_field {
+                let Some(content_type) = image_content_type(image) else {
+                    return Err(EditError::Invalid(format!("{name}: an XFA form keeps a PNG, JPEG or GIF picture; choose one of those")));
+                };
+                pdfcraft_forms::set_button_icon(doc, name, img, px)?;
+                let som = pdfcraft_xfa::fields_by_som(doc).into_iter().find(|(_, n)| n == name).map(|(s, _)| s).unwrap_or_else(|| name.clone());
+                let path = match cx.xfa.as_deref() {
+                    Some(tpl) => pdfcraft_xfa::data_path(tpl, &som),
+                    None => pdfcraft_xfa::som_to_path(&som),
+                };
+                let r =
+                    pdfcraft_xfa::write_data_image(doc, &path, content_type, image, cx.xfa_datasets).map_err(|e| EditError::Write(e.to_string()))?;
+                if !r.written && r.warnings.is_empty() {
+                    return Err(EditError::Write(format!("{name}: the picture could not be written into the form's data")));
+                }
+                cx.xfa_datasets = r.stream.or(cx.xfa_datasets);
+                cx.xfa_out.errors.extend(r.warnings);
+                xfa_after_data_change(doc, cx, false)?;
+            } else {
+                pdfcraft_forms::set_button_icon(doc, name, img, px)?;
+            }
         }
         Edit::ResetForm { names } => {
             pdfcraft_forms::reset(doc, names.as_deref())?;
@@ -2099,7 +2214,24 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
             }
         }
         Edit::ImportData { bytes, .. } => {
-            pdfcraft_xfdf::import(doc, bytes)?;
+            // An XFA form takes XFA data files (XDP, datasets, or a data document) as its data;
+            // XFDF, FDF, Acrobat's XML and tables go the usual way.
+            let text = (pdfcraft_xfa::read_packets(doc).ok().flatten().is_some()).then(|| decode_data_file(bytes)).flatten();
+            match text {
+                Some(Ok(text)) if is_xfa_data_file(&text) => {
+                    let expect_root = cx.xfa.as_ref().and_then(|t| t.root.common.name.clone());
+                    let r = pdfcraft_xfa::import_data(doc, &text, expect_root.as_deref(), cx.xfa_datasets)
+                        .map_err(|e| EditError::Write(e.to_string()))?;
+                    cx.xfa_datasets = r.stream.or(cx.xfa_datasets);
+                    cx.xfa_out.errors.extend(r.warnings);
+                    cx.xfa_out.console.push(format!("Imported XFA data: {} node(s)", r.nodes));
+                    xfa_after_data_change(doc, cx, true)?;
+                }
+                Some(Err(why)) => return Err(EditError::Invalid(why)),
+                _ => {
+                    pdfcraft_xfdf::import(doc, bytes)?;
+                }
+            }
         }
         Edit::RemoveHidden { which } => {
             pdfcraft_redact::sanitize::remove_hidden(doc, which)?;
@@ -2352,8 +2484,10 @@ pub struct Session {
 
 /// Lay a dynamic XFA form out (pages and fields) and give its widgets appearances.
 fn xfa_layout(doc: &mut pdfcraft_cos::Document) -> Result<XfaLayout, String> {
-    let report = pdfcraft_xfa::render_into(doc).map_err(|e| e.to_string())?;
+    let mut report = pdfcraft_xfa::render_into(doc).map_err(|e| e.to_string())?;
     xfa_redraw(doc)?;
+    // The form's own values: one its field's font can't draw is drawn with `?` and reported.
+    report.warnings.extend(undrawn_field_warnings(doc));
     Ok(report)
 }
 
@@ -2367,6 +2501,17 @@ pub(crate) fn xfa_redraw(doc: &mut pdfcraft_cos::Document) -> Result<(), String>
         pdfcraft_forms::redraw_field(doc, &f.name).map_err(|e| format!("{}: {e}", f.name))?;
     }
     Ok(())
+}
+
+/// A warning for each field whose appearance PdfCraft drew with `?` for a character its font
+/// can't draw (laying out an XFA form's own values).
+fn undrawn_field_warnings(doc: &pdfcraft_cos::Document) -> Vec<String> {
+    pdfcraft_forms::undrawn_fields(doc)
+        .into_iter()
+        .map(|(name, c)| {
+            format!("form field {name:?} holds \"{}\" (U+{:04X}), which its font can't draw: it shows ? in its place", c.escape_debug(), u32::from(c))
+        })
+        .collect()
 }
 
 /// The form's fields as the XFA data layer wants them.
@@ -2418,6 +2563,117 @@ fn note_warnings(list: &mut Vec<String>, new: &[String]) {
             list.push(w.clone());
         }
     }
+}
+
+/// A data file's text: UTF-8 or UTF-16 (by a byte order mark, or how `<` is written), or
+/// Latin-1 when its XML declaration says so. `None`: not text at all (FDF); `Err`: an
+/// encoding this can't read.
+fn decode_data_file(bytes: &[u8]) -> Option<Result<String, String>> {
+    if bytes.starts_with(b"%FDF") {
+        return None;
+    }
+    let declared = |text: &str| -> Option<String> {
+        let head = text.get(..text.len().min(256))?;
+        let decl = head.strip_prefix('\u{feff}').unwrap_or(head).trim_start().strip_prefix("<?xml")?;
+        let decl = decl.split_once("?>")?.0;
+        let enc = decl.split_once("encoding=")?.1;
+        let quote = enc.chars().next()?;
+        Some(enc.get(1..)?.split(quote).next()?.trim().to_ascii_lowercase())
+    };
+    if let Some((text, _)) = pdfcraft_xfa::packets::decode(bytes) {
+        match declared(&text).as_deref() {
+            None | Some("utf-8" | "utf8" | "utf-16" | "utf-16le" | "utf-16be" | "us-ascii" | "ascii") => return Some(Ok(text)),
+            Some("iso-8859-1" | "latin1" | "latin-1" | "windows-1252" | "cp1252") if !bytes.starts_with(&[0xEF, 0xBB, 0xBF]) => {
+                // Each byte is the character it names (the 0x80–0x9F block of Windows-1252
+                // differs, and is rare in form data).
+                return Some(Ok(bytes.iter().map(|b| char::from(*b)).collect()));
+            }
+            Some(other) => return Some(Err(format!("the data file's encoding {other:?} is not supported (UTF-8, UTF-16 and ISO-8859-1 are)"))),
+        }
+    }
+    // Not valid UTF-8/UTF-16: Latin-1 by declaration, else refused.
+    let latin1: String = bytes.iter().map(|b| char::from(*b)).collect();
+    match declared(&latin1).as_deref() {
+        Some("iso-8859-1" | "latin1" | "latin-1" | "windows-1252" | "cp1252") => Some(Ok(latin1)),
+        _ => Some(Err("the data file is not UTF-8, UTF-16 or ISO-8859-1 text".into())),
+    }
+}
+
+/// Is this an XFA data file (an XDP, a datasets document, a data element or a data document),
+/// rather than XFDF, Acrobat's `<fields>` XML or a table? By its root element.
+fn is_xfa_data_file(text: &str) -> bool {
+    let text = text.get(..text.len().min(65_536)).unwrap_or(text);
+    let mut rest = text.trim_start_matches('\u{feff}').trim_start();
+    // Past the XML declaration, comments and processing instructions.
+    let mut guard = 0;
+    while guard < 100 {
+        guard += 1;
+        if let Some(r) = rest.strip_prefix("<?") {
+            rest = r.split_once("?>").map_or("", |(_, r)| r).trim_start();
+        } else if let Some(r) = rest.strip_prefix("<!--") {
+            rest = r.split_once("-->").map_or("", |(_, r)| r).trim_start();
+        } else if let Some(r) = rest.strip_prefix("<!") {
+            rest = r.split_once('>').map_or("", |(_, r)| r).trim_start();
+        } else {
+            break;
+        }
+    }
+    let Some(tag) = rest.strip_prefix('<') else { return false };
+    let name = tag.split(|c: char| c.is_whitespace() || c == '>' || c == '/').next().unwrap_or("");
+    let local = name.rsplit(':').next().unwrap_or(name);
+    !local.is_empty() && !matches!(local, "xfdf" | "fields" | "html" | "body")
+}
+
+/// The content type a picture is saved under, from its bytes: the kinds a laid-out form shows.
+fn image_content_type(bytes: &[u8]) -> Option<&'static str> {
+    match pdfcraft_xfa::image::kind(bytes)? {
+        pdfcraft_xfa::image::Kind::Jpeg => Some("image/jpeg"),
+        pdfcraft_xfa::image::Kind::Png => Some("image/png"),
+        pdfcraft_xfa::image::Kind::Gif => Some("image/gif"),
+    }
+}
+
+/// After the XFA data changed outside the fields (an import, a picture): a laid-out form is
+/// laid out again from the data (then, when `calculate`, its calculations run), and the
+/// fields take the data's values.
+fn xfa_after_data_change(doc: &mut pdfcraft_cos::Document, cx: &mut EditCtx, calculate: bool) -> Result<(), EditError> {
+    if let Some(tpl) = cx.xfa.clone() {
+        let mut run = xfa::XfaRun { page_count: cx.pages, out: &mut cx.xfa_out, datasets: cx.xfa_datasets, ran_away: false };
+        let r = guard(|| xfa::on_data_replaced(doc, &tpl, calculate, &mut run))
+            .unwrap_or_else(|m| Err(format!("laying the form out again failed unexpectedly ({m})")));
+        cx.xfa_datasets = run.datasets;
+        cx.xfa_ran_away |= run.ran_away;
+        if let Err(e) = r {
+            cx.xfa_out.errors.push(e);
+        }
+    }
+    let taken = xfa_values_from_datasets(doc).map_err(EditError::Write)?;
+    if !taken.is_empty() {
+        cx.xfa_out.console.push(format!("{} field value(s) taken from the imported data", taken.len()));
+    }
+    // Not laid out again (a static form, or scripts off): fields the data no longer holds are
+    // emptied, so the data replaced is the data shown.
+    if cx.xfa.is_none() && calculate {
+        let data = xfa_field_data(doc);
+        let present: std::collections::HashSet<String> = pdfcraft_xfa::read_values(doc, &data).into_iter().map(|(n, _)| n).collect();
+        for f in pdfcraft_forms::fields(doc) {
+            if present.contains(&f.name) || f.value.is_empty() {
+                continue;
+            }
+            use pdfcraft_forms::FieldKind as K;
+            let empty = match f.kind {
+                K::Text => FieldValue::Text(String::new()),
+                K::CheckBox => FieldValue::Check(false),
+                K::Radio => FieldValue::Radio(None),
+                K::Combo | K::List => FieldValue::Choice(Vec::new()),
+                K::PushButton | K::Signature => continue,
+            };
+            if let Err(e) = pdfcraft_forms::set_value(doc, &f.name, &empty) {
+                cx.xfa_out.errors.push(format!("{}: not emptied by the import: {e}", f.name));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Give the fields the values the XFA datasets hold (a form filled in another viewer). Returns
@@ -2750,6 +3006,7 @@ impl Session {
             xfa_template: None,
             fonts_stale: false,
             xfa_warnings: Vec::new(),
+            edit_notices: Vec::new(),
         });
         Ok(id)
     }
@@ -2764,6 +3021,7 @@ impl Session {
         let today = self.today();
         let js_off = self.js_off;
         let doc = self.doc_mut(id)?;
+        doc.edit_notices.clear();
         let name = doc.name.clone();
         let is_xfa = doc.info.xfa.is_some();
         let mut cx = EditCtx::new(now, doc.generation ^ (id.0 << 48));
@@ -2838,6 +3096,13 @@ impl Session {
         if signed && rewrites(&next) && !rewrites(&editor.cos) {
             return Err(EditError::SignedRewrite(edit.label().to_string()));
         }
+        // What this edit drew with `?` (a value or comment text its font can't draw, stored as
+        // typed): reported, never silent (AGENTS.md §4).
+        let notices = if matches!(scope_of(&edit), Scope::Form | Scope::Comments | Scope::Full) {
+            guard(|| undrawn_notices(&editor.cos, &next)).unwrap_or_default()
+        } else {
+            Vec::new()
+        };
         let previous = std::mem::replace(&mut editor.cos, next);
         let keys = keys_after(&edit).unwrap_or_else(|| editor.keys.clone());
         let previous_keys = std::mem::replace(&mut editor.keys, keys);
@@ -2864,6 +3129,7 @@ impl Session {
         }
         doc.dirty = true;
         doc.generation += 1;
+        doc.edit_notices = notices;
         note_warnings(&mut doc.xfa_warnings, &xfa_notes);
         let notes = doc.xfa_warnings.clone();
         note_warnings(&mut doc.info.warnings, &notes);
@@ -2880,6 +3146,7 @@ impl Session {
 
     pub fn undo(&mut self, id: DocId) -> Result<Label, EditError> {
         let doc = self.doc_mut(id)?;
+        doc.edit_notices.clear();
         let editor = doc.editor.as_mut().ok_or(EditError::NothingToUndo)?;
         let (label, prev, keys, scope) = editor.undo.pop().ok_or(EditError::NothingToUndo)?;
         let current = std::mem::replace(&mut editor.cos, prev);
@@ -2894,6 +3161,7 @@ impl Session {
 
     pub fn redo(&mut self, id: DocId) -> Result<Label, EditError> {
         let doc = self.doc_mut(id)?;
+        doc.edit_notices.clear();
         let editor = doc.editor.as_mut().ok_or(EditError::NothingToRedo)?;
         let (label, next, keys, scope) = editor.redo.pop().ok_or(EditError::NothingToRedo)?;
         let current = std::mem::replace(&mut editor.cos, next);
@@ -3236,9 +3504,18 @@ impl Session {
         self.write_new(&pdfcraft_create::from_images_with_resolution(images, resolution)?)
     }
 
-    /// A new document from plain text (US Letter, 11 pt Helvetica).
+    /// A new document from plain text (US Letter, 11 pt Helvetica). Text Helvetica can't draw is
+    /// refused, naming the line and the character (never set as `?`).
     pub fn create_from_text(&self, title: &str, text: &str) -> Result<Arc<Vec<u8>>, EditError> {
         self.write_new(&pdfcraft_create::from_text(title, text, pdfcraft_create::LETTER, 11.0)?)
+    }
+
+    /// [`Self::create_from_text`] for a report PdfCraft writes from documents (comment summaries,
+    /// compare reports), which can quote any language: characters Helvetica can't draw are written
+    /// as `[U+XXXX]`, and the report's first line says so, rather than the report being refused.
+    fn create_report(&self, title: &str, text: &str) -> Result<Arc<Vec<u8>>, EditError> {
+        let (doc, _escaped) = pdfcraft_create::from_text_escaped(title, text, pdfcraft_create::LETTER, 11.0)?;
+        self.write_new(&doc)
     }
 
     /// Convert a file Create understands (an image or plain text) to PDF bytes; a PDF is checked
@@ -3297,11 +3574,20 @@ impl Session {
                 pdfcraft_cos::Document::open_with_password(doc.bytes.clone(), doc.password.as_deref()).map_err(|e| EditError::Write(e.to_string()))?
             }
         };
+        // An XFA form's data is its datasets, as Acrobat exports it: XML or an XDP.
+        let xfa = doc.info.xfa.is_some();
+        if format == DataFormat::Xdp && !xfa {
+            return Err(EditError::Invalid("XDP holds XFA form data; this document is not an XFA form (use .xml, .csv or .txt)".into()));
+        }
         guard(|| match format {
-            DataFormat::Xfdf => pdfcraft_xfdf::export_xfdf(&cos, comments, fields, &doc.name).into_bytes(),
-            DataFormat::Fdf => pdfcraft_xfdf::export_fdf(&cos, comments, fields, &doc.name),
-            other => pdfcraft_xfdf::export_data(&cos, other).into_bytes(),
+            DataFormat::Xfdf => Ok(pdfcraft_xfdf::export_xfdf(&cos, comments, fields, &doc.name).into_bytes()),
+            DataFormat::Fdf => Ok(pdfcraft_xfdf::export_fdf(&cos, comments, fields, &doc.name)),
+            DataFormat::Xml | DataFormat::Xdp if xfa => {
+                pdfcraft_xfa::export_data(&cos, format == DataFormat::Xdp, &doc.name).map(String::into_bytes).map_err(|e| e.to_string())
+            }
+            other => Ok(pdfcraft_xfdf::export_data(&cos, other).into_bytes()),
         })
+        .map_err(EditError::Write)?
         .map_err(EditError::Write)
     }
 
@@ -3657,7 +3943,7 @@ impl Session {
     pub fn summarize_comments(&self, id: DocId, sort: SummarySort) -> Result<Arc<Vec<u8>>, EditError> {
         let doc = self.get(id).ok_or(EditError::NoDocument)?;
         let text = comment_summary(&doc.name, &doc.info.annotations, sort);
-        self.create_from_text(&format!("Summary of Comments on {}", doc.name), &text)
+        self.create_report(&format!("Summary of Comments on {}", doc.name), &text)
     }
 
     /// The certificates trusted for signing.

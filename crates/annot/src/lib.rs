@@ -34,6 +34,11 @@ pub enum AnnotError {
     Invalid(String),
     #[error("{0} comments can't be restyled yet (their appearance can't be regenerated)")]
     Unsupported(String),
+    /// Text the standard fonts can't draw where `?` would be permanent or replace a good drawing:
+    /// a redaction's overlay text, or an edit that would redraw a comment another program drew
+    /// with a font that has those characters. The message names the character.
+    #[error("{0}")]
+    Undrawable(String),
     #[error("{0}")]
     Cos(#[from] pdfcraft_cos::CosError),
 }
@@ -1202,8 +1207,16 @@ pub fn add_annotation(doc: &mut Document, new: &NewAnnotation, meta: &Meta) -> R
         // Survives a later subject edit, so flatten-on-save still finds the mark.
         d.set(b"PCFillSign".to_vec(), Object::Bool(true));
     }
+    // A redaction's overlay text becomes page content when it is applied, where `?` would be there
+    // for good: refused before anything is added. A comment's own text is stored as typed and
+    // drawn with `?` for what the standard fonts can't draw (marked, see `draw_appearance`).
+    if d.name(b"Subtype") == Some(b"Redact")
+        && let Some((what, c)) = appearance::undrawable_text(&d)
+    {
+        return Err(AnnotError::Undrawable(pdfcraft_fonts::undrawable_message(what, c)));
+    }
     let r = doc.add(Object::Dict(d.clone()));
-    set_appearance(doc, r)?;
+    draw_appearance(doc, r)?;
     let mut list = annots(doc, page);
     let index = list.len();
     list.push(Object::Ref(r));
@@ -1250,9 +1263,33 @@ pub fn orient_image_stamp(doc: &mut Document, page: usize, index: usize, rotatio
     Ok(())
 }
 
-/// (Re)generate `/AP /N` for the annotation `r` from its dictionary.
-/// Regenerate an annotation's normal appearance from its dictionary.
+/// (Re)generate `/AP /N` for the annotation `r` from its dictionary, for an edit that keeps its
+/// text (a restyle, a new size or colour).
+///
+/// A comment whose text the standard fonts can't draw, with an appearance another program drew
+/// (with a font that has those characters), keeps that appearance: redrawing it would put `?` in
+/// their place, so the edit is refused (`AnnotError::Undrawable`). One PdfCraft drew with `?`
+/// (marked `pdfcraft_fonts::UNDRAWN_MARK`) is redrawn.
 pub fn set_appearance(doc: &mut Document, r: ObjRef) -> Result<(), AnnotError> {
+    let d = annot_dict(doc, r);
+    let drawn_elsewhere =
+        d.get(b"AP").is_some_and(|ap| doc.resolve(ap).as_dict().is_some_and(|ap| ap.contains(b"N"))) && pdfcraft_fonts::undrawn_mark(&d).is_none();
+    if drawn_elsewhere && let Some((what, c)) = appearance::undrawable_text(&d) {
+        return Err(AnnotError::Undrawable(format!(
+            "PdfCraft can't redraw this comment: the standard fonts can't draw \"{}\" (U+{:04X}) in {what}, which would then show as ? (the comment was left as it is)",
+            c.escape_debug(),
+            u32::from(c)
+        )));
+    }
+    draw_appearance(doc, r)
+}
+
+/// Draw `r`'s normal appearance from its dictionary, whatever its text: characters the standard
+/// fonts can't draw come out as `?`, and the annotation is marked (`pdfcraft_fonts::UNDRAWN_MARK`,
+/// cleared when all of it can be drawn) so the edit is reported and flattening won't make that
+/// `?` permanent. For new text (a new comment, changed contents), as Acrobat keeps text its font
+/// can't show, and for display-only copies.
+fn draw_appearance(doc: &mut Document, r: ObjRef) -> Result<(), AnnotError> {
     let d = annot_dict(doc, r);
     let subtype = String::from_utf8_lossy(d.name(b"Subtype").unwrap_or_default()).into_owned();
     let Some(stream) = build_appearance(doc, &d) else { return Err(AnnotError::Unsupported(subtype)) };
@@ -1280,6 +1317,8 @@ fn build_appearance(doc: &Document, d: &Dict) -> Option<Stream> {
 
 /// Store a built appearance on the annotation: the cheap half of [`set_appearance`].
 fn apply_appearance(doc: &mut Document, r: ObjRef, d: &Dict, stream: Stream) -> Result<(), AnnotError> {
+    // Characters the standard fonts can't draw came out as `?`: mark the annotation with the first.
+    let missing = appearance::undrawable_text(d).map(|(_, c)| c);
     let ap = doc.add(Object::Stream(stream));
     // A copy (a shared /AP is left alone) that keeps unknown entries; the old down and rollover
     // appearances would show the previous look on press or hover, so they go with the old /N.
@@ -1290,6 +1329,7 @@ fn apply_appearance(doc: &mut Document, r: ObjRef, d: &Dict, stream: Stream) -> 
     doc.update_dict(r, |d| {
         d.set(b"AP".to_vec(), Object::Dict(apd));
         d.remove(b"AS");
+        pdfcraft_fonts::set_undrawn_mark(d, missing);
     })?;
     Ok(())
 }
@@ -1489,10 +1529,12 @@ pub fn set_contents(doc: &mut Document, page: usize, index: usize, text: &str, m
     })?;
     if free_text {
         // The box grows and shrinks with the text instead of clipping it. A locked box keeps its
-        // text editable (as in Acrobat), so the re-fit ignores the lock.
+        // text editable (as in Acrobat), so the re-fit ignores the lock. New text is drawn even
+        // where the standard fonts can't draw some of it (marked and reported, see
+        // `draw_appearance`).
         match fitted_box(doc, r, text) {
-            Some(rect) => apply_text_box(doc, r, rect, meta)?,
-            None => set_appearance(doc, r)?,
+            Some(rect) => apply_text_box(doc, r, rect, meta, true)?,
+            None => draw_appearance(doc, r)?,
         }
     }
     Ok(())
@@ -1700,7 +1742,7 @@ pub fn set_rect(doc: &mut Document, page: usize, index: usize, rect: [f64; 4], m
     if !matches!(subtype.as_str(), "Square" | "Circle" | "FreeText") {
         return Err(AnnotError::Invalid(format!("{subtype} comments can't be resized")));
     }
-    apply_text_box(doc, r, rect, meta)
+    apply_text_box(doc, r, rect, meta, false)
 }
 
 /// Scale a drawing's strokes into `rect`. The margin between the strokes and the old `/Rect` (half
@@ -1750,8 +1792,9 @@ fn resize_ink(doc: &mut Document, r: ObjRef, rect: [f64; 4], meta: &Meta) -> Res
 }
 
 /// Store `rect` as a FreeText annotation's text box (or a square's/oval's rectangle): a callout's
-/// leader line re-attaches and `/Rect` grows to hold it, and the appearance is redrawn.
-fn apply_text_box(doc: &mut Document, r: ObjRef, rect: [f64; 4], meta: &Meta) -> Result<(), AnnotError> {
+/// leader line re-attaches and `/Rect` grows to hold it, and the appearance is redrawn
+/// (`new_text`: for changed contents, see [`set_appearance`] and `draw_appearance`).
+fn apply_text_box(doc: &mut Document, r: ObjRef, rect: [f64; 4], meta: &Meta, new_text: bool) -> Result<(), AnnotError> {
     let rect = normalize(rect);
     if !finite(&rect) || rect[2] - rect[0] < 1.0 || rect[3] - rect[1] < 1.0 {
         return Err(AnnotError::Invalid("invalid rectangle (too small)".into()));
@@ -1782,7 +1825,7 @@ fn apply_text_box(doc: &mut Document, r: ObjRef, rect: [f64; 4], meta: &Meta) ->
         }
         touch(d, meta);
     })?;
-    set_appearance(doc, r)
+    if new_text { draw_appearance(doc, r) } else { set_appearance(doc, r) }
 }
 
 fn border_width_of(d: &Dict) -> f64 {

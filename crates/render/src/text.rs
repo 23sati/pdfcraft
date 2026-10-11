@@ -95,6 +95,14 @@ impl PageText {
 
     /// Search with Acrobat's find options: case-sensitive, whole words only.
     pub fn find_opts(&self, needle: &str, case_sensitive: bool, whole_words: bool) -> Vec<std::ops::Range<usize>> {
+        self.find_opts_limited(needle, case_sensitive, whole_words, usize::MAX)
+    }
+
+    /// Search with Acrobat's find options, returning at most `limit` glyph ranges.
+    pub fn find_opts_limited(&self, needle: &str, case_sensitive: bool, whole_words: bool, limit: usize) -> Vec<std::ops::Range<usize>> {
+        if limit == 0 {
+            return Vec::new();
+        }
         let fold = |s: &str| if case_sensitive { s.to_string() } else { fold_case(s) };
         let needle: Vec<char> = fold(needle).split_whitespace().collect::<Vec<_>>().join(" ").chars().collect();
         if needle.is_empty() {
@@ -124,6 +132,9 @@ impl PageText {
                 let start = chars[i].1;
                 let end = chars[i + needle.len() - 1].1 + 1;
                 out.push(start..end);
+                if out.len() == limit {
+                    break;
+                }
                 i += needle.len();
             } else {
                 i += 1;
@@ -1466,7 +1477,17 @@ mod tests {
         assert_eq!(t.find("quick\tbrown"), vec![0..12]);
         assert_eq!(t.find("quick"), vec![0..5]);
         assert_eq!(t.find("brown"), vec![7..12]);
+        assert_eq!(t.find_opts_limited("o", false, false, 0), Vec::new());
         assert!(t.find("quick absent").is_empty());
+    }
+
+    #[test]
+    fn limited_search_stops_after_the_requested_matches() {
+        let mut glyphs = Vec::new();
+        word(&mut glyphs, "oooo", 10.0, 10.0, 6.0);
+        let text = layout(glyphs);
+        assert_eq!(text.find_opts_limited("o", false, false, 2), vec![0..1, 1..2]);
+        assert_eq!(text.find_opts_limited("o", false, false, 10), vec![0..1, 1..2, 2..3, 3..4]);
     }
 
     fn word(v: &mut Vec<TextGlyph>, s: &str, x: f32, y: f32, advance: f32) {

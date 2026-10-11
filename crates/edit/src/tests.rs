@@ -234,6 +234,58 @@ fn flattening_keeps_a_note_whose_appearance_is_missing() {
     assert!(flat.contains("q 1 0 0 1 10 10 cm /PCFl0 Do Q"), "{flat}");
 }
 
+/// Flattening never makes a `?` permanent: it refuses, changing nothing, a text box without an
+/// appearance whose text Helvetica can't draw (another program's), and a comment or form field
+/// whose appearance PdfCraft drew with `?` (marked `PCUndrawn`). A comment another program drew
+/// with a font that has those characters (an appearance, no mark) flattens as before.
+#[test]
+fn flattening_refuses_what_would_bake_in_question_marks() {
+    let page = stream("", " ");
+    let refused = |annot: &str, comments: bool, fields: bool, what: &str| {
+        let mut doc = build(&[
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << >> /Contents 4 0 R /Annots [5 0 R] >>",
+            &page,
+            annot,
+            "<< /Type /XObject /Subtype /Form /BBox [0 0 140 30] /Length 0 >>\nstream\n\nendstream",
+        ]);
+        let before = write_incremental(&doc, &SaveOptions::default()).unwrap();
+        let err = flatten(&mut doc, &[0], comments, fields).unwrap_err().to_string();
+        assert!(err.contains(what) && err.contains("page 1") && err.contains("\"欢\" (U+6B22)") && err.contains("nothing was flattened"), "{err}");
+        assert_eq!(write_incremental(&doc, &SaveOptions::default()).unwrap(), before, "a refused flatten changes nothing");
+        assert!(pdfcraft_model::pages(&doc)[0].dict.contains(b"Annots"), "the annotation is still there");
+    };
+    refused(
+        "<< /Type /Annot /Subtype /FreeText /Rect [10 10 150 40] /DA (0 g /Helv 12 Tf) /Contents <FEFF6B228FCE> /F 4 >>",
+        true,
+        false,
+        "a comment",
+    );
+    refused(
+        "<< /Type /Annot /Subtype /FreeText /Rect [10 10 150 40] /DA (0 g /Helv 12 Tf) /Contents <FEFF6B228FCE> /F 4 /AP << /N 6 0 R >> /PCUndrawn <FEFF6B22> >>",
+        true,
+        false,
+        "a comment",
+    );
+    refused(
+        "<< /Type /Annot /Subtype /Widget /FT /Tx /T (name) /V <FEFF6B228FCE> /Rect [10 10 150 40] /F 4 /AP << /N 6 0 R >> /PCUndrawn <FEFF6B22> >>",
+        false,
+        true,
+        "a form field",
+    );
+    // Drawn by another program, with a font that has 欢: no mark, so it flattens.
+    let mut doc = build(&[
+        "<< /Type /Catalog /Pages 2 0 R >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << >> /Contents 4 0 R /Annots [5 0 R] >>",
+        &page,
+        "<< /Type /Annot /Subtype /FreeText /Rect [10 10 150 40] /DA (0 g /Helv 12 Tf) /Contents <FEFF6B228FCE> /F 4 /AP << /N 6 0 R >> >>",
+        "<< /Type /XObject /Subtype /Form /BBox [0 0 140 30] /Length 0 >>\nstream\n\nendstream",
+    ]);
+    assert_eq!(flatten(&mut doc, &[0], true, false).unwrap(), 1);
+}
+
 /// Display space is in points, so on a `/UserUnit 2` page an item's box maps to half as many
 /// user-space units. Items record the `/UserUnit` they were written for; one without it was
 /// written when display space was in user-space units, and reads back scaled to points.
@@ -2191,6 +2243,37 @@ fn hostile_form_xobjects_are_read_once() {
     let texts: Vec<String> = text::reading_blocks(&doc, 0).unwrap().into_iter().map(|b| b.text).collect();
     assert_eq!(texts, ["once", "from b", "from a", "inherited", "bad matrix"]);
     assert!(images::reading_images(&doc, 0).unwrap().is_empty());
+}
+
+#[test]
+fn added_thai_text_wraps_clusters_and_survives_reopen() {
+    let mut doc = fixture();
+    let t = AddedText {
+        rect: [20.0, 100.0, 250.0, 300.0], text: "สวัสดี น้ำ ผู้ใช้ ปู่ ๑๒๓ Hello 123".into(), size: 16.0, ..AddedText::default()
+    };
+    if pdfcraft_fonts::document_thai_font().is_none() {
+        assert_eq!(first_undrawable(&t), Some('ส'));
+        let before = list_added(&doc);
+        let err = add_content(&mut doc, 0, &Content::Text(t)).unwrap_err().to_string();
+        assert!(err.contains("Thai") && err.contains("CRAFT_FONTS_DIR"), "{err}");
+        assert_eq!(list_added(&doc), before);
+        return;
+    }
+    assert_eq!(first_undrawable(&t), None);
+    add_content(&mut doc, 0, &Content::Text(t.clone())).unwrap();
+    let reopened = reopen(&doc);
+    assert_eq!(list_added(&reopened)[0].content, Content::Text(AddedText { rect: super::added::text_rect(&t), ..t.clone() }));
+    let narrow = AddedText { rect: [0.0, 0.0, 16.0, 200.0], text: "กิ่กิ่กิ่".into(), ..t.clone() };
+    assert_eq!(super::added::lines(&narrow), ["กิ่", "กิ่", "กิ่"]);
+    update_content(&mut doc, 0, 0, &Content::Text(AddedText { text: "แก้ไข น้ำ".into(), ..t.clone() })).unwrap();
+    assert!(!own(&doc, 0).is_empty());
+    let bad = Content::Text(AddedText { text: "ไทย 日".into(), ..t });
+    let before = list_added(&doc);
+    assert!(update_content(&mut doc, 0, 0, &bad).is_err());
+    assert_eq!(list_added(&doc), before);
+    delete_content(&mut doc, 0, 0).unwrap();
+    assert!(list_added(&doc).is_empty());
+    assert!(arabic_font_names(&doc, 0).is_empty());
 }
 
 #[test]

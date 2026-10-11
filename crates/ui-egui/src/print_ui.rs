@@ -591,8 +591,8 @@ pub(crate) fn body(
                 ui.label(tl!("Copies:"));
                 ui.horizontal(|ui| {
                     ui.add(egui::DragValue::new(&mut d.copies).range(1..=999));
-                    ui.checkbox(&mut d.collate, tl!("Collate"));
-                    ui.checkbox(&mut d.grayscale, tl!("Print in grayscale"));
+                    ui.add(widgets::checkbox(&mut d.collate, tl!("Collate")));
+                    ui.add(widgets::checkbox(&mut d.grayscale, tl!("Print in grayscale")));
                 });
                 ui.end_row();
                 ui.label(tl!("Two-sided:"));
@@ -641,9 +641,9 @@ pub(crate) fn body(
             ui.add_space(6.0);
             widgets::section_title(ui, tl!("Pages to Print"));
             ui.horizontal(|ui| {
-                ui.radio_value(&mut d.which, Which::All, tl!("All"));
-                ui.radio_value(&mut d.which, Which::Current, tl!("Current page"));
-                ui.radio_value(&mut d.which, Which::Range, tl!("Pages"));
+                widgets::radio_value(ui, &mut d.which, Which::All, tl!("All"));
+                widgets::radio_value(ui, &mut d.which, Which::Current, tl!("Current page"));
+                widgets::radio_value(ui, &mut d.which, Which::Range, tl!("Pages"));
                 let r = ui.add_enabled(
                     d.which == Which::Range,
                     crate::widgets::line(&mut d.range).hint_text(format!("1-{}", sizes.len())).desired_width(110.0),
@@ -655,7 +655,7 @@ pub(crate) fn body(
             // Offered only when pages were picked before the dialog opened.
             if !d.selected.is_empty() {
                 let label = format!("{} ({})", tl!("Selected pages"), d.selected.len());
-                ui.radio_value(&mut d.which, Which::Selected, label);
+                widgets::radio_value(ui, &mut d.which, Which::Selected, label);
             }
             ui.horizontal(|ui| {
                 ui.label(tl!("More options:"));
@@ -666,7 +666,7 @@ pub(crate) fn body(
                     &[(Subset::All, tl!("All pages in range")), (Subset::Odd, tl!("Odd pages only")), (Subset::Even, tl!("Even pages only"))],
                     150.0,
                 );
-                ui.checkbox(&mut d.reverse, tl!("Reverse pages"));
+                ui.add(widgets::checkbox(&mut d.reverse, tl!("Reverse pages")));
             });
             ui.add_space(6.0);
             widgets::section_title(ui, tl!("Page Sizing & Handling"));
@@ -687,13 +687,13 @@ pub(crate) fn body(
             match d.handling {
                 Handling::Size => {
                     ui.horizontal(|ui| {
-                        ui.radio_value(&mut d.size, SizeMode::Fit, tl!("Fit"));
-                        ui.radio_value(&mut d.size, SizeMode::Actual, tl!("Actual size"));
-                        ui.radio_value(&mut d.size, SizeMode::Shrink, tl!("Shrink oversized pages"));
+                        widgets::radio_value(ui, &mut d.size, SizeMode::Fit, tl!("Fit"));
+                        widgets::radio_value(ui, &mut d.size, SizeMode::Actual, tl!("Actual size"));
+                        widgets::radio_value(ui, &mut d.size, SizeMode::Shrink, tl!("Shrink oversized pages"));
                     });
                     ui.horizontal(|ui| {
                         let custom = matches!(d.size, SizeMode::Custom(_));
-                        if ui.radio(custom, tl!("Custom scale:")).clicked() {
+                        if ui.add(widgets::radio(custom, tl!("Custom scale:"))).clicked() {
                             d.size = SizeMode::Custom(d.custom_scale);
                         }
                         ui.add_enabled(custom, egui::DragValue::new(&mut d.custom_scale).range(1.0..=1000.0).suffix(" %"));
@@ -705,7 +705,7 @@ pub(crate) fn body(
                         ui.add(egui::DragValue::new(&mut d.poster_scale).range(10.0..=1000.0).suffix(" %"));
                         ui.label(tl!("Overlap:"));
                         ui.add(egui::DragValue::new(&mut d.overlap).range(0.0..=144.0).suffix(" pt"));
-                        ui.checkbox(&mut d.cut_marks, tl!("Cut marks"));
+                        ui.add(widgets::checkbox(&mut d.cut_marks, tl!("Cut marks")));
                     });
                 }
                 Handling::Multiple => {
@@ -728,8 +728,8 @@ pub(crate) fn body(
                         );
                     });
                     ui.horizontal(|ui| {
-                        ui.checkbox(&mut d.border, tl!("Print page border"));
-                        ui.checkbox(&mut d.auto_rotate, tl!("Auto-rotate pages"));
+                        ui.add(widgets::checkbox(&mut d.border, tl!("Print page border")));
+                        ui.add(widgets::checkbox(&mut d.auto_rotate, tl!("Auto-rotate pages")));
                     });
                     if d.order == PageOrder::CutStack {
                         ui.label(tl!(
@@ -759,9 +759,9 @@ pub(crate) fn body(
             ui.add_space(6.0);
             ui.horizontal(|ui| {
                 ui.label(tl!("Orientation:"));
-                ui.radio_value(&mut d.orientation, Orientation::Auto, tl!("Auto portrait/landscape"));
-                ui.radio_value(&mut d.orientation, Orientation::Portrait, tl!("Portrait"));
-                ui.radio_value(&mut d.orientation, Orientation::Landscape, tl!("Landscape"));
+                widgets::radio_value(ui, &mut d.orientation, Orientation::Auto, tl!("Auto portrait/landscape"));
+                widgets::radio_value(ui, &mut d.orientation, Orientation::Portrait, tl!("Portrait"));
+                widgets::radio_value(ui, &mut d.orientation, Orientation::Landscape, tl!("Landscape"));
             });
             ui.add_space(6.0);
             widgets::section_title(ui, tl!("Comments & Forms"));

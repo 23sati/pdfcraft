@@ -28,4 +28,4 @@ jobs:
     with:
       # craft-fonts build input (Japanese, Chinese and Arabic faces). Bump deliberately; the faces
       # it must have are asserted by the crates/fonts and ui-egui tests.
-      craft-fonts-ref: 2caca391ea8cdd8b3be14a53be8662746ee50385
+      craft-fonts-ref: 2cc8f61096afe714240e73f439086105bc7061af
