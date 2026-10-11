@@ -13,6 +13,7 @@ use crate::comments::{CommentPrefs, CommentTool, SortBy, color32, status_badge};
 use crate::icons;
 use crate::panels::Nav;
 use crate::theme::{self, Tokens};
+use crate::widgets;
 
 /// Accent bar of the selected card (11-visual-spec §3: `#0165DD`).
 const CARD_ACCENT: Color32 = Color32::from_rgb(0x01, 0x65, 0xDD);
@@ -510,7 +511,7 @@ pub(crate) fn header_controls(ui: &mut egui::Ui, info: &DocInfo, view: &mut DocV
             (SortBy::Type, tl!("Type")),
             (SortBy::Color, tl!("Colour")),
         ] {
-            if ui.radio(cv.sort == s, label).clicked() {
+            if ui.add(widgets::radio(cv.sort == s, label)).clicked() {
                 cv.sort = s;
                 ui.close();
             }
@@ -533,7 +534,7 @@ pub(crate) fn header_controls(ui: &mut egui::Ui, info: &DocInfo, view: &mut DocV
         ui.set_min_width(200.0);
         let toggle = |ui: &mut egui::Ui, list: &mut Vec<String>, value: &str, label: &str| {
             let mut shown = !list.iter().any(|x| x == value);
-            if ui.checkbox(&mut shown, label).changed() {
+            if ui.add(widgets::checkbox(&mut shown, label)).changed() {
                 if shown {
                     list.retain(|x| x != value);
                 } else {

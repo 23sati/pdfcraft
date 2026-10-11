@@ -227,18 +227,21 @@ fn primary_ui_fonts_cover_latin_and_cyrillic_catalogs() {
     let defs = theme::font_definitions();
     for (code, catalog) in [
         ("cs", include_str!("../src/i18n/cs.tsv")),
+        ("el", include_str!("../src/i18n/el.tsv")),
         ("pt-br", include_str!("../src/i18n/pt-br.tsv")),
         ("de", include_str!("../src/i18n/de.tsv")),
         ("es", include_str!("../src/i18n/es.tsv")),
         ("fr", include_str!("../src/i18n/fr.tsv")),
         ("ru", include_str!("../src/i18n/ru.tsv")),
+        ("kk", include_str!("../src/i18n/kk.tsv")),
         ("bg", include_str!("../src/i18n/bg.tsv")),
         ("hu", include_str!("../src/i18n/hu.tsv")),
         ("uk", include_str!("../src/i18n/uk.tsv")),
         ("it", include_str!("../src/i18n/it.tsv")),
+        ("tr", include_str!("../src/i18n/tr.tsv")),
         ("sl", include_str!("../src/i18n/sl.tsv")),
     ] {
-        let mut text = String::from("áčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽãõçâêôàÃÕÇÂÊÔÀñÑüÜäÄöÖőűß„“¿¡«»…ґҐєЄіІїЇ");
+        let mut text = String::from("áčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽãõçâêôàÃÕÇÂÊÔÀñÑüÜäÄöÖőűß„“¿¡«»…ґҐєЄіІїЇәғқңөұүһӘҒҚҢӨҰҮҺ");
         for line in catalog.lines().filter(|l| !l.starts_with('#')) {
             if let Some(translation) = line.split('\t').nth(2) {
                 text.extend(translation.chars().filter(|c| !c.is_whitespace()));
