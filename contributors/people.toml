@@ -84,3 +84,6 @@ sync_github_name = false
 real_name = "Atos Lins"
 display_name = "Atos Lins"
 sync_github_name = false
+
+[people.lollinoo]
+sync_github_name = true
