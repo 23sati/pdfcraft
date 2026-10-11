@@ -24,7 +24,7 @@ default = ["mcp"]
 mcp = ["dep:base64"]
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-pdfcraft-hot-folder-service = { path = "../hot-folder-service" }
+pdfcraft-hot-folder-service = { path = "../hot-folder-service", version = "0.6.0" }
 zeroize = "1.8"
 
 [dev-dependencies]
