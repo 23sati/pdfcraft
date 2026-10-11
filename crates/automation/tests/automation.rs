@@ -3337,6 +3337,49 @@ fn exporting_to_word_html_and_rtf() {
     assert!(a.call("doc_export_office", &json!({ "doc": doc, "path": "a.xyz" })).is_err());
 }
 
+/// #773: a diagonal watermark must not enter the body flow or move invoice fields.
+#[test]
+fn exporting_an_invoice_to_word_keeps_the_watermark_out_of_flow() {
+    use pdfcraft_cos::{Dict, Document, ObjRef, SaveOptions, Stream, write_full};
+    let dir = workdir("invoice-word");
+    let mut pdf = Document::open(std::sync::Arc::new(fixture(1))).unwrap();
+    let content = b"q BT /F1 60 Tf 0.8 g 0.70710678 0.70710678 -0.70710678 0.70710678 30 80 Tm (DRAFT) Tj ET Q \
+BT /F1 11 Tf 20 250 Td (Description) Tj 110 0 Td (Amount) Tj \
+-110 -20 Td (Design) Tj 110 0 Td (100.00) Tj \
+-110 -20 Td (Review) Tj 110 0 Td (50.00) Tj ET \
+BT /F1 11 Tf 20 20 Td (Total due: 150.00) Tj ET";
+    pdf.set(ObjRef::new(5, 0), Stream { dict: Dict::new(), raw: content.to_vec().into() });
+    std::fs::write(dir.join("invoice.pdf"), write_full(&pdf, &SaveOptions::default()).unwrap()).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "invoice.pdf" }))["doc"].as_u64().unwrap();
+    ok(&mut a, "doc_export_office", json!({ "doc": doc, "path": "invoice.docx" }));
+    // Inspect the actual package emitted by the tool, not an intermediate page model.
+    let zip = std::fs::read(dir.join("invoice.docx")).unwrap();
+    let mut at = 0;
+    let mut xml = String::new();
+    while zip[at..].starts_with(b"PK\x03\x04") {
+        let size = u32::from_le_bytes(zip[at + 18..at + 22].try_into().unwrap()) as usize;
+        let len = u16::from_le_bytes(zip[at + 26..at + 28].try_into().unwrap()) as usize;
+        let data = at + 30 + len;
+        if &zip[at + 30..data] == b"word/document.xml" {
+            std::io::Read::read_to_string(&mut flate2::read::DeflateDecoder::new(&zip[data..data + size]), &mut xml).unwrap();
+            break;
+        }
+        at = data + size;
+    }
+    assert!(xml.contains("rotation:315.000"), "diagonal text survives extraction: {xml}");
+    assert!(xml.contains("z-index:-2"), "the large watermark stays behind the invoice");
+    assert!(!xml.contains("<wp:inline>") && !xml.contains("<w:tbl>"));
+    assert!(!xml.contains("w:val=\"single\""));
+    assert_eq!(xml.matches(">DRAFT</w:t>").count(), 1);
+    assert_eq!(xml.matches(">Total due: 150.00</w:t>").count(), 1);
+    assert_eq!(xml.matches("<w:sectPr>").count(), 1);
+    assert!(!xml.contains("w:type=\"page\""));
+    assert!(xml.contains("margin-left:20.000pt"), "invoice fields retain their left edge");
+    let rendered = a.call("page_render", &json!({ "doc": doc, "page": 1, "dpi": 72 })).unwrap();
+    assert!(rendered.iter().any(|c| matches!(c, Content::Png { .. })));
+}
+
 #[test]
 fn dynamic_xfa_forms_open_render_fill_and_save_through_tools() {
     let dir = workdir("xfa");

@@ -118,6 +118,8 @@ pub struct TextBlock {
     /// The text fill colour as RGB, used by the visual editor and preserved when no colour
     /// override is requested.
     pub color: [f64; 3],
+    /// Counterclockwise baseline angle in page user space, in degrees.
+    pub rotation: f64,
     /// Indexes into [`text_lines`].
     pub lines: Vec<usize>,
 }
@@ -126,6 +128,11 @@ impl TextLine {
     /// The baseline's height in user space.
     pub fn origin_baseline(&self) -> f64 {
         self.origin.baseline
+    }
+
+    fn rotation(&self) -> f64 {
+        let m = Matrix(self.origin.tm).then(&Matrix(self.origin.ctm)).0;
+        m[1].atan2(m[0]).to_degrees()
     }
 }
 
@@ -1048,6 +1055,7 @@ fn group_blocks(lines: &[TextLine]) -> Vec<TextBlock> {
                     && prev.bold == l.bold
                     && prev.italic == l.italic
                     && prev.color == l.color
+                    && (prev.rotation() - l.rotation()).abs() < 0.01
                     && (prev.size - l.size).abs() < 0.01
                     && aligned(prev, l)
                     && g > l.size * 0.8
@@ -1078,6 +1086,7 @@ fn group_blocks(lines: &[TextLine]) -> Vec<TextBlock> {
                 bold: l.bold,
                 italic: l.italic,
                 color: l.color,
+                rotation: l.rotation(),
                 lines: vec![i],
             });
         }
