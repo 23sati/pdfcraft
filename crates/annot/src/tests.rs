@@ -595,7 +595,8 @@ fn link_edit_rejects_non_finite_and_overflowed_rectangles_without_mutating_the_p
     }
     // A reversed but otherwise valid rectangle is normalized on edit.
     links::set(&mut doc, 0, index, Some([110.0, 70.0, 10.0, 20.0]), None, None).unwrap();
-    assert_eq!(links::list(&doc)[index].rect, original_rect);
+    let edited = links::list(&doc).into_iter().find(|l| l.page == 0 && l.index == index).map(|l| l.rect);
+    assert_eq!(edited, Some(original_rect));
 }
 
 #[test]
