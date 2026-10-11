@@ -13,6 +13,8 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
 pub mod actions;
+pub mod camera;
+pub mod camera_edges;
 pub mod catalog;
 pub mod commands;
 pub mod compare;
@@ -46,7 +48,7 @@ pub use pdfcraft_forms::{
 };
 
 pub use pdfcraft_a11y as a11y;
-pub use pdfcraft_edit::{BlockStyle, PageImage, TextBlock, TextLine, first_undrawable};
+pub use pdfcraft_edit::{BlockStyle, PageImage, TextBlock, TextLine, first_undrawable, first_undrawable_plain, undrawable_message};
 pub use pdfcraft_measure as measure;
 pub use pdfcraft_xfa::Report as XfaLayout;
 
@@ -1915,9 +1917,6 @@ pub fn guard<T>(f: impl FnOnce() -> T) -> Result<T, String> {
     })
 }
 
-/// The most files Create ▸ Multiple files takes in one run.
-pub const MAX_CREATE_FILES: usize = 1000;
-
 /// Parse another PDF to copy pages from.
 fn open_source(name: &str, bytes: &Arc<Vec<u8>>) -> Result<pdfcraft_cos::Document, EditError> {
     open_source_with(name, bytes, None)
@@ -2051,10 +2050,20 @@ pub struct Session {
 /// Lay a dynamic XFA form out (pages and fields) and give its widgets appearances.
 fn xfa_layout(doc: &mut pdfcraft_cos::Document) -> Result<XfaLayout, String> {
     let report = pdfcraft_xfa::render_into(doc).map_err(|e| e.to_string())?;
+    xfa_redraw(doc)?;
+    Ok(report)
+}
+
+/// Give the fields of a laid-out XFA form their appearances. A signed signature box keeps the
+/// picture its signer's application drew.
+pub(crate) fn xfa_redraw(doc: &mut pdfcraft_cos::Document) -> Result<(), String> {
     for f in pdfcraft_forms::fields(doc) {
+        if f.kind == pdfcraft_forms::FieldKind::Signature && doc.get(f.obj).as_dict().is_some_and(|d| d.contains(b"V")) {
+            continue;
+        }
         pdfcraft_forms::redraw_field(doc, &f.name).map_err(|e| format!("{}: {e}", f.name))?;
     }
-    Ok(report)
+    Ok(())
 }
 
 /// The form's fields as the XFA data layer wants them.
@@ -2380,12 +2389,14 @@ impl Session {
         };
         let display = display_bytes(editor.as_ref(), &bytes);
         let renderer = RenderPool::new(display.clone(), render_threads(), config.clone());
-        let mut form = editor.as_ref().map(|e| pdfcraft_forms::fields(&e.cos)).unwrap_or_default();
-        let mut adopted = 0;
-        if let Some(e) = editor.as_ref() {
-            xfa::mark_script_buttons(&e.cos, &mut form);
-            adopted = pdfcraft_forms::adopted_page_fields(&e.cos);
-        }
+        let (form, adopted) = editor
+            .as_ref()
+            .map(|e| {
+                let mut fields = pdfcraft_forms::fields_with_adopted(&e.cos);
+                xfa::mark_script_buttons(&e.cos, &mut fields.items);
+                (fields.items, fields.adopted_page_fields)
+            })
+            .unwrap_or_default();
         // Fields the file lists only as page widgets are adopted leniently; the file says so.
         if adopted > 0
             && let Some(e) = &mut editor
@@ -2826,6 +2837,18 @@ impl Session {
         Ok((kind, created?))
     }
 
+    /// A file for Combine as PDF bytes: an image or text file is converted; a PDF is returned as
+    /// it is, unchecked (Combine reads it itself, with its password), as is a file named .pdf
+    /// without a `%PDF-` header, which the reader may still open.
+    pub fn as_pdf(&self, name: &str, bytes: &Arc<Vec<u8>>) -> Result<Arc<Vec<u8>>, EditError> {
+        let pdf = match source_kind(name, bytes) {
+            Some(SourceKind::Pdf) => true,
+            Some(SourceKind::Image | SourceKind::Text) => false,
+            None => name.to_ascii_lowercase().ends_with(".pdf"),
+        };
+        if pdf { Ok(bytes.clone()) } else { self.convert_to_pdf(name, bytes).map(|(_, pdf)| pdf) }
+    }
+
     /// Reduce File Size: Acrobat's defaults (images above 225 ppi to 150 ppi, JPEG medium
     /// quality; thumbnails dropped), identical resources merged, unused objects dropped, objects
     /// packed into compressed object streams. Returns the bytes and how many objects were
@@ -2887,6 +2910,43 @@ impl Session {
     /// Combine Files with a page range per file ("1-3, 6"; `None` or empty for all pages).
     pub fn combine_ranges(&self, sources: &[CombineSource]) -> Result<Arc<Vec<u8>>, EditError> {
         self.combine_unlocked(sources, &[])
+    }
+
+    /// Combine sources one at a time, in order (Create ▸ Multiple files), to the same result as
+    /// [`Self::combine_ranges`]. Each item is a source's bookmark title, its PDF bytes (see
+    /// [`Self::convert_to_pdf`]) and its page range (`None` for all pages). Items are pulled one at a
+    /// time: a source is opened, its pages are copied into the result, and its bytes are released
+    /// before the next item is read. So the number of sources is not limited, and one source's
+    /// document is held at a time. An item's error stops the combine and is returned as it is.
+    /// `Ok(None)` when there are no sources.
+    pub fn combine_each<I, E>(&self, sources: I) -> Result<Option<Arc<Vec<u8>>>, E>
+    where
+        I: IntoIterator<Item = Result<CombineSource, E>>,
+        E: From<EditError>,
+    {
+        let mut combiner = pdfcraft_organize::Combiner::new();
+        let mut added = false;
+        for source in sources {
+            let (title, bytes, range) = source?;
+            let doc = open_source(&title, &bytes)?;
+            let range = range.as_deref().map(str::trim).filter(|r| !r.is_empty());
+            let pages = match range {
+                Some(r) => {
+                    let n = pdfcraft_organize::page_count(&doc).map_err(EditError::from)?;
+                    let p = pdfcraft_print::select_pages(n, Some(r), &[], pdfcraft_print::Subset::All, false)
+                        .map_err(|e| EditError::Print(format!("{title}: {e}")))?;
+                    Some(p)
+                }
+                None => None,
+            };
+            combiner.add(&title, &doc, pages.as_deref()).map_err(EditError::from)?;
+            added = true;
+        }
+        if !added {
+            return Ok(None);
+        }
+        let out = combiner.finish().map_err(EditError::from)?;
+        Ok(Some(self.write_new(&out)?))
     }
 
     /// [`Self::combine_ranges`] with the password each encrypted source is opened with, by

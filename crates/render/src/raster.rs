@@ -2099,48 +2099,59 @@ mod tests {
     // Metadata-only: the test budget is 128 pixels and no image buffer is allocated.
     #[test]
     fn image_resampling_rejects_anisotropic_target_growth() {
-        assert_eq!(hayro::image_resampling_size(16, 1, 1, 16, 0.5, 32.0, 128), None);
-        assert_eq!(hayro::image_resampling_size(16, 1, 3, 48, 0.5, 32.0, 128), None);
-        assert_eq!(hayro::image_resampling_size(16, 1, 4, 64, 0.5, 32.0, 128), None);
+        assert_eq!(hayro::image_resampling_size(16, 1, 1, 16, 0.5, 32.0, 128, true), None);
+        assert_eq!(hayro::image_resampling_size(16, 1, 3, 48, 0.5, 32.0, 128, true), None);
+        assert_eq!(hayro::image_resampling_size(16, 1, 4, 64, 0.5, 32.0, 128, true), None);
     }
 
     #[test]
     fn image_resampling_bounds_intermediate_before_planning() {
         // Source and destination are each 128 pixels, but their crossed dimensions are 256.
-        assert_eq!(hayro::image_resampling_size(16, 8, 4, 512, 0.5, 2.0, 128), None);
+        assert_eq!(hayro::image_resampling_size(16, 8, 4, 512, 0.5, 2.0, 128, true), None);
     }
 
     #[test]
     fn image_resampling_rejects_invalid_sources_and_scales() {
-        assert_eq!(hayro::image_resampling_size(4, 4, 3, 47, 0.5, 0.5, 128), None);
-        assert_eq!(hayro::image_resampling_size(4, 4, 3, 49, 0.5, 0.5, 128), None);
+        assert_eq!(hayro::image_resampling_size(4, 4, 3, 47, 0.5, 0.5, 128, true), None);
+        assert_eq!(hayro::image_resampling_size(4, 4, 3, 49, 0.5, 0.5, 128, true), None);
         for scale in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY, -1.0, 0.0] {
-            assert_eq!(hayro::image_resampling_size(4, 4, 3, 48, 0.5, scale, 128), None);
+            assert_eq!(hayro::image_resampling_size(4, 4, 3, 48, 0.5, scale, 128, true), None);
         }
     }
 
     #[test]
     fn image_resampling_keeps_valid_sizes_and_exact_limits() {
-        assert_eq!(hayro::image_resampling_size(16, 8, 1, 128, 0.5, 0.5, 128), Some((8, 4)));
-        assert_eq!(hayro::image_resampling_size(16, 1, 3, 48, 0.5, 8.0, 128), Some((8, 8)));
-        assert_eq!(hayro::image_resampling_size(16, 8, 4, 512, 1.0, 1.0, 128), Some((16, 8)));
-        assert_eq!(hayro::image_resampling_size(0, 8, 1, 0, 1.0, 1.0, 128), None);
-        assert_eq!(hayro::image_resampling_size(16, 9, 1, 144, 1.0, 1.0, 128), None);
-        assert_eq!(hayro::image_resampling_size(65_536, 1, 1, 65_536, 1.0, 1.0, u64::MAX), None);
+        assert_eq!(hayro::image_resampling_size(16, 8, 1, 128, 0.5, 0.5, 128, true), Some((8, 4)));
+        assert_eq!(hayro::image_resampling_size(16, 1, 3, 48, 0.5, 8.0, 128, true), Some((8, 8)));
+        assert_eq!(hayro::image_resampling_size(16, 8, 4, 512, 1.0, 1.0, 128, true), Some((16, 8)));
+        assert_eq!(hayro::image_resampling_size(0, 8, 1, 0, 1.0, 1.0, 128, true), None);
+        assert_eq!(hayro::image_resampling_size(16, 9, 1, 144, 1.0, 1.0, 128, true), None);
+        assert_eq!(hayro::image_resampling_size(65_536, 1, 1, 65_536, 1.0, 1.0, u64::MAX, true), None);
         for channels in [1, 3, 4] {
-            assert_eq!(hayro::image_resampling_size(65_536, 1, channels, 65_536 * channels, 1.0 / 4096.0, 1.0, 65_536), Some((16, 1)));
+            assert_eq!(hayro::image_resampling_size(65_536, 1, channels, 65_536 * channels, 1.0 / 4096.0, 1.0, 65_536, true), Some((16, 1)));
         }
-        assert_eq!(hayro::image_resampling_size(65_535, 1, 1, 65_535, 1.0, 1.0, 65_535), Some((65_535, 1)));
-        assert_eq!(hayro::image_resampling_size((1 << 20) + 1, 1, 1, (1 << 20) + 1, 1.0 / 4096.0, 1.0, 1 << 28), None);
+        assert_eq!(hayro::image_resampling_size(65_535, 1, 1, 65_535, 1.0, 1.0, 65_535, true), Some((65_535, 1)));
+        assert_eq!(hayro::image_resampling_size((1 << 20) + 1, 1, 1, (1 << 20) + 1, 1.0 / 4096.0, 1.0, 1 << 28, true), None);
     }
 
     #[test]
     fn image_resampling_padded_backend_dimensions_stay_checked() {
         // A Type 3 image's two-pixel frame may reach u16::MAX exactly, never wrap to zero.
-        assert_eq!(hayro::image_resampling_size(65_531 + 4, 1 + 4, 4, 65_535 * 5 * 4, 1.0, 1.0, 65_535 * 5), Some((65_535, 5)));
-        assert_eq!(hayro::image_resampling_size(65_531 + 4, 1 + 4, 4, 65_535 * 5 * 4, 1.0, 1.0, 65_535 * 5 - 1), None);
-        assert_eq!(hayro::image_resampling_size(65_532 + 4, 1 + 4, 4, 65_536 * 5 * 4, 1.0, 1.0, 1 << 28), None);
+        assert_eq!(hayro::image_resampling_size(65_531 + 4, 1 + 4, 4, 65_535 * 5 * 4, 1.0, 1.0, 65_535 * 5, true), Some((65_535, 5)));
+        assert_eq!(hayro::image_resampling_size(65_531 + 4, 1 + 4, 4, 65_535 * 5 * 4, 1.0, 1.0, 65_535 * 5 - 1, true), None);
+        assert_eq!(hayro::image_resampling_size(65_532 + 4, 1 + 4, 4, 65_536 * 5 * 4, 1.0, 1.0, 1 << 28, true), None);
     }
+
+    /// Nearest-neighbour copies source pixels and needs no filter tables, so a source wider than the
+    /// Catmull-Rom side cap still shrinks. The pixel budget applies to it all the same.
+    #[test]
+    fn image_resampling_nearest_accepts_wide_sources_the_filter_refuses() {
+        let wide: u32 = (1 << 20) + 1;
+        assert_eq!(hayro::image_resampling_size(wide, 1, 1, wide as usize, 1.0 / 4096.0, 1.0, 1 << 28, true), None);
+        assert_eq!(hayro::image_resampling_size(wide, 1, 1, wide as usize, 1.0 / 4096.0, 1.0, 1 << 28, false), Some((257, 1)));
+        assert_eq!(hayro::image_resampling_size(wide, 1, 1, wide as usize, 1.0 / 4096.0, 1.0, 256, false), None);
+    }
+
     fn strip_image_pdf(width: u32, body: &str, space: &str, encoded: &str, alpha: Option<&str>) -> Vec<u8> {
         let (mask_ref, mask_obj) = match alpha {
             Some(data) => (
@@ -2191,6 +2202,23 @@ mod tests {
         assert!(page.error.is_none(), "{:?}", page.error);
         assert_eq!((page.width, page.height), (20, 4));
         assert_eq!(&page.rgba[(20 + 3) * 4..][..4], &[255, 128, 128, 255]);
+    }
+
+    /// A source wider than the filter's 2^20-pixel side cap is shrunk by nearest-neighbour rather
+    /// than refused and skipped (the default, `/Interpolate` omitted, is nearest).
+    #[test]
+    fn wide_non_interpolated_sources_draw_after_shrinking() {
+        let data = "7f".repeat(1_100_000);
+        let pdf = strip_image_pdf(1_100_000, "q 16 0 0 1 2 2 cm /Im0 Do Q\n", "DeviceGray", &data, None);
+        let mut renderer = PageRenderer::new(Arc::new(pdf), RenderConfig::default());
+        let page = renderer.render(RenderRequest { page: 0, kind: RequestKind::Pixels, scale: 1.0, ..Default::default() });
+        assert!(page.error.is_none(), "{:?}", page.error);
+        assert_eq!((page.width, page.height), (20, 4));
+        let pixel = |x: usize| &page.rgba[(20 + x) * 4..][..4];
+        assert_eq!(pixel(1), &[255, 255, 255, 255]);
+        assert_eq!(pixel(3), &[127, 127, 127, 255], "source image was not dropped");
+        assert_eq!(pixel(17), &[127, 127, 127, 255]);
+        assert_eq!(pixel(19), &[255, 255, 255, 255]);
     }
 
     #[test]
@@ -3842,6 +3870,152 @@ trailer << /Root 1 0 R >>
         }
     }
 
+    /// Item 1 of storytold/pdfcraft#623: a page's content used to be cut at `MAX_DECODED_STREAM`,
+    /// so everything after the cut was lost (the text and the title block of the A1 sample). Content
+    /// that expands by a few times over is read to its end, however large it is.
+    #[test]
+    fn page_content_past_the_old_cap_renders() {
+        let limit = hayro::hayro_syntax::MAX_DECODED_STREAM;
+        // Blocks of a comment and a run of blanks. Each compresses about thirty times over, well
+        // within the budget that `ContentReader` allows.
+        let mut content = Vec::with_capacity(limit + (8 << 20));
+        let mut state = 0x2545_f491_4f6c_dd1d_u64;
+        while content.len() < limit + (8 << 20) {
+            content.push(b'%');
+            for _ in 0..3 {
+                state = state.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+                content.push(b'a' + ((state >> 33) % 26) as u8);
+            }
+            content.push(b'\n');
+            content.resize(content.len() + 128, b' ');
+        }
+        content.extend_from_slice(b"1 0 0 rg 0 0 4 4 re f");
+        let mut z = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+        std::io::Write::write_all(&mut z, &content).unwrap();
+        let stream = z.finish().unwrap();
+        assert!(content.len() < 64 * stream.len(), "the content expands by less than the budget allows");
+
+        let mut pdf = b"%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 40 40] /Contents 4 0 R >> endobj\n".to_vec();
+        pdf.extend_from_slice(format!("4 0 obj << /Filter /FlateDecode /Length {} >> stream\n", stream.len()).as_bytes());
+        pdf.extend_from_slice(&stream);
+        pdf.extend_from_slice(b"\nendstream endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n");
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut r = PageRenderer::new(Arc::new(pdf), RenderConfig::default());
+            let _ = tx.send(r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 1.0, tag: 0 }));
+        });
+        let page = rx.recv_timeout(std::time::Duration::from_secs(120)).expect("a large page must render");
+        assert!(page.error.is_none(), "{:?}", page.error);
+        assert!(!page.warnings.contains(&RenderWarning::ContentTruncated), "nothing was cut");
+        assert_eq!(&page.rgba[((38 * 40 + 1) * 4)..][..4], &[255, 0, 0, 255], "the square after the old cap draws");
+    }
+
+    /// The content stream is interpreted a window at a time. An inline image with more data than
+    /// a window is read whole, and what follows it is still drawn.
+    #[test]
+    fn inline_images_longer_than_a_window_are_read_whole() {
+        let mut content = b"q 300 0 0 300 0 0 cm BI /W 300 /H 300 /BPC 8 /CS /G ID ".to_vec();
+        content.extend(std::iter::repeat_n(0x80_u8, 300 * 300));
+        content.extend_from_slice(b" EI Q 1 0 0 rg 0 0 4 4 re f");
+        let pdf = one_page_pdf(&content, "");
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut r = PageRenderer::new(Arc::new(pdf), RenderConfig::default());
+            let _ = tx.send(r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 1.0, tag: 0 }));
+        });
+        let page = rx.recv_timeout(std::time::Duration::from_secs(60)).expect("an inline image must not stall the renderer");
+        assert!(page.error.is_none(), "{:?}", page.error);
+        let pixel = |x: u32, y: u32| {
+            let offset = ((y * page.width + x) * 4) as usize;
+            [page.rgba[offset], page.rgba[offset + 1], page.rgba[offset + 2], page.rgba[offset + 3]]
+        };
+        assert_eq!(pixel(1, 38), [255, 0, 0, 255], "the square after the image draws");
+        let grey = pixel(30, 5);
+        assert!(grey[0] == grey[1] && grey[1] == grey[2] && grey[0] < 255, "the image covers the page: {grey:?}");
+    }
+
+    /// A one-page PDF whose content is the stream `stream`, with the entries `dict` in its
+    /// dictionary.
+    fn one_page_pdf(stream: &[u8], dict: &str) -> Vec<u8> {
+        let mut pdf = b"%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 40 40] /Contents 4 0 R >> endobj\n".to_vec();
+        pdf.extend_from_slice(format!("4 0 obj << {dict} /Length {} >> stream\n", stream.len()).as_bytes());
+        pdf.extend_from_slice(stream);
+        pdf.extend_from_slice(b"\nendstream endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n");
+        pdf
+    }
+
+    /// A page whose content expands far beyond its compressed stream stops at the expansion budget,
+    /// which is 64 times the compressed size and at least `MAX_DECODED_STREAM`, and the page says so.
+    #[test]
+    fn content_bombs_stop_at_the_budget_and_say_so() {
+        let bomb = zlib_zeros(hayro::hayro_syntax::MAX_DECODED_STREAM + (32 << 20));
+        let pdf = one_page_pdf(&bomb, "/Filter /FlateDecode");
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut r = PageRenderer::new(Arc::new(pdf), RenderConfig::default());
+            let _ = tx.send(r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 1.0, tag: 0 }));
+        });
+        let page = rx.recv_timeout(std::time::Duration::from_secs(60)).expect("a content bomb must not stall the renderer");
+        assert!(page.error.is_none(), "{:?}", page.error);
+        assert!(page.warnings.contains(&RenderWarning::ContentTruncated), "the cut content is observable");
+    }
+
+    /// A stream read in pieces of any size gives the same bytes: stored and dynamic blocks, and in
+    /// a `/Contents` array a stream that is not Flate-coded, between two that are.
+    #[test]
+    fn content_reader_returns_the_same_bytes_in_any_pieces() {
+        use hayro::hayro_syntax::Pdf;
+        use std::io::Write;
+        let mut plain = Vec::new();
+        for i in 0..40_000_u32 {
+            plain.extend_from_slice(format!("{} {} l\n", i % 977, i % 613).as_bytes());
+        }
+        let zlib = |data: &[u8], level| {
+            let mut z = flate2::write::ZlibEncoder::new(Vec::new(), level);
+            z.write_all(data).unwrap();
+            z.finish().unwrap()
+        };
+        let read = |pdf: Vec<u8>, piece: usize| {
+            let doc = Pdf::new(pdf).expect("parses");
+            let page = doc.pages().first().expect("one page");
+            let mut content = page.content_reader();
+            let mut out = Vec::new();
+            while content.read_into(&mut out, piece) > 0 {}
+            out
+        };
+        let pieces = [1, 3, 64, 4096, 65_536, 1_000_000];
+
+        for level in [flate2::Compression::none(), flate2::Compression::best()] {
+            let pdf = one_page_pdf(&zlib(&plain, level), "/Filter /FlateDecode");
+            for piece in pieces {
+                assert!(read(pdf.clone(), piece) == plain, "piece {piece}");
+            }
+        }
+
+        // A `/Contents` array: Flate, then ASCIIHex (decoded whole), then Flate. As before, each
+        // stream is followed by a space.
+        let hex: String = plain[..100].iter().map(|b| format!("{b:02x}")).collect::<String>() + ">";
+        let first = zlib(&plain, flate2::Compression::default());
+        let last = zlib(&plain[..50], flate2::Compression::default());
+        let mut expected = plain.clone();
+        expected.push(b' ');
+        expected.extend_from_slice(&plain[..100]);
+        expected.push(b' ');
+        expected.extend_from_slice(&plain[..50]);
+        expected.push(b' ');
+        let mut pdf = b"%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 40 40] /Contents [4 0 R 5 0 R 6 0 R] >> endobj\n".to_vec();
+        pdf.extend_from_slice(format!("4 0 obj << /Filter /FlateDecode /Length {} >> stream\n", first.len()).as_bytes());
+        pdf.extend_from_slice(&first);
+        pdf.extend_from_slice(format!("\nendstream endobj\n5 0 obj << /Filter /ASCIIHexDecode /Length {} >> stream\n", hex.len()).as_bytes());
+        pdf.extend_from_slice(hex.as_bytes());
+        pdf.extend_from_slice(format!("\nendstream endobj\n6 0 obj << /Filter /FlateDecode /Length {} >> stream\n", last.len()).as_bytes());
+        pdf.extend_from_slice(&last);
+        pdf.extend_from_slice(b"\nendstream endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n");
+        for piece in pieces {
+            assert!(read(pdf.clone(), piece) == expected, "the array: piece {piece}");
+        }
+    }
+
     /// Zlib data that inflates to `len` zero bytes.
     fn zlib_zeros(len: usize) -> Vec<u8> {
         use std::io::Write;
@@ -4355,6 +4529,180 @@ trailer << /Root 1 0 R >>
         assert_eq!(&page.rgba[((38 * 40 + 1) * 4)..][..4], &[255, 0, 0, 255]);
     }
 
+    /// Hex-encodes `bytes` for an `/ASCIIHexDecode` stream.
+    fn hex(bytes: &[u8]) -> String {
+        bytes.iter().map(|b| format!("{b:02x}")).collect()
+    }
+
+    /// An 8×4 source of 2×2 blocks: block column `x / 2` and row `y / 2` takes `levels[(y / 2) * 4 + x / 2]`.
+    fn block_source<T: Copy>(levels: [T; 8]) -> Vec<T> {
+        (0..32).map(|i| levels[(i / 16) * 4 + (i % 8) / 2]).collect()
+    }
+
+    /// Draws one `size` image of colour space `space` (`data` as raw samples, with an optional gray
+    /// `/SMask` of the same size) at 1:1 on a `device`-sized page, writing `/Interpolate` when given.
+    fn draw_minified_image(
+        space: &str,
+        size: (u32, u32),
+        interpolate: Option<bool>,
+        data: &[u8],
+        alpha: Option<&[u8]>,
+        device: (u32, u32),
+    ) -> RenderedPage {
+        let (width, height) = size;
+        let interp = interpolate.map_or_else(String::new, |value| format!("/Interpolate {value} "));
+        let (smask, mask) = match alpha {
+            Some(alpha) => (
+                "/SMask 6 0 R ",
+                format!(
+                    "6 0 obj << /Type /XObject /Subtype /Image /Width {width} /Height {height} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /ASCIIHexDecode /Length {} >> stream\n{}>\nendstream endobj\n",
+                    hex(alpha).len() + 1,
+                    hex(alpha)
+                ),
+            ),
+            None => ("", String::new()),
+        };
+        let image = hex(data);
+        let content = format!("q {} 0 0 {} 0 0 cm /Im0 Do Q", device.0, device.1);
+        let pdf = format!(
+            "%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n\
+             2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n\
+             3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 {} {}] /Contents 4 0 R /Resources << /XObject << /Im0 5 0 R >> >> >> endobj\n\
+             4 0 obj << /Length {} >> stream\n{content}\nendstream endobj\n\
+             5 0 obj << /Type /XObject /Subtype /Image /Width {width} /Height {height} /ColorSpace /{space} /BitsPerComponent 8 {interp}{smask}/Filter /ASCIIHexDecode /Length {} >> stream\n{image}>\nendstream endobj\n\
+             {mask}trailer << /Root 1 0 R >>\n%%EOF\n",
+            device.0,
+            device.1,
+            content.len(),
+            image.len() + 1
+        );
+        let mut renderer = PageRenderer::new(Arc::new(pdf.into_bytes()), RenderConfig::default());
+        let page = renderer.render(RenderRequest { page: 0, kind: RequestKind::Pixels, scale: 1.0, ..Default::default() });
+        assert!(page.error.is_none(), "{:?}", page.error);
+        assert_eq!((page.width, page.height), device);
+        page
+    }
+
+    /// Issue #624: an image drawn below its source resolution was pre-resampled with Catmull-Rom
+    /// even when `/Interpolate` was false (or absent, whose PDF default is false). That blends
+    /// neighboring samples before the renderer's later non-interpolating image sampler sees them,
+    /// making scans, screenshots and rasterized text look soft.
+    #[test]
+    fn non_interpolated_images_are_not_smoothed_when_minified() {
+        // Top band K W R G, bottom band B Y M C. Nearest 8×4 → 4×2 sampling picks each block's
+        // pixel, so every device pixel is one palette colour; Catmull-Rom blends across blocks.
+        let palette: [[u8; 3]; 8] = [[0, 0, 0], [255, 255, 255], [255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0], [255, 0, 255], [0, 255, 255]];
+        let rgb: Vec<u8> = block_source(palette).concat();
+        let exact: Vec<[u8; 4]> = palette.iter().map(|c| [c[0], c[1], c[2], 255]).collect();
+        let pixels = |p: &RenderedPage| p.rgba.as_chunks::<4>().0.to_vec();
+
+        // `/Interpolate` defaults to false, and explicit false is equivalent.
+        let omitted = draw_minified_image("DeviceRGB", (8, 4), None, &rgb, None, (4, 2));
+        assert_eq!(pixels(&omitted), exact, "default interpolation");
+        let disabled = draw_minified_image("DeviceRGB", (8, 4), Some(false), &rgb, None, (4, 2));
+        assert_eq!(&omitted.rgba[..], &disabled.rgba[..], "/Interpolate false must match the default");
+
+        // The fix must not disable interpolation: the same source asking for it blends blocks.
+        let enabled = draw_minified_image("DeviceRGB", (8, 4), Some(true), &rgb, None, (4, 2));
+        assert_ne!(pixels(&enabled), exact, "/Interpolate true should still blend");
+        assert!(pixels(&enabled).iter().any(|px| px[..3].iter().any(|&c| (32..=223).contains(&c))), "/Interpolate true made no mid-tone");
+    }
+
+    #[test]
+    fn non_interpolated_gray_images_are_not_smoothed_when_minified() {
+        let levels = [0u8, 255, 85, 170, 40, 200, 120, 230];
+        let page = draw_minified_image("DeviceGray", (8, 4), None, &block_source(levels), None, (4, 2));
+        let expected: Vec<[u8; 4]> = levels.iter().map(|&v| [v, v, v, 255]).collect();
+        assert_eq!(page.rgba.as_chunks::<4>().0.to_vec(), expected);
+    }
+
+    #[test]
+    fn non_integer_minification_samples_the_same_columns() {
+        // Ten columns drawn six pixels wide: centre sampling reads columns 0, 2, 4, 5, 7 and 9.
+        let ramp = [10u8, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+        let page = draw_minified_image("DeviceGray", (10, 1), None, &ramp, None, (6, 1));
+        let grays: Vec<u8> = page.rgba.as_chunks::<4>().0.iter().map(|px| px[0]).collect();
+        assert_eq!(grays, [10, 30, 50, 60, 80, 100]);
+    }
+
+    #[test]
+    fn non_integer_minification_samples_colour_and_mask_from_the_same_columns() {
+        // Ten gray columns with a soft mask, drawn six pixels wide: columns 0, 2, 4, 5, 7 and 9 are
+        // sampled, so the mask must pick the same columns as the colours.
+        let ramp = [10u8, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+        let mask = [255u8, 0, 0, 0, 255, 255, 0, 0, 0, 255];
+        let page = draw_minified_image("DeviceGray", (10, 1), None, &ramp, Some(&mask), (6, 1));
+        // Opaque columns keep their gray; transparent columns show the white page.
+        assert_eq!(
+            page.rgba.as_chunks::<4>().0.to_vec(),
+            vec![[10, 10, 10, 255], [255, 255, 255, 255], [50, 50, 50, 255], [60, 60, 60, 255], [255, 255, 255, 255], [100, 100, 100, 255]]
+        );
+    }
+
+    #[test]
+    fn non_interpolated_alpha_images_keep_their_colours_and_mask_when_minified() {
+        let palette: [[u8; 3]; 8] = [[0, 0, 0], [255, 255, 255], [255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0], [255, 0, 255], [0, 255, 255]];
+        let rgb: Vec<u8> = block_source(palette).concat();
+        let alpha = block_source([255u8, 0, 128, 255, 0, 255, 64, 128]);
+        let page = draw_minified_image("DeviceRGB", (8, 4), None, &rgb, Some(&alpha), (4, 2));
+        // Premultiplied colours composited over the white page: alpha 0 shows the page.
+        let expected = vec![
+            [0, 0, 0, 255],
+            [255, 255, 255, 255],
+            [255, 127, 127, 255],
+            [0, 255, 0, 255],
+            [255, 255, 255, 255],
+            [255, 255, 0, 255],
+            [255, 191, 255, 255],
+            [127, 255, 255, 255],
+        ];
+        assert_eq!(page.rgba.as_chunks::<4>().0.to_vec(), expected);
+    }
+
+    /// Type 3 glyph images used to be sampled bicubically (`ImageQuality::High`) whatever their
+    /// `/Interpolate`, which blends the nearest pre-resize back in. The glyph is 4.6 × 2.3 pixels
+    /// and its image pre-resizes to 5 × 3, so the final draw samples fractionally and bicubic
+    /// filtering would blend palette colours. Interior pixels must stay palette colours unless the
+    /// image asks for interpolation.
+    #[test]
+    fn non_interpolated_type3_glyph_images_are_not_smoothed_when_minified() {
+        let palette: [[u8; 3]; 8] = [[0, 0, 0], [255, 255, 255], [255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0], [255, 0, 255], [0, 255, 255]];
+        let data = hex(&block_source(palette).concat());
+        let render = |interp: &str| {
+            let content = "BT /F1 1 Tf 0 0.7 Td (A) Tj ET";
+            let glyph = "4.6 0 d0 q 4.6 0 0 2.3 0 0 cm /Im0 Do Q";
+            let pdf = format!(
+                "%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n\
+                 2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n\
+                 3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 5 3] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj\n\
+                 4 0 obj << /Length {} >> stream\n{content}\nendstream endobj\n\
+                 5 0 obj << /Type /Font /Subtype /Type3 /FontBBox [0 0 10 10] /FontMatrix [1 0 0 1 0 0] /FirstChar 65 /LastChar 65 /Widths [5] /Encoding << /Differences [65 /a] >> /CharProcs << /a 6 0 R >> /Resources << /XObject << /Im0 7 0 R >> >> >> endobj\n\
+                 6 0 obj << /Length {} >> stream\n{glyph}\nendstream endobj\n\
+                 7 0 obj << /Type /XObject /Subtype /Image /Width 8 /Height 4 /ColorSpace /DeviceRGB /BitsPerComponent 8 {interp}/Filter /ASCIIHexDecode /Length {} >> stream\n{data}>\nendstream endobj\n\
+                 trailer << /Root 1 0 R >>\n%%EOF\n",
+                content.len(),
+                glyph.len(),
+                data.len() + 1
+            );
+            let mut renderer = PageRenderer::new(Arc::new(pdf.into_bytes()), RenderConfig::default());
+            let page = renderer.render(RenderRequest { page: 0, kind: RequestKind::Pixels, scale: 1.0, ..Default::default() });
+            assert!(page.error.is_none(), "{:?}", page.error);
+            assert_eq!((page.width, page.height), (5, 3));
+            page
+        };
+        // The glyph fully covers columns 0–3 and rows 0–1.
+        let interior = |p: &RenderedPage| -> Vec<[u8; 3]> {
+            (0..2).flat_map(|y| (0..4).map(move |x| (y * 5 + x) * 4)).map(|i| [p.rgba[i], p.rgba[i + 1], p.rgba[i + 2]]).collect()
+        };
+
+        let omitted = render("");
+        for px in interior(&omitted) {
+            assert!(palette.contains(&px), "non-interpolated glyph image was smoothed to {px:?}");
+        }
+        let enabled = render("/Interpolate true ");
+        assert!(interior(&enabled).iter().any(|px| !palette.contains(px)), "/Interpolate true glyph image should still be sampled bicubically");
+    }
+
     /// From `cargo xtask fuzz`: a CID font whose /W range spans every u32 inserted billions of
     /// widths (vendored hayro-interpret patch: `MAX_CID`). Must finish quickly.
     #[test]
@@ -4822,6 +5170,159 @@ trailer << /Root 1 0 R >>
             assert!(collection == form, "{base_font}: CID 1247 draws 噂 U+E0100");
             assert!(form != character, "{base_font}: the form differs from the face's default 噂");
             assert!(unknown_form == character, "{base_font}: a form the face lacks draws its 噂");
+        }
+    }
+
+    /// InDesign fades are luminosity soft masks whose group is one extended axial `sh`: a
+    /// gradient over the whole page. hayro 0.7 sampled each one pixel by pixel through the
+    /// shading function, so a report page with 40 of them took 15 s at 144 dpi. Vendored hayro
+    /// patch (backport of hayro 0.8): axial and radial shadings that a native gradient can
+    /// represent exactly are drawn as one, with stops placed at stitching-function bounds.
+    #[test]
+    fn axial_and_radial_shadings_draw_as_native_gradients() {
+        use hayro::hayro_interpret::font::Glyph;
+        use hayro::hayro_interpret::hayro_syntax::Pdf;
+        use hayro::hayro_interpret::pattern::Pattern;
+        use hayro::hayro_interpret::{
+            BlendMode, ClipPath, Context, Device, GlyphDrawMode, Image, InterpreterCache, Paint, PathDrawMode, SoftMask, TransformExt, interpret_page,
+        };
+        use kurbo::{Affine, BezPath, Rect, Shape};
+
+        /// For every shading painted, the offsets of its native gradient stops, or `None` when
+        /// it has to be sampled pixel by pixel.
+        #[derive(Default)]
+        struct Gradients(Vec<Option<Vec<f32>>>);
+        impl<'a> Device<'a> for Gradients {
+            fn set_soft_mask(&mut self, _: Option<SoftMask<'a>>) {}
+            fn set_blend_mode(&mut self, _: BlendMode) {}
+            fn draw_path(&mut self, path: &BezPath, transform: Affine, paint: &Paint<'a>, _: &PathDrawMode) {
+                if let Paint::Pattern(pattern) = paint
+                    && let Pattern::Shading(s) = pattern.as_ref()
+                {
+                    let bbox = (transform * path.clone()).bounding_box();
+                    let native = s.encode().as_svg_gradient(bbox, 0.01);
+                    self.0.push(native.map(|g| g.stops.iter().map(|stop| stop.offset).collect()));
+                }
+            }
+            fn push_clip_path(&mut self, _: &ClipPath) {}
+            fn push_transparency_group(&mut self, _: f32, _: Option<SoftMask<'a>>, _: BlendMode) {}
+            fn draw_glyph(&mut self, _: &Glyph<'a>, _: Affine, _: Affine, _: &Paint<'a>, _: &GlyphDrawMode) {}
+            fn draw_image(&mut self, _: Image<'a, '_>, _: Affine) {}
+            fn pop_clip_path(&mut self) {}
+            fn pop_transparency_group(&mut self) {}
+        }
+
+        // A 40 × 20 pt page painting `/Sh0 sh`, with optional extra objects from 6 0 obj on.
+        let pdf = |shading: &str, extra: &str| {
+            let content = "/Sh0 sh";
+            format!(
+                "%PDF-1.7
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 40 20] /Contents 4 0 R /Resources << /Shading << /Sh0 5 0 R >> >> >> endobj
+4 0 obj << /Length {} >> stream
+{content}
+endstream endobj
+5 0 obj {shading} endobj
+{extra}trailer << /Root 1 0 R >>
+%%EOF",
+                content.len()
+            )
+            .into_bytes()
+        };
+        let gradients = |bytes: &[u8]| {
+            let parsed = Pdf::new(Arc::new(bytes.to_vec())).expect("parses");
+            let page = &parsed.pages()[0];
+            let cache = InterpreterCache::new();
+            let initial = page.initial_transform(true).to_kurbo();
+            let mut ctx = Context::new(initial, Rect::new(0.0, 0.0, 40.0, 20.0), &cache, page.xref(), InterpreterSettings::default());
+            let mut device = Gradients::default();
+            interpret_page(page, &mut ctx, &mut device);
+            device.0
+        };
+        let render = |bytes: Vec<u8>| {
+            let mut r = PageRenderer::new(Arc::new(bytes), RenderConfig::default());
+            let p = r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 1.0, tag: 0 });
+            assert!(p.error.is_none(), "{:?}", p.error);
+            p
+        };
+        let grey = |p: &RenderedPage, x: u32| i32::from(p.rgba[((10 * p.width + x) * 4) as usize]);
+        let ramp = "/FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 1";
+        // A function-based shading (always sampled) that draws the same picture is the reference;
+        // its /Range clamps to 0..1.
+        let sampled = |code: &str| {
+            let extra =
+                format!("6 0 obj << /FunctionType 4 /Domain [0 40 0 20] /Range [0 1] /Length {} >> stream\n{code}\nendstream endobj\n", code.len());
+            pdf("<< /ShadingType 1 /ColorSpace /DeviceGray /Domain [0 40 0 20] /Function 6 0 R >>", &extra)
+        };
+
+        // A steep extended axial ramp, x 10 to 14: one stop at each end, drawn at pixel centres
+        // (a half-pixel shift would move each pixel 32 levels) and padded on both sides.
+        let axial = pdf(&format!("<< /ShadingType 2 /ColorSpace /DeviceGray /Coords [10 0 14 0] /Extend [true true] /Function << {ramp} >> >>"), "");
+        assert_eq!(gradients(&axial), vec![Some(vec![0.0, 1.0])], "an extended axial shading is a native gradient");
+        let native = render(axial);
+        let reference = render(sampled("{ pop 10 sub 4 div }"));
+        for (x, expected) in [(2, 0), (9, 0), (10, 32), (11, 96), (12, 159), (13, 223), (14, 255), (30, 255)] {
+            assert!((grey(&native, x) - expected).abs() <= 4, "axial, x {x}: {} instead of {expected}", grey(&native, x));
+            assert!(
+                (grey(&native, x) - grey(&reference, x)).abs() <= 4,
+                "axial, x {x}: native {} vs sampled {}",
+                grey(&native, x),
+                grey(&reference, x)
+            );
+        }
+
+        // An extended radial shading matches the sampled one everywhere.
+        let radial =
+            pdf(&format!("<< /ShadingType 3 /ColorSpace /DeviceGray /Coords [20 10 0 20 10 8] /Extend [true true] /Function << {ramp} >> >>"), "");
+        assert!(matches!(gradients(&radial).as_slice(), [Some(_)]), "an extended radial shading is a native gradient");
+        let native = render(radial);
+        let reference = render(sampled("{ 10 sub dup mul exch 20 sub dup mul add sqrt 8 div }"));
+        let worst = native.rgba.iter().zip(reference.rgba.iter()).map(|(a, b)| a.abs_diff(*b)).max();
+        assert!(worst.is_some_and(|d| d <= 4), "radial: native and sampled differ by {worst:?} levels");
+
+        // A stitched function peaking at a quarter of the way gets a stop exactly at its bound.
+        let stitched = pdf(
+            "<< /ShadingType 2 /ColorSpace /DeviceGray /Coords [0 0 40 0] /Extend [true true] /Function << /FunctionType 3 /Domain [0 1] /Bounds [0.25] /Encode [0 1 0 1] /Functions [<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 1 >>] >> >>",
+            "",
+        );
+        let stops = gradients(&stitched);
+        assert!(matches!(stops.as_slice(), [Some(offsets)] if offsets.contains(&0.25)), "a stop at the stitching bound: {stops:?}");
+        let native = render(stitched);
+        for (x, expected) in [(0, 13), (9, 242), (10, 250), (39, 4)] {
+            assert!((grey(&native, x) - expected).abs() <= 4, "stitched, x {x}: {} instead of {expected}", grey(&native, x));
+        }
+
+        // Without /Extend the area beyond the axis keeps the background, which a native gradient
+        // can't leave out: still sampled. Function-based shadings are always sampled.
+        let unextended = pdf(&format!("<< /ShadingType 2 /ColorSpace /DeviceGray /Coords [10 0 14 0] /Function << {ramp} >> >>"), "");
+        assert_eq!(gradients(&unextended), vec![None], "an axial shading without /Extend that covers more than its axis");
+        assert_eq!(gradients(&sampled("{ pop pop 0.5 }")), vec![None], "a function-based shading");
+
+        // The report's case: a luminosity soft mask whose group is one extended axial `sh` over
+        // the page. Red through a mask fading in from x 0 to 40 over white: 255, 255 − t, 255 − t.
+        let content = "/M gs 1 0 0 rg 0 0 40 20 re f";
+        let masked = format!(
+            "%PDF-1.7
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 40 20] /Contents 4 0 R /Resources << /ExtGState << /M 5 0 R >> >> >> endobj
+4 0 obj << /Length {} >> stream
+{content}
+endstream endobj
+5 0 obj << /Type /ExtGState /SMask << /Type /Mask /S /Luminosity /G 6 0 R >> >> endobj
+6 0 obj << /Type /XObject /Subtype /Form /BBox [-32768 -32768 32767 32767] /Group << /S /Transparency /CS /DeviceGray >> /Resources << /Shading << /Sh0 << /ShadingType 2 /ColorSpace /DeviceGray /Coords [0 0 40 0] /Extend [true true] /Function << {ramp} >> >> >> >> /Length 7 >> stream
+/Sh0 sh
+endstream endobj
+trailer << /Root 1 0 R >>
+%%EOF",
+            content.len()
+        );
+        let p = render(masked.into_bytes());
+        for x in [2u32, 20, 37] {
+            let px = &p.rgba[((10 * p.width + x) * 4) as usize..][..4];
+            let faded = 255 - (255.0 * (f64::from(x) + 0.5) / 40.0).round() as i32;
+            assert!(px[0] == 255 && (i32::from(px[1]) - faded).abs() <= 4 && px[1] == px[2], "masked, x {x}: {px:?}, green and blue {faded}");
         }
     }
 

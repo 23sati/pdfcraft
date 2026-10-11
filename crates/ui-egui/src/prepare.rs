@@ -997,16 +997,20 @@ pub(crate) fn body(ui: &mut egui::Ui, d: &mut FieldDraft, t: &crate::theme::Toke
                 if let Some(l) = d.look.as_mut() {
                     widgets::section_title(ui, tl!("Borders and Colors"));
                     egui::Grid::new("field-borders").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
-                        for (label, slot) in [(tl!("Border Color:"), &mut l.border), (tl!("Fill Color:"), &mut l.fill)] {
+                        for (index, (label, slot)) in
+                            [(tl!("Border Color:"), &mut l.border), (tl!("Fill Color:"), &mut l.fill)].into_iter().enumerate()
+                        {
                             ui.label(label);
-                            ui.horizontal(|ui| {
-                                let mut none = slot.is_none();
-                                if ui.checkbox(&mut none, tl!("No color")).changed() {
-                                    *slot = if none { None } else { Some([0.0; 3]) };
-                                }
-                                if let Some(c) = crate::comments::swatch_grid(ui, *slot) {
-                                    *slot = Some(c);
-                                }
+                            ui.push_id(("field-color", index), |ui| {
+                                ui.horizontal(|ui| {
+                                    let mut none = slot.is_none();
+                                    if ui.checkbox(&mut none, tl!("No color")).changed() {
+                                        *slot = if none { None } else { Some([0.0; 3]) };
+                                    }
+                                    if let Some(c) = crate::comments::swatch_grid(ui, *slot) {
+                                        *slot = Some(c);
+                                    }
+                                });
                             });
                             ui.end_row();
                         }
