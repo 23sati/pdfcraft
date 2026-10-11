@@ -145,6 +145,25 @@ fn system_fallback_fills_missing_scripts() {
         assert!(fonts.has_glyphs(&id, "PdfCraft"), "{id:?}");
     }
     assert!(layout_widths(&mut fonts, ARABIC).iter().all(|w| w.is_finite() && *w > 0.0));
+    // In Simplified Chinese mode the installed face leads the CJK fallbacks when it draws
+    // Chinese and no Hans face is bundled (the release state): one baseline per line. It is
+    // still the one and only installed face in every family.
+    let zh = theme::installed_font_definitions(true);
+    let mut zh_fonts = Fonts::new(TextOptions::default(), zh.clone());
+    let leads = pdfcraft_fonts::ui_chinese_fonts().is_empty() && families().into_iter().all(|id| zh_fonts.has_glyphs(&id, "欢"));
+    for (family, stack) in &zh.families {
+        assert_eq!(stack.iter().filter(|n| *n == theme::SYSTEM_FALLBACK).count(), 1, "{family:?}");
+        if leads {
+            assert_eq!(stack.iter().position(|n| *n == theme::SYSTEM_FALLBACK), Some(1), "{family:?}: {stack:?}");
+        } else {
+            assert_eq!(stack.last().map(String::as_str), Some(theme::SYSTEM_FALLBACK), "{family:?}: {stack:?}");
+        }
+    }
+    if leads {
+        for w in layout_widths(&mut zh_fonts, CHINESE) {
+            assert!(w > 13.0 * 0.8 * CHINESE.chars().count() as f32, "{w}");
+        }
+    }
 }
 
 /// Without craft-fonts the interface fonts still install and lay out any text (Japanese falls

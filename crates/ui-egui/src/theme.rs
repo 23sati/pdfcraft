@@ -145,17 +145,28 @@ pub fn install_fonts_for(ctx: &egui::Context, prefer_hans: bool) {
 pub const SYSTEM_FALLBACK: &str = "system-fallback";
 
 /// What [`install_fonts_for`] installs: [`font_definitions_for`], then, on desktop, one face
-/// already installed on this machine as the last fallback of every family. It only draws
-/// characters no embedded face has (an Arabic file name in a build without craft-fonts);
-/// `PDFCRAFT_SYSTEM_FONTS=0` leaves it out.
+/// already installed on this machine. It only draws characters no embedded face has (an Arabic
+/// file name in a build without craft-fonts); `PDFCRAFT_SYSTEM_FONTS=0` leaves it out. In
+/// Simplified Chinese mode, when it draws CJK and craft-fonts brought no `Hans` face (the
+/// release state), it *leads* the CJK fallbacks instead: the Japanese faces would otherwise draw
+/// the shared characters while Simplified-only ones reach it, and the mixed vertical metrics sink
+/// those below the line (see `pdfcraft_fonts::ui_cjk_fonts`). One baseline per line wins over
+/// "embedded first" for the language's own face.
 pub fn installed_font_definitions(prefer_hans: bool) -> FontDefinitions {
     #[cfg_attr(target_arch = "wasm32", expect(unused_mut))]
     let mut fonts = font_definitions_for(prefer_hans);
     #[cfg(not(target_arch = "wasm32"))]
     if let Some(data) = crate::system_fonts::fallback() {
         fonts.font_data.insert(SYSTEM_FALLBACK.to_owned(), data);
+        // After the Latin face at the head of every family, ahead of the CJK ones.
+        let lead = prefer_hans && crate::system_fonts::fallback_covers_cjk() && pdfcraft_fonts::ui_chinese_fonts().is_empty();
         for stack in fonts.families.values_mut() {
-            stack.push(SYSTEM_FALLBACK.to_owned());
+            if lead {
+                let at = stack.len().min(1);
+                stack.insert(at, SYSTEM_FALLBACK.to_owned());
+            } else {
+                stack.push(SYSTEM_FALLBACK.to_owned());
+            }
         }
     }
     fonts
