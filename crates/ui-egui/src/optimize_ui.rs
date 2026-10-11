@@ -91,17 +91,15 @@ fn stage_label(stage: OptimizeStage) -> String {
 /// What the saved notice adds after the size: images optimized and items discarded.
 fn summary(r: &OptimizeReport) -> String {
     let o = &r.optimize;
+    let lang = crate::i18n::current();
     let mut parts = Vec::new();
-    if o.images_resampled + o.images_recompressed > 0 {
-        parts.push(format!(
-            "{} image{} optimized",
-            o.images_resampled + o.images_recompressed,
-            if o.images_resampled + o.images_recompressed == 1 { "" } else { "s" }
-        ));
+    let images = o.images_resampled + o.images_recompressed;
+    if images > 0 {
+        parts.push(crate::i18n::trn(lang, images as u64, "{n} image optimized", "{n} images optimized"));
     }
     let discarded: usize = r.discarded.iter().map(|(_, n)| n).sum();
     if discarded > 0 {
-        parts.push(format!("{discarded} item{} discarded", if discarded == 1 { "" } else { "s" }));
+        parts.push(crate::i18n::trn(lang, discarded as u64, "{n} item discarded", "{n} items discarded"));
     }
     if parts.is_empty() { String::new() } else { format!("; {}", parts.join(", ")) }
 }

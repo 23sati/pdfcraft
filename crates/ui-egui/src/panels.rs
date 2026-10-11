@@ -1282,8 +1282,13 @@ pub fn human_size(n: usize) -> String {
     match n {
         n if n >= 1 << 20 => format!("{:.1} MB", n as f64 / (1u64 << 20) as f64),
         n if n >= 1 << 10 => format!("{:.1} KB", n as f64 / (1u64 << 10) as f64),
-        n => format!("{n} bytes"),
+        n => byte_count(n),
     }
+}
+
+/// An exact size in bytes, with the count's own plural form.
+pub fn byte_count(n: usize) -> String {
+    crate::i18n::trn(crate::i18n::current(), n as u64, "{n} byte", "{n} bytes")
 }
 
 #[cfg(test)]

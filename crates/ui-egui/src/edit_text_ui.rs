@@ -12,6 +12,12 @@ use crate::canvas::{DocView, PageXform};
 
 const ACCENT: Color32 = Color32::from_rgb(0x14, 0x73, 0xE6);
 
+/// How many faint Edit-text outlines are drawn per page per frame. CAD plots can draw
+/// ~1000 tiny images on one page; stroking all of them every frame (plus a hover query
+/// per box) stalls the UI. Past this, only the selected and hovered boxes are outlined:
+/// hit-testing still covers every image, so nothing becomes unselectable.
+const MAX_OUTLINES: usize = 250;
+
 /// A paragraph being edited.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LineEditor {
@@ -283,25 +289,33 @@ pub(crate) fn image_input(
 ) -> bool {
     let boxes: Vec<Rect> = images.iter().map(|im| xf.user_rect(info, page, im.rect.map(|v| v as f32))).collect();
     let painter = ui.painter();
-    for b in &boxes {
-        painter.rect_stroke(*b, CornerRadius::ZERO, Stroke::new(0.75, ACCENT.gamma_multiply(0.35)), egui::StrokeKind::Outside);
-    }
-    let pointer = ui.input(|i| i.pointer.hover_pos());
+    let hover_pos = ui.input(|i| i.pointer.hover_pos());
     let selected = view.image_selection.as_ref().filter(|s| s.page == page).map(|s| s.index).filter(|i| *i < boxes.len());
-    for (i, b) in boxes.iter().enumerate() {
-        let selected_box = selected == Some(i);
-        let hovered = ui.input(|inp| inp.pointer.hover_pos()).is_some_and(|p| b.contains(p));
-        let stroke = if selected_box {
-            Stroke::new(1.5, ACCENT)
-        } else if hovered {
-            Stroke::new(1.5, ACCENT.gamma_multiply(0.7))
-        } else {
-            Stroke::new(0.75, ACCENT.gamma_multiply(0.35))
-        };
-        if selected_box {
-            painter.rect_filled(*b, CornerRadius::ZERO, ACCENT.gamma_multiply(0.04));
+    // Few images: faint outlines for all of them, as before. Many: only the selected and
+    // hovered boxes, so a ~1000-image CAD page stays interactive in Edit text & images.
+    let faint_all = boxes.len() <= MAX_OUTLINES;
+    if faint_all {
+        for b in &boxes {
+            painter.rect_stroke(*b, CornerRadius::ZERO, Stroke::new(0.75, ACCENT.gamma_multiply(0.35)), egui::StrokeKind::Outside);
         }
-        painter.rect_stroke(*b, CornerRadius::ZERO, stroke, egui::StrokeKind::Outside);
+    }
+    let hovered_box = hover_pos.and_then(|p| boxes.iter().rposition(|b| b.contains(p)));
+    if !faint_all {
+        if let Some(i) = selected {
+            painter.rect_stroke(boxes[i], CornerRadius::ZERO, Stroke::new(0.75, ACCENT.gamma_multiply(0.35)), egui::StrokeKind::Outside);
+        }
+        if let Some(h) = hovered_box.filter(|h| Some(*h) != selected) {
+            painter.rect_stroke(boxes[h], CornerRadius::ZERO, Stroke::new(0.75, ACCENT.gamma_multiply(0.35)), egui::StrokeKind::Outside);
+        }
+    }
+    for i in selected.into_iter().chain(hovered_box).collect::<Vec<_>>() {
+        let b = boxes[i];
+        if selected == Some(i) {
+            painter.rect_filled(b, CornerRadius::ZERO, ACCENT.gamma_multiply(0.04));
+            painter.rect_stroke(b, CornerRadius::ZERO, Stroke::new(1.5, ACCENT), egui::StrokeKind::Outside);
+        } else {
+            painter.rect_stroke(b, CornerRadius::ZERO, Stroke::new(1.5, ACCENT.gamma_multiply(0.7)), egui::StrokeKind::Outside);
+        }
     }
     // The selected image: frame, corner handles, dragging.
     if let Some(i) = selected {
@@ -330,7 +344,7 @@ pub(crate) fn image_input(
             }
         }
         if let Some((start, opposite)) = view.image_selection.as_ref().and_then(|s| s.drag)
-            && let Some(p) = pointer
+            && let Some(p) = hover_pos
         {
             let preview = match opposite {
                 // Resize from the opposite corner, keeping the aspect ratio.
@@ -362,7 +376,7 @@ pub(crate) fn image_input(
             return true;
         }
     }
-    let Some(p) = pointer.filter(|p| xf.rect.contains(*p)) else { return false };
+    let Some(p) = hover_pos.filter(|p| xf.rect.contains(*p)) else { return false };
     let Some(hit) = boxes.iter().rposition(|b| b.contains(p)) else { return false };
     if selected != Some(hit) {
         painter.rect_stroke(boxes[hit], CornerRadius::ZERO, Stroke::new(1.5, ACCENT.gamma_multiply(0.7)), egui::StrokeKind::Outside);

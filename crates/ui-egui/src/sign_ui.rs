@@ -551,7 +551,7 @@ fn title(ui: &mut egui::Ui, text: &str) {
 
 fn error(ui: &mut egui::Ui, err: &Option<String>) {
     if let Some(e) = err.as_ref().filter(|e| !e.is_empty()) {
-        ui.colored_label(Color32::from_rgb(0xD7, 0x37, 0x3F), e);
+        ui.colored_label(Color32::from_rgb(0xD7, 0x37, 0x3F), tl!(e));
         ui.add_space(4.0);
     }
 }
@@ -955,7 +955,12 @@ pub(crate) fn banner(sigs: &[SignatureInfo]) -> Option<(&'static str, Color32, &
     {
         let by = c.certificate.as_ref().map(|x| {
             let org = x.subject.organization().map(|o| format!(", {o}")).unwrap_or_default();
-            format!("{}{org}, certificate issued by {}.", x.display_name(), x.issuer.common_name().unwrap_or("an unknown issuer"))
+            let who = format!("{}{org}", x.display_name());
+            let (template, issuer) = match x.issuer.common_name() {
+                Some(issuer) => ("{who}, certificate issued by {issuer}.", issuer),
+                None => ("{who}, certificate issued by an unknown issuer.", ""),
+            };
+            crate::i18n::fmt(tl!(template), &[("who", &who), ("issuer", issuer)])
         });
         return Some(("badge-check", Color32::from_rgb(0x14, 0x73, 0xE6), "Certified by {by}", by.unwrap_or_default()));
     }
@@ -1016,16 +1021,14 @@ pub(crate) fn panel(ui: &mut egui::Ui, t: &Tokens, sigs: &[SignatureInfo], expan
     for s in ordered {
         let open = expanded.contains(&s.field);
         let (icon, color) = status_icon(s);
-        let head = if s.signed {
-            format!(
-                "Rev. {}: {} by {}",
-                s.revision,
-                if s.certify.is_some() { "Certified" } else { "Signed" },
-                s.signer.as_deref().unwrap_or("an unknown signer")
-            )
-        } else {
-            format!("Unsigned signature field: {}", s.field)
+        let (template, name) = match (s.signed, s.certify.is_some(), s.signer.as_deref()) {
+            (false, ..) => ("Unsigned signature field: {name}", s.field.as_str()),
+            (true, true, Some(signer)) => ("Rev. {rev}: Certified by {name}", signer),
+            (true, true, None) => ("Rev. {rev}: Certified by an unknown signer", ""),
+            (true, false, Some(signer)) => ("Rev. {rev}: Signed by {name}", signer),
+            (true, false, None) => ("Rev. {rev}: Signed by an unknown signer", ""),
         };
+        let head = crate::i18n::fmt(tl!(template), &[("rev", &s.revision.to_string()), ("name", name)]);
         let resp = ui
             .horizontal(|ui| {
                 let chevron = if open { "chevron-down" } else { "chevron-right" };
@@ -1172,8 +1175,8 @@ fn key_usage(bits: u16) -> String {
         "Encipher Only",
         "Decipher Only",
     ];
-    let used: Vec<&str> = NAMES.iter().enumerate().filter(|(i, _)| bits & (1 << i) != 0).map(|(_, n)| *n).collect();
-    if used.is_empty() { "None".into() } else { used.join(", ") }
+    let used: Vec<&str> = NAMES.iter().enumerate().filter(|(i, _)| bits & (1 << i) != 0).map(|(_, n)| tl!(*n)).collect();
+    if used.is_empty() { tl!("None").into() } else { used.join(", ") }
 }
 
 /// What the viewer asks for.
