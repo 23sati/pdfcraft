@@ -404,6 +404,8 @@ fn an_earlier_revision_opens_from_document_properties() {
     h.state_mut().dialog = Some(Dialog::Properties(pdfcraft_ui_egui::PropsTab::Advanced));
     h.run_steps(2);
     h.run_steps(2);
+    // The dialog re-centres as its content settles; click where the button ends up.
+    h.run_steps(4);
     h.get_by_label("View revision 1").click();
     h.run_steps(3);
     let s = h.state();

@@ -38,6 +38,9 @@ impl ThemePreference {
     }
 }
 
+/// The smallest height or width of anything a pointer has to hit, in points (WCAG 2.2 SC 2.5.8, AA).
+pub const MIN_TARGET: f32 = 24.0;
+
 #[derive(Clone, Copy, Debug)]
 pub struct Tokens {
     pub kind: ThemeKind,
@@ -61,7 +64,13 @@ pub struct Tokens {
     pub accent: Color32,
     pub accent_text: Color32,
     pub accent_soft: Color32,
+    /// Text and icons on a filled `accent` (primary buttons, badges): white on the light blue,
+    /// near-black on the dark theme's lighter blue.
+    pub on_accent: Color32,
     pub field: Color32,
+    /// The edge of a text field or a checkbox: 3:1 against the surfaces it sits on (WCAG 1.4.11),
+    /// unlike `border`, which only separates cards and panels.
+    pub field_border: Color32,
     pub badge_new: Color32,
     pub page_shadow: Color32,
     pub radius: u8,
@@ -81,7 +90,7 @@ impl Tokens {
                 divider: Color32::from_rgb(0xE8, 0xE8, 0xEB),
                 text: Color32::from_rgb(0x22, 0x22, 0x26),
                 text_muted: Color32::from_rgb(0x5E, 0x5E, 0x66),
-                text_faint: Color32::from_rgb(0x6B, 0x6B, 0x73),
+                text_faint: Color32::from_rgb(0x64, 0x64, 0x6C),
                 icon: Color32::from_rgb(0x44, 0x44, 0x4B),
                 hover: Color32::from_rgb(0xF0, 0xF0, 0xF3),
                 pressed: Color32::from_rgb(0xE4, 0xE4, 0xE9),
@@ -89,7 +98,9 @@ impl Tokens {
                 accent: Color32::from_rgb(0x1B, 0x63, 0xE0),
                 accent_text: Color32::from_rgb(0x17, 0x55, 0xC4),
                 accent_soft: Color32::from_rgb(0xE3, 0xEC, 0xFD),
+                on_accent: Color32::WHITE,
                 field: Color32::from_rgb(0xFF, 0xFF, 0xFF),
+                field_border: Color32::from_rgb(0x85, 0x85, 0x8E),
                 badge_new: Color32::from_rgb(0x1B, 0x63, 0xE0),
                 page_shadow: Color32::from_black_alpha(34),
                 radius: 6,
@@ -105,7 +116,7 @@ impl Tokens {
                 divider: Color32::from_rgb(0x33, 0x33, 0x39),
                 text: Color32::from_rgb(0xEC, 0xEC, 0xEF),
                 text_muted: Color32::from_rgb(0xAE, 0xAE, 0xB6),
-                text_faint: Color32::from_rgb(0x97, 0x97, 0x9E),
+                text_faint: Color32::from_rgb(0x9F, 0x9F, 0xA6),
                 icon: Color32::from_rgb(0xD4, 0xD4, 0xDA),
                 hover: Color32::from_rgb(0x34, 0x34, 0x3A),
                 pressed: Color32::from_rgb(0x3E, 0x3E, 0x45),
@@ -113,7 +124,9 @@ impl Tokens {
                 accent: Color32::from_rgb(0x4B, 0x8B, 0xF5),
                 accent_text: Color32::from_rgb(0x8C, 0xB6, 0xFA),
                 accent_soft: Color32::from_rgb(0x24, 0x36, 0x57),
+                on_accent: Color32::from_rgb(0x0B, 0x12, 0x20),
                 field: Color32::from_rgb(0x1E, 0x1E, 0x22),
+                field_border: Color32::from_rgb(0x82, 0x82, 0x8B),
                 badge_new: Color32::from_rgb(0x3D, 0x7D, 0xEE),
                 page_shadow: Color32::from_black_alpha(120),
                 radius: 6,
@@ -273,6 +286,9 @@ pub fn apply(ctx: &egui::Context, kind: ThemeKind) {
     ctx.global_style_mut(|s| {
         s.spacing.item_spacing = egui::vec2(8.0, 6.0);
         s.spacing.button_padding = egui::vec2(10.0, 5.0);
+        // WCAG 2.2 SC 2.5.8: nothing a pointer must hit is under 24 px (egui's 18 left radio
+        // buttons, "Advanced Options" and page-size fields short).
+        s.spacing.interact_size.y = MIN_TARGET;
         s.spacing.menu_margin = egui::Margin::same(6);
         s.spacing.scroll.bar_width = 8.0;
         s.spacing.scroll.floating = true;
@@ -324,9 +340,47 @@ mod tests {
         for kind in [ThemeKind::Light, ThemeKind::Dark] {
             let t = Tokens::for_kind(kind);
             for (name, fg) in [("text", t.text), ("text_muted", t.text_muted), ("text_faint", t.text_faint)] {
-                for bg in [t.chrome, t.panel, t.card, t.pasteboard] {
+                for bg in [t.chrome, t.panel, t.card, t.pasteboard, t.titlebar, t.hover] {
                     let r = contrast(fg, bg);
                     assert!(r >= 4.5, "{kind:?} {name} on {bg:?}: {r:.2}:1, WCAG AA needs 4.5:1");
+                }
+            }
+            // Running text also sits on pressed, selected and accent-tinted rows.
+            for (name, fg) in [("text", t.text), ("text_muted", t.text_muted), ("accent_text", t.accent_text)] {
+                for bg in [t.pressed, t.selected, t.accent_soft] {
+                    if name == "accent_text" && bg == t.pressed {
+                        continue;
+                    }
+                    let r = contrast(fg, bg);
+                    assert!(r >= 4.5, "{kind:?} {name} on {bg:?}: {r:.2}:1, WCAG AA needs 4.5:1");
+                }
+            }
+        }
+    }
+
+    /// Text on a filled accent: the primary buttons and the "New" badge, hovered or not. White was
+    /// 3.3:1 (and 2.1:1 hovered) on the dark theme's light blue.
+    #[test]
+    fn text_on_the_accent_is_readable() {
+        for kind in [ThemeKind::Light, ThemeKind::Dark] {
+            let t = Tokens::for_kind(kind);
+            for (name, bg) in [("accent", t.accent), ("accent_text (hovered)", t.accent_text), ("badge_new", t.badge_new)] {
+                let r = contrast(t.on_accent, bg);
+                assert!(r >= 4.5, "{kind:?} on_accent on {name}: {r:.2}:1, WCAG AA needs 4.5:1");
+            }
+        }
+    }
+
+    /// WCAG 1.4.11: the edge of a field or the focus ring is visible (3:1) on every surface it
+    /// can sit on, and so is the accent that marks a selection.
+    #[test]
+    fn field_edges_icons_and_the_focus_ring_are_visible() {
+        for kind in [ThemeKind::Light, ThemeKind::Dark] {
+            let t = Tokens::for_kind(kind);
+            for bg in [t.chrome, t.panel, t.card, t.pasteboard, t.titlebar, t.field] {
+                for (name, fg) in [("field_border", t.field_border), ("accent (focus ring)", t.accent), ("icon", t.icon)] {
+                    let r = contrast(fg, bg);
+                    assert!(r >= 3.0, "{kind:?} {name} on {bg:?}: {r:.2}:1, WCAG non-text contrast needs 3:1");
                 }
             }
         }

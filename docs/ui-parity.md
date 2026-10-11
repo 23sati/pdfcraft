@@ -1,6 +1,6 @@
 # UI and interaction parity
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-10 · **Change:** major (first UI/UX checklist) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (spacing and accessibility run) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
 How PdfCraft's tools, panels, shortcuts and feel compare with Acrobat Pro's current interface (the
 2023+ "new Acrobat": All tools pane on the left, quick-action toolbar, Home view). Behaviour is
@@ -82,3 +82,4 @@ No dump of Acrobat's menu tree has been diffed against the registry yet (gap 24)
 | Date | Change | Summary |
 |---|---|---|
 | 2026-10-10 | major | Created from the command registry, automation tools, the View area of the checklist and open UI issues |
+| 2026-10-11 | minor | UI spacing and accessibility run: 24 px minimum target, focus ring on custom controls, dark-theme primary button contrast, field edges at 3:1 (see ROADMAP.md progress log) |

@@ -1,6 +1,6 @@
 //! Window chrome: tab strip (with the integrated macOS title bar), mode bar, right rail.
 
-use egui::{Align, Align2, Color32, CornerRadius, Layout, Rect, Sense, Stroke, vec2};
+use egui::{Align, Align2, Color32, CornerRadius, Layout, Rect, Sense, Stroke, Vec2, vec2};
 
 use crate::canvas::{DocView, Fit, PageLayout};
 use crate::theme::{self, ThemePreference, Tokens};
@@ -273,11 +273,14 @@ fn tab(
         icons::paint(ui, Rect::from_min_size(rect.min + vec2(6.0, 7.0), vec2(16.0, 16.0)), icon, 15.0, if active { t.accent } else { t.text_muted });
         ui.painter().text(rect.min + vec2(28.0, rect.height() / 2.0), Align2::LEFT_CENTER, label, font, if active { t.text } else { t.text_muted });
     });
-    let x_rect = Rect::from_center_size(rect.right_center() - vec2(16.0, 0.0), vec2(20.0, 20.0));
+    let x_rect = Rect::from_center_size(rect.right_center() - vec2(16.0, 0.0), Vec2::splat(theme::MIN_TARGET));
     let x = ui.interact(x_rect, id.with("close"), Sense::click());
+    // Not "Close <name>": the name would also answer a search for the tab by its file name.
+    x.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tl!("Close file")));
     if x.hovered() {
         ui.painter().rect_filled(x_rect, CornerRadius::same(4), t.pressed);
     }
+    widgets::focus_ring(ui, &x, x_rect, 4);
     // Unsaved changes: a dot where the close button sits, until the tab is hovered.
     if dirty && !resp.hovered() && !x.hovered() {
         ui.painter().circle_filled(x_rect.center(), 4.0, if active { t.text } else { t.text_muted });
@@ -511,14 +514,15 @@ pub fn right_rail(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     .desired_width(34.0)
                     .horizontal_align(Align::Center)
                     .font(theme::medium(12.0))
-                    .margin(vec2(2.0, 4.0));
+                    .margin(vec2(2.0, 5.0));
                 let r = egui::Frame::NONE
                     .fill(t.field)
-                    .stroke(Stroke::new(1.0, t.border))
+                    .stroke(Stroke::new(1.0, t.field_border))
                     .corner_radius(CornerRadius::same(5))
                     .show(ui, |ui| ui.add(edit))
                     .inner
                     .on_hover_text(tl!("Current page — type a page number or label (such as iv) and press Enter"));
+                widgets::name(&r, tl!("Current page"));
                 if r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                     // A page label first (logical page numbers, as Acrobat), then a number.
                     let typed = view.page_input.clone();

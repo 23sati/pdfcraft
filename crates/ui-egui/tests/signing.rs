@@ -181,6 +181,8 @@ fn certifying_without_a_visible_signature() {
     h.get_by_label("Continue").click();
     h.run_steps(2);
     assert_eq!(h.state().digital_ids.len(), 1);
+    // The dialog re-centres as its content settles; click where the button ends up.
+    h.run_steps(3);
     h.get_by_label("Continue").click();
     h.run_steps(2);
     h.get_by_label("Certify as \"Test Signer EC\"");

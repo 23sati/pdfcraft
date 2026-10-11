@@ -3081,7 +3081,7 @@ fn notices(
     };
     let (icon, text, fields) = msg?;
     notice_bar(ui, t, icon, t.accent_text, text, |ui| {
-        if icons::button(ui, "x", 22.0, false, tl!("Dismiss")).clicked() {
+        if icons::button(ui, "x", theme::MIN_TARGET, false, tl!("Dismiss")).clicked() {
             view.notice_dismissed = true;
         }
         if fields {
@@ -3164,7 +3164,7 @@ fn quick_bar(app: &mut PdfCraftApp, area: Rect, ui: &mut egui::Ui) {
                         // A small corner triangle marks the flyout.
                         let r = resp.rect;
                         let tri = [r.right_bottom() + vec2(-4.0, -4.0), r.right_bottom() + vec2(-9.0, -4.0), r.right_bottom() + vec2(-4.0, -9.0)];
-                        ui.painter().add(egui::Shape::convex_polygon(tri.to_vec(), if active { Color32::WHITE } else { t.text_muted }, Stroke::NONE));
+                        ui.painter().add(egui::Shape::convex_polygon(tri.to_vec(), if active { t.accent_text } else { t.text_muted }, Stroke::NONE));
                         let open = (resp.clicked() && active) || resp.secondary_clicked();
                         if resp.clicked() && !active {
                             app.execute(current.command());

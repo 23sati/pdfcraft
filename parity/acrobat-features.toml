@@ -8326,8 +8326,8 @@ milestone = "M3"
 status = "partial"
 commands = []
 tools = []
-evidence = ["crates/ui-egui/tests/control.rs::inspect_and_click_by_label_and_id"]
-notes = "AccessKit labels on all custom widgets; full audit in M14.3"
+evidence = ["crates/ui-egui/tests/control.rs::inspect_and_click_by_label_and_id", "crates/ui-egui/tests/ui_audit.rs::every_control_is_named_and_big_enough"]
+notes = "AccessKit labels on the custom widgets; ui_audit walks the accessibility tree of the document view, the side panels and five dialogs in both themes and fails on a control with no name or a target under 24 px (WCAG 2.2 SC 2.5.8). Text fields named only by a hint (28 call sites: dialogs, Fill & Sign, redact, prepare…) still have no accessible name except in the comments panel and the page box, and the audit does not yet open every dialog; no run with a real screen reader (VoiceOver, NVDA, Orca)"
 
 [[feature]]
 id = "a11y.keyboard-only"

@@ -5,6 +5,23 @@ use egui::{Align2, Color32, CornerRadius, Rect, Response, Sense, Stroke, vec2};
 use crate::theme::{self, Tokens};
 use crate::{PdfCraftApp, icons};
 
+/// The keyboard focus ring of a custom-painted control: a 2 px accent outline just outside
+/// `rect`, drawn only while the control has keyboard focus (egui's own buttons do the same).
+/// Everything painted by hand in this module and `chrome` must call it, or Tab moves through
+/// the interface invisibly (WCAG 2.4.7).
+pub fn focus_ring(ui: &egui::Ui, resp: &Response, rect: Rect, radius: impl Into<CornerRadius>) {
+    if resp.has_focus() {
+        let t = Tokens::get(ui.ctx());
+        ui.painter().rect_stroke(rect.expand(1.0), radius, Stroke::new(2.0, t.accent), egui::StrokeKind::Outside);
+    }
+}
+
+/// Give a control an accessible name its painted content doesn't carry (a text field whose
+/// only label is a hint, a field named by its value).
+pub fn name(resp: &Response, label: &str) {
+    resp.ctx.accesskit_node_builder(resp.id, |node| node.set_label(label));
+}
+
 /// A mode-bar tab: text with an underline when active.
 pub fn mode_tab(ui: &mut egui::Ui, label: &str, active: bool) -> Response {
     let t = Tokens::get(ui.ctx());
@@ -15,6 +32,7 @@ pub fn mode_tab(ui: &mut egui::Ui, label: &str, active: bool) -> Response {
     if resp.hovered() && !active {
         ui.painter().rect_filled(rect.shrink2(vec2(2.0, 9.0)), CornerRadius::same(6), t.hover);
     }
+    focus_ring(ui, &resp, rect.shrink2(vec2(2.0, 9.0)), 6);
     ui.painter().text(rect.center(), Align2::CENTER_CENTER, label, font, if active { t.text } else { t.text_muted });
     if active {
         let r = Rect::from_min_max(rect.left_bottom() + vec2(11.0, -3.0), rect.right_bottom() - vec2(11.0, 0.0));
@@ -31,12 +49,13 @@ pub fn pill_button(ui: &mut egui::Ui, label: &str, primary: bool) -> Response {
     let (rect, resp) = ui.allocate_exact_size(vec2(w + 26.0, 28.0), Sense::click());
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), label));
     let (fill, stroke, text) = if primary {
-        (if resp.hovered() { t.accent_text } else { t.accent }, Stroke::NONE, Color32::WHITE)
+        (if resp.hovered() { t.accent_text } else { t.accent }, Stroke::NONE, t.on_accent)
     } else {
         (if resp.hovered() { t.hover } else { t.card }, Stroke::new(1.2, t.text_muted), t.text)
     };
     ui.painter().rect(rect, CornerRadius::same(14), fill, stroke, egui::StrokeKind::Inside);
     ui.painter().text(rect.center(), Align2::CENTER_CENTER, label, font, text);
+    focus_ring(ui, &resp, rect, 14);
     resp
 }
 
@@ -50,6 +69,7 @@ pub fn ghost_button(ui: &mut egui::Ui, icon: &str, label: &str) -> Response {
     if resp.hovered() {
         ui.painter().rect_filled(rect, CornerRadius::same(6), t.hover);
     }
+    focus_ring(ui, &resp, rect, 6);
     icons::paint(ui, Rect::from_min_size(rect.min + vec2(6.0, 6.0), vec2(18.0, 18.0)), icon, 17.0, t.icon);
     ui.painter().text(rect.left_center() + vec2(30.0, 0.0), Align2::LEFT_CENTER, label, font, t.text);
     resp
@@ -61,7 +81,8 @@ pub fn search_box(ui: &mut egui::Ui, placeholder: &str, width: f32) -> Response 
     let (rect, resp) = ui.allocate_exact_size(vec2(width, 32.0), Sense::click());
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), placeholder));
     let fill = if resp.hovered() { t.hover } else { t.field };
-    ui.painter().rect(rect, CornerRadius::same(16), fill, Stroke::new(1.0, t.border), egui::StrokeKind::Inside);
+    ui.painter().rect(rect, CornerRadius::same(16), fill, Stroke::new(1.0, t.field_border), egui::StrokeKind::Inside);
+    focus_ring(ui, &resp, rect, 16);
     icons::paint(ui, Rect::from_min_size(rect.min + vec2(10.0, 8.0), vec2(16.0, 16.0)), "search", 15.0, t.text_muted);
     let shortcut = crate::commands::command_shortcut_label(ui.ctx(), "view.palette");
     let shortcut = ui.painter().layout_no_wrap(shortcut, theme::regular(11.5), t.text_faint);
@@ -280,6 +301,8 @@ pub fn split_pill(ui: &mut egui::Ui, icon: &str, label: &str, more: &str) -> (Re
             ui.painter().rect_filled(r.shrink(1.2), corners, t.hover);
         }
     }
+    focus_ring(ui, &main, main_rect, left);
+    focus_ring(ui, &arrow, more_rect, right);
     ui.painter().vline(more_rect.left(), rect.y_range().shrink(7.0), Stroke::new(1.0, t.text_muted));
     crate::icons::paint(ui, Rect::from_min_size(rect.min + vec2(12.0, 7.0), vec2(16.0, 16.0)), icon, 15.0, t.text);
     ui.painter().text(rect.left_center() + vec2(34.0, 0.0), Align2::LEFT_CENTER, label, font, t.text);
@@ -295,11 +318,12 @@ pub fn icon_pill(ui: &mut egui::Ui, icon: &str, label: &str, primary: bool) -> R
     let (rect, resp) = ui.allocate_exact_size(vec2(w + 46.0, 30.0), Sense::click());
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), label));
     let (fill, stroke, text) = if primary {
-        (if resp.hovered() { t.accent_text } else { t.accent }, Stroke::NONE, Color32::WHITE)
+        (if resp.hovered() { t.accent_text } else { t.accent }, Stroke::NONE, t.on_accent)
     } else {
         (if resp.hovered() { t.hover } else { t.card }, Stroke::new(1.2, t.text_muted), t.text)
     };
     ui.painter().rect(rect, CornerRadius::same(15), fill, stroke, egui::StrokeKind::Inside);
+    focus_ring(ui, &resp, rect, 15);
     crate::icons::paint(ui, Rect::from_min_size(rect.min + vec2(12.0, 7.0), vec2(16.0, 16.0)), icon, 15.0, text);
     ui.painter().text(rect.left_center() + vec2(34.0, 0.0), Align2::LEFT_CENTER, label, font, text);
     resp
@@ -338,6 +362,34 @@ mod tests {
             }
         }
         crate::i18n::set_current(previous);
+    }
+
+    /// A control reached with Tab shows a ring around itself; one that isn't focused doesn't.
+    #[test]
+    fn custom_buttons_show_keyboard_focus() {
+        let ctx = egui::Context::default();
+        ctx.set_fonts(theme::font_definitions());
+        theme::apply(&ctx, theme::ThemeKind::Light);
+        let accent = Tokens::for_kind(theme::ThemeKind::Light).accent;
+        let ring = |focused: bool| {
+            let id = std::cell::Cell::new(None);
+            let run = |ctx: &egui::Context| {
+                ctx.run_ui(egui::RawInput::default(), |ui| {
+                    id.set(Some(pill_button(ui, "Apply", false).id));
+                })
+            };
+            run(&ctx).drop_without_applying_deltas();
+            if let (true, Some(id)) = (focused, id.get()) {
+                ctx.memory_mut(|m| m.request_focus(id));
+            }
+            let out = run(&ctx);
+            let rings =
+                out.shapes.iter().filter(|s| matches!(&s.shape, egui::Shape::Rect(r) if r.stroke.color == accent && r.stroke.width >= 2.0)).count();
+            out.drop_without_applying_deltas();
+            rings
+        };
+        assert_eq!(ring(false), 0);
+        assert_eq!(ring(true), 1);
     }
 
     fn toast_rect(app: &mut PdfCraftApp, ctx: &egui::Context, width: f32, now: &mut f64) -> Rect {
