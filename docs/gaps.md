@@ -33,7 +33,7 @@ update the numbers.
 | 11 | Accessibility: checker only, no tagging tools | feature | 40–70 | [target-app-parity.md](target-app-parity.md) |
 | 12 | No measured fidelity harness against Acrobat | quality | (in 2) | [target-app-parity.md](target-app-parity.md) |
 | 13 | Performance budgets and lazy loading of very large files | performance | 25–45 | this file |
-| 14 | Arabic not mirrored; no Hindi, Indonesian, Korean, Vietnamese | localization | 30–50 | [localization-parity.md](localization-parity.md) |
+| 14 | Arabic not mirrored; Hindi catalog incomplete; no Indonesian, Korean, Vietnamese | localization | 30–50 | [localization-parity.md](localization-parity.md) |
 | 15 | Forms: JavaScript object model, actions, submit, XFA depth | feature | 40–75 | [pdf-spec-parity.md](pdf-spec-parity.md) |
 | 16 | UI precision gaps (multi-select move, rulers, accelerators, windows) | UI/UX | 30–60 | [ui-parity.md](ui-parity.md) |
 | 17 | Certificate security and other protect gaps | feature, spec | 15–30 | [pdf-spec-parity.md](pdf-spec-parity.md) |
@@ -199,13 +199,16 @@ update the numbers.
   (#730).
 - **Estimate:** 25–45 h. **Doc:** this file.
 
-### 14. Arabic not mirrored; no Hindi, Indonesian, Korean, Vietnamese
+### 14. Arabic not mirrored; Hindi catalog incomplete; no Indonesian, Korean, Vietnamese
 
 - **Missing:** a right-to-left layout (panels, menus, alignment), bidirectional text in the text
-  layout itself (wrapping, typed text); catalogs for Hindi, Indonesian, Korean and Vietnamese
+  layout itself (wrapping, typed text); Hindi catalog completion and a release-pinned Devanagari
+  face; catalogs for Indonesian, Korean and Vietnamese
   (Acrobat ships Korean; it ships Arabic in its Middle East edition; it ships none of the other
   three).
-- **Evidence:** [localization.md](localization.md) §Arabic; `misc.rtl-ui` planned.
+- **Evidence:** [localization.md](localization.md) §Arabic; `misc.rtl-ui` planned. Hindi has 151
+  common labels and `Deva` fallback plumbing, but its catalog remains incomplete and the
+  release-pinned craft-fonts input has no Devanagari face.
 - **Estimate:** 30–50 h (Arabic RTL 20–35, four catalogs 10–15 plus review). **Doc:**
   [localization-parity.md](localization-parity.md).
 
@@ -287,6 +290,7 @@ update the numbers.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Gap 14: Hindi now has a 151-label starter catalog, `hi` locale selection and optional Devanagari fallback; catalog completion and a release-pinned face remain. |
 | 2026-10-11 | patch | Gap 2: 23 hayro-interpret and 10 hayro patches after axial and radial shadings became native gradients (backport of hayro 0.8) |
 | 2026-10-11 | minor | Closed gap 1 (#774, fixed by #836; numbers kept, its interop suite moved to gap 12); gap 6 lists the fixed #799–#821 batch; gap 3 and 16 updated for #844 (same-page move), #740 (column select) and #759 (1:1 touchpad scrolling) |
 | 2026-10-10 | minor | Removed the alpha markers: with the cross-app gate rule, gaps 1 and 8 are partial sub-cases, not blockers; stage alpha |
