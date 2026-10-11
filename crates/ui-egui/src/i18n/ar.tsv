@@ -111,6 +111,12 @@
 	Open a PDF ({key})	فتح ملف PDF ({key})
 	Dark gray theme	سمة رمادية داكنة
 	Light theme	سمة فاتحة
+	Appearance mode	وضع المظهر
+	Light	فاتح
+	Dark	داكن
+	Active	نشط
+	Dark theme	سمة داكنة
+	Appearance settings…	إعدادات المظهر…
 	All tools	كل الأدوات
 	Read	قراءة
 	Convert	تحويل
@@ -2221,3 +2227,10 @@ key	Space	مسافة
 	Panels	اللوحات
 	Resize panels	تغيير حجم اللوحات
 	Resize panel window	تغيير حجم نافذة اللوحة
+	Mouse wheel scroll speed	سرعة التمرير بعجلة الماوس
+scroll speed	Slow	بطيئة
+scroll speed	Normal	عادية
+scroll speed	Fast	سريعة
+	Enhance camera image	تحسين صورة الكاميرا
+	Drag the corners onto the document's edges, then choose Enhance page.	اسحب الزوايا إلى حواف المستند، ثم اختر تحسين الصفحة.
+	Enhance page	تحسين الصفحة

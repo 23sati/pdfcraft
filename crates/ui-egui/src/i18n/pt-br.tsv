@@ -1032,6 +1032,12 @@
 	Open a PDF ({key})	Abrir um PDF ({key})
 	Dark gray theme	Tema cinza escuro
 	Light theme	Tema claro
+	Appearance mode	Modo de aparência
+	Light	Claro
+	Dark	Escuro
+	Active	Ativo
+	Dark theme	Tema escuro
+	Appearance settings…	Configurações de aparência…
 	Print ({key})	Imprimir ({key})
 	Save ({key})	Salvar ({key})
 	Document properties ({key})	Propriedades do documento ({key})
@@ -2202,3 +2208,10 @@ key	Space	Espaço
 	Resize panel window	Redimensionar janela do painel
 	Tools	Ferramentas
 	Inspector	Inspetor
+	Mouse wheel scroll speed	Velocidade de rolagem da roda do mouse
+scroll speed	Slow	Lenta
+scroll speed	Normal	Normal
+scroll speed	Fast	Rápida
+	Enhance camera image	Aprimorar foto da câmera
+	Drag the corners onto the document's edges, then choose Enhance page.	Arraste os cantos até as bordas do documento e escolha Aprimorar página.
+	Enhance page	Aprimorar página

@@ -106,6 +106,12 @@
 	Open a PDF (⌘O)	Otwórz PDF (⌘O)
 	Dark gray theme	Ciemnoszary motyw
 	Light theme	Jasny motyw
+	Appearance mode	Tryb wyglądu
+	Light	Jasny
+	Dark	Ciemny
+	Active	Aktywny
+	Dark theme	Ciemny motyw
+	Appearance settings…	Ustawienia wyglądu…
 	All tools	Wszystkie narzędzia
 	Read	Czytaj
 	Convert	Konwertuj
@@ -2195,3 +2201,10 @@ key	Space	Spacja
 	Text used as a clipping path cannot be moved with this selection.	Tekstu używanego jako ścieżka przycinania nie można przenieść razem z tym zaznaczeniem.
 	These objects could not be moved. Select them again and try a smaller move.	Nie udało się przenieść tych obiektów. Zaznacz je ponownie i spróbuj mniejszego przesunięcia.
 	This page contains objects that cannot be selected together.	Ta strona zawiera obiekty, których nie można zaznaczyć razem.
+	Mouse wheel scroll speed	Szybkość przewijania kółkiem myszy
+scroll speed	Slow	Wolna
+scroll speed	Normal	Normalna
+scroll speed	Fast	Szybka
+	Enhance camera image	Popraw zdjęcie z aparatu
+	Drag the corners onto the document's edges, then choose Enhance page.	Przeciągnij narożniki na krawędzie dokumentu, a następnie wybierz Popraw stronę.
+	Enhance page	Popraw stronę
