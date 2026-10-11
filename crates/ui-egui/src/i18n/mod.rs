@@ -1200,13 +1200,38 @@ mod tests {
             assert!(has(cs, menu), "Czech lacks the menu title {menu:?}");
             assert!(has(cs, spec.label), "Czech lacks the {menu} menu label {:?} ({})", spec.label, spec.id);
         }
-        const KEEP_AS_IS: &[&str] = &["OK"];
-        let (entries, _) = parse_entries(cs.0.source, cs.0.plural_forms());
+        // Spelled the same in Czech: product and format names, abbreviations, key caps, words
+        // Czech shares with English, and templates with no English words.
+        const KEEP_AS_IS: &[&str] = &[
+            "OK",
+            "PDF/A…",
+            "Microsoft Word (.docx)",
+            "PostScript / EPS",
+            "Home / End",
+            "JavaScript",
+            "ZIP",
+            "Text",
+            "Index",
+            "Metadata",
+            "Model",
+            "{field}: {e}",
+            "{0}: {1}",
+            "{month} {y}",
+            "+LOC",
+            "−LOC",
+            "ΔLOC",
+            "+Bin",
+            "−Bin",
+        ];
+        let (entries, errors) = parse_entries(cs.0.source, cs.0.plural_forms());
+        assert!(errors.is_empty(), "{errors:?}");
+        // The code joins some labels with a space at either end: keep exactly the source's.
+        let edges = |s: &str| (s.len() - s.trim_start().len(), s.len() - s.trim_end().len());
         for e in &entries {
             let key_cap = e.context == "key" && KEY_CAP_NAMES.contains(&e.source.as_str());
             assert!(e.source != e.translation || KEEP_AS_IS.contains(&e.source.as_str()) || key_cap, "{:?} is untranslated", e.source);
             assert!(!e.translation.contains("..."), "use … rather than three dots: {:?}", e.translation);
-            assert_eq!(e.translation.trim(), e.translation, "stray whitespace: {:?}", e.translation);
+            assert_eq!(edges(&e.translation), edges(&e.source), "stray whitespace: {:?}", e.translation);
         }
         let mut app = crate::PdfCraftApp::default();
         app.set_option("language", "cs").unwrap();
