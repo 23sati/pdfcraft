@@ -1630,7 +1630,12 @@
 	watermark	水印
 	background	背景
 	This document isn't password-protected	本文件未受密碼保護
-	Only the document's owner can change its security (open it with the permissions password)	只有文件所有者才能更改安全性（請使用許可權密碼開啟）
+	Enter permissions password…	輸入許可權密碼…
+	Permissions password	許可權密碼
+	“{name}” has security restrictions. Enter its permissions password to lift them.	“{name}”有安全限制。請輸入其許可權密碼以解除限制。
+	Restrictions lifted	已解除限制
+	Couldn't unlock {name}: {e}	無法解鎖 {name}：{e}
+	This document has no restrictions to lift	此文件沒有可解除的限制
 	The document's security settings don't allow this change	文件安全設定不允許此更改
 	The document's security settings don't allow copying text and images	文件安全設定不允許複製文字和圖片
 	Open a document first	請先開啟文件

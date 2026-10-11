@@ -393,6 +393,23 @@ pub struct PasswordPrompt {
     then: Option<&'static str>,
 }
 
+/// Asks for the permissions password of an open document whose security restricts it, which
+/// lifts the restrictions (#995). Acrobat asks for it when such a document's security is changed.
+pub struct UnlockPrompt {
+    pub doc: DocId,
+    pub name: String,
+    pub input: String,
+    pub error: Option<String>,
+    /// The command to run once unlocked (Protect using password, Remove security), if any.
+    pub then: Option<&'static str>,
+}
+
+impl UnlockPrompt {
+    pub(crate) fn new(doc: &pdfcraft_engine::Document, then: Option<&'static str>) -> Self {
+        Self { doc: doc.id, name: doc.name.clone(), input: String::new(), error: None, then }
+    }
+}
+
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct RecentFile {
     pub name: String,
@@ -487,6 +504,7 @@ pub struct PdfCraftApp {
     /// Whether the macOS title bar is drawn by us (traffic lights over our tab strip).
     pub integrated_titlebar: bool,
     pub password_prompt: Option<PasswordPrompt>,
+    pub unlock_prompt: Option<UnlockPrompt>,
     pub full_screen: bool,
     /// Files delivered asynchronously (web drag-and-drop, web file picker).
     pub inbox: Inbox,
@@ -791,6 +809,7 @@ impl PdfCraftApp {
             toast: None,
             integrated_titlebar: false,
             password_prompt: None,
+            unlock_prompt: None,
             full_screen: false,
             inbox: Default::default(),
             startup_inbox: Default::default(),
@@ -1207,6 +1226,33 @@ impl PdfCraftApp {
         }
     }
 
+    /// Ask for the active document's permissions password, then run `then` (if any).
+    pub(crate) fn request_unlock(&mut self, then: Option<&'static str>) {
+        let Some(doc) = self.active_ids().and_then(|(_, id)| self.session.get(id)) else { return };
+        self.unlock_prompt = Some(UnlockPrompt::new(doc, then));
+    }
+
+    /// Answer the permissions password prompt (`None` cancels).
+    pub fn submit_unlock(&mut self, password: Option<String>) {
+        let Some(mut p) = self.unlock_prompt.take() else { return };
+        let Some(pw) = password else { return };
+        match self.session.unlock(p.doc, &pw) {
+            // Carry on with what asked for the password, if its document is still the one shown.
+            Ok(()) => match p.then {
+                Some(command) if self.active_ids().is_some_and(|(_, id)| id == p.doc) => {
+                    self.execute(command);
+                }
+                _ => self.notify_tr("Restrictions lifted"),
+            },
+            Err(pdfcraft_engine::EditError::WrongPassword) => {
+                p.input.clear();
+                p.error = Some("Incorrect password. Try again.".to_string());
+                self.unlock_prompt = Some(p);
+            }
+            Err(e) => self.notify_fmt("Couldn't unlock {name}: {e}", &[("name", &p.name), ("e", &e.to_string())]),
+        }
+    }
+
     /// Open a file from a recent list: focus the tab already showing it, else open it (File ▸
     /// Open Recent and the Home view's list share this).
     pub fn open_recent(&mut self, path: &str) {
@@ -1299,7 +1345,12 @@ impl PdfCraftApp {
     /// A dialog or prompt is open over the window: the keyboard is its own, and nothing may act
     /// on the document underneath it.
     pub(crate) fn modal_open(&self) -> bool {
-        self.dialog.is_some() || self.close_request.is_some() || self.password_prompt.is_some() || self.pending_link.is_some() || self.updates.open
+        self.dialog.is_some()
+            || self.close_request.is_some()
+            || self.password_prompt.is_some()
+            || self.unlock_prompt.is_some()
+            || self.pending_link.is_some()
+            || self.updates.open
     }
 
     /// Enable the UI control channel on `ctx` (opt-in; see [`control`]). Returns a client that
