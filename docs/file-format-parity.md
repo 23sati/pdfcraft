@@ -1,6 +1,6 @@
 # File format parity
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-10 · **Change:** major (first format matrix; Acrobat's formats from its bundle) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (encrypted output opens in Acrobat, #774; XFDF fixes #807, #809, #819) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
 Every format Acrobat Pro reads or writes, and PdfCraft's support for it. Acrobat's list comes from
 its bundle's `Info.plist` `CFBundleDocumentTypes` (what it opens) and its public documentation
@@ -22,7 +22,7 @@ features total).
 |---|---|---|---|---|
 | PDF 1.0–1.7, ISO 32000-1 | R W | R W | high for reading and unencrypted writing | 958-file pdf.js corpus open/edit/save; `qpdf --check` on saved outputs; `xtask check` baselines |
 | PDF 2.0 (ISO 32000-2) | R W | R W (2.0-only features ignored but preserved) | good | No UTF-8 strings, `/AF`, DPart, namespaces ([pdf-spec-parity.md](pdf-spec-parity.md)) |
-| Encrypted PDF (standard security R2–R6) | R W | R W | **reading high; writing fails in Acrobat and Reader** | `crates/crypt`, `crates/cos` tests; all 7 corpus encrypted files open; **#774** |
+| Encrypted PDF (standard security R2–R6) | R W | R W | reading high; writing opens in Acrobat DC since #836 (#774; AES-256 and RC4-128 checked by hand, no automated interop suite) | `crates/crypt`, `crates/cos` tests (`the_catalog_of_an_encrypted_document_stays_outside_object_streams`); all 7 corpus encrypted files open |
 | Certificate-encrypted PDF (public-key handler) | R W | none (clear message) | none | `core.unsupported-handlers` |
 | Linearized PDF (Fast Web View) | R W | R (as normal PDF); no W | none for W | `core.linearization` planned |
 | Damaged PDF | R (repair) | R (repair, logged) | high | `core.repair-broken-files`, nightly fuzzing |
@@ -35,7 +35,7 @@ features total).
 
 | Format | Acrobat | PdfCraft | Fidelity | Tests and evidence |
 |---|---|---|---|---|
-| FDF (`.fdf`) comments and form data | R W | R W | good | `crates/xfdf`; bugs #807, #809, #819 in comment exchange |
+| FDF (`.fdf`) comments and form data | R W | R W | good | `crates/xfdf`; comment-exchange fixes for popups, polygon vertices and callouts (#807, #809, #819) |
 | XFDF (`.xfdf`, ISO 19444-1) | R W | R W | good | as above |
 | XML form data | R W | R W | good | `form.data-xml-csv-txt` |
 | XDP (`.xdp`, XFA data package) | R | none | none | Acrobat opens `.xdp` as a document type |
@@ -109,4 +109,5 @@ features total).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Encrypted PDF row: written files open in Acrobat DC (#774, fixed by #836). FDF row: #807, #809 and #819 fixed |
 | 2026-10-10 | major | Created from Acrobat 26.002.21931's `CFBundleDocumentTypes`, Acrobat's public Create/Export documentation, and PdfCraft's code and checklist |

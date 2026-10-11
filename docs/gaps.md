@@ -1,6 +1,7 @@
 # Where PdfCraft falls short of Acrobat Pro
 
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** patch (gap 2: hayro patch counts after the native-gradient backport) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (gap 1 closed by #836; fixed issues removed from gaps 3, 6 and 16) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
 Every known shortfall, one entry each, ranked by what it costs users. This is the work list: agents
 choose from the top unless the owner says otherwise, and prefer these over new P2/P3 checklist
@@ -8,8 +9,9 @@ features. The numbers behind it are in [target-app-parity.md](target-app-parity.
 detail is in `parity/acrobat-features.toml` (`cargo xtask parity --partial` lists what each partial
 feature lacks).
 
-No gap blocks the [alpha gate](roadmap.md#alpha-gate); gaps 1 and 8 hold the convert-and-share
-workflow's partial sub-cases and are the first beta items.
+No gap blocks the [alpha gate](roadmap.md#alpha-gate); gap 8 holds the convert-and-share
+workflow's partial sub-cases and is the first beta item. Gap numbers are kept when a gap closes, so
+references elsewhere stay valid (gap 1, encrypted output Acrobat rejected, closed with #836).
 
 Hours are Opus 5.5 agent wall-clock hours. "Doc" names the parity document the gap belongs to.
 When a gap closes, delete its entry, note it in the [ROADMAP.md](../ROADMAP.md) progress log and
@@ -19,7 +21,6 @@ update the numbers.
 
 | # | Gap | Kind | Hours | Doc |
 |---|---|---|---|---|
-| 1 | Encrypted files we write don't open in Acrobat | file format | 8–15 | [file-format-parity.md](file-format-parity.md) |
 | 2 | Rendering is borrowed and its fidelity unmeasured | feature, spec | 110–190 | [pdf-spec-parity.md](pdf-spec-parity.md) |
 | 3 | Editing existing text is fragile on real files | feature | 100–180 | [target-app-parity.md](target-app-parity.md) |
 | 4 | No printing on the web | feature, platform | 15–30 | [hardware-parity.md](hardware-parity.md) |
@@ -45,22 +46,6 @@ update the numbers.
 | 24 | Checklist not diffed against Acrobat's own menus | measurement | 4–8 | [target-app-parity.md](target-app-parity.md) |
 
 ## The gaps
-
-### 1. Encrypted files we write don't open in Acrobat
-
-- **Missing:** interoperable encryption output. A document protected with a password in PdfCraft
-  opens in PdfCraft, SumatraPDF, PDF24 and LibreOffice, but Adobe Reader, Acrobat and PDF-XChange
-  report it as damaged.
-- **Evidence:** [#774](https://github.com/storytold/pdfcraft/issues/774) (2026-10-10, confirmed by a
-  second user). Our encryption tests round-trip through our own reader and `qpdf --check`, which
-  is more lenient than Acrobat.
-- **Impact:** blocking. Passwords are the most common reason to touch security; a file a recipient
-  can't open is data loss in practice. Partial sub-case of the convert-and-share gate row (unencrypted sharing works), so not an alpha blocker; the first beta item.
-- **Fix:** find the divergence (likely `/Encrypt` dictionary or R6 `/Perms`/`/OE`/`/UE` details, or
-  a string/stream encrypted that must not be), then add an interop suite that opens every kind of
-  output we write in other readers (pdf.js, MuPDF and Poppler as oracle processes; Acrobat by hand
-  on the owner's Mac).
-- **Estimate:** 8–15 h. **Doc:** [file-format-parity.md](file-format-parity.md).
 
 ### 2. Rendering is borrowed and its fidelity unmeasured
 
@@ -90,7 +75,8 @@ update the numbers.
   `edit.rtl-cjk-editing`, `edit.rotated-text-editing`, `edit.keep-tags-on-edit`,
   `edit.vector-edit`, `edit.edit-object-tool` are planned. Users:
   [#766](https://github.com/storytold/pdfcraft/issues/766) (editing Arabic text),
-  [#844](https://github.com/storytold/pdfcraft/issues/844) (can't move several elements),
+  [#844](https://github.com/storytold/pdfcraft/issues/844) (several elements now move together on
+  one page, not across pages),
   [#787](https://github.com/storytold/pdfcraft/issues/787) (move images between pages),
   [#791](https://github.com/storytold/pdfcraft/issues/791).
 - **Impact:** "Edit PDF" is one of Acrobat Pro's top reasons to buy. Substituting Helvetica changes
@@ -123,14 +109,12 @@ update the numbers.
 
 ### 6. Open-issue backlog of wrong results in shipped features
 
-- **Missing:** fixes for ≈ 25 filed reports of features marked `shipped` that give wrong results,
+- **Missing:** fixes for the ≈ 13 of ≈ 25 filed reports of features marked `shipped` that give wrong results still open,
   plus triage of ≈ 220 other open issues.
-- **Evidence:** 245 open issues on 2026-10-10, e.g. XFDF exchange loses polygon vertices and turns
-  callouts into text boxes (#809, #819), page deletion leaves null destinations (#817, #821),
-  automatic URL linking panics on Unicode text (#816), autosave skips new unsaved PDFs (#815),
-  saving ignores typing in an open paragraph (#811), automation reports success after replacing an
-  earlier result (#799, #800), Shift-Cmd-G goes forward (#810).
-- **Impact:** every one is a user who lost trust. #816 is a crash, which outranks feature work
+- **Evidence:** 245 open issues on 2026-10-10. The first batch of `fix(...)` reports was fixed by
+  2026-10-10 (#799, #800, #807, #809, #810, #811, #815, #816, #817, #818, #819, #821); the rest of
+  the backlog is untriaged.
+- **Impact:** every one is a user who lost trust. Crash reports outrank feature work
   (`AGENTS.md` §4).
 - **Estimate:** 45–80 h (≈ 0.2–0.4 h per issue). **Doc:** this file.
 
@@ -198,7 +182,9 @@ update the numbers.
 ### 12. No measured fidelity harness against Acrobat
 
 - **Missing:** side-by-side comparison of rendering, text extraction, form calculation and
-  signature validation against Acrobat on synthetic fixtures.
+  signature validation against Acrobat on synthetic fixtures; an interop suite that opens every
+  kind of output we write (encrypted ones above all, after #774) in pdf.js, MuPDF and Poppler as
+  oracle processes.
 - **Evidence:** none exists; only text extraction has an oracle (word-F1 0.98 against `pdftotext`).
   Acrobat captures must stay local in `plan/acrobat/` (clean-room, `AGENTS.md` §1.1).
 - **Impact:** until it exists, every quality number here is a judgement.
@@ -235,10 +221,9 @@ update the numbers.
 
 ### 16. UI precision gaps
 
-- **Missing:** moving several selected objects together (#844), nudging with arrow keys, single-key tool accelerators,
+- **Missing:** moving several selected objects across pages (same-page moves shipped, #844), nudging with arrow keys, single-key tool accelerators,
   rulers, grids and guides, loupe and dynamic zoom, multiple windows and split view, comment
-  pop-ups that can be moved, connector lines, customisable quick tools, column text selection
-  (#740); shortcut display and touchpad scrolling bugs (#746, #759, #721), macOS window controls
+  pop-ups that can be moved, connector lines, customisable quick tools; shortcut display and tool-mode bugs (#746, #721), macOS window controls
   (#789).
 - **Estimate:** 30–60 h. **Doc:** [ui-parity.md](ui-parity.md).
 
@@ -303,6 +288,7 @@ update the numbers.
 | Date | Change | Summary |
 |---|---|---|
 | 2026-10-11 | patch | Gap 2: 23 hayro-interpret and 10 hayro patches after axial and radial shadings became native gradients (backport of hayro 0.8) |
+| 2026-10-11 | minor | Closed gap 1 (#774, fixed by #836; numbers kept, its interop suite moved to gap 12); gap 6 lists the fixed #799–#821 batch; gap 3 and 16 updated for #844 (same-page move), #740 (column select) and #759 (1:1 touchpad scrolling) |
 | 2026-10-10 | minor | Removed the alpha markers: with the cross-app gate rule, gaps 1 and 8 are partial sub-cases, not blockers; stage alpha |
 | 2026-10-10 | minor | Marked the alpha blockers (gap 1 and the Office part of gap 8) after the core-workflow gate put the stage at pre-alpha |
 | 2026-10-10 | major | Created. Ranked 24 gaps from the 2026-10-10 re-measure, the open GitHub issues and the former ROADMAP.md §Where we're lacking and where we're going (renderer, hardening, fidelity, editing, Pro workflows, 1.0 polish), which this file replaces |

@@ -433,6 +433,19 @@ fn real_annotation_flags_do_not_lock_comments() {
 }
 
 #[test]
+fn carriage_returns_in_comment_text_become_line_breaks() {
+    let mut doc = fixture();
+    let page = page_refs(&doc).unwrap()[0];
+    let mut entries = annots(&doc, page);
+    let Object::Dict(annotation) = &mut entries[0] else { panic!("fixture annotation is inline") };
+    // Acrobat ends lines in /Contents with CR; the interface only breaks lines at LF.
+    annotation.set(b"Contents".to_vec(), PdfString::text("one\r\rtwo\r\nthree"));
+    set_annots(&mut doc, page, entries).unwrap();
+
+    assert_eq!(summaries(&doc)[0].contents.as_deref(), Some("one\n\ntwo\nthree"));
+}
+
+#[test]
 fn a_locked_text_box_still_refits_its_text() {
     let mut doc = fixture();
     let t = add_annotation(&mut doc, &new(0, Shape::TextBox { rect: [100.0, 680.0, 304.0, 692.0], font_size: 12.0 }), &meta("t")).unwrap();
@@ -572,6 +585,31 @@ fn links_are_added_edited_listed_and_removed() {
     let n = links::remove_all(&mut doc, None).unwrap();
     assert!(n >= 1 && links::list(&doc).is_empty());
     assert!(links::add(&mut doc, 0, [0.0, 0.0, 1.0, 1.0], &LinkAction::Page(0), &LinkStyle::default()).is_err(), "too small");
+}
+
+#[test]
+fn link_edit_rejects_non_finite_and_overflowed_rectangles_without_mutating_the_pdf() {
+    use crate::links::{self, LinkAction, LinkStyle};
+    let mut doc = fixture();
+    let original_rect = [10.0, 20.0, 110.0, 70.0];
+    let index = links::add(&mut doc, 0, original_rect, &LinkAction::Uri("https://example.org".into()), &LinkStyle::default()).unwrap();
+    let before = links::list(&doc);
+    let changed_action = LinkAction::Uri("https://other.example".into());
+    for rect in [
+        [f64::NAN, 0.0, 100.0, 30.0],
+        [0.0, 0.0, f64::INFINITY, 30.0],
+        [f64::NEG_INFINITY, 0.0, 100.0, 30.0],
+        [-1e308, 0.0, 1e308, 30.0],
+        [0.0, 0.0, 1.5, 30.0],
+    ] {
+        assert!(links::set(&mut doc, 0, index, Some(rect), Some(&changed_action), None).is_err(), "edit accepted {rect:?}");
+        assert_eq!(links::list(&doc), before, "invalid edit changed an existing link");
+        assert!(links::add(&mut doc, 0, rect, &changed_action, &LinkStyle::default()).is_err(), "add accepted {rect:?}");
+    }
+    // A reversed but otherwise valid rectangle is normalized on edit.
+    links::set(&mut doc, 0, index, Some([110.0, 70.0, 10.0, 20.0]), None, None).unwrap();
+    let edited = links::list(&doc).into_iter().find(|l| l.page == 0 && l.index == index).map(|l| l.rect);
+    assert_eq!(edited, Some(original_rect));
 }
 
 #[test]

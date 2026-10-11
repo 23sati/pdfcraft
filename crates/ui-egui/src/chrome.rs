@@ -364,7 +364,7 @@ pub fn mode_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     [(Mode::AllTools, "All tools"), (Mode::Read, "Read"), (Mode::Edit, "Edit"), (Mode::Convert, "Convert"), (Mode::Sign, "E-Sign")]
                 {
                     if widgets::mode_tab(ui, tl!(label), app.mode == mode).clicked() {
-                        app.select_mode(mode);
+                        app.switch_mode(mode, true);
                     }
                 }
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
@@ -598,6 +598,12 @@ fn page_display_menu(ui: &mut egui::Ui, view: &DocView) -> Option<&'static str> 
         if ui.radio(view.layout == l, tl!(l.label())).clicked() {
             picked = Some(l.command());
         }
+    }
+    ui.separator();
+    // Continuous scrolling is an independent checkbox over the base layout, as in Acrobat (#752).
+    let mut continuous = view.continuous();
+    if ui.add(egui::Checkbox::new(&mut continuous, tl!("Continuous scrolling"))).changed() {
+        picked = Some("view.continuous");
     }
     let mut cover = view.cover;
     if ui.add_enabled(view.cover_applies(), egui::Checkbox::new(&mut cover, tl!("Show cover page in two-page view"))).changed() {
