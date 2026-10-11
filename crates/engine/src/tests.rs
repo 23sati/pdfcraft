@@ -578,6 +578,21 @@ fn files_that_cannot_be_converted_are_refused_clearly() {
     assert_eq!(err, EditError::Source("locked.pdf: it is password-protected".into()));
 }
 
+/// Combine files (#569): images and text become PDFs; PDFs pass through unread, even protected
+/// ones (Combine asks for their password) and ones named .pdf without a header.
+#[test]
+fn files_for_combine_are_made_into_pdfs_and_pdfs_pass_through() {
+    let s = Session::new();
+    let locked = protected("pw", "o", -1);
+    assert!(Arc::ptr_eq(&s.as_pdf("locked.pdf", &locked).unwrap(), &locked));
+    let headless = Arc::new(b"1 0 obj << >> endobj".to_vec());
+    assert!(Arc::ptr_eq(&s.as_pdf("old.PDF", &headless).unwrap(), &headless));
+    assert!(s.as_pdf("scan.jpg", &Arc::new(jpeg_bytes())).unwrap().starts_with(b"%PDF-"));
+    assert!(s.as_pdf("notes.txt", &Arc::new(b"hello".to_vec())).unwrap().starts_with(b"%PDF-"));
+    let err = s.as_pdf("report.docx", &Arc::new(b"PK\x03\x04".to_vec())).unwrap_err();
+    assert!(matches!(err, EditError::Source(m) if m.starts_with("report.docx: this file type can't be converted")));
+}
+
 fn protected(user: &str, owner: &str, permissions: i32) -> Arc<Vec<u8>> {
     let mut doc = pdfcraft_cos::Document::open(Arc::new(fixture(2))).unwrap();
     doc.set_encryption(&pdfcraft_cos::NewEncryption {
@@ -2209,6 +2224,25 @@ fn dynamic_xfa_forms_are_laid_out_on_open_filled_and_saved_incrementally() {
     assert_eq!(d2.xfa.as_ref().map(|x| (x.pages, x.fields)), Some((2, 14)), "the layout is remembered");
     assert_eq!(d2.form.iter().find(|f| f.name == "familyName").unwrap().value, vec!["Singh".to_string()]);
     assert_eq!(d2.form.iter().find(|f| f.name == "answer").unwrap().value, vec!["N".to_string()]);
+}
+
+#[test]
+fn a_signed_xfa_signature_box_shows_the_picture_the_file_holds() {
+    let mut s = Session::new().with_clock(|| 1_700_000_000);
+    let id = s.open("signed.pdf", None, Arc::new(pdfcraft_xfa::fixtures::signed_shell()), None).expect("opens");
+    let doc = s.get(id).unwrap();
+    assert_eq!(doc.xfa.as_ref().map(|x| (x.pages, x.fields)), Some((1, 2)));
+    let mut r = pdfcraft_render::PageRenderer::new(doc.bytes.clone(), doc.config.clone());
+    let out = r.render(pdfcraft_render::RenderRequest { page: 0, scale: 1.0, ..Default::default() });
+    assert!(out.error.is_none(), "{:?}", out.error);
+    let at = |x: u32, y: u32| -> [u8; 4] {
+        let i = ((y * out.width + x) * 4) as usize;
+        out.rgba[i..i + 4].try_into().unwrap()
+    };
+    // The signed box (3in by 1in from half an inch in) is filled with the signature's blue
+    // picture; the unsigned one below it is not.
+    assert_eq!(at(36 + 108, 36 + 36), [0, 0, 255, 255]);
+    assert_ne!(at(36 + 108, 36 + 72 + 36), [0, 0, 255, 255]);
 }
 
 #[test]
