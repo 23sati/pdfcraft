@@ -35,6 +35,45 @@ function Read-ProductName($Database) {
     [void] [Runtime.InteropServices.Marshal]::FinalReleaseComObject($view)
   }
 }
+function Write-PreviewDiagnostics($Child, [string] $Id, [string] $ExpectedTitle) {
+  # This runs only after the hosted-runner guard and only on failure. Inspect
+  # all top-level candidates to distinguish a title mismatch from a different
+  # COM server PID or a hidden/inaccessible desktop; do not relax qualification.
+  $details = [ordered]@{
+    dialog = $Id; expectedTitle = $ExpectedTitle; expectedProcessId = $Child.Id
+    observerProcessId = $PID; observerSessionId = [Diagnostics.Process]::GetCurrentProcess().SessionId
+    interactive = [Environment]::UserInteractive; child = $null; windows = @(); errors = @()
+  }
+  try {
+    $Child.Refresh()
+    $details.child = [ordered]@{
+      exited = $Child.HasExited; sessionId = $Child.SessionId
+      mainWindowTitle = $Child.MainWindowTitle; mainWindowHandle = $Child.MainWindowHandle.ToInt64()
+      exitCode = $(if ($Child.HasExited) { $Child.ExitCode } else { $null })
+    }
+  } catch { $details.errors += "Child process inspection: $($_.Exception.Message)" }
+  try {
+    $candidates = [Windows.Automation.AutomationElement]::RootElement.FindAll(
+      [Windows.Automation.TreeScope]::Children, [Windows.Automation.Condition]::TrueCondition)
+    $details['topLevelWindowCount'] = $candidates.Count
+    foreach ($candidate in @($candidates | Select-Object -First 256)) {
+      try {
+        $current = $candidate.Current
+        $owner = Get-Process -Id $current.ProcessId -ErrorAction SilentlyContinue
+        $details.windows += [ordered]@{
+          name = $current.Name; processId = $current.ProcessId; processName = $owner.ProcessName
+          sessionId = $owner.SessionId; className = $current.ClassName; handle = $current.NativeWindowHandle
+          type = $current.ControlType.ProgrammaticName; offscreen = $current.IsOffscreen
+          bounds = $current.BoundingRectangle.ToString(); expectedProcess = $current.ProcessId -eq $Child.Id
+          expectedTitle = $current.Name -ceq $ExpectedTitle
+        }
+      } catch { $details.errors += "Window inspection: $($_.Exception.Message)" }
+    }
+  } catch { $details.errors += "Desktop inspection: $($_.Exception.Message)" }
+  $path = Join-Path $Work "$Id.diagnostics.json"
+  ConvertTo-Json -InputObject $details -Depth 8 | Set-Content -LiteralPath $path -Encoding utf8
+  Write-Output "Native MSI preview diagnostics: $path"
+}
 try {
   if (-not [Environment]::UserInteractive) {
     throw 'Native MSI UI qualification unavailable: runner has no interactive desktop. This is not a pass.'
@@ -67,11 +106,11 @@ try {
       # invalid in Windows paths. Launch without cmd.exe or expression building.
       $arguments = @('-NoProfile', '-NonInteractive', '-STA', '-File', "`"$childScript`"",
         '-Msi', "`"$copy`"", '-Dialog', $dialog.Id, '-StopFile', "`"$stop`"")
+      $title = Resolve-DialogText $dialog.Title $strings $productName
       $child = Start-Process -FilePath (Join-Path $PSHOME 'powershell.exe') -ArgumentList $arguments `
         -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
       try {
         $condition = [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty, $child.Id)
-        $title = Resolve-DialogText $dialog.Title $strings $productName
         $deadline = [DateTime]::UtcNow.AddSeconds(15)
         $window = $null
         while (-not $window -and [DateTime]::UtcNow -lt $deadline) {
@@ -109,6 +148,11 @@ try {
         }
         $report.dialogs += [ordered]@{ language = $language; dialog = $dialog.Id; title = $window.Current.Name; controls = $checked }
         Write-Output "ok $id`: $checked actual native Unicode control texts and visible bounds"
+      } catch {
+        $failure = $_
+        try { Write-PreviewDiagnostics $child $id $title }
+        catch { Write-Warning "Could not write preview diagnostics: $($_.Exception.Message)" }
+        throw $failure
       } finally {
         [IO.File]::WriteAllText($stop, 'stop')
         if (-not $child.WaitForExit(3000)) { $child.Kill(); $child.WaitForExit() }
