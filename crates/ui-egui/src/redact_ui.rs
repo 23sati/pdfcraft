@@ -269,7 +269,7 @@ pub(crate) fn search_body(ui: &mut egui::Ui, d: &mut SearchDraft, t: &Tokens) ->
     ui.radio_value(&mut d.mode, SearchMode::Phrase, tl!("Single word or phrase"));
     let mut enter = false;
     ui.add_enabled_ui(d.mode == SearchMode::Phrase, |ui| {
-        let r = ui.add(egui::TextEdit::singleline(&mut d.text).hint_text(tl!("Text to find")).desired_width(380.0));
+        let r = ui.add(crate::widgets::line(&mut d.text).hint_text(tl!("Text to find")).desired_width(380.0));
         enter = r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
     });
     ui.add_space(6.0);
@@ -338,7 +338,7 @@ pub(crate) fn props_body(ui: &mut egui::Ui, d: &mut RedactPrefs, _t: &Tokens) ->
         if l.clicked() {
             d.use_code = false;
         }
-        ui.add_enabled(on && !d.use_code, egui::TextEdit::singleline(&mut d.overlay).desired_width(220.0)).labelled_by(l.id);
+        ui.add_enabled(on && !d.use_code, crate::widgets::line(&mut d.overlay).desired_width(220.0)).labelled_by(l.id);
         ui.end_row();
         if ui.add_enabled(on, egui::RadioButton::new(d.use_code, tl!("Redaction code:"))).clicked() {
             d.use_code = true;

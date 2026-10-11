@@ -29,7 +29,7 @@
 	Create PDF from images…	PDF aus Bildern erstellen…
 	Create PDF from multiple files…	PDF aus mehreren Dateien erstellen…
 	Create PDF from clipboard	PDF aus Zwischenablage erstellen
-	Combine files…	Dateien kombinieren…
+	Combine files…	Dateien zusammenführen…
 	Save	Speichern
 	Save as…	Speichern unter…
 	Close file	Datei schließen
@@ -54,7 +54,7 @@
 	Comments panel	Kommentarbereich
 	Form fields panel	Formularfeldbereich
 	Clear form	Formular zurücksetzen
-	Find tools and commands…	Tools und Befehle suchen…
+	Find tools and commands…	Werkzeuge und Befehle suchen…
 	Zoom	Zoom
 	Actual size	Originalgröße
 	Zoom to page level	Ganze Seite
@@ -83,14 +83,20 @@
 	Open a PDF ({key})	PDF öffnen ({key})
 	Dark gray theme	Dunkelgraues Design
 	Light theme	Helles Design
+	Appearance mode	Darstellungsmodus
+	Light	Hell
+	Dark	Dunkel
+	Active	Aktiv
+	Dark theme	Dunkles Design
+	Appearance settings…	Darstellungseinstellungen…
 	All tools	Alle Werkzeuge
 	Read	Lesen
 	Convert	Konvertieren
 	E-Sign	E-Signatur
 	Print ({key})	Drucken ({key})
-	Save (M4)	Speichern (M4)
+	Save ({key})	Speichern ({key})
 	Document properties ({key})	Dokumenteigenschaften ({key})
-	Find tools and commands	Tools und Befehle suchen
+	Find tools and commands	Werkzeuge und Befehle suchen
 	Fit to height	Seitenhöhe
 	Zoom in	Vergrößern
 	Zoom out	Verkleinern
@@ -316,9 +322,9 @@
 	Images	Bilder
 	Clipboard	Zwischenablage
 	Blank page	Leere Seite
-	Combine files	Dateien kombinieren
-	Combine	Kombinieren
-	Add files to combine	Dateien zum Kombinieren hinzufügen
+	Combine files	Dateien zusammenführen
+	Combine	Zusammenführen
+	Add files to combine	Dateien zum Zusammenführen hinzufügen
 	Page options	Seitenoptionen
 	Page grid	Seitenraster
 	Rotate	Drehen
@@ -331,7 +337,7 @@
 	Set page boxes	Seitenrahmen festlegen
 	Page labels	Seitenbeschriftungen
 	Page transitions	Seitenübergänge
-	Add comments	Kommentieren
+	Add comments	Kommentare hinzufügen
 	Markup	Markierungen
 	Sticky note	Notiz
 	Underline	Unterstreichen
@@ -676,6 +682,10 @@
 	Edit image	Bild bearbeiten
 	Rotate counterclockwise	Gegen den Uhrzeigersinn drehen
 	Rotate clockwise	Im Uhrzeigersinn drehen
+	Select page {label}	Seite {label} auswählen
+	Rotate page {label} counterclockwise	Seite {label} gegen den Uhrzeigersinn drehen
+	Rotate page {label} clockwise	Seite {label} im Uhrzeigersinn drehen
+	Delete page {label}	Seite {label} löschen
 	Flip horizontal	Horizontal spiegeln
 	Flip vertical	Vertikal spiegeln
 	Replace image	Bild ersetzen
@@ -758,6 +768,7 @@
 	Rotation	Drehung
 	Appear behind page	Hinter der Seite anzeigen
 	Appear on top of page	Vor der Seite anzeigen
+	Offset from centre	Abstand von der Mitte
 	From colour	Aus Farbe
 	Page Range Options	Optionen für Seitenbereich
 	Preview: page {p} of {n}	Vorschau: Seite {p} von {n}
@@ -822,6 +833,10 @@
 	The signature will be invisible.	Die Signatur wird unsichtbar sein.
 	Distinguished name	Distinguished Name
 	Labels	Beschriftungen
+	Graphic	Grafik
+	Signer's name	Name des Unterzeichners
+	Fill & Sign signature	Unterschrift aus „Ausfüllen und unterschreiben“
+	Choose image…	Bild auswählen…
 	Permitted actions after certifying	Erlaubte Aktionen nach dem Zertifizieren
 	No changes allowed	Keine Änderungen erlaubt
 	Annotations, form fill-in, and digital signatures	Anmerkungen, Ausfüllen von Formularen und digitale Signaturen
@@ -1633,8 +1648,14 @@
 	watermark	Wasserzeichen
 	background	Hintergrund
 	This document isn't password-protected	Dieses Dokument ist nicht passwortgeschützt
-	Only the document's owner can change its security (open it with the permissions password)	Nur der Eigentümer des Dokuments kann die Sicherheit ändern (öffne es mit dem Berechtigungspasswort)
+	Enter permissions password…	Berechtigungspasswort eingeben…
+	Permissions password	Berechtigungspasswort
+	“{name}” has security restrictions. Enter its permissions password to lift them.	„{name}“ hat Sicherheitseinschränkungen. Gib das Berechtigungspasswort ein, um sie aufzuheben.
+	Restrictions lifted	Einschränkungen aufgehoben
+	Couldn't unlock {name}: {e}	{name} konnte nicht entsperrt werden: {e}
+	This document has no restrictions to lift	Dieses Dokument hat keine Einschränkungen, die aufgehoben werden können
 	The document's security settings don't allow this change	Die Sicherheitseinstellungen des Dokuments erlauben diese Änderung nicht
+	The document's security settings don't allow copying text and images	Die Sicherheitseinstellungen des Dokuments erlauben kein Kopieren von Text und Bildern
 	Open a document first	Öffne zuerst ein Dokument
 	Security will be removed when you save	Die Sicherheit wird beim Speichern entfernt
 	Click text or an image to edit it	Klicke auf Text oder ein Bild, um es zu bearbeiten
@@ -1989,18 +2010,22 @@
 	Add folder and subfolders…	Ordner mit Unterordnern hinzufügen…
 	Add folder…	Ordner hinzufügen…
 	Add open documents	Geöffnete Dokumente hinzufügen
-	Add the PDFs to combine	Füge die zu kombinierenden PDFs hinzu
+	Add the files to combine	Füge die zu kombinierenden Dateien hinzu
 	Added more than once	Mehrfach hinzugefügt
 	All open documents	Alle geöffneten Dokumente
 	Can't be read: {e}	Kann nicht gelesen werden: {e}
+	Leave out files that can't be read?	Dateien auslassen, die nicht gelesen werden können?
+	These files can't be read, so they won't be in the combined PDF:	Diese Dateien können nicht gelesen werden und sind deshalb nicht im kombinierten PDF:
+	Combine the rest	Die übrigen kombinieren
+	and {n} more	und {n} weitere
 	Check the pages of {name}: {why}	Prüfe die Seiten von {name}: {why}
 	Click to sort, drag to move the column. Drag its edge to resize it.	Klicke zum Sortieren, ziehe zum Verschieben der Spalte. Ziehe ihren Rand, um die Breite zu ändern.
 	Drag to reorder	Ziehen zum Umsortieren
-	Drop PDFs or folders here, or choose them.	Lege PDFs oder Ordner hier ab oder wähle sie aus.
+	Drop PDFs, images, text files or folders here, or choose them.	Lege PDFs, Bilder, Textdateien oder Ordner hier ab oder wähle sie aus.
 	Enter the password that opens it	Gib das Passwort zum Öffnen ein
 	Enter the permissions password to allow combining	Gib das Berechtigungspasswort ein, um das Kombinieren zu erlauben
-	Every PDF in the folder	Jedes PDF im Ordner
-	Every PDF in the folder and the folders inside it	Jedes PDF im Ordner und in seinen Unterordnern
+	Every PDF, image and text file in the folder	Jedes PDF, jedes Bild und jede Textdatei im Ordner
+	Every PDF, image and text file in the folder and the folders inside it	Jedes PDF, jedes Bild und jede Textdatei im Ordner und in seinen Unterordnern
 	File name	Dateiname
 	Files are combined from top to bottom. Leave Pages empty to take every page.	Dateien werden von oben nach unten kombiniert. Lass „Seiten“ leer, um alle Seiten zu übernehmen.
 	Hide password	Passwort ausblenden
@@ -2064,8 +2089,8 @@
 	Only continue if you trust this document. An address can carry information from the document, such as what you typed into its form.	Fahre nur fort, wenn du diesem Dokument vertraust. Eine Adresse kann Informationen aus dem Dokument übermitteln, etwa was du in sein Formular eingegeben hast.
 	Print single-sided. Keep the sheets in order, cut at the marks, then stack the piles left to right, top to bottom.	Einseitig drucken. Halte die Blätter in Reihenfolge, schneide an den Marken und lege die Stapel dann von links nach rechts, von oben nach unten aufeinander.
 	Unlocked {n} of {m} files	{n} von {m} Dateien entsperrt
-	No PDFs found in {folder}	Keine PDFs in {folder} gefunden
-	Added the first {n} PDFs in {folder}	Die ersten {n} PDFs aus {folder} hinzugefügt
+	No PDFs, images or text files found in {folder}	Keine PDFs, Bilder oder Textdateien in {folder} gefunden
+	Added the first {n} files in {folder}	Die ersten {n} Dateien aus {folder} hinzugefügt
 comment menu	Edit	Bearbeiten
 	Undo {action}	{action} rückgängig machen
 	Redo {action}	{action} wiederholen
@@ -2127,6 +2152,8 @@ action wizard	Start	Starten
 	Printer properties	Druckereigenschaften
 	Reset to printer defaults	Auf Druckerstandard zurücksetzen
 	This printer offers no settings of its own.	Dieser Drucker bietet keine eigenen Einstellungen.
+	Margins	Ränder
+	For page sizes and margins.	Für Seitengrößen und Ränder.
 	Scroll tabs left	Tabs nach links scrollen
 	Scroll tabs right	Tabs nach rechts scrollen
 
@@ -2196,3 +2223,27 @@ key	Space	Leertaste
 	Resize panel window	Größe des Bereichsfensters ändern
 	Tools	Werkzeuge
 	Inspector	Inspektor
+
+# Architectural print controls (follow-up to #599).
+	PDF page: {size}	PDF-Seite: {size}
+	Match page at 100%	Papier an Seite anpassen, 100%
+	PDF scale: {scale}%	PDF-Maßstab: {scale}%
+	Printer paper and scaling may differ. Check driver settings.	Druckerpapier und Skalierung können abweichen. Treibereinstellungen prüfen.
+	Drawing scale changes. Use Actual size for full-scale plans.	Der Zeichnungsmaßstab ändert sich. Für maßstabsgetreue Pläne Tatsächliche Größe verwenden.
+	Reload documents when their files change on disk	Dokumente neu laden, wenn sich ihre Dateien auf dem Datenträger ändern
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Diese Datei wurde auf dem Datenträger geändert. Lade sie neu, um die neue Version zu sehen; deine nicht gespeicherten Änderungen gehen dabei verloren.
+	Reload	Neu laden
+	Couldn't reload {name}: {e}	{name} konnte nicht neu geladen werden: {e}
+	Mouse wheel scroll speed	Scrollgeschwindigkeit des Mausrads
+scroll speed	Slow	Langsam
+scroll speed	Normal	Normal
+scroll speed	Fast	Schnell
+	Enhance camera image	Kamerafoto verbessern
+	Drag the corners onto the document's edges, then choose Enhance page.	Ziehen Sie die Ecken auf die Kanten des Dokuments und wählen Sie dann Seite verbessern.
+	Enhance page	Seite verbessern
+	Done adding text	Texteingabe abschließen
+	Discard this text (Esc)	Diesen Text verwerfen (Esc)
+	Clean-up	Bereinigung
+	Original	Original
+	Greyscale	Graustufen
+	Black and white	Schwarzweiß
