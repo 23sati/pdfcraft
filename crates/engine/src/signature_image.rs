@@ -52,8 +52,8 @@ impl Document {
             let obj = editor.cos.get(picture);
             let pdfcraft_cos::Object::Stream(s) = &*obj else { return Err("the signature image is damaged".into()) };
             let (w, h) = (s.dict.int(b"Width").unwrap_or(0), s.dict.int(b"Height").unwrap_or(0));
-            if w <= 0 || h <= 0 || w > 4096 || h > 4096 || w.saturating_mul(h) > MAX_PIXELS as i64 {
-                return Err(SignatureImageError::Size.to_string());
+            if w <= 0 || h <= 0 || w > i64::from(MAX_SIDE) || h > i64::from(MAX_SIDE) || w.saturating_mul(h) > MAX_PIXELS as i64 {
+                return Err(SignatureImageError::PlacedSize.to_string());
             }
             let (_, bytes) = pdfcraft_create::image_file(&editor.cos, picture)?;
             let image = SignatureImage::from_bytes(&bytes).map_err(|e| e.to_string())?;
@@ -101,6 +101,9 @@ pub enum SignatureImageError {
     Format,
     #[error("Choose an image smaller than 4 MiB and 32 megapixels (at most 8192 pixels per side).")]
     Size,
+    /// An image already in the document, which was stored at 4 megapixels or less when placed.
+    #[error("This signature image is larger than 4 megapixels (or 4096 pixels per side), so it can't be previewed.")]
+    PlacedSize,
     #[error("Couldn't read the signature image: {0}")]
     Read(#[from] std::io::Error),
     #[error("Couldn't decode the signature image: {0}")]
@@ -151,7 +154,8 @@ impl SignatureImage {
         let scale = (f64::from(MAX_SIDE) / w.max(h)).min((MAX_PIXELS as f64 / (w * h)).sqrt());
         if scale < 1.0 {
             let (nw, nh) = (((w * scale) as u32).max(1), ((h * scale) as u32).max(1));
-            image = image.resize(nw, nh, image::imageops::FilterType::Triangle);
+            // `thumbnail` resamples in one integer pass, without the large float buffers `resize` keeps.
+            image = image.thumbnail(nw, nh);
         }
         let rgba = image.into_rgba8();
         let size = [rgba.width() as usize, rgba.height() as usize];
@@ -346,7 +350,7 @@ mod tests {
         stream.dict.set(b"Width".to_vec(), pdfcraft_cos::Object::Int(i64::MAX));
         cos.set(picture, pdfcraft_cos::Object::Stream(stream));
         let error = doc.image_signature_preview(0, 0).err().unwrap();
-        assert!(error.contains("megapixels"), "{error}");
+        assert_eq!(error, SignatureImageError::PlacedSize.to_string());
     }
 
     /// "Left edge at the point, centered vertically" is as displayed: on a turned page the box
