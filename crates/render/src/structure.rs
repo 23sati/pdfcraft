@@ -230,8 +230,6 @@ trailer
         assert_eq!(pages.len(), 1, "the walk counts the one real page, not /Count");
     }
 
-    use super::*;
-
     #[test]
     fn inspection_loads_only_requested_objects_in_a_compressed_document() {
         let mut source = lopdf::Document::with_version("1.7");
