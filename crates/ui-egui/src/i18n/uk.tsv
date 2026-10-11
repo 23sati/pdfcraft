@@ -1711,7 +1711,12 @@
 	watermark	водяний знак
 	background	тло
 	This document isn't password-protected	Цей документ не захищено паролем
-	Only the document's owner can change its security (open it with the permissions password)	Лише власник документа може змінювати захист (відкрийте з паролем дозволів)
+	Enter permissions password…	Ввести пароль дозволів…
+	Permissions password	Пароль дозволів
+	“{name}” has security restrictions. Enter its permissions password to lift them.	«{name}» має обмеження захисту. Введіть пароль дозволів, щоб зняти їх.
+	Restrictions lifted	Обмеження знято
+	Couldn't unlock {name}: {e}	Не вдалося розблокувати {name}: {e}
+	This document has no restrictions to lift	Цей документ не має обмежень, які можна зняти
 	The document's security settings don't allow this change	Налаштування захисту документа не дозволяють цю зміну
 	The document's security settings don't allow copying text and images	Налаштування захисту документа не дозволяють копіювати текст і зображення
 	Open a document first	Спочатку відкрийте документ
@@ -2255,3 +2260,7 @@ scroll speed	Fast	Швидка
 	Enhance camera image	Поліпшити знімок з камери
 	Drag the corners onto the document's edges, then choose Enhance page.	Перетягніть кути до країв документа, потім виберіть «Поліпшити сторінку».
 	Enhance page	Поліпшити сторінку
+	Clean-up	Очищення
+	Original	Оригінал
+	Greyscale	Відтінки сірого
+	Black and white	Чорно-білий
