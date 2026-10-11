@@ -37,7 +37,9 @@ fn fixture(n: usize) -> Vec<u8> {
 
 /// A fresh directory with `a.pdf` (3 pages) and `b.pdf` (2 pages).
 fn workdir(test: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("pdfcraft-automation-{test}-{}", std::process::id()));
+    static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let id = SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let dir = std::env::temp_dir().join(format!("pdfcraft-automation-{test}-{}-{id}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("a.pdf"), fixture(3)).unwrap();
@@ -2723,8 +2725,13 @@ fn links_through_tools() {
     let list = ok(&mut a, "link_list", json!({ "doc": doc }));
     assert!(list["links"].as_array().unwrap().iter().any(|l| l["url"] == "https://pdfcraft.dev"));
     ok(&mut a, "link_delete", json!({ "doc": doc, "page": 1, "index": added["index"] }));
-    let r = ok(&mut a, "links_remove", json!({ "doc": doc }));
+    let r = ok(&mut a, "links_remove", json!({ "doc": doc, "pages": [1] }));
     assert_eq!(r["removed"], 2);
+    assert_eq!(ok(&mut a, "link_list", json!({ "doc": doc }))["count"], 0);
+    // Add one more link and test links_remove across all pages
+    ok(&mut a, "link_add", json!({ "doc": doc, "page": 1, "rect": [72, 300, 200, 320], "url": "https://example.org" }));
+    let r2 = ok(&mut a, "links_remove", json!({ "doc": doc }));
+    assert_eq!(r2["removed"], 1);
     assert_eq!(ok(&mut a, "link_list", json!({ "doc": doc }))["count"], 0);
     assert!(matches!(a.call("link_add", &json!({ "doc": doc, "page": 1, "rect": [0, 0, 50, 20] })), Err(ToolError::InvalidArgs(_))));
 }

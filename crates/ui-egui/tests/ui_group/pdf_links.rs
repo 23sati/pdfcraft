@@ -83,3 +83,30 @@ fn drawing_editing_and_deleting_links() {
     h.run_steps(3);
     assert!(links(&h).is_empty());
 }
+
+#[test]
+fn removing_all_links_and_undo() {
+    let mut h = harness();
+    assert!(h.state_mut().execute("edit.link"));
+    let (a, b) = (at(&h, 40.0, 300.0), at(&h, 160.0, 320.0));
+    drag(&mut h, a, b);
+    h.state_mut().link_draft.as_mut().unwrap().url = "https://example.org".into();
+    h.get_by_label("OK").click();
+    h.run_steps(3);
+    assert_eq!(links(&h).len(), 1);
+
+    // Execute remove all links command
+    assert!(h.state_mut().execute("edit.remove_links"));
+    h.run_steps(3);
+    assert_eq!(links(&h).len(), 0);
+
+    // Undo restores the link
+    h.state_mut().undo();
+    h.run_steps(3);
+    assert_eq!(links(&h).len(), 1);
+
+    // Also test alias edit.remove_all_links
+    assert!(h.state_mut().execute("edit.remove_all_links"));
+    h.run_steps(3);
+    assert_eq!(links(&h).len(), 0);
+}
