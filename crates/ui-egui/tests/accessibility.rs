@@ -1,6 +1,7 @@
 //! Prepare for accessibility ▸ Check for accessibility in the real shell (egui_kittest): the
 //! options dialog, the results panel, Fix, Skip Rule and the report.
 
+use egui::accesskit::Role;
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable;
 use pdfcraft_engine::a11y::{Rule, Status};
@@ -135,4 +136,30 @@ fn setting_alternate_text_figure_by_figure() {
     let f = doc.figures();
     assert_eq!(f.len(), 1, "the decorative one left the tags");
     assert_eq!(f[0].alt.as_deref(), Some("A grey square"));
+}
+
+#[test]
+fn tags_panel_edits_a_tag_property_and_undoes_it() {
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("figures.pdf", None, FIGURES.to_vec()).unwrap();
+        app
+    });
+    h.run_steps(4);
+    assert!(h.state_mut().execute("a11y.tags"));
+    h.run_steps(2);
+    assert_eq!(h.state().right, Some(RightPanel::Tags));
+    h.get_by_label("Figure · 7").click();
+    h.run_steps(2);
+    let title = h.get_by_role_and_label(Role::TextInput, "Title");
+    title.focus();
+    title.type_text("First figure");
+    h.run_steps(1);
+    h.get_by_label("Save tag properties").click();
+    h.run_steps(3);
+    let s = h.state();
+    let doc = s.session.get(s.views[0].id).unwrap();
+    assert_eq!(doc.tags()[1].title.as_deref(), Some("First figure"));
+    assert_eq!(doc.can_undo(), Some("Change tag properties"));
 }
