@@ -452,6 +452,7 @@ namespace LinkcoPdfPreview
                         if (!(name.StartsWith("stream-", StringComparison.Ordinal) ||
                               name.StartsWith("page-", StringComparison.Ordinal) ||
                               name.StartsWith("thumb-", StringComparison.Ordinal) ||
+                              name.StartsWith("selftest-", StringComparison.Ordinal) ||
                               name.StartsWith(".probe-", StringComparison.Ordinal)))
                             continue;
                         try
@@ -949,6 +950,403 @@ namespace LinkcoPdfPreview
         }
     }
 
+    /// <summary>
+    /// Runs pdfcraft-cli.exe for the preview pane and the thumbnail provider. It calls CreateProcess
+    /// directly instead of using System.Diagnostics.Process so that:
+    ///  * Windows never shows the spinning "app starting" cursor (STARTF_FORCEOFFFEEDBACK). The
+    ///    engine is a hidden helper, and every selection in Explorer started one;
+    ///  * stdout/stderr go to small temp files instead of pipes, so no wait can ever block on pipe
+    ///    EOF (Process.WaitForExit() waits for EOF with no timeout, forever if any other process
+    ///    inherited the pipe);
+    ///  * the child runs in a kill-on-close job object, so it never outlives the preview host
+    ///    (Explorer kills prevhost.exe when a preview takes too long).
+    /// </summary>
+    internal sealed class CliProcess : IDisposable
+    {
+        private const uint CREATE_SUSPENDED = 0x00000004;
+        private const uint BELOW_NORMAL_PRIORITY_CLASS = 0x00004000;
+        private const uint CREATE_NO_WINDOW = 0x08000000;
+        private const int STARTF_USESHOWWINDOW = 0x00000001;
+        private const int STARTF_FORCEOFFFEEDBACK = 0x00000080;
+        private const int STARTF_USESTDHANDLES = 0x00000100;
+        private const short SW_HIDE = 0;
+        private const uint GENERIC_READ = 0x80000000;
+        private const uint GENERIC_WRITE = 0x40000000;
+        private const uint FILE_SHARE_ALL = 0x00000007;
+        private const uint CREATE_ALWAYS = 2;
+        private const uint OPEN_EXISTING = 3;
+        private const uint FILE_ATTRIBUTE_TEMPORARY = 0x00000100;
+        private const uint WAIT_OBJECT_0 = 0;
+        private const uint WAIT_TIMEOUT = 0x00000102;
+        private const int JobObjectExtendedLimitInformation = 9;
+        private const uint JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000;
+        private const int MaxOutputBytes = 64 * 1024;
+        private static readonly IntPtr InvalidHandle = new IntPtr(-1);
+
+        /// <summary>Our inheritable handles must not leak into another of our own concurrent spawns.</summary>
+        private static readonly object SpawnGate = new object();
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct SECURITY_ATTRIBUTES
+        {
+            public int nLength;
+            public IntPtr lpSecurityDescriptor;
+            public int bInheritHandle;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct STARTUPINFO
+        {
+            public int cb;
+            public IntPtr lpReserved;
+            public IntPtr lpDesktop;
+            public IntPtr lpTitle;
+            public int dwX;
+            public int dwY;
+            public int dwXSize;
+            public int dwYSize;
+            public int dwXCountChars;
+            public int dwYCountChars;
+            public int dwFillAttribute;
+            public int dwFlags;
+            public short wShowWindow;
+            public short cbReserved2;
+            public IntPtr lpReserved2;
+            public IntPtr hStdInput;
+            public IntPtr hStdOutput;
+            public IntPtr hStdError;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct PROCESS_INFORMATION
+        {
+            public IntPtr hProcess;
+            public IntPtr hThread;
+            public int dwProcessId;
+            public int dwThreadId;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct JOBOBJECT_BASIC_LIMIT_INFORMATION
+        {
+            public long PerProcessUserTimeLimit;
+            public long PerJobUserTimeLimit;
+            public uint LimitFlags;
+            public UIntPtr MinimumWorkingSetSize;
+            public UIntPtr MaximumWorkingSetSize;
+            public uint ActiveProcessLimit;
+            public UIntPtr Affinity;
+            public uint PriorityClass;
+            public uint SchedulingClass;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct IO_COUNTERS
+        {
+            public ulong ReadOperationCount;
+            public ulong WriteOperationCount;
+            public ulong OtherOperationCount;
+            public ulong ReadTransferCount;
+            public ulong WriteTransferCount;
+            public ulong OtherTransferCount;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct JOBOBJECT_EXTENDED_LIMIT_INFORMATION
+        {
+            public JOBOBJECT_BASIC_LIMIT_INFORMATION BasicLimitInformation;
+            public IO_COUNTERS IoInfo;
+            public UIntPtr ProcessMemoryLimit;
+            public UIntPtr JobMemoryLimit;
+            public UIntPtr PeakProcessMemoryUsed;
+            public UIntPtr PeakJobMemoryUsed;
+        }
+
+        [DllImport("kernel32.dll", EntryPoint = "CreateProcessW", CharSet = CharSet.Unicode, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool CreateProcess(
+            string lpApplicationName,
+            StringBuilder lpCommandLine,
+            IntPtr lpProcessAttributes,
+            IntPtr lpThreadAttributes,
+            [MarshalAs(UnmanagedType.Bool)] bool bInheritHandles,
+            uint dwCreationFlags,
+            IntPtr lpEnvironment,
+            string lpCurrentDirectory,
+            ref STARTUPINFO lpStartupInfo,
+            out PROCESS_INFORMATION lpProcessInformation);
+
+        [DllImport("kernel32.dll", EntryPoint = "CreateFileW", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern IntPtr CreateFile(string lpFileName, uint dwDesiredAccess, uint dwShareMode, ref SECURITY_ATTRIBUTES lpSecurityAttributes, uint dwCreationDisposition, uint dwFlagsAndAttributes, IntPtr hTemplateFile);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool CloseHandle(IntPtr hObject);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool TerminateProcess(IntPtr hProcess, uint uExitCode);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetExitCodeProcess(IntPtr hProcess, out uint lpExitCode);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern uint ResumeThread(IntPtr hThread);
+
+        [DllImport("kernel32.dll", EntryPoint = "CreateJobObjectW", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern IntPtr CreateJobObject(IntPtr lpJobAttributes, string lpName);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetInformationJobObject(IntPtr hJob, int infoClass, ref JOBOBJECT_EXTENDED_LIMIT_INFORMATION info, uint cbInfo);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool AssignProcessToJobObject(IntPtr hJob, IntPtr hProcess);
+
+        private readonly object _gate = new object();
+        private readonly string _stdoutPath;
+        private readonly string _stderrPath;
+        private IntPtr _process;
+        private IntPtr _job;
+        private int _pid;
+
+        private CliProcess(string stdoutPath, string stderrPath)
+        {
+            _stdoutPath = stdoutPath;
+            _stderrPath = stderrPath;
+        }
+
+        public int Id
+        {
+            get { return _pid; }
+        }
+
+        /// <summary>
+        /// Starts <paramref name="exe"/> hidden, at below-normal priority, with stdout/stderr captured to
+        /// temp files named after <paramref name="prefix"/>. Throws Win32Exception when it can't start.
+        /// </summary>
+        public static CliProcess Start(string exe, string arguments, string prefix)
+        {
+            string stem = Path.Combine(
+                PreviewEnvironment.TempDir,
+                prefix + "-" + Process.GetCurrentProcess().Id.ToString(CultureInfo.InvariantCulture) + "-" + Guid.NewGuid().ToString("N"));
+            CliProcess cp = new CliProcess(stem + ".out", stem + ".err");
+            IntPtr hIn = InvalidHandle;
+            IntPtr hOut = InvalidHandle;
+            IntPtr hErr = InvalidHandle;
+            bool started = false;
+            try
+            {
+                SECURITY_ATTRIBUTES sa = new SECURITY_ATTRIBUTES();
+                sa.nLength = Marshal.SizeOf(typeof(SECURITY_ATTRIBUTES));
+                sa.bInheritHandle = 1;
+
+                StringBuilder commandLine = new StringBuilder(PreviewPaneControl.QuoteArg(exe) + " " + arguments);
+                STARTUPINFO si = new STARTUPINFO();
+                si.cb = Marshal.SizeOf(typeof(STARTUPINFO));
+                si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW | STARTF_FORCEOFFFEEDBACK;
+                si.wShowWindow = SW_HIDE;
+
+                PROCESS_INFORMATION pi;
+                int error = 0;
+                lock (SpawnGate)
+                {
+                    hIn = CreateFile("NUL", GENERIC_READ, FILE_SHARE_ALL, ref sa, OPEN_EXISTING, 0, IntPtr.Zero);
+                    hOut = CreateFile(cp._stdoutPath, GENERIC_WRITE, FILE_SHARE_ALL, ref sa, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, IntPtr.Zero);
+                    if (hOut == InvalidHandle)
+                        throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+                    hErr = CreateFile(cp._stderrPath, GENERIC_WRITE, FILE_SHARE_ALL, ref sa, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, IntPtr.Zero);
+                    if (hErr == InvalidHandle)
+                        throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+                    si.hStdInput = hIn == InvalidHandle ? IntPtr.Zero : hIn;
+                    si.hStdOutput = hOut;
+                    si.hStdError = hErr;
+
+                    started = CreateProcess(
+                        exe,
+                        commandLine,
+                        IntPtr.Zero,
+                        IntPtr.Zero,
+                        true,
+                        CREATE_NO_WINDOW | CREATE_SUSPENDED | BELOW_NORMAL_PRIORITY_CLASS,
+                        IntPtr.Zero,
+                        Path.GetDirectoryName(exe),
+                        ref si,
+                        out pi);
+                    if (!started)
+                        error = Marshal.GetLastWin32Error();
+                    CloseQuietly(ref hIn);
+                    CloseQuietly(ref hOut);
+                    CloseQuietly(ref hErr);
+                }
+                if (!started)
+                    throw new System.ComponentModel.Win32Exception(error);
+
+                cp._process = pi.hProcess;
+                cp._pid = pi.dwProcessId;
+                cp._job = CreateKillOnCloseJob(pi.hProcess);
+                ResumeThread(pi.hThread);
+                CloseHandle(pi.hThread);
+                return cp;
+            }
+            catch
+            {
+                CloseQuietly(ref hIn);
+                CloseQuietly(ref hOut);
+                CloseQuietly(ref hErr);
+                cp.Dispose();
+                throw;
+            }
+        }
+
+        /// <summary>Puts the (still suspended) child in a job that kills it when the last handle closes.</summary>
+        private static IntPtr CreateKillOnCloseJob(IntPtr process)
+        {
+            IntPtr job = IntPtr.Zero;
+            try
+            {
+                job = CreateJobObject(IntPtr.Zero, null);
+                if (job == IntPtr.Zero)
+                    return IntPtr.Zero;
+                JOBOBJECT_EXTENDED_LIMIT_INFORMATION info = new JOBOBJECT_EXTENDED_LIMIT_INFORMATION();
+                info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+                uint size = (uint)Marshal.SizeOf(typeof(JOBOBJECT_EXTENDED_LIMIT_INFORMATION));
+                if (SetInformationJobObject(job, JobObjectExtendedLimitInformation, ref info, size) && AssignProcessToJobObject(job, process))
+                    return job;
+                // Optional hardening only: e.g. a host job that forbids nesting on old Windows.
+                CloseHandle(job);
+                return IntPtr.Zero;
+            }
+            catch
+            {
+                if (job != IntPtr.Zero)
+                    CloseHandle(job);
+                return IntPtr.Zero;
+            }
+        }
+
+        private static void CloseQuietly(ref IntPtr handle)
+        {
+            if (handle != IntPtr.Zero && handle != InvalidHandle)
+            {
+                try { CloseHandle(handle); } catch { }
+            }
+            handle = InvalidHandle;
+        }
+
+        /// <summary>True once the process has exited (or can no longer be waited on); false on timeout.</summary>
+        public bool WaitForExit(int milliseconds)
+        {
+            IntPtr h;
+            lock (_gate)
+                h = _process;
+            if (h == IntPtr.Zero)
+                return true;
+            uint r = WaitForSingleObject(h, (uint)Math.Max(0, milliseconds));
+            return r != WAIT_TIMEOUT;
+        }
+
+        /// <summary>The exit code, or null while running / unknown.</summary>
+        public uint? ExitCode
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    uint code;
+                    if (_process == IntPtr.Zero || !GetExitCodeProcess(_process, out code) || code == 259 /* STILL_ACTIVE */)
+                        return null;
+                    return code;
+                }
+            }
+        }
+
+        /// <summary>Terminates the process if it is still running. Safe from any thread, any number of times.</summary>
+        public void Kill()
+        {
+            lock (_gate)
+            {
+                if (_process == IntPtr.Zero)
+                    return;
+                try
+                {
+                    if (WaitForSingleObject(_process, 0) == WAIT_TIMEOUT)
+                        TerminateProcess(_process, 1);
+                }
+                catch { }
+            }
+        }
+
+        public string ReadStdout()
+        {
+            return ReadCapped(_stdoutPath);
+        }
+
+        public string ReadStderr()
+        {
+            return ReadCapped(_stderrPath);
+        }
+
+        private static string ReadCapped(string path)
+        {
+            try
+            {
+                using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                {
+                    int length = (int)Math.Min(fs.Length, MaxOutputBytes);
+                    byte[] buffer = new byte[length];
+                    int read = 0;
+                    while (read < length)
+                    {
+                        int n = fs.Read(buffer, read, length - read);
+                        if (n <= 0)
+                            break;
+                        read += n;
+                    }
+                    return Encoding.UTF8.GetString(buffer, 0, read);
+                }
+            }
+            catch
+            {
+                return "";
+            }
+        }
+
+        public void Dispose()
+        {
+            lock (_gate)
+            {
+                if (_job != IntPtr.Zero)
+                {
+                    // KILL_ON_JOB_CLOSE: a child still running at this point is terminated here.
+                    try { CloseHandle(_job); } catch { }
+                    _job = IntPtr.Zero;
+                }
+                else if (_process != IntPtr.Zero)
+                {
+                    try
+                    {
+                        if (WaitForSingleObject(_process, 0) == WAIT_TIMEOUT)
+                            TerminateProcess(_process, 1);
+                    }
+                    catch { }
+                }
+                if (_process != IntPtr.Zero)
+                {
+                    try { CloseHandle(_process); } catch { }
+                    _process = IntPtr.Zero;
+                }
+            }
+            PreviewEnvironment.DeleteFileSoon(_stdoutPath);
+            PreviewEnvironment.DeleteFileSoon(_stderrPath);
+        }
+    }
+
     internal static class PreviewLog
     {
         private static readonly object Gate = new object();
@@ -1097,10 +1495,15 @@ namespace LinkcoPdfPreview
                     return;
                 }
                 string displayName;
+                Stopwatch clock = Stopwatch.StartNew();
                 _tempStreamPath = PreviewEnvironment.CopyStreamToTempFile(pstream, "stream-", out displayName);
                 _filePath = _tempStreamPath;
                 if (displayName != null)
                     _displayName = displayName;
+                long bytes = 0;
+                try { bytes = new FileInfo(_tempStreamPath).Length; } catch { }
+                PreviewLog.Write("Initialize(stream): " + bytes.ToString(CultureInfo.InvariantCulture) + " bytes copied in " +
+                    clock.ElapsedMilliseconds.ToString(CultureInfo.InvariantCulture) + " ms");
             }
             catch (Exception ex)
             {
@@ -1167,6 +1570,8 @@ namespace LinkcoPdfPreview
                 }
                 AttachControl();
                 UpdateBounds();
+                PreviewLog.Write("DoPreview: pane " + _bounds.Width.ToString(CultureInfo.InvariantCulture) + "x" +
+                    _bounds.Height.ToString(CultureInfo.InvariantCulture) + (_initError != null ? ", init error: " + _initError : ""));
                 _control.LoadDocument(_filePath, _displayName, _initError);
             }
             catch (Exception ex)
@@ -1557,7 +1962,90 @@ namespace LinkcoPdfPreview
                     sb.AppendLine("  " + label + ": " + ex.Message);
                 }
             }
+
+            // Explorer only honours DisableLowILProcessIsolation from HKLM: a per-user registration
+            // runs in the low-integrity preview host (which this handler supports; it is slower to start).
+            object lowIl = null;
+            try
+            {
+                using (RegistryKey hklm = PreviewEnvironment.OpenHive(RegistryHive.LocalMachine))
+                using (RegistryKey c = hklm.OpenSubKey(@"Software\Classes\CLSID\" + ClsidBraced, false))
+                    lowIl = c == null ? null : c.GetValue("DisableLowILProcessIsolation");
+            }
+            catch { }
+            sb.AppendLine("  Preview host:          " + (lowIl is int && (int)lowIl == 1
+                ? "normal integrity (machine-wide registration)"
+                : "low integrity (per-user registration)"));
+
+            sb.AppendLine("  Engine self-test:      " + EngineSelfTest(cli));
+
+            string log = Path.Combine(PreviewEnvironment.TempDir, "preview.log");
+            sb.AppendLine("  Preview log:           " + log);
+            foreach (string line in TailLines(log, 15))
+                sb.AppendLine("    " + line);
             return sb.ToString();
+        }
+
+        /// <summary>Starts pdfcraft-cli.exe exactly as the preview pane does and reports how it went.</summary>
+        internal static string EngineSelfTest(string cli)
+        {
+            if (string.IsNullOrEmpty(cli))
+                return "FAILED (pdfcraft-cli.exe not found)";
+            try
+            {
+                Stopwatch clock = Stopwatch.StartNew();
+                using (CliProcess proc = CliProcess.Start(cli, "--version", "selftest"))
+                {
+                    if (!proc.WaitForExit(15000))
+                    {
+                        proc.Kill();
+                        return "FAILED (no answer within 15 s)";
+                    }
+                    string output = proc.ReadStdout().Trim();
+                    int newline = output.IndexOfAny(new char[] { '\r', '\n' });
+                    if (newline >= 0)
+                        output = output.Substring(0, newline);
+                    uint? code = proc.ExitCode;
+                    string ms = clock.ElapsedMilliseconds.ToString(CultureInfo.InvariantCulture);
+                    if (code.HasValue && code.Value == 0 && output.Length > 0)
+                        return "OK in " + ms + " ms (" + output + ")";
+                    return "FAILED (exit code " + (code.HasValue ? "0x" + code.Value.ToString("X", CultureInfo.InvariantCulture) : "?") + " after " + ms + " ms" +
+                        (output.Length > 0 ? ": " + output : "") + ")";
+                }
+            }
+            catch (Exception ex)
+            {
+                return "FAILED (" + ex.GetType().Name + ": " + ex.Message + ")";
+            }
+        }
+
+        private static List<string> TailLines(string path, int count)
+        {
+            List<string> lines = new List<string>();
+            try
+            {
+                if (!File.Exists(path))
+                {
+                    lines.Add("(no log yet: Explorer has not loaded the preview handler since installation)");
+                    return lines;
+                }
+                using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                using (StreamReader reader = new StreamReader(fs, Encoding.UTF8))
+                {
+                    string line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        lines.Add(line);
+                        if (lines.Count > count)
+                            lines.RemoveAt(0);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                lines.Add("(log unreadable: " + ex.Message + ")");
+            }
+            return lines;
         }
 
         // ---- Files on network shares: Explorer's preview pane and the Windows security zones ----
@@ -2844,47 +3332,24 @@ namespace LinkcoPdfPreview
             string outPng = Path.Combine(
                 PreviewEnvironment.TempDir,
                 "thumb-" + Process.GetCurrentProcess().Id.ToString(CultureInfo.InvariantCulture) + "-" + Guid.NewGuid().ToString("N") + ".png");
-            StringBuilder stdout = new StringBuilder();
             try
             {
-                ProcessStartInfo psi = new ProcessStartInfo(cli)
+                string arguments = "preview " + PreviewPaneControl.QuoteArg(pdf) + " --page 1 --width " + px + " --max-px " + px +
+                    " --out " + PreviewPaneControl.QuoteArg(outPng);
+                string stdout;
+                using (CliProcess proc = CliProcess.Start(cli, arguments, "thumb"))
                 {
-                    Arguments = "preview " + PreviewPaneControl.QuoteArg(pdf) + " --page 1 --width " + px + " --max-px " + px +
-                        " --out " + PreviewPaneControl.QuoteArg(outPng),
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    StandardOutputEncoding = Encoding.UTF8,
-                    StandardErrorEncoding = Encoding.UTF8,
-                    WorkingDirectory = Path.GetDirectoryName(cli) ?? ""
-                };
-                using (Process proc = new Process())
-                {
-                    proc.StartInfo = psi;
-                    proc.OutputDataReceived += delegate(object sender, DataReceivedEventArgs e)
-                    {
-                        if (e.Data != null)
-                            lock (stdout) stdout.AppendLine(e.Data);
-                    };
-                    // Drained (and discarded) so a chatty engine can never block on a full pipe.
-                    proc.ErrorDataReceived += delegate(object sender, DataReceivedEventArgs e) { };
-                    proc.Start();
-                    try { proc.PriorityClass = ProcessPriorityClass.BelowNormal; } catch { }
-                    proc.BeginOutputReadLine();
-                    proc.BeginErrorReadLine();
                     if (!proc.WaitForExit(TimeoutMs))
                     {
-                        try { proc.Kill(); } catch { }
-                        try { proc.WaitForExit(2000); } catch { }
+                        proc.Kill();
+                        proc.WaitForExit(2000);
                         PreviewLog.Write("thumbnail timed out after " + TimeoutMs.ToString(CultureInfo.InvariantCulture) + " ms");
                         return null;
                     }
-                    proc.WaitForExit(); // drain the asynchronous output readers
+                    stdout = proc.ReadStdout();
                 }
 
-                string status;
-                lock (stdout) status = FindStatusLine(stdout.ToString());
+                string status = FindStatusLine(stdout);
                 if (status == null || !status.StartsWith("STATUS\tOK\t", StringComparison.Ordinal))
                 {
                     PreviewLog.Write("thumbnail not rendered: " + (status ?? "(no status)").Replace('\t', ' '));
@@ -2998,6 +3463,13 @@ namespace LinkcoPdfPreview
 
         private const int MaxRasterPx = 4096;
         private const int RenderTimeoutMs = 30000;
+        /// <summary>After this long without a page, "Loading page N…" says the page is slow.</summary>
+        private const int SlowNoticeMs = 8000;
+        /// <summary>
+        /// The watchdog gives up this long after the engine's own timeout, so the pane can never stay
+        /// on "Loading…" forever, whatever happened to the render (lost result, stuck host, …).
+        /// </summary>
+        private const int WatchdogGraceMs = 10000;
         private const long CacheBudgetBytes = 96L * 1024 * 1024;
         private const float MinZoom = 0.25f;
         private const float MaxZoom = 4.0f;
@@ -3008,11 +3480,19 @@ namespace LinkcoPdfPreview
         private readonly object _sync = new object();
         private int _generation;
         private bool _shutdown;
-        private Process _activeProcess;
+        private CliProcess _activeProcess;
+        /// <summary>The newest finished render, waiting for the UI thread (guarded by _sync).</summary>
+        private RenderResult _completed;
 
         private readonly Dictionary<int, CachedPage> _cache = new Dictionary<int, CachedPage>();
         private readonly LinkedList<int> _lru = new LinkedList<int>();
         private readonly System.Windows.Forms.Timer _rerenderTimer;
+        private readonly System.Windows.Forms.Timer _watchdog;
+        private int _loadingSince;
+        private int _loadingPage;
+        private bool _loadingMessage;
+        private bool _slowNoticeShown;
+        private int _retryPage;
 
         private string _pdfPath;
         private string _displayName;
@@ -3062,6 +3542,10 @@ namespace LinkcoPdfPreview
             _rerenderTimer = new System.Windows.Forms.Timer();
             _rerenderTimer.Interval = 250;
             _rerenderTimer.Tick += OnRerenderTimer;
+
+            _watchdog = new System.Windows.Forms.Timer();
+            _watchdog.Interval = 500;
+            _watchdog.Tick += OnWatchdogTick;
         }
 
         // ------------------------------------------------------------------ public API (UI thread)
@@ -3145,6 +3629,8 @@ namespace LinkcoPdfPreview
         public void ShowMessage(string message, bool isError)
         {
             _loading = false;
+            _loadingMessage = false;
+            _retryPage = 0;
             _message = message;
             _messageIsError = isError;
             Invalidate();
@@ -3153,12 +3639,25 @@ namespace LinkcoPdfPreview
         /// <summary>Cancels the render in flight (kills pdfcraft-cli.exe) without tearing down the pane.</summary>
         public void CancelRendering()
         {
+            RenderResult dropped;
             lock (_sync)
             {
                 _generation++;
                 KillActiveProcessLocked();
+                dropped = _completed;
+                _completed = null;
             }
+            if (dropped != null)
+                dropped.DisposeBitmap();
             _loading = false;
+            try { _watchdog.Stop(); } catch { }
+            if (_loadingMessage)
+            {
+                // Never leave a "Loading page N…" behind for a render that no longer exists.
+                _loadingMessage = false;
+                _message = null;
+                Invalidate();
+            }
         }
 
         public void Shutdown()
@@ -3170,6 +3669,15 @@ namespace LinkcoPdfPreview
                 KillActiveProcessLocked();
             }
             try { _rerenderTimer.Stop(); } catch { }
+            try { _watchdog.Stop(); } catch { }
+            RenderResult dropped;
+            lock (_sync)
+            {
+                dropped = _completed;
+                _completed = null;
+            }
+            if (dropped != null)
+                dropped.DisposeBitmap();
             ClearCache();
         }
 
@@ -3234,11 +3742,18 @@ namespace LinkcoPdfPreview
             };
 
             _loading = true;
+            _loadingSince = Environment.TickCount;
+            _loadingPage = page;
+            _slowNoticeShown = false;
+            _retryPage = 0;
             if (CurrentRaster == null)
             {
                 _message = "Loading page " + page.ToString(CultureInfo.CurrentCulture) + "\u2026";
                 _messageIsError = false;
+                _loadingMessage = true;
             }
+            _watchdog.Stop();
+            _watchdog.Start();
             Invalidate();
 
             ThreadPool.QueueUserWorkItem(RenderWorker, job);
@@ -3258,22 +3773,98 @@ namespace LinkcoPdfPreview
                 result = new RenderResult { Generation = job.Generation, Page = job.Page, Code = "ERROR", Message = ex.Message };
             }
 
-            if (result.Cancelled || !PostResult(result))
+            if (result.Cancelled)
+            {
                 result.DisposeBitmap();
+                return;
+            }
+            DeliverResult(result);
         }
 
-        private bool PostResult(RenderResult result)
+        /// <summary>
+        /// Hands a finished render to the UI thread. The result is parked in a slot that the UI
+        /// thread drains, both when the BeginInvoke nudge arrives and on every watchdog tick, so a
+        /// lost or failed BeginInvoke (window handle not ready, recreated, …) can't strand the pane
+        /// on "Loading…".
+        /// </summary>
+        private void DeliverResult(RenderResult result)
         {
+            RenderResult discard;
+            bool parked;
+            lock (_sync)
+            {
+                parked = !_shutdown && result.Generation == _generation;
+                if (parked)
+                {
+                    discard = _completed;
+                    _completed = result;
+                }
+                else
+                {
+                    discard = result;
+                }
+            }
+            if (discard != null)
+                discard.DisposeBitmap();
+            if (!parked)
+                return;
             try
             {
-                if (IsDisposed || !IsHandleCreated)
-                    return false;
-                BeginInvoke(new Action<RenderResult>(OnRenderComplete), result);
-                return true;
+                if (!IsDisposed && IsHandleCreated)
+                    BeginInvoke(new MethodInvoker(DrainCompleted));
             }
-            catch
+            catch (Exception ex)
             {
-                return false;
+                PreviewLog.Error("DeliverResult (the watchdog will deliver it)", ex);
+            }
+        }
+
+        /// <summary>UI thread: applies the parked render result, if any.</summary>
+        private void DrainCompleted()
+        {
+            RenderResult r;
+            lock (_sync)
+            {
+                r = _completed;
+                _completed = null;
+            }
+            if (r != null)
+                OnRenderComplete(r);
+        }
+
+        private void OnWatchdogTick(object sender, EventArgs e)
+        {
+            if (IsDisposed)
+                return;
+            DrainCompleted();
+            if (!_loading)
+            {
+                _watchdog.Stop();
+                return;
+            }
+
+            int elapsed = unchecked(Environment.TickCount - _loadingSince);
+            string pageText = _loadingPage.ToString(CultureInfo.CurrentCulture);
+            if (elapsed > RenderTimeoutMs + WatchdogGraceMs)
+            {
+                PreviewLog.Write("watchdog: page " + pageText + " still loading after " + elapsed.ToString(CultureInfo.InvariantCulture) + " ms; giving up");
+                int page = _loadingPage;
+                CancelRendering();
+                if (page == _currentPage && CurrentRaster != null)
+                {
+                    Invalidate();
+                    return;
+                }
+                ShowMessage("The preview did not finish loading. Click to try again, or open the document in Linkco PDF Editor.", true);
+                _retryPage = page;
+                return;
+            }
+
+            if (!_slowNoticeShown && elapsed > SlowNoticeMs && _loadingMessage)
+            {
+                _slowNoticeShown = true;
+                _message = "Still loading page " + pageText + "\u2026 Large or complex pages can take a little longer.";
+                Invalidate();
             }
         }
 
@@ -3287,16 +3878,10 @@ namespace LinkcoPdfPreview
 
         private void KillActiveProcessLocked()
         {
-            Process p = _activeProcess;
+            CliProcess p = _activeProcess;
             _activeProcess = null;
-            if (p == null)
-                return;
-            try
-            {
-                if (!p.HasExited)
-                    p.Kill();
-            }
-            catch { }
+            if (p != null)
+                p.Kill();
         }
 
         private RenderResult RunRender(RenderJob job)
@@ -3306,9 +3891,11 @@ namespace LinkcoPdfPreview
                 PreviewEnvironment.TempDir,
                 "page-" + Process.GetCurrentProcess().Id.ToString(CultureInfo.InvariantCulture) + "-" + Guid.NewGuid().ToString("N") + ".png");
 
-            StringBuilder stdout = new StringBuilder();
-            StringBuilder stderr = new StringBuilder();
+            string stdout = "";
+            string stderr = "";
             bool timedOut = false;
+            Stopwatch clock = Stopwatch.StartNew();
+            string what = "page " + job.Page.ToString(CultureInfo.InvariantCulture) + " at " + job.Width.ToString(CultureInfo.InvariantCulture) + " px";
 
             if (!IsCurrent(job.Generation))
             {
@@ -3318,67 +3905,37 @@ namespace LinkcoPdfPreview
 
             try
             {
-                ProcessStartInfo psi = new ProcessStartInfo(job.CliPath)
-                {
-                    Arguments = "preview " + QuoteArg(job.PdfPath) +
-                        " --page " + job.Page.ToString(CultureInfo.InvariantCulture) +
-                        " --width " + job.Width.ToString(CultureInfo.InvariantCulture) +
-                        " --max-px " + MaxRasterPx.ToString(CultureInfo.InvariantCulture) +
-                        " --out " + QuoteArg(outPng),
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    RedirectStandardInput = false,
-                    StandardOutputEncoding = Encoding.UTF8,
-                    StandardErrorEncoding = Encoding.UTF8,
-                    WorkingDirectory = Path.GetDirectoryName(job.CliPath) ?? ""
-                };
+                string arguments = "preview " + QuoteArg(job.PdfPath) +
+                    " --page " + job.Page.ToString(CultureInfo.InvariantCulture) +
+                    " --width " + job.Width.ToString(CultureInfo.InvariantCulture) +
+                    " --max-px " + MaxRasterPx.ToString(CultureInfo.InvariantCulture) +
+                    " --out " + QuoteArg(outPng);
 
-                using (Process proc = new Process())
+                using (CliProcess proc = CliProcess.Start(job.CliPath, arguments, "page"))
                 {
-                    proc.StartInfo = psi;
-                    proc.OutputDataReceived += delegate(object sender, DataReceivedEventArgs e)
-                    {
-                        if (e.Data != null)
-                            lock (stdout) stdout.AppendLine(e.Data);
-                    };
-                    proc.ErrorDataReceived += delegate(object sender, DataReceivedEventArgs e)
-                    {
-                        if (e.Data != null)
-                            lock (stderr)
-                            {
-                                if (stderr.Length < 8192)
-                                    stderr.AppendLine(e.Data);
-                            }
-                    };
-
-                    proc.Start();
                     try
                     {
                         lock (_sync)
                         {
                             if (_shutdown || job.Generation != _generation)
                             {
-                                try { proc.Kill(); } catch { }
+                                proc.Kill();
                                 res.Cancelled = true;
                                 return res;
                             }
                             _activeProcess = proc;
                         }
-                        try { proc.PriorityClass = ProcessPriorityClass.BelowNormal; } catch { }
-                        proc.BeginOutputReadLine();
-                        proc.BeginErrorReadLine();
 
                         if (!proc.WaitForExit(RenderTimeoutMs))
                         {
                             timedOut = true;
-                            try { proc.Kill(); } catch { }
-                            try { proc.WaitForExit(2000); } catch { }
+                            proc.Kill();
+                            proc.WaitForExit(2000);
                         }
                         else
                         {
-                            proc.WaitForExit(); // drain the asynchronous output readers
+                            stdout = proc.ReadStdout();
+                            stderr = proc.ReadStderr();
                         }
                     }
                     finally
@@ -3399,17 +3956,18 @@ namespace LinkcoPdfPreview
 
                 if (timedOut)
                 {
-                    PreviewLog.Write("render timed out after " + RenderTimeoutMs.ToString(CultureInfo.InvariantCulture) + " ms (page " + job.Page.ToString(CultureInfo.InvariantCulture) + ")");
+                    PreviewLog.Write("render " + what + " timed out after " + RenderTimeoutMs.ToString(CultureInfo.InvariantCulture) + " ms");
                     res.Code = "TIMEOUT";
-                    res.Message = "This page is taking too long to preview. Open the document in Linkco PDF Editor to view it.";
+                    res.Message = "This page is taking too long to preview. Click to try again, or open the document in Linkco PDF Editor.";
                     return res;
                 }
 
-                ParseStatus(stdout.ToString(), stderr.ToString(), outPng, res);
+                ParseStatus(stdout, stderr, outPng, res);
+                PreviewLog.Write("render " + what + ": " + (res.Code ?? "?") + " in " + clock.ElapsedMilliseconds.ToString(CultureInfo.InvariantCulture) + " ms");
             }
             catch (Exception ex)
             {
-                PreviewLog.Error("RunRender", ex);
+                PreviewLog.Error("RunRender (" + job.CliPath + ")", ex);
                 res.Code = "ERROR";
                 res.Message = "The Linkco PDF preview engine could not be started.";
             }
@@ -3528,6 +4086,7 @@ namespace LinkcoPdfPreview
             }
 
             _loading = false;
+            _loadingMessage = false;
             if (r.TotalPages > 0)
                 _totalPages = r.TotalPages;
 
@@ -3558,6 +4117,8 @@ namespace LinkcoPdfPreview
                 return;
             }
             ShowMessage(r.Message ?? "This PDF document could not be previewed.", true);
+            if (r.Code == "TIMEOUT" || r.Code == "ERROR")
+                _retryPage = r.Page;
         }
 
         private void StoreRaster(int page, Bitmap bmp, int requestedWidth)
@@ -3953,6 +4514,15 @@ namespace LinkcoPdfPreview
                 return;
             }
 
+            if (_retryPage > 0 && !_loading && CurrentRaster == null && e.Y > ToolbarHeight)
+            {
+                int page = _retryPage;
+                _retryPage = 0;
+                PreviewLog.Write("retry requested for page " + page.ToString(CultureInfo.InvariantCulture));
+                RequestRender(page);
+                return;
+            }
+
             if (e.Y > ToolbarHeight && CurrentRaster != null)
             {
                 _dragging = true;
@@ -3982,7 +4552,8 @@ namespace LinkcoPdfPreview
                 _hover = hover;
                 Invalidate(new Rectangle(0, 0, ClientSize.Width, ToolbarHeight));
             }
-            Cursor = (hover != ToolButton.None && IsEnabled(hover)) ? Cursors.Hand : Cursors.Default;
+            bool retry = _retryPage > 0 && !_loading && CurrentRaster == null && e.Y > ToolbarHeight;
+            Cursor = ((hover != ToolButton.None && IsEnabled(hover)) || retry) ? Cursors.Hand : Cursors.Default;
         }
 
         protected override void OnMouseUp(MouseEventArgs e)

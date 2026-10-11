@@ -43,11 +43,27 @@ v1.0.0 is the first final release of Linkco PDF Editor. It contains everything f
 - **`AllowNetworkPreview`** writes the same per-user entry as *Internet Options ▸ Security ▸ Local intranet ▸ Sites ▸ Advanced*, under `HKCU\…\Internet Settings\ZoneMap`. It accepts a server name, a `\\server\share` path or a mapped-drive path. Where the organisation sets the zones by policy, it changes nothing and tells you to ask IT.
 - **Thumbnail temp files:** temporary thumbnail images left behind when Windows stops a slow thumbnail are now cleaned up like the preview's own.
 
-### 3. About and version
+### 3. File Explorer preview no longer keeps loading
+- **Engine start:** the preview pane and thumbnails start the page engine (`pdfcraft-cli.exe`) directly, hidden, at below-normal priority. They no longer use .NET's process class. As a result:
+  - Windows no longer shows the spinning "app starting" cursor each time you select a PDF;
+  - waiting for the engine can't hang. Its output now goes to small temp files instead of pipes. Before, a pipe kept open by another process could leave the pane on "Loading…" forever;
+  - the engine runs in a job object that ends it if the Windows preview host closes, so no orphaned `pdfcraft-cli.exe` processes are left behind.
+- **A page can no longer stay on "Loading…":**
+  - after 8 seconds the pane says the page is still loading;
+  - a watchdog ends any render that hasn't finished 10 seconds after the engine's 30-second time limit;
+  - a page that timed out or failed shows *Click to try again*.
+  
+  Finished pages also reach the pane even if a window message is lost.
+- **Diagnostics:** `preview.log` (in `%USERPROFILE%\AppData\LocalLow\LinkcoPdfPreview`) now records each step with timings: stream copy, pane size, each render's result. `Diagnose()` (and `test-windows-integration.ps1`) now also:
+  - starts the engine as the preview does, and reports whether it ran and how long it took;
+  - says whether the preview host runs at low or normal integrity;
+  - shows the last 15 log lines.
+
+### 4. About and version
 - **Help ▸ About** now credits the developer: "Developer: Muhammad Bilal (Linkco)", in all interface languages.
 - **Version 1.0.0** is used everywhere: the app, CLI, preview handler (assembly `1.0.0.0`, matching the NSIS and MSI registrations), Setup EXE, MSI and portable ZIP.
 
-### 4. Downloads
+### 5. Downloads
 - `dist/release/LinkcoPDFEditorSetup.exe`
 - `dist/release/LinkcoPDFEditorSetup-1.0.0-windows-x64.msi`
 - `dist/release/LinkcoPDFEditor-1.0.0-windows-x64-portable.zip`
