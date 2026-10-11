@@ -1909,11 +1909,31 @@ pub fn display_date(pdf: &str) -> String {
 
 /// The visible signature: the signer's name large on the left, or the graphic in its place, and
 /// the details on the right (Acrobat's standard layout), in Helvetica. A graphic with no details
-/// beside it fills the box.
+/// beside it fills the box. An error, before anything is drawn, when a detail it writes in
+/// Helvetica (the signer's name, the certificate's subject, the reason or the location) has a
+/// character Helvetica can't draw: signing invisibly, or leaving that part out, still works. A
+/// graphic doesn't change this: the name it replaces on the left is still among the details.
 fn appearance(doc: &mut Document, rect: [f64; 4], name: &str, cert: &Certificate, opts: &SignOptions) -> Result<Stream, SignError> {
-    use pdfcraft_fonts::{helvetica_width, literal, win_ansi, wrap};
+    use pdfcraft_fonts::{first_undrawable, helvetica_width, literal, undrawable_message, win_ansi, wrap};
     let (w, h) = ((rect[2] - rect[0]).max(0.0), (rect[3] - rect[1]).max(0.0));
     let a = &opts.appearance;
+    let dn = cert.subject.display();
+    if w > 1.0 && h > 1.0 {
+        let shown = [
+            (a.name, "the signer's name", Some(name)),
+            (a.distinguished_name, "the certificate's subject", Some(dn.as_str())),
+            (a.reason, "the reason", opts.reason.as_deref()),
+            (a.location, "the location", opts.location.as_deref()),
+        ];
+        for (on, what, text) in shown {
+            if on && let Some(c) = text.and_then(first_undrawable) {
+                return Err(SignError::Unsupported(format!(
+                    "{}; sign without a visible appearance, or leave {what} out of it",
+                    undrawable_message(&format!("{what} of the visible signature"), c)
+                )));
+            }
+        }
+    }
     let mut lines: Vec<String> = Vec::new();
     let label = |l: &str, v: &str| if a.labels { format!("{l}{v}") } else { v.to_string() };
     // The labels are the caller's words, so a signature signed in another language reads in it.
@@ -1923,7 +1943,7 @@ fn appearance(doc: &mut Document, rect: [f64; 4], name: &str, cert: &Certificate
         lines.push(name.to_string());
     }
     if a.distinguished_name {
-        lines.push(label(&wording.distinguished_name, &cert.subject.display()));
+        lines.push(label(&wording.distinguished_name, &dn));
     }
     if a.reason
         && let Some(r) = opts.reason.as_deref().filter(|r| !r.is_empty())
