@@ -3576,6 +3576,8 @@ dependencies = [
  "serde_json",
  "uds_windows",
  "ureq",
+ "wayland-client",
+ "wayland-protocols",
  "winresource",
  "winsafe",
 ]
@@ -3714,6 +3716,7 @@ dependencies = [
  "pdfcraft-export",
  "pdfcraft-fonts",
  "pdfcraft-forms",
+ "pdfcraft-geom",
  "pdfcraft-js",
  "pdfcraft-measure",
  "pdfcraft-model",

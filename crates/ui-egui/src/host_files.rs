@@ -225,6 +225,8 @@ mod tests {
         .unwrap();
         let encrypted = pdfcraft_cos::write_full(&doc, &Default::default()).unwrap();
         app.open_host_document(HostDocument { name: "same.pdf".into(), bytes: encrypted, origin: Some("recovered".into()) });
+        // Main's deferred tool and the mobile recovery identity share the password prompt.
+        app.password_prompt.as_mut().unwrap().then = Some("page.organize");
         app.host_files.as_ref().unwrap().incoming.lock().unwrap().push(HostDocument {
             name: "same.pdf".into(),
             bytes: (*bytes).clone(),
@@ -234,9 +236,11 @@ mod tests {
         assert_eq!(app.password_prompt.as_ref().unwrap().host_origin.as_deref(), Some("recovered"));
         app.submit_password(Some("wrong".into()));
         assert_eq!(app.password_prompt.as_ref().unwrap().host_origin.as_deref(), Some("recovered"));
+        assert_eq!(app.password_prompt.as_ref().unwrap().then, Some("page.organize"));
         app.submit_password(Some("secret".into()));
         let recovered = app.active_ids().unwrap().1;
         assert!(app.password_prompt.is_none());
+        assert!(app.views[app.active.unwrap()].organize, "deferred tool runs after unlocking the recovered file");
         assert_eq!(app.host_files.as_ref().unwrap().origins.get(&recovered).map(String::as_str), Some("recovered"));
         app.poll_host_files();
         let other = app.active_ids().unwrap().1;
