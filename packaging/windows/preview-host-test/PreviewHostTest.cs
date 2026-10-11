@@ -154,6 +154,9 @@ namespace LinkcoPreviewHostTest
         [DllImport("user32.dll")]
         private static extern bool PrintWindow(IntPtr hwnd, IntPtr hdc, uint flags);
 
+        [DllImport("user32.dll")]
+        private static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
+
         private static bool _ok = true;
 
         private static void Say(string line)
@@ -227,7 +230,7 @@ namespace LinkcoPreviewHostTest
             }
         }
 
-        /// <summary>Share of pixels in the parent's client area that differ from the plain background.</summary>
+        /// <summary>Share of pixels in the parent's client area that differ from the plain background (screen copy).</summary>
         private static string Measure(Form form, string screenshot)
         {
             try
@@ -237,36 +240,81 @@ namespace LinkcoPreviewHostTest
                 {
                     using (Graphics g = Graphics.FromImage(bmp))
                         g.CopyFromScreen(client.Location, Point.Empty, client.Size);
-                    if (!string.IsNullOrEmpty(screenshot))
-                        bmp.Save(screenshot, ImageFormat.Png);
-                    Color bg = bmp.GetPixel(2, 2);
-                    int differ = 0, dark = 0, total = 0;
-                    Dictionary<int, int> colours = new Dictionary<int, int>();
-                    for (int y = 0; y < bmp.Height; y += 4)
-                    {
-                        for (int x = 0; x < bmp.Width; x += 4)
-                        {
-                            Color c = bmp.GetPixel(x, y);
-                            total++;
-                            if (Math.Abs(c.R - bg.R) + Math.Abs(c.G - bg.G) + Math.Abs(c.B - bg.B) > 24)
-                                differ++;
-                            if (c.R + c.G + c.B < 200)
-                                dark++;
-                            int key = c.ToArgb() & 0xF0F0F0;
-                            int n;
-                            colours.TryGetValue(key, out n);
-                            colours[key] = n + 1;
-                        }
-                    }
-                    return "background " + ColorTranslator.ToHtml(bg) + ", " + (100.0 * differ / Math.Max(1, total)).ToString("F1") +
-                        "% of pixels differ from it, " + (100.0 * dark / Math.Max(1, total)).ToString("F1") + "% dark, " +
-                        colours.Count + " colour buckets";
+                    return Stats(bmp, screenshot);
                 }
             }
             catch (Exception ex)
             {
                 return "could not capture the window: " + ex.Message;
             }
+        }
+
+        /// <summary>
+        /// What the handler's own window paints, asked of the window itself (PrintWindow): unlike a screen copy
+        /// this also works on a desktop nobody is looking at, such as a CI runner's.
+        /// </summary>
+        private static string MeasureHandlerWindow(IntPtr parent, string screenshot)
+        {
+            IntPtr child = IntPtr.Zero;
+            EnumChildWindows(parent, delegate(IntPtr h, IntPtr l)
+            {
+                child = h;
+                return false;
+            }, IntPtr.Zero);
+            if (child == IntPtr.Zero)
+                return "(no handler window)";
+            try
+            {
+                RECT r;
+                if (!GetWindowRect(child, out r) || r.right - r.left <= 0 || r.bottom - r.top <= 0)
+                    return "(handler window has no size)";
+                using (Bitmap bmp = new Bitmap(r.right - r.left, r.bottom - r.top, PixelFormat.Format32bppArgb))
+                {
+                    bool printed;
+                    using (Graphics g = Graphics.FromImage(bmp))
+                    {
+                        IntPtr hdc = g.GetHdc();
+                        try { printed = PrintWindow(child, hdc, 2 /* PW_RENDERFULLCONTENT */); }
+                        finally { g.ReleaseHdc(hdc); }
+                    }
+                    return (printed ? "" : "PrintWindow failed; ") + bmp.Width + "x" + bmp.Height + ", " + Stats(bmp, screenshot);
+                }
+            }
+            catch (Exception ex)
+            {
+                return "could not capture the handler window: " + ex.Message;
+            }
+        }
+
+        private static string Stats(Bitmap bmp, string screenshot)
+        {
+            if (!string.IsNullOrEmpty(screenshot))
+                bmp.Save(screenshot, ImageFormat.Png);
+            Color bg = bmp.GetPixel(2, 2);
+            int differ = 0, dark = 0, light = 0, total = 0;
+            Dictionary<int, int> colours = new Dictionary<int, int>();
+            for (int y = 0; y < bmp.Height; y += 4)
+            {
+                for (int x = 0; x < bmp.Width; x += 4)
+                {
+                    Color c = bmp.GetPixel(x, y);
+                    total++;
+                    if (Math.Abs(c.R - bg.R) + Math.Abs(c.G - bg.G) + Math.Abs(c.B - bg.B) > 24)
+                        differ++;
+                    if (c.R + c.G + c.B < 200)
+                        dark++;
+                    if (c.R + c.G + c.B > 690)
+                        light++;
+                    int key = c.ToArgb() & 0xF0F0F0;
+                    int n;
+                    colours.TryGetValue(key, out n);
+                    colours[key] = n + 1;
+                }
+            }
+            double t = Math.Max(1, total);
+            return "background " + ColorTranslator.ToHtml(bg) + ", " + (100.0 * differ / t).ToString("F1") +
+                "% of pixels differ from it, " + (100.0 * dark / t).ToString("F1") + "% dark, " +
+                (100.0 * light / t).ToString("F1") + "% white (a rendered page), " + colours.Count + " colour buckets";
         }
 
         private static void Pump(int milliseconds)
@@ -431,7 +479,9 @@ namespace LinkcoPreviewHostTest
             }
             Say("  windows inside the preview area:");
             Console.Write(DescribeChildren(form.Handle));
-            Say("  painted: " + Measure(form, screenshot));
+            Say("  painted (screen copy): " + Measure(form, screenshot));
+            Say("  painted (handler window, PrintWindow): " + MeasureHandlerWindow(form.Handle,
+                string.IsNullOrEmpty(screenshot) ? null : System.IO.Path.ChangeExtension(screenshot, ".window.png")));
 
             Step("IPreviewHandler.Unload", delegate { handler.Unload(); });
             try { Marshal.FinalReleaseComObject(instance); } catch { }
