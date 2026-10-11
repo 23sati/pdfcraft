@@ -406,8 +406,10 @@ pub(crate) fn page_input(
     }
     match tool {
         FillTool::Text => {
-            view.fill_text = Some(TypeBox { page, at: [at[0], at[1] + TEXT_SIZE * 0.6], text: String::new(), focus: true });
-            None
+            // Clicking away from an open box commits it: the page sees this click before the box
+            // sees its lost focus, so replacing the box first would drop what was typed.
+            let open = view.fill_text.replace(TypeBox { page, at: [at[0], at[1] + TEXT_SIZE * 0.6], text: String::new(), focus: true });
+            open.filter(|tb| !tb.text.trim().is_empty()).map(|tb| FillAction::Edit(Box::new(typed(tb.page, tb.at, tb.text.trim(), author))))
         }
         FillTool::Date => Some(match date_text {
             Ok(text) => FillAction::Edit(Box::new(typed(page, [at[0], at[1] + TEXT_SIZE * 0.6], text, author))),
@@ -457,7 +459,10 @@ pub(crate) fn type_box(ctx: &egui::Context, view: &mut DocView, info: &DocInfo, 
         let Some(t) = view.fill_text.as_mut() else { return };
         // The box is white in every theme, so the caret must not follow the theme (pale in dark mode) (#655).
         ui.visuals_mut().text_cursor.stroke.color = crate::edit_text_ui::caret_color_on(Color32::WHITE);
-        let width = ((t.text.len().max(8) as f32) * TEXT_SIZE as f32 * 0.6 * zoom).clamp(60.0, 600.0);
+        let width = ((t.text.chars().count().max(8) as f32) * TEXT_SIZE as f32 * 0.6 * zoom).clamp(60.0, 600.0);
+        // The area's max rect is last frame's size, which caps the edit's width; widen it so the
+        // box grows as text is typed.
+        ui.set_min_width(width);
         let r = ui.add(
             egui::TextEdit::singleline(&mut t.text)
                 .font(egui::FontId::proportional((TEXT_SIZE as f32 * zoom).max(8.0)))

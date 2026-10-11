@@ -18,6 +18,9 @@
 	Preferences	Préférences
 	Preferences…	Préférences…
 	Interface language	Langue de l'interface
+	Interface size	Taille de l'interface
+	Auto ({percent}%)	Automatique ({percent} %)
+	Auto follows the system's text size. Pages always render at the display's full resolution.	Automatique suit la taille du texte du système. Les pages sont toujours rendues à la pleine résolution de l'écran.
 	Identity	Identité
 	Name on new comments	Nom sur les nouveaux commentaires
 	Open…	Ouvrir…
@@ -44,6 +47,7 @@
 	Fit visible	Ajuster au contenu visible
 	Marquee zoom	Zoom par sélection
 	Take a snapshot	Prendre un instantané
+	Column select	Sélection de colonne
 	Full screen mode	Mode plein écran
 	Read mode	Mode lecture
 	Switch light / dark theme	Basculer entre les thèmes clair et sombre
@@ -68,7 +72,7 @@
 	Double-click	Double-clic
 	Select a word	Sélectionner un mot
 	Clear selection / close find	Effacer la sélection / fermer la recherche
-	Zoom in / out (also pinch or ⌘-scroll)	Zoom avant / arrière (aussi pincer ou ⌘-défilement)
+	Zoom in / out (also pinch or {key}-scroll)	Zoom avant / arrière (aussi pincer ou {key}-défilement)
 	Rotate view	Pivoter l'affichage
 	First / last page	Première / dernière page
 	Previous / next page	Page précédente / suivante
@@ -76,16 +80,22 @@
 	Select all pages (Organize)	Sélectionner toutes les pages (Organiser)
 	Home	Accueil
 	Open	Ouvrir
-	Open a PDF (⌘O)	Ouvrir un PDF (⌘O)
+	Open a PDF ({key})	Ouvrir un PDF ({key})
 	Dark gray theme	Thème gris foncé
 	Light theme	Thème clair
+	Appearance mode	Mode d'apparence
+	Light	Clair
+	Dark	Sombre
+	Active	Actif
+	Dark theme	Thème sombre
+	Appearance settings…	Réglages d'apparence…
 	All tools	Tous les outils
 	Read	Lire
 	Convert	Convertir
 	E-Sign	Signature électronique
-	Print (⌘P)	Imprimer (⌘P)
-	Save (M4)	Enregistrer (M4)
-	Document properties (⌘D)	Propriétés du document (⌘D)
+	Print ({key})	Imprimer ({key})
+	Save ({key})	Enregistrer ({key})
+	Document properties ({key})	Propriétés du document ({key})
 	Find tools and commands	Rechercher des outils et des commandes
 	Fit to height	Ajuster à la hauteur
 	Zoom in	Zoom avant
@@ -114,9 +124,9 @@
 	Compare	Comparer
 	Page thumbnails	Vignettes de page
 	Form fields	Champs de formulaire
-	Zoom out (⌘−)	Zoom arrière (⌘−)
-	Zoom in (⌘+)	Zoom avant (⌘+)
-	Rotate view clockwise (⇧⌘+)	Pivoter l'affichage vers la droite (⇧⌘+)
+	Zoom out ({key})	Zoom arrière ({key})
+	Zoom in ({key})	Zoom avant ({key})
+	Rotate view clockwise ({key})	Pivoter l'affichage vers la droite ({key})
 	Toggle fit page / fit width	Basculer entre ajuster à la page et à la largeur
 	Next page	Page suivante
 	Previous page	Page précédente
@@ -250,6 +260,7 @@
 	Security properties…	Propriétés de protection…
 	Organize pages	Organiser les pages
 	New bookmark	Nouveau signet
+	New bookmarks from structure	Nouveaux signets à partir de la structure
 	Rotate pages clockwise	Pivoter les pages vers la droite
 	Rotate pages counterclockwise	Pivoter les pages vers la gauche
 	Delete pages	Supprimer des pages
@@ -753,6 +764,7 @@
 	Rotation	Rotation
 	Appear behind page	Afficher derrière la page
 	Appear on top of page	Afficher au-dessus de la page
+	Offset from centre	Décalage par rapport au centre
 	From colour	À partir d'une couleur
 	Page Range Options	Options d'intervalle de pages
 	Preview: page {p} of {n}	Aperçu : page {p} sur {n}
@@ -1073,11 +1085,18 @@
 	Dates	Dates
 	Text in images isn't found; recognise text (OCR) first.	Le texte dans les images n'est pas trouvé ; reconnaissez d'abord le texte (OCR).
 	No matches.	Aucune correspondance.
+	Some bookmarks are not shown here: the panel lists a limited number, nested a limited depth.	Certains signets ne sont pas affichés ici : le panneau en liste un nombre limité, sur une profondeur limitée.
 	{n} match(es) marked for redaction.	{n} correspondance(s) marquée(s) pour biffure.
+	Multiple words or phrases	Plusieurs mots ou expressions
+	One word or phrase per line	Un mot ou une expression par ligne
+	Import list…	Importer une liste…
+	{n} word(s) or phrase(s)	{n} mot(s) ou expression(s)
+	{name} is too large for a word list (at most 1 MB).	{name} est trop volumineux pour une liste de mots (1 Mo au maximum).
 	Redaction Tool Properties	Propriétés de l'outil de biffure
 	Redacted area fill colour:	Couleur de remplissage de la zone biffée :
 	Use overlay text	Utiliser un texte en superposition
 	Custom text:	Texte personnalisé :
+	Redaction code:	Code de biffure :
 	Font:	Police :
 	Font size:	Corps :
 	Auto-size text to fit redaction region	Ajuster automatiquement le corps du texte à la zone de biffure
@@ -1247,7 +1266,7 @@
 	Expand all bookmarks	Développer tous les signets
 	Expand top-level bookmarks	Développer les signets de premier niveau
 	Collapse all bookmarks	Réduire tous les signets
-	New bookmark (⌘B)	Nouveau signet (⌘B)
+	New bookmark ({key})	Nouveau signet ({key})
 	This document has no bookmarks.	Ce document ne contient aucun signet.
 	This document has no layers.	Ce document ne contient aucun calque.
 	This document has no attachments.	Ce document ne contient aucune pièce jointe.
@@ -1261,8 +1280,8 @@
 	No matches	Aucune correspondance
 	Searching… {s}/{p}	Recherche… {s}/{p}
 	{c} of {n}{more}	{c} sur {n}{more}
-	Previous (⇧⌘G)	Précédent (⇧⌘G)
-	Next (⌘G)	Suivant (⌘G)
+	Previous ({key})	Précédent ({key})
+	Next ({key})	Suivant ({key})
 	Find options	Options de recherche
 	Whole words only	Mots entiers seulement
 	Case-sensitive	Respecter la casse
@@ -1468,6 +1487,8 @@
 	Right Edge	Bord droit
 	Language	Langue
 	Saved {place}: {before} → {after} ({pct}% smaller){detail}	Enregistré {place} : {before} → {after} ({pct} % plus petit){detail}
+	This file is already as small as it can be made ({size}). No copy was saved.	Ce fichier est déjà aussi petit que possible ({size}). Aucune copie n'a été enregistrée.
+	Saved {place}: {before} → {after} (not smaller){detail}	Enregistré {place} : {before} → {after} (pas plus petit){detail}
 	Couldn't save the image: {e}	Impossible d'enregistrer l'image : {e}
 	Adding images arrives on the web with file pickers for images	L'ajout d'images arrivera sur le web avec les sélecteurs de fichiers d'images
 	Replacing images on page {p} arrives on the web with image pickers ({i})	Le remplacement d'images à la page {p} arrivera sur le web avec les sélecteurs d'images ({i})
@@ -1540,6 +1561,8 @@
 	{file} is too large for a stamp (at most {n} MB)	{file} est trop volumineux pour un tampon ({n} Mo au plus)
 	Sent to {printer}	Envoyé à {printer}
 	Sent to {printer}: {msg}	Envoyé à {printer} : {msg}
+	Looking for printers…	Recherche des imprimantes…
+	Sending to {printer}…	Envoi à {printer}…
 	Choose a folder for the searchable files	Choisissez un dossier pour les fichiers recherchables
 	Files are combined in this order. Leave Pages empty to take every page.	Les fichiers sont combinés dans cet ordre. Laissez Pages vide pour prendre toutes les pages.
 	Pages of {name} to combine, e.g. 1-3, 6	Pages de {name} à combiner, p. ex. 1-3, 6
@@ -1975,18 +1998,22 @@
 	Add folder and subfolders…	Ajouter un dossier et ses sous-dossiers…
 	Add folder…	Ajouter un dossier…
 	Add open documents	Ajouter des documents ouverts
-	Add the PDFs to combine	Ajoutez les PDF à combiner
+	Add the files to combine	Ajoutez les fichiers à combiner
 	Added more than once	Ajouté plusieurs fois
 	All open documents	Tous les documents ouverts
 	Can't be read: {e}	Illisible : {e}
+	Leave out files that can't be read?	Laisser de côté les fichiers illisibles ?
+	These files can't be read, so they won't be in the combined PDF:	Ces fichiers sont illisibles ; ils ne figureront pas dans le PDF combiné :
+	Combine the rest	Combiner les autres
+	and {n} more	et {n} de plus
 	Check the pages of {name}: {why}	Vérifiez les pages de {name} : {why}
 	Click to sort, drag to move the column. Drag its edge to resize it.	Cliquer pour trier, faire glisser pour déplacer la colonne. Faire glisser son bord pour la redimensionner.
 	Drag to reorder	Faire glisser pour réordonner
-	Drop PDFs or folders here, or choose them.	Déposez ici des PDF ou des dossiers, ou choisissez-les.
+	Drop PDFs, images, text files or folders here, or choose them.	Déposez ici des PDF, des images, des fichiers texte ou des dossiers, ou choisissez-les.
 	Enter the password that opens it	Saisissez le mot de passe qui l'ouvre
 	Enter the permissions password to allow combining	Saisissez le mot de passe des autorisations pour permettre de le combiner
-	Every PDF in the folder	Tous les PDF du dossier
-	Every PDF in the folder and the folders inside it	Tous les PDF du dossier et des dossiers qu'il contient
+	Every PDF, image and text file in the folder	Tous les PDF, images et fichiers texte du dossier
+	Every PDF, image and text file in the folder and the folders inside it	Tous les PDF, images et fichiers texte du dossier et des dossiers qu'il contient
 	File name	Nom du fichier
 	Files are combined from top to bottom. Leave Pages empty to take every page.	Les fichiers sont combinés de haut en bas. Laissez Pages vide pour prendre toutes les pages.
 	Hide password	Masquer le mot de passe
@@ -2069,7 +2096,7 @@
 	A script	Un script
 	About	À propos
 	Add {what}	Ajouter {what}
-	Added the first {n} PDFs in {folder}	Les {n} premiers PDF de {folder} ont été ajoutés
+	Added the first {n} files in {folder}	Les {n} premiers fichiers de {folder} ont été ajoutés
 	Align fields	Aligner les champs
 	Another file dialog is still open. Finish with it first.	Une autre boîte de dialogue de fichier est encore ouverte. Terminez d'abord avec celle-ci.
 	Basic constraints	Contraintes de base
@@ -2085,7 +2112,7 @@
 	Mark pages for redaction	Marquer des pages pour biffure
 	Match field sizes	Uniformiser la taille des champs
 	Models	Modèles
-	No PDFs found in {folder}	Aucun PDF trouvé dans {folder}
+	No PDFs, images or text files found in {folder}	Aucun PDF, image ou fichier texte trouvé dans {folder}
 	Only continue if you trust this document. An address can carry information from the document, such as what you typed into its form.	Ne continuez que si vous faites confiance à ce document. Une adresse peut transmettre des informations du document, par exemple ce que vous avez saisi dans son formulaire.
 	Place saved {what}	Placer {what} (version enregistrée)
 	Print single-sided. Keep the sheets in order, cut at the marks, then stack the piles left to right, top to bottom.	Imprimez en recto seul. Gardez les feuilles dans l'ordre, découpez aux repères, puis empilez les piles de gauche à droite et de haut en bas.
@@ -2134,3 +2161,56 @@ signature pad	Type	Saisir
 	The field {name} no longer exists.	Le champ {name} n'existe plus.
 	A selected field has no widget on any page, so the fields can't be edited together.	Un champ sélectionné n'a de widget sur aucune page : les champs ne peuvent pas être modifiés ensemble.
 	 ({n} at {dpi} dpi, the largest size they can be drawn at)	 ({n} à {dpi} ppp, la plus grande taille possible pour les dessiner)
+
+# Multi-object selection and movement (#844)
+@plural	{n} object selected|{n} objects selected	{n} objet sélectionné|{n} objets sélectionnés
+	Drag the selection to move it. Esc clears the selection.	Faites glisser la sélection pour la déplacer. Échap annule la sélection.
+	Shift-click to select several objects. Drag empty space to select an area.	Maj-clic pour sélectionner plusieurs objets. Faites glisser dans un espace vide pour sélectionner une zone.
+	Select at most 1000 objects at a time.	Sélectionnez au maximum 1000 objets à la fois.
+	Finish or discard the text being edited before selecting several objects.	Terminez ou abandonnez la modification du texte avant de sélectionner plusieurs objets.
+	Move object	Déplacer un objet
+	Move objects	Déplacer des objets
+	Vertical text cannot be moved with this selection.	Le texte vertical ne peut pas être déplacé avec cette sélection.
+	Text used as a clipping path cannot be moved with this selection.	Le texte utilisé comme chemin de découpe ne peut pas être déplacé avec cette sélection.
+	These objects could not be moved. Select them again and try a smaller move.	Ces objets n’ont pas pu être déplacés. Sélectionnez-les à nouveau et essayez un déplacement plus petit.
+	This page contains objects that cannot be selected together.	Cette page contient des objets qui ne peuvent pas être sélectionnés ensemble.
+	Fill colour	Couleur de fond
+	No fill	Sans fond
+	Fill colour: none	Couleur de fond : aucune
+
+# Keyboard key names, distinct from command labels.
+key	Ctrl	Ctrl
+key	Shift	Maj
+key	Delete	Suppr
+key	Esc	Échap
+key	Home	Début
+key	End	Fin
+key	Space	Espace
+	Grid view	Vue en grille
+	List view	Vue en liste
+	Files are combined in the order shown. Drag them to change it.	Les fichiers sont combinés dans l'ordre affiché. Faites-les glisser pour le modifier.
+	Preview unavailable: {e}	Aperçu indisponible : {e}
+	Pages: {k} of {n}	Pages : {k} sur {n}
+	Check the pages	Vérifiez les pages
+	Switch to List view to change the pages it takes.	Passez à la vue en liste pour modifier les pages prises.
+	Expand all	Tout développer
+	Collapse all	Tout réduire
+	Remove page	Retirer la page
+	Remove {n} pages	Retirer {n} pages
+
+# Shared panel docking
+	Reset panel layout	Réinitialiser la disposition des panneaux
+	Float panel	Détacher le panneau
+	Move to group	Déplacer vers un groupe
+	Panels	Panneaux
+	Resize panels	Redimensionner les panneaux
+	Resize panel window	Redimensionner la fenêtre du panneau
+	Tools	Outils
+	Inspector	Inspecteur
+	Mouse wheel scroll speed	Vitesse de défilement de la molette
+scroll speed	Slow	Lente
+scroll speed	Normal	Normale
+scroll speed	Fast	Rapide
+	Enhance camera image	Améliorer la photo d'un document
+	Drag the corners onto the document's edges, then choose Enhance page.	Faites glisser les coins sur les bords du document, puis choisissez Améliorer la page.
+	Enhance page	Améliorer la page

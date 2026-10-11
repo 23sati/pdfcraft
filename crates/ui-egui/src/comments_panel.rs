@@ -90,8 +90,13 @@ pub fn count(info: &DocInfo) -> usize {
 }
 
 fn matches(a: &Annotation, q: &str) -> bool {
-    let q = q.to_lowercase();
-    [a.author.as_deref(), a.contents.as_deref(), Some(kind_label(a))].into_iter().flatten().any(|s| s.to_lowercase().contains(&q))
+    any_contains([a.author.as_deref(), a.contents.as_deref(), Some(kind_label(a))].into_iter().flatten(), q)
+}
+
+/// Whether one of `fields` contains `q` in any case, Turkish dotted and dotless i included.
+fn any_contains<'a>(fields: impl IntoIterator<Item = &'a str>, q: &str) -> bool {
+    let q = pdfcraft_render::text::fold_case(q);
+    fields.into_iter().any(|s| pdfcraft_render::text::fold_case(s).contains(&q))
 }
 
 /// Draw the panel body. Returns an edit to apply (posting, replying, deleting…).
@@ -353,20 +358,23 @@ fn card(
             if selected && allowed {
                 ui.add_space(8.0);
                 egui::Frame::NONE.inner_margin(egui::Margin { left: 34, right: 0, top: 0, bottom: 0 }).show(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        let r = ui.add(
-                            egui::TextEdit::singleline(&mut view.comments.reply)
-                                .hint_text(tl!("Add a reply"))
-                                .desired_width(ui.available_width() - 56.0)
-                                .id_salt(("comment-reply", key)),
-                        );
-                        let enter = r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
-                        let ok = !view.comments.reply.trim().is_empty();
-                        if (ui.add_enabled(ok, egui::Button::new(tl!("Post")).corner_radius(12)).clicked() || enter) && ok {
-                            let text = std::mem::take(&mut view.comments.reply).trim().to_string();
-                            edit = Some(Edit::ReplyToAnnotation { page: a.page, index: a.index, text, author: prefs.author.clone() });
-                        }
-                    });
+                    // The field fills its line and Post sits right-aligned under it: a field sized
+                    // around the button can't fit every language's "Post" exactly, and any overflow
+                    // would widen the resizable panel again on every repaint.
+                    let r = ui.add(
+                        egui::TextEdit::singleline(&mut view.comments.reply)
+                            .hint_text(tl!("Add a reply"))
+                            .desired_width(f32::INFINITY)
+                            .id_salt(("comment-reply", key)),
+                    );
+                    let enter = r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                    let ok = !view.comments.reply.trim().is_empty();
+                    let post =
+                        ui.with_layout(Layout::right_to_left(Align::Min), |ui| ui.add_enabled(ok, egui::Button::new(tl!("Post")).corner_radius(12)));
+                    if (post.inner.clicked() || enter) && ok {
+                        let text = std::mem::take(&mut view.comments.reply).trim().to_string();
+                        edit = Some(Edit::ReplyToAnnotation { page: a.page, index: a.index, text, author: prefs.author.clone() });
+                    }
                 });
             }
             // The header selects the card, except where its buttons are.
@@ -584,4 +592,18 @@ pub(crate) fn header_controls(ui: &mut egui::Ui, info: &DocInfo, view: &mut DocV
         }
     });
     command
+}
+
+#[cfg(test)]
+mod filter {
+    use super::any_contains;
+
+    #[test]
+    fn comments_match_in_any_case_with_turkish_i() {
+        assert!(any_contains(["Ayşe Yılmaz", "Lütfen İMZALAYIN"], "imzalayın"));
+        assert!(any_contains(["Ayşe Yılmaz"], "YILMAZ"));
+        assert!(any_contains(["IRMAK"], "ırmak"));
+        assert!(any_contains(["Note"], "NOTE"));
+        assert!(!any_contains(["Ayşe Yılmaz"], "mehmet"));
+    }
 }
