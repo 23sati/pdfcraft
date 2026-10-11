@@ -1890,6 +1890,21 @@ fn comment_summary_includes_replies_to_replies() {
 }
 
 #[test]
+fn reading_colors_set_and_invalidated() {
+    let (mut s, id) = session_with(1);
+    // Every open document holds a value; the default is Off.
+    assert_eq!(s.reading_colors(id), Some(ReadingColors::default()));
+    assert!(s.set_reading_colors(id, ReadingColors::WHITE_ON_BLACK));
+    assert_eq!(s.reading_colors(id), Some(ReadingColors::WHITE_ON_BLACK));
+    assert!(!s.set_reading_colors(id, ReadingColors::WHITE_ON_BLACK), "unchanged");
+    assert!(s.set_reading_colors(id, ReadingColors::default()), "back to Off");
+    assert_eq!(s.reading_colors(id), Some(ReadingColors::default()));
+    // No such document.
+    assert_eq!(s.reading_colors(DocId(u64::MAX)), None);
+    assert!(!s.set_reading_colors(DocId(u64::MAX), ReadingColors::WHITE_ON_BLACK));
+}
+
+#[test]
 fn signing_saving_trusting_and_commenting_afterwards() {
     let p12 = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../sign/tests/data/ec-p256.p12")).unwrap();
     let digital_id = sign::pkcs12::open(&p12, "test").unwrap();
