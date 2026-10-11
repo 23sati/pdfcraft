@@ -1724,7 +1724,12 @@
 	watermark	透かし
 	background	背景
 	This document isn't password-protected	この文書はパスワード保護されていません
-	Only the document's owner can change its security (open it with the permissions password)	文書の所有者のみセキュリティを変更できます（権限パスワードで開いてください）
+	Enter permissions password…	権限パスワードを入力…
+	Permissions password	権限パスワード
+	“{name}” has security restrictions. Enter its permissions password to lift them.	「{name}」にはセキュリティの制限があります。制限を解除するには権限パスワードを入力してください。
+	Restrictions lifted	制限を解除しました
+	Couldn't unlock {name}: {e}	{name} のロックを解除できませんでした: {e}
+	This document has no restrictions to lift	この文書には解除する制限がありません
 	The document's security settings don't allow this change	文書のセキュリティ設定により、この変更は許可されていません
 	The document's security settings don't allow copying text and images	文書のセキュリティ設定により、テキストと画像のコピーは許可されていません
 	Open a document first	先に文書を開いてください
@@ -2212,6 +2217,13 @@ key	Space	スペース
 	Resize panel window	パネルウィンドウのサイズを変更
 	Tools	ツール
 	Inspector	インスペクター
+
+# Architectural print controls (follow-up to #599).
+	PDF page: {w} × {h} in	PDFページ: {w} × {h} インチ
+	Match page at 100%	ページに合わせて100%に設定
+	PDF scale: {scale}%	PDFの倍率: {scale}%
+	Printer paper and scaling may differ. Check driver settings.	プリンターの用紙や倍率は異なる場合があります。ドライバーの設定を確認してください。
+	Drawing scale changes. Use Actual size for full-scale plans.	図面の縮尺が変わります。原寸で印刷するには「実際のサイズ」を使用してください。
 	Reload documents when their files change on disk	ディスク上のファイルが変更されたら文書を再読み込みする
 	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	このファイルはディスク上で変更されました。再読み込みすると新しいバージョンが表示されますが、未保存の変更は失われます。
 	Reload	再読み込み
@@ -2227,3 +2239,7 @@ scroll speed	Fast	速い
 	Enhance camera image	カメラ画像を補正
 	Drag the corners onto the document's edges, then choose Enhance page.	四隅を文書の端までドラッグしてから、「ページを補正」を選択します。
 	Enhance page	ページを補正
+	Clean-up	クリーンアップ
+	Original	オリジナル
+	Greyscale	グレースケール
+	Black and white	白黒

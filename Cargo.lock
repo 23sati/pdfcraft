@@ -4151,6 +4151,8 @@ dependencies = [
 name = "pdfcraft-platform"
 version = "0.6.0"
 dependencies = [
+ "async-channel",
+ "futures-lite",
  "zbus",
 ]
 
