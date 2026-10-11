@@ -279,16 +279,15 @@ update the numbers.
 
 - **Missing:** a menu and tool listing captured from Acrobat (names only, `plan/acrobat/`, never
   committed) diffed against the checklist, so that features the checklist never listed show up.
-  The checklist now records localization as partial: catalogs and persistence tests exist, but
-  language selection has no headless automation tool. Installers are partial too: macOS and Windows
-  releases can be signed, while Linux packages are unsigned.
+  `misc.localization` and `misc.installers` are now `partial` (Chinese, Telugu and Arabic are not
+  fully usable yet; Linux packages are unsigned).
 - **Estimate:** 4–8 h. **Doc:** [target-app-parity.md](target-app-parity.md).
 
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-11 | patch | Gap 24: record localization and installers as partial, with their remaining automation and signing gaps |
+| 2026-10-11 | patch | Gap 24: record localization and installers as partial (unusable Chinese, Telugu and Arabic; unsigned Linux packages) |
 | 2026-10-11 | patch | Gap 2: 23 hayro-interpret and 10 hayro patches after axial and radial shadings became native gradients (backport of hayro 0.8) |
 | 2026-10-11 | minor | Closed gap 1 (#774, fixed by #836; numbers kept, its interop suite moved to gap 12); gap 6 lists the fixed #799–#821 batch; gap 3 and 16 updated for #844 (same-page move), #740 (column select) and #759 (1:1 touchpad scrolling) |
 | 2026-10-10 | minor | Removed the alpha markers: with the cross-app gate rule, gaps 1 and 8 are partial sub-cases, not blockers; stage alpha |

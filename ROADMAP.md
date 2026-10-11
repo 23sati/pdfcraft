@@ -32,7 +32,7 @@ and add a line to the [progress log](#progress-log); when a gap closes, remove i
 | | Value | Kind |
 |---|---|---|
 | **Feature breadth** | **≈ 68.0%** tier-weighted (57.6% unweighted: 426 shipped + 83 partial of 812; P0 94.2%) | measured, `parity/acrobat-features.toml` |
-| Feature breadth, mainstream practitioner | ≈ 70% tier-weighted (63.2% unweighted; P0 95.3%) | measured ([split](docs/target-app-parity.md#mainstream-practitioner-vs-full-acrobat-pro)) |
+| Feature breadth, mainstream practitioner | ≈ 71% tier-weighted (62.8% unweighted; P0 95.5%) | measured ([split](docs/target-app-parity.md#mainstream-practitioner-vs-full-acrobat-pro)) |
 | **Ready for real work**, full Acrobat Pro | **≈ 49%** (45–53%) | estimated, weighted sum over [dimensions](#by-dimension) |
 | **Ready for real work**, mainstream practitioner | **≈ 55%** (50–60%) | estimated ([split](docs/target-app-parity.md#mainstream-practitioner-vs-full-acrobat-pro)) |
 | **Ready for real work**, essentials user | **≈ 66%** (60–70%) | estimated ([method](docs/target-app-parity.md#essentials-user)) |
@@ -135,7 +135,7 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 ## Progress log
 
-- 2026-10-11: Gap 24 checklist cleanup — localization is partial until language selection is available headlessly; signed installers are partial because Linux packages are unsigned.
+- **2026-10-11 (M14, gap 24):** `misc.localization` and `misc.installers` move from planned to partial. Localization: 20 catalogs ship, but Chinese shows tofu in releases, Telugu has no release font and Arabic is not mirrored. Installers: macOS and Windows releases are signed, Linux packages are not. Feature breadth 67% → 68.0% (also counting checklist changes from earlier merges); the mainstream/specialist split is recomputed from the checklist (mainstream ≈ 71%). The Acrobat menu diff itself remains open. Estimates unchanged.
 
 - **2026-10-11 (M10.5, focused follow-up to #599):** Carry the architectural/ANSI/large ISO paper presets, current-page matching at 100%, and previewed PDF scale into the current print dialog and `doc_print`. Retains the #847/#1007 spooler and background discovery. Driver substitution, physical calibration, vector Windows printing and managed-endpoint restrictions remain separate gaps. Overall estimates unchanged.
 
