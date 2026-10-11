@@ -163,7 +163,7 @@ pub(crate) fn console_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens)
     });
     ui.add_space(6.0);
     let input = ui.add(
-        egui::TextEdit::multiline(&mut app.js_console.input)
+        crate::widgets::block(&mut app.js_console.input)
             .code_editor()
             .desired_rows(4)
             .desired_width(f32::INFINITY)
@@ -190,7 +190,7 @@ pub(crate) fn document_js_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
     let mut edit: Option<Edit> = None;
     ui.horizontal(|ui| {
         ui.label(tl!("Script Name:"));
-        ui.add(egui::TextEdit::singleline(&mut app.doc_js.name).desired_width(240.0).id_salt("doc-js-name"));
+        ui.add(crate::widgets::line(&mut app.doc_js.name).desired_width(240.0).id_salt("doc-js-name"));
     });
     ui.add_space(4.0);
     egui::Frame::new().fill(t.hover).corner_radius(egui::CornerRadius::same(6)).inner_margin(egui::Margin::same(8)).show(ui, |ui| {
@@ -208,7 +208,7 @@ pub(crate) fn document_js_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
         });
     });
     ui.add_space(6.0);
-    ui.add(egui::TextEdit::multiline(&mut app.doc_js.script).code_editor().desired_rows(8).desired_width(f32::INFINITY).id_salt("doc-js-script"));
+    ui.add(crate::widgets::block(&mut app.doc_js.script).code_editor().desired_rows(8).desired_width(f32::INFINITY).id_salt("doc-js-script"));
     ui.add_space(8.0);
     let name = app.doc_js.name.trim().to_string();
     let close = match buttons(ui, "Save", &["Close", "Delete"]).as_deref() {
@@ -305,6 +305,7 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
         for l in crate::canvas::PageLayout::ORDER {
             ui.radio_value(&mut defaults.layout, l, tl!(l.label()));
         }
+        ui.checkbox(&mut defaults.continuous, tl!("Continuous scrolling"));
     });
     ui.horizontal(|ui| {
         use crate::canvas::Fit;
@@ -323,9 +324,19 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
             .small()
             .color(t.text_muted),
     );
+    ui.horizontal(|ui| {
+        ui.label(tl!("Units"));
+        for u in crate::units::Unit::ALL {
+            ui.radio_value(&mut app.units, u, u.label());
+        }
+    });
+    ui.label(egui::RichText::new(tl!("For page sizes and margins.")).small().color(t.text_muted));
     // The web build has no file paths to reopen.
     #[cfg(not(target_arch = "wasm32"))]
     ui.checkbox(&mut app.reopen_last_session, tl!("Reopen the files that were open when PdfCraft last closed"));
+    // The web build has no files on disk to watch.
+    #[cfg(not(target_arch = "wasm32"))]
+    ui.checkbox(&mut app.reload_changed_files, tl!("Reload documents when their files change on disk"));
     ui.horizontal(|ui| {
         ui.label(tl!("Mouse wheel scroll speed"));
         for speed in crate::scroll_speed::ScrollSpeed::ALL {
@@ -337,8 +348,7 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
     ui.label(egui::RichText::new(tl!("Identity")).font(theme::semibold(13.0)));
     ui.horizontal(|ui| {
         let label = ui.label(tl!("Name on new comments"));
-        ui.add(egui::TextEdit::singleline(&mut app.comment_prefs.author).desired_width(220.0).char_limit(crate::MAX_AUTHOR_CHARS))
-            .labelled_by(label.id);
+        ui.add(crate::widgets::line(&mut app.comment_prefs.author).desired_width(220.0).char_limit(crate::MAX_AUTHOR_CHARS)).labelled_by(label.id);
     });
     ui.add_space(8.0);
     ui.label(egui::RichText::new(tl!("Fill & Sign")).font(theme::semibold(13.0)));

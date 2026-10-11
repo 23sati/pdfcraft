@@ -1184,6 +1184,12 @@ fn classify_changes(doc: &Document, old: Option<Document>, p: Option<u8>) -> Mod
         .collect();
     // The signed revision's document-level XMP stream.
     let old_metadata = old.root().and_then(|root| old.get(root).as_dict().and_then(|c| c.get(b"Metadata").and_then(Object::as_ref)));
+    // What each object was in the signed revision: its pages, and its trailer /Info. A changed
+    // object is judged by the role it held when signed, never by the labels or keys its new,
+    // attacker-written version carries (relabelling a signed page /Type /Sig, or dropping its
+    // /Type and adding /ModDate, must not reclassify it away from page content).
+    let signed_pages: HashSet<ObjRef> = pdfcraft_annot::page_refs(&old).unwrap_or_default().into_iter().collect();
+    let old_info = old.trailer().get(b"Info").and_then(Object::as_ref);
     let (mut allowed, mut disallowed): (Vec<&'static str>, Vec<&'static str>) = (Vec::new(), Vec::new());
     let dss = dss_parts(doc, &old);
     // Stored at the same place in both (and not edited since): the same bytes, unchanged.
@@ -1213,11 +1219,27 @@ fn classify_changes(doc: &Document, old: Option<Document>, p: Option<u8>) -> Mod
         let what = match &*new {
             // The Document Security Store's own arrays and dictionaries, when they only grew.
             _ if dss.contains(&num) => kind::SECURITY_STORE,
-            Object::Dict(d) => change_kind(doc, &old, d, before.as_deref().and_then(Object::as_dict)),
+            Object::Dict(d) => {
+                let was = before.as_deref().and_then(Object::as_dict);
+                if signed_pages.contains(&r) {
+                    // A signed page is always judged by what the page shows, whatever it is now
+                    // relabelled: a rewritten /Contents or /Resources is a page content change.
+                    page_change_kind(doc, &old, d, was)
+                } else if was.is_some() && Some(r) == old_info {
+                    // Only the signed revision's own /Info dictionary is a metadata change.
+                    kind::METADATA
+                } else {
+                    change_kind(doc, &old, d, was)
+                }
+            }
             Object::Stream(s) => {
+                // File plumbing is what the stream was when signed: the /Type it has now is
+                // written by whoever changed it, and the renderer ignores /Type (a page's Form
+                // XObject relabelled /ObjStm still draws its new content).
+                let was_plumbing = matches!(before.as_deref(), Some(Object::Stream(b)) if matches!(b.dict.name(b"Type"), Some(b"XRef" | b"ObjStm")));
                 if old_content.contains(&r) {
                     kind::PAGE_CONTENT
-                } else if s.dict.name(b"Type") == Some(b"XRef") || s.dict.name(b"Type") == Some(b"ObjStm") || before.is_none() {
+                } else if before.is_none() || was_plumbing {
                     continue;
                 } else if s.dict.name(b"Type") == Some(b"Metadata") && Some(r) == old_metadata {
                     // Only the signed catalog's XMP stream. A /Type /Metadata label on anything
@@ -1417,15 +1439,42 @@ fn acroform_kind(doc: &Document, old: &Document, now: &Dict, before: Option<&Dic
     if added.is_empty() || added_annots(doc, &added) == kind::SIGNATURE { kind::SIGNATURE } else { kind::FORM_FILL }
 }
 
+/// Dictionary entries in a stable order, without `keys`.
+fn without(x: &Dict, keys: &[&[u8]]) -> Vec<(Vec<u8>, Object)> {
+    let mut v: Vec<(Vec<u8>, Object)> = x.iter().filter(|(k, _)| !keys.contains(&k.as_slice())).map(|(k, o)| (k.to_vec(), o.clone())).collect();
+    v.sort_by(|a, b| a.0.cmp(&b.0));
+    v
+}
+
+/// Whether a dictionary was a signature object: a signature or timestamp value, a signature
+/// reference or its transform parameters, or a signature form field. Used to decide from the
+/// signed revision, so a later relabel of some other object cannot pose as a signature change.
+fn is_signature_dict(d: &Dict) -> bool {
+    matches!(d.name(b"Type"), Some(b"Sig" | b"DocTimeStamp" | b"SigRef" | b"TransformParams")) || d.name(b"FT") == Some(b"Sig")
+}
+
+/// A changed object that was a page in the signed revision, judged by what the page shows rather
+/// than by any `/Type` its new version carries. Only added annotations are permitted; any other
+/// difference (content, resources, a relabelled or dropped `/Type`) is a page content change.
+fn page_change_kind(doc: &Document, old: &Document, d: &Dict, before: Option<&Dict>) -> &'static str {
+    match before {
+        Some(b) if without(d, &[b"Annots"]) != without(b, &[b"Annots"]) => kind::PAGE_CONTENT,
+        Some(b) => {
+            let was = refs(old, b.get(b"Annots"));
+            let added: Vec<ObjRef> = refs(doc, d.get(b"Annots")).into_iter().filter(|r| !was.contains(r)).collect();
+            added_annots(doc, &added)
+        }
+        None => kind::PAGE_CONTENT,
+    }
+}
+
 fn change_kind(doc: &Document, old: &Document, d: &Dict, before: Option<&Dict>) -> &'static str {
     let ty = d.name(b"Type");
-    let without = |x: &Dict, keys: &[&[u8]]| -> Vec<(Vec<u8>, Object)> {
-        let mut v: Vec<(Vec<u8>, Object)> = x.iter().filter(|(k, _)| !keys.contains(&k.as_slice())).map(|(k, o)| (k.to_vec(), o.clone())).collect();
-        v.sort_by(|a, b| a.0.cmp(&b.0));
-        v
-    };
+    // A later revision cannot make an existing object a signature by relabelling it: a signature
+    // change is only a brand-new object, or one that was already a signature object when signed.
+    let signature_ok = before.is_none_or(is_signature_dict);
     match ty {
-        Some(b"Sig" | b"DocTimeStamp" | b"SigRef" | b"TransformParams") => return kind::SIGNATURE,
+        Some(b"Sig" | b"DocTimeStamp" | b"SigRef" | b"TransformParams") if signature_ok => return kind::SIGNATURE,
         Some(b"Catalog") => {
             let keys: &[&[u8]] = &[b"AcroForm", b"DSS", b"Perms", b"Metadata", b"NeedsRendering"];
             return match before {
@@ -1459,12 +1508,12 @@ fn change_kind(doc: &Document, old: &Document, d: &Dict, before: Option<&Dict>) 
         _ => {}
     }
     match d.name(b"Subtype") {
-        Some(b"Widget") => return if d.name(b"FT") == Some(b"Sig") { kind::SIGNATURE } else { kind::FORM_FILL },
+        Some(b"Widget") => return if d.name(b"FT") == Some(b"Sig") && signature_ok { kind::SIGNATURE } else { kind::FORM_FILL },
         Some(b"Link") => return kind::LINKS,
         Some(_) if ty == Some(b"Annot") || d.contains(b"Rect") => return kind::COMMENTS,
         _ => {}
     }
-    if d.name(b"FT") == Some(b"Sig") {
+    if d.name(b"FT") == Some(b"Sig") && signature_ok {
         return kind::SIGNATURE;
     }
     if d.contains(b"Fields") {
@@ -1472,9 +1521,6 @@ fn change_kind(doc: &Document, old: &Document, d: &Dict, before: Option<&Dict>) 
     }
     if d.contains(b"FT") || (d.contains(b"T") && d.contains(b"Kids")) || d.contains(b"DR") {
         return kind::FORM_FILL;
-    }
-    if d.contains(b"Producer") || d.contains(b"ModDate") || d.contains(b"CreationDate") {
-        return kind::METADATA;
     }
     if before.is_none() {
         // New objects referenced by changed ones (fonts, appearance resources).
@@ -1546,6 +1592,8 @@ pub struct SignOptions {
     pub appearance: Appearance,
     /// The words of the labels the visible signature shows.
     pub appearance_labels: AppearanceLabels,
+    /// A drawing, typed signature or image shown where the large name would be.
+    pub graphic: Option<crate::graphic::Graphic>,
 }
 
 /// What an encrypted document's permissions (ISO 32000-2 §7.6.4.2, Table 22) allow when it was
@@ -1739,7 +1787,7 @@ fn sign_inner(
         }
     }
     // The appearance.
-    let ap = appearance(rect, &name, &id.certificate, opts);
+    let ap = appearance(&mut doc, rect, &name, &id.certificate, opts)?;
     let ap_ref = doc.add(Object::Stream(ap));
     let mut apd = Dict::new();
     apd.set(b"N".to_vec(), Object::Ref(ap_ref));
@@ -1859,9 +1907,10 @@ pub fn display_date(pdf: &str) -> String {
     format!("{}.{}.{} {}:{}:{}{tz}", g(0..4), g(4..6), g(6..8), g(8..10), g(10..12), g(12..14))
 }
 
-/// The visible signature: the signer's name large on the left, the details on the right
-/// (Acrobat's standard layout), in Helvetica.
-fn appearance(rect: [f64; 4], name: &str, cert: &Certificate, opts: &SignOptions) -> Stream {
+/// The visible signature: the signer's name large on the left, or the graphic in its place, and
+/// the details on the right (Acrobat's standard layout), in Helvetica. A graphic with no details
+/// beside it fills the box.
+fn appearance(doc: &mut Document, rect: [f64; 4], name: &str, cert: &Certificate, opts: &SignOptions) -> Result<Stream, SignError> {
     use pdfcraft_fonts::{helvetica_width, literal, win_ansi, wrap};
     let (w, h) = ((rect[2] - rect[0]).max(0.0), (rect[3] - rect[1]).max(0.0));
     let a = &opts.appearance;
@@ -1891,12 +1940,22 @@ fn appearance(rect: [f64; 4], name: &str, cert: &Certificate, opts: &SignOptions
     }
     lines.retain(|l| !l.is_empty());
     let mut out = Vec::new();
+    let mut image = None;
     if w > 1.0 && h > 1.0 {
         let pad = (h * 0.06).clamp(1.0, 6.0);
-        let (left_w, right_x) = if a.name { (w * 0.5, w * 0.5 + pad) } else { (0.0, pad) };
+        let (left_w, right_x) = match (&opts.graphic, a.name) {
+            (Some(_), _) if lines.is_empty() => (w, pad),
+            (Some(_), _) | (None, true) => (w * 0.5, w * 0.5 + pad),
+            (None, false) => (0.0, pad),
+        };
         let right_w = (w - right_x - pad).max(1.0);
+        if let Some(g) = &opts.graphic {
+            let (ops, im) = g.draw(doc, [pad, pad, (left_w - 2.0 * pad).max(0.0), (h - 2.0 * pad).max(0.0)])?;
+            out.extend(ops.bytes());
+            image = im;
+        }
         out.extend_from_slice(b"BT\n0 g\n");
-        if a.name {
+        if a.name && opts.graphic.is_none() {
             // The name fills the left half.
             let mut size = (h * 0.4).min(36.0);
             let fit = (left_w - 2.0 * pad).max(1.0);
@@ -1943,11 +2002,16 @@ fn appearance(rect: [f64; 4], name: &str, cert: &Certificate, opts: &SignOptions
     fonts.set(b"Helv".to_vec(), Object::Dict(font));
     let mut res = Dict::new();
     res.set(b"Font".to_vec(), Object::Dict(fonts));
+    if let Some(im) = image {
+        let mut xobjects = Dict::new();
+        xobjects.set(b"Im1".to_vec(), Object::Ref(im));
+        res.set(b"XObject".to_vec(), Object::Dict(xobjects));
+    }
     d.set(b"Resources".to_vec(), Object::Dict(res));
-    Stream::flate(d, &out)
+    Ok(Stream::flate(d, &out))
 }
 
-fn fmt(v: f64) -> String {
+pub(crate) fn fmt(v: f64) -> String {
     let s = format!("{v:.2}");
     s.trim_end_matches('0').trim_end_matches('.').to_string()
 }

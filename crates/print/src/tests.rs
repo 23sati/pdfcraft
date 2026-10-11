@@ -505,6 +505,19 @@ fn windows_lists_the_printers_the_system_knows() {
     assert!(printers.iter().filter(|p| p.default).count() <= 1, "{printers:?}");
 }
 
+/// Windows: PowerShell is started by its full path under System32, never by its bare name.
+/// Rust resolves a bare name in the app's own folder first, so a `powershell.exe` beside a
+/// portable install would run instead, for every printer list and every job.
+#[cfg(windows)]
+#[test]
+fn windows_starts_powershell_by_its_full_path() {
+    let c = crate::spool::powershell_command("$null");
+    let program = std::path::Path::new(c.get_program());
+    assert!(program.is_absolute(), "{program:?}");
+    assert!(program.ends_with("System32/WindowsPowerShell/v1.0/powershell.exe"), "{program:?}");
+    assert!(program.is_file(), "{program:?}");
+}
+
 /// Windows: the embedded print script is valid PowerShell, checked on every machine — including
 /// runners that have no printer to print to.
 #[cfg(windows)]
@@ -647,4 +660,31 @@ fn a_scaled_appearance_is_not_scaled_twice() {
     let m = appearance_matrix(&doc, &form, [10.0, 10.0, 50.0, 50.0]).unwrap();
     assert!(close(m.0[0], 2.0) && close(m.0[3], 2.0), "{:?}", m.0);
     assert!(close(m.0[4], 10.0) && close(m.0[5], 10.0), "{:?}", m.0);
+}
+
+#[test]
+fn architectural_sheets_preserve_full_scale() {
+    let index = matching_paper((2592.0, 1728.0)).unwrap();
+    assert_eq!(PAPERS[index].0, "ARCH D (24 x 36 in)");
+    assert_eq!(matching_paper((1728.0, 2592.0)), Some(index));
+    assert_eq!(matching_paper((f64::NAN, 2592.0)), None);
+    let s = Settings { pages: vec![0], paper: PAPERS[index].1, layout: Layout::Size(SizeMode::Actual), ..Settings::default() };
+    let sheets = layout(&[(2592.0, 1728.0)], &s).unwrap();
+    assert_eq!(sheets[0].size, (2592.0, 1728.0));
+    assert_eq!(sheets[0].placed[0].matrix.0, [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+    let fit = layout(&[(2592.0, 1728.0)], &Settings { layout: Layout::Size(SizeMode::Fit), ..s }).unwrap();
+    assert!(fit[0].placed[0].matrix.0[0] < 1.0, "Fit adds margins and must not masquerade as full scale");
+}
+
+#[test]
+fn paper_matching_accepts_rounded_metric_sizes_but_not_custom_or_invalid_sizes() {
+    for (i, (_, (w, h))) in PAPERS.iter().enumerate() {
+        assert_eq!(matching_paper((*w, *h)), Some(i));
+        assert_eq!(matching_paper((*h, *w)), Some(i));
+        assert_eq!(matching_paper((w.round(), h.round())), Some(i));
+        assert_eq!(matching_paper((w + 0.51, *h)), None);
+    }
+    for size in [(0.0, 0.0), (-1728.0, 2592.0), (f64::INFINITY, 2592.0), (1728.0, f64::NAN), (1000.0, 1000.0)] {
+        assert_eq!(matching_paper(size), None);
+    }
 }

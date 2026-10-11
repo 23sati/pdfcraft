@@ -770,7 +770,7 @@
 	{verb} Header and Footer	{verb} encabezado y pie de página
 	{verb} Watermark	{verb} marca de agua
 	{verb} Background	{verb} fondo
-	Margins (in)	Márgenes (pulgadas)
+	Margins	Márgenes
 	Left Header Text	Texto del encabezado izquierdo
 	Center Header Text	Texto del encabezado central
 	Right Header Text	Texto del encabezado derecho
@@ -849,6 +849,10 @@
 	The signature will be invisible.	La firma será invisible.
 	Distinguished name	Nombre distintivo
 	Labels	Etiquetas
+	Graphic	Gráfico
+	Signer's name	Nombre del firmante
+	Fill & Sign signature	Firma de Rellenar y firmar
+	Choose image…	Elegir imagen…
 	Permitted actions after certifying	Acciones permitidas después de certificar
 	No changes allowed	No se permite ningún cambio
 	Annotations, form fill-in, and digital signatures	Anotaciones, rellenado de formularios y firmas digitales
@@ -1713,8 +1717,14 @@
 	watermark	marca de agua
 	background	fondo
 	This document isn't password-protected	Este documento no está protegido con contraseña
-	Only the document's owner can change its security (open it with the permissions password)	Solo el propietario del documento puede cambiar su seguridad (ábrelo con la contraseña de permisos)
+	Enter permissions password…	Introducir contraseña de permisos…
+	Permissions password	Contraseña de permisos
+	“{name}” has security restrictions. Enter its permissions password to lift them.	«{name}» tiene restricciones de seguridad. Introduce su contraseña de permisos para quitarlas.
+	Restrictions lifted	Restricciones quitadas
+	Couldn't unlock {name}: {e}	No se pudo desbloquear {name}: {e}
+	This document has no restrictions to lift	Este documento no tiene restricciones que quitar
 	The document's security settings don't allow this change	La configuración de seguridad del documento no permite este cambio
+	The document's security settings don't allow copying text and images	La configuración de seguridad del documento no permite copiar texto ni imágenes
 	Open a document first	Abre primero un documento
 	Security will be removed when you save	La seguridad se quitará al guardar
 	Click text or an image to edit it	Haz clic en un texto o una imagen para editarlo
@@ -2020,6 +2030,10 @@
 	Default zoom	Zoom predeterminado
 	Used when a PDF doesn't ask for a layout or zoom. Continuous scrolling never snaps between pages.	Se usa cuando un PDF no pide una presentación ni un zoom. El desplazamiento continuo nunca salta de página en página.
 	Reopen the files that were open when PdfCraft last closed	Volver a abrir los archivos que estaban abiertos al cerrar PdfCraft por última vez
+	Reload documents when their files change on disk	Recargar los documentos cuando sus archivos cambien en el disco
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Este archivo ha cambiado en el disco. Recárgalo para ver la nueva versión; se perderán tus cambios sin guardar.
+	Reload	Recargar
+	Couldn't reload {name}: {e}	No se pudo recargar {name}: {e}
 	Created a PDF from {n} files	Se creó un PDF a partir de {n} archivos
 	PDF, images and text	PDF, imágenes y texto
 	Insert a file before page {label}	Insertar un archivo antes de la página {label}
@@ -2033,6 +2047,7 @@
 	Choose a PNG or JPEG image (up to 4 MiB). Transparency is preserved.	Elige una imagen PNG o JPEG (hasta 4 MiB). Se conserva la transparencia.
 	Couldn't import the signature image: {e}	No se pudo importar la imagen de la firma: {e}
 	Go to page…	Ir a la página…
+	For page sizes and margins.	Para tamaños de página y márgenes.
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Las fuentes estándar no pueden mostrar «{c}» ({code}). Por ahora solo se pueden añadir como texto caracteres de Europa occidental.
 	Open arrow	Flecha abierta
 	Closed arrow	Flecha cerrada
@@ -2267,6 +2282,10 @@ key	Space	Espacio
 	Resize panel window	Cambiar tamaño de la ventana del panel
 	Tools	Herramientas
 	Inspector	Inspector
+	Select page {label}	Seleccionar la página {label}
+	Rotate page {label} counterclockwise	Girar la página {label} en sentido antihorario
+	Rotate page {label} clockwise	Girar la página {label} en sentido horario
+	Delete page {label}	Eliminar la página {label}
 	Mouse wheel scroll speed	Velocidad de desplazamiento de la rueda del ratón
 scroll speed	Slow	Lenta
 scroll speed	Normal	Normal
@@ -2274,3 +2293,7 @@ scroll speed	Fast	Rápida
 	Enhance camera image	Mejorar foto de cámara
 	Drag the corners onto the document's edges, then choose Enhance page.	Arrastre las esquinas hasta los bordes del documento y elija Mejorar página.
 	Enhance page	Mejorar página
+	Clean-up	Limpieza
+	Original	Original
+	Greyscale	Escala de grises
+	Black and white	Blanco y negro
