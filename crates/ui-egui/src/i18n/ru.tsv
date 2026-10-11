@@ -850,6 +850,10 @@
 	The signature will be invisible.	Подпись будет невидимой.
 	Distinguished name	Уникальное имя
 	Labels	Метки
+	Graphic	Графика
+	Signer's name	Имя подписывающего
+	Fill & Sign signature	Подпись из «Заполнить и подписать»
+	Choose image…	Выбрать изображение…
 	Permitted actions after certifying	Разрешённые действия после сертификации
 	No changes allowed	Изменения не разрешены
 	Annotations, form fill-in, and digital signatures	Аннотации, заполнение форм и цифровые подписи
@@ -1712,6 +1716,7 @@
 	This document isn't password-protected	Этот документ не защищён паролем
 	Only the document's owner can change its security (open it with the permissions password)	Только владелец документа может изменить его безопасность (откройте его с паролем разрешений)
 	The document's security settings don't allow this change	Настройки безопасности документа не разрешают это изменение
+	The document's security settings don't allow copying text and images	Настройки безопасности документа не разрешают копировать текст и изображения
 	Open a document first	Сначала откройте документ
 	Security will be removed when you save	Безопасность будет удалена при сохранении
 	Click text or an image to edit it	Щёлкните текст или изображение, чтобы редактировать
@@ -2012,6 +2017,10 @@
 	Default zoom	Масштаб по умолчанию
 	Used when a PDF doesn't ask for a layout or zoom. Continuous scrolling never snaps between pages.	Используется, когда PDF не запрашивает макет или масштаб. Непрерывная прокрутка никогда не привязывается между страницами.
 	Reopen the files that were open when PdfCraft last closed	Повторно открывать файлы, которые были открыты при последнем закрытии PdfCraft
+	Reload documents when their files change on disk	Перезагружать документы при изменении их файлов на диске
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Этот файл был изменён на диске. Перезагрузите его, чтобы увидеть новую версию; несохранённые изменения будут потеряны.
+	Reload	Перезагрузить
+	Couldn't reload {name}: {e}	Не удалось перезагрузить {name}: {e}
 	Choose a PNG or JPEG image (up to 4 MiB). Transparency is preserved.	Выберите изображение PNG или JPEG (до 4 МиБ). Прозрачность сохраняется.
 	Couldn't import the signature image: {e}	Не удалось импортировать изображение подписи: {e}
 
@@ -2120,6 +2129,10 @@ key	Space	Пробел
 	Resize panel window	Изменить размер окна панели
 	Tools	Инструменты
 	Inspector	Инспектор
+	Select page {label}	Выбрать страницу {label}
+	Rotate page {label} counterclockwise	Повернуть страницу {label} против часовой стрелки
+	Rotate page {label} clockwise	Повернуть страницу {label} по часовой стрелке
+	Delete page {label}	Удалить страницу {label}
 	Mouse wheel scroll speed	Скорость прокрутки колесом мыши
 scroll speed	Slow	Низкая
 scroll speed	Normal	Обычная
