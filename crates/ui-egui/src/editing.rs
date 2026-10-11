@@ -149,21 +149,35 @@ impl PdfCraftApp {
             Some(crate::canvas::ViewAction::CopyPages { cut }) => self.copy_pages(cut),
             Some(crate::canvas::ViewAction::PastePages) => self.paste_pages(),
             Some(crate::canvas::ViewAction::EnhanceCamera) => self.enhance_camera(i),
-            Some(crate::canvas::ViewAction::CancelCamera) => {
-                if let Some(view) = self.views.get_mut(i) {
-                    view.camera = None;
+            Some(crate::canvas::ViewAction::CancelCamera) => self.leave_camera(i),
+            Some(crate::canvas::ViewAction::CameraRotate { clockwise }) => {
+                if let Some(page) = self.views.get(i).and_then(|v| v.camera_done) {
+                    self.apply_edit(Edit::RotatePages { pages: vec![page], degrees: if clockwise { 90 } else { -90 } });
                 }
-                if self.quick_tool == crate::QuickTool::EnhanceCamera {
-                    self.quick_tool = crate::QuickTool::Select;
-                }
+            }
+            Some(crate::canvas::ViewAction::CameraNext(command)) => {
+                self.leave_camera(i);
+                self.execute(command);
             }
             None => {}
         }
         applied
     }
 
+    /// Leave Enhance ▸ Camera image on tab `i`.
+    fn leave_camera(&mut self, i: usize) {
+        if let Some(view) = self.views.get_mut(i) {
+            view.camera = None;
+            view.camera_done = None;
+        }
+        if self.quick_tool == crate::QuickTool::EnhanceCamera {
+            self.quick_tool = crate::QuickTool::Select;
+        }
+    }
+
     /// Enhance ▸ Camera image: straighten what the corners on tab `i` enclose. On success the
-    /// tool closes; on failure the corners stay so they can be adjusted.
+    /// bar offers rotate, crop and organize for the page; on failure the corners stay so they
+    /// can be adjusted.
     fn enhance_camera(&mut self, i: usize) {
         let Some(view) = self.views.get(i) else { return };
         let (id, Some(q)) = (view.id, view.camera) else { return };
@@ -174,11 +188,12 @@ impl PdfCraftApp {
         });
         match self.session.enhance_camera_page(id, q.page, corners) {
             Ok(()) => {
+                // The tool stays open with rotate, crop and organize for the enhanced page.
                 if let (Some(doc), Some(view)) = (self.session.get(id), self.views.get_mut(i)) {
                     view.document_changed(&doc.info);
                     view.camera = None;
+                    view.camera_done = Some(q.page);
                 }
-                self.quick_tool = crate::QuickTool::Select;
             }
             Err(e) => {
                 let label = crate::i18n::action_label("Enhance camera image");

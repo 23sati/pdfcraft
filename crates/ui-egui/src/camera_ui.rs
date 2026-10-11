@@ -44,6 +44,10 @@ pub(crate) fn page_input(ui: &egui::Ui, resp: &egui::Response, xf: &PageXform, p
         }
         return;
     }
+    // Once the page is enhanced, the bar's buttons take over.
+    if view.camera_done.is_some() {
+        return;
+    }
     // The tool starts with the corners on the current page.
     if view.camera.is_none() && page == view.current {
         view.camera = Some(CameraQuad::inset(page, xf.pw, xf.ph));
@@ -110,8 +114,8 @@ pub(crate) fn paint(painter: &egui::Painter, xf: &PageXform, page: usize, view: 
 }
 
 /// The floating bar at the top right of the document area (where the find bar goes, clear of a
-/// centred page's corners): Enhance page and Cancel. The instructions are a notice
-/// (`ocr.enhance_camera`).
+/// centred page's corners): Enhance page and Cancel; once the page is enhanced, rotate it either
+/// way, Crop pages, Organize pages, or Done. The instructions are a notice (`ocr.enhance_camera`).
 pub(crate) fn bar(ctx: &egui::Context, view: &mut DocView, area: Rect, t: &Tokens, allowed: bool) {
     egui::Area::new(egui::Id::new("camera-bar"))
         .order(egui::Order::Middle)
@@ -126,6 +130,31 @@ pub(crate) fn bar(ctx: &egui::Context, view: &mut DocView, area: Rect, t: &Token
                 .inner_margin(egui::Margin::symmetric(12, 8))
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
+                        // After Enhance page: put the page the right way up, trim it, or move on.
+                        if view.camera_done.is_some() {
+                            let icon = |ui: &mut egui::Ui, name: &str, tip: &str| {
+                                let r = ui.add_enabled(allowed, egui::Button::image(crate::icons::image(name, 18.0, t.text)).frame(false));
+                                // Named for screen readers (and tests), not only on hover.
+                                r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, allowed, tip));
+                                r.on_hover_text(tip).clicked()
+                            };
+                            if icon(ui, "rotate-ccw", tl!("Rotate counterclockwise")) {
+                                view.pending_action = Some(ViewAction::CameraRotate { clockwise: false });
+                            }
+                            if icon(ui, "rotate-cw", tl!("Rotate clockwise")) {
+                                view.pending_action = Some(ViewAction::CameraRotate { clockwise: true });
+                            }
+                            if crate::widgets::pill_button(ui, tl!("Crop pages"), false).clicked() {
+                                view.pending_action = Some(ViewAction::CameraNext("page.crop"));
+                            }
+                            if crate::widgets::pill_button(ui, tl!("Organize pages"), false).clicked() {
+                                view.pending_action = Some(ViewAction::CameraNext("page.organize"));
+                            }
+                            if crate::widgets::pill_button(ui, tl!("Done"), true).clicked() {
+                                view.pending_action = Some(ViewAction::CancelCamera);
+                            }
+                            return;
+                        }
                         let ready = allowed && view.camera.is_some();
                         if ui.add_enabled_ui(ready, |ui| crate::widgets::pill_button(ui, tl!("Enhance page"), true)).inner.clicked() {
                             view.pending_action = Some(ViewAction::EnhanceCamera);

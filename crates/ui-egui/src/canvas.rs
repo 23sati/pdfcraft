@@ -375,6 +375,9 @@ pub struct DocView {
     pub crop_drag: crate::crop::CropDrag,
     /// Enhance ▸ Camera image: the quadrilateral being placed.
     pub camera: Option<crate::camera_ui::CameraQuad>,
+    /// Enhance ▸ Camera image: the page just enhanced, while the bar offers rotate, crop and
+    /// organize.
+    pub camera_done: Option<usize>,
     /// Use a certificate: a signature rectangle being drawn, or an empty signature field clicked.
     pub sign: crate::sign_ui::SignView,
     /// Organize: the pages being dragged to a new place.
@@ -450,8 +453,14 @@ pub enum ViewAction {
     PastePages,
     /// Enhance ▸ Camera image: straighten what the corners enclose.
     EnhanceCamera,
-    /// Leave Enhance ▸ Camera image without changing the page.
+    /// Leave Enhance ▸ Camera image (Cancel before Enhance page, Done after it).
     CancelCamera,
+    /// After Enhance page: turn the enhanced page a quarter.
+    CameraRotate {
+        clockwise: bool,
+    },
+    /// After Enhance page: leave the tool for this command (Crop pages, Organize pages).
+    CameraNext(&'static str),
 }
 
 impl DocView {
@@ -572,6 +581,7 @@ impl DocView {
             pending_redaction: None,
             crop_drag: None,
             camera: None,
+            camera_done: None,
             sign: Default::default(),
             org_drag: None,
             panel_drag: None,
@@ -1684,7 +1694,7 @@ pub fn shortcuts(view: &mut DocView, ctx: &egui::Context) {
     }
     let key = |k| ctx.input(|i| i.key_pressed(k));
     if key(Key::Escape) {
-        if view.camera.is_some() {
+        if view.camera.is_some() || view.camera_done.is_some() {
             view.pending_action = Some(ViewAction::CancelCamera);
         } else if view.selection.is_some() {
             view.selection = None;

@@ -71,8 +71,36 @@ fn dragging_a_corner_then_enhance_page_straightens_the_page() {
     assert!((w - 270.0).abs() < 2.0 && (hh - 360.0).abs() < 2.0, "{w}×{hh}");
     assert_eq!(size(&h, 1), (300.0, 400.0), "only the page with the corners changes");
     assert_eq!(undo_label(&h).as_deref(), Some("Enhance camera image"));
-    assert_eq!(h.state().quick_tool, QuickTool::Select);
+    // The tool stays open for the enhanced page: turn it, then Done.
+    assert_eq!(h.state().quick_tool, QuickTool::EnhanceCamera);
     assert!(h.state().views[0].camera.is_none());
+    assert_eq!(h.state().views[0].camera_done, Some(0));
+    h.get_by_label("Rotate clockwise").click();
+    h.run_steps(4);
+    let (w, hh) = size(&h, 0);
+    assert!((w - 360.0).abs() < 2.0 && (hh - 270.0).abs() < 2.0, "{w}×{hh}");
+    assert_eq!(undo_label(&h).as_deref(), Some("Rotate page"));
+    h.get_by_label("Done").click();
+    h.run_steps(3);
+    assert_eq!(h.state().quick_tool, QuickTool::Select);
+    assert_eq!(h.state().views[0].camera_done, None);
+}
+
+#[test]
+fn after_enhance_page_crop_and_organize_take_over() {
+    for (button, then) in [("Crop pages", QuickTool::Crop), ("Organize pages", QuickTool::Select)] {
+        let mut h = harness();
+        assert!(h.state_mut().execute("ocr.enhance_camera"));
+        h.run_steps(3);
+        h.get_by_label("Enhance page").click();
+        h.run_steps(4);
+        assert_eq!(h.state().views[0].camera_done, Some(0));
+        h.get_by_label(button).click();
+        h.run_steps(3);
+        assert_eq!(h.state().quick_tool, then, "{button}");
+        assert_eq!(h.state().views[0].camera_done, None, "{button}");
+        assert_eq!(h.state().views[0].organize, button == "Organize pages");
+    }
 }
 
 #[test]

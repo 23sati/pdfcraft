@@ -578,6 +578,7 @@ impl PdfCraftApp {
                     && let Some(view) = self.views.get_mut(i)
                     && let Some(page) = self.session.get(view.id).and_then(|d| d.info.pages.get(view.current).cloned())
                 {
+                    view.camera_done = None;
                     view.camera = self.session.detect_camera_corners(view.id, view.current).map(|found| crate::camera_ui::CameraQuad {
                         page: view.current,
                         corners: found.map(|[x, y]| page.user_to_view(x as f32, y as f32)),
