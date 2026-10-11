@@ -1139,7 +1139,7 @@ fn a_form_xobject_relabelled_as_file_plumbing_is_still_judged() {
             });
             let s = signatures(&open(&edited), &edited, &trust).into_iter().find(|s| s.signed).unwrap();
             assert_eq!(s.status, Status::Invalid, "{certify:?} /{label}: {:?}", s.details);
-            assert!(matches!(&s.modification, Modification::Disallowed(k) if k.iter().any(|k| k == "other changes")), "{:?}", s.modification);
+            assert!(matches!(&s.modification, Modification::Disallowed(k) if k.contains(&"other changes")), "{:?}", s.modification);
         }
     }
 }
@@ -1212,7 +1212,7 @@ fn a_signed_page_relabelled_or_stripped_of_type_is_still_page_content() {
         });
         let s = signatures(&open(&bumped), &bumped, &trust).into_iter().find(|s| s.signed).unwrap();
         assert_eq!(s.status, Status::Valid, "{certify:?}: {:?}", s.details);
-        assert!(matches!(&s.modification, Modification::Allowed(k) if k.iter().any(|k| k == "metadata")), "{certify:?}: {:?}", s.modification);
+        assert!(matches!(&s.modification, Modification::Allowed(k) if k.contains(&"metadata")), "{certify:?}: {:?}", s.modification);
     }
 }
 
