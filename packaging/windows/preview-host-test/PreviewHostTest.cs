@@ -268,17 +268,32 @@ namespace LinkcoPreviewHostTest
                 RECT r;
                 if (!GetWindowRect(child, out r) || r.right - r.left <= 0 || r.bottom - r.top <= 0)
                     return "(handler window has no size)";
-                using (Bitmap bmp = new Bitmap(r.right - r.left, r.bottom - r.top, PixelFormat.Format32bppArgb))
+                Bitmap bmp = new Bitmap(r.right - r.left, r.bottom - r.top, PixelFormat.Format32bppArgb);
+                bool printed = false;
+                IntPtr target = child;
+                // PrintWindow waits for the other process's window to paint; keep this thread pumping (the child
+                // may ask its parent - this window - for things meanwhile) and give up after 5 s.
+                Thread worker = new Thread(delegate()
                 {
-                    bool printed;
                     using (Graphics g = Graphics.FromImage(bmp))
                     {
                         IntPtr hdc = g.GetHdc();
-                        try { printed = PrintWindow(child, hdc, 2 /* PW_RENDERFULLCONTENT */); }
+                        try { printed = PrintWindow(target, hdc, 0); }
                         finally { g.ReleaseHdc(hdc); }
                     }
-                    return (printed ? "" : "PrintWindow failed; ") + bmp.Width + "x" + bmp.Height + ", " + Stats(bmp, screenshot);
+                });
+                worker.IsBackground = true;
+                worker.Start();
+                Stopwatch sw = Stopwatch.StartNew();
+                while (worker.IsAlive && sw.ElapsedMilliseconds < 5000)
+                {
+                    Application.DoEvents();
+                    Thread.Sleep(10);
                 }
+                if (worker.IsAlive)
+                    return "PrintWindow did not return in 5 s (the handler window is not painting)";
+                using (bmp)
+                    return (printed ? "" : "PrintWindow failed; ") + bmp.Width + "x" + bmp.Height + ", " + Stats(bmp, screenshot);
             }
             catch (Exception ex)
             {

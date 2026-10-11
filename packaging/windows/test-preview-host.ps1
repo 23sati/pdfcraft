@@ -163,7 +163,11 @@ function Run-Host([string] $name, [string] $mode, [switch] $AsAdmin) {
       $il = if (Test-Path "$outFile.il") { ((Get-Content "$outFile.il" -Raw) -replace '\s{2,}', ' ').Trim() } else { '?' }
       Say "  (ran un-elevated: $how; $il)"
     } else {
-      Say "  ($how did not run the host; running it elevated instead)"
+      try { Stop-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue } catch { }
+      Get-Process -Name PreviewHostTest -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+      Start-Sleep -Seconds 1
+      $code = 'none - the host did not finish in time (hung) and was stopped'
+      Say "  ($how)"
     }
   }
   if ($null -eq $code) {
