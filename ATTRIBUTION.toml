@@ -217,7 +217,7 @@ licence = "MIT OR Apache-2.0"
 licence_file = "LICENSE-MIT"
 kind = "translation"
 usage = "Turkish UI strings, compiled in by crates/ui-egui/src/i18n/mod.rs"
-sha256 = "71de0b655227f55c3b8f3536e5a1369becaeee5c956d4f95a6cf6e67e3ab6db7"
+sha256 = "5688538845a80c154feabd096badbf097485dea8a7402fede4ef7d71466e9d6a"
 
 [[asset]]
 path = "assets/icons/accessibility.svg"

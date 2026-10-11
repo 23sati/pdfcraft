@@ -2185,3 +2185,64 @@ key	Space	Boşluk
 	Tools	Araçlar
 	Inspector	Denetçi
 	Interface size	Arayüz boyutu
+
+# Added for labels that landed alongside this catalog (2026-10-11).
+	Appearance mode	Görünüm modu
+	Light	Açık
+	Dark	Koyu
+	Active	Etkin
+	Dark theme	Koyu tema
+	Appearance settings…	Görünüm ayarları…
+	Save ({key})	Kaydet ({key})
+	Select page {label}	{label} sayfasını seç
+	Rotate page {label} counterclockwise	{label} sayfasını saat yönünün tersine döndür
+	Rotate page {label} clockwise	{label} sayfasını saat yönünde döndür
+	Delete page {label}	{label} sayfasını sil
+	Offset from centre	Merkezden uzaklık
+	Graphic	Grafik
+	Signer's name	İmzalayanın adı
+	Fill & Sign signature	Doldur ve İmzala imzası
+	Choose image…	Resim seç…
+	This file is already as small as it can be made ({size}). No copy was saved.	Bu dosya zaten olabildiğince küçük ({size}). Kopya kaydedilmedi.
+	Saved {place}: {before} → {after} (not smaller){detail}	{place} kaydedildi: {before} → {after} (küçülmedi){detail}
+	Enter permissions password…	İzin parolasını gir…
+	Permissions password	İzin parolası
+	“{name}” has security restrictions. Enter its permissions password to lift them.	“{name}” güvenlik kısıtlamalarına sahip. Kaldırmak için izin parolasını girin.
+	Restrictions lifted	Kısıtlamalar kaldırıldı
+	Couldn't unlock {name}: {e}	{name} kilidi açılamadı: {e}
+	This document has no restrictions to lift	Bu belgede kaldırılacak kısıtlama yok
+	The document's security settings don't allow copying text and images	Belgenin güvenlik ayarları metin ve resimlerin kopyalanmasına izin vermiyor
+	Add the files to combine	Birleştirilecek dosyaları ekleyin
+	Leave out files that can't be read?	Okunamayan dosyalar dışarıda bırakılsın mı?
+	These files can't be read, so they won't be in the combined PDF:	Bu dosyalar okunamıyor, bu yüzden birleştirilmiş PDF'de yer almayacak:
+	Combine the rest	Kalanları birleştir
+	and {n} more	ve {n} tane daha
+	Drop PDFs, images, text files or folders here, or choose them.	PDF'leri, resimleri, metin dosyalarını veya klasörleri buraya bırakın ya da seçin.
+	Every PDF, image and text file in the folder	Klasördeki tüm PDF, resim ve metin dosyaları
+	Every PDF, image and text file in the folder and the folders inside it	Klasördeki ve alt klasörlerindeki tüm PDF, resim ve metin dosyaları
+	No PDFs, images or text files found in {folder}	{folder} içinde PDF, resim veya metin dosyası bulunamadı
+	Added the first {n} files in {folder}	{folder} içindeki ilk {n} dosya eklendi
+	Margins	Kenar boşlukları
+	For page sizes and margins.	Sayfa boyutları ve kenar boşlukları için.
+	PDF page: {size}	PDF sayfası: {size}
+	Match page at 100%	Sayfayı %100'de eşleştir
+	PDF scale: {scale}%	PDF ölçeği: %{scale}
+	Printer paper and scaling may differ. Check driver settings.	Yazıcı kâğıdı ve ölçekleme farklı olabilir. Sürücü ayarlarını kontrol edin.
+	Drawing scale changes. Use Actual size for full-scale plans.	Çizim ölçeği değişir. Tam ölçekli planlar için Gerçek boyutu kullanın.
+	Reload documents when their files change on disk	Diskteki dosyaları değiştiğinde belgeleri yeniden yükle
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Bu dosya diskte değişti. Yeni sürümü görmek için yeniden yükleyin; kaydedilmemiş değişiklikleriniz kaybolacak.
+	Reload	Yeniden yükle
+	Couldn't reload {name}: {e}	{name} yeniden yüklenemedi: {e}
+	Mouse wheel scroll speed	Fare tekerleği kaydırma hızı
+scroll speed	Slow	Yavaş
+scroll speed	Normal	Orta
+scroll speed	Fast	Hızlı
+	Enhance camera image	Kamera görüntüsünü iyileştir
+	Drag the corners onto the document's edges, then choose Enhance page.	Köşeleri belgenin kenarlarına sürükleyin, ardından Sayfayı iyileştir'i seçin.
+	Enhance page	Sayfayı iyileştir
+	Done adding text	Metin ekleme bitti
+	Discard this text (Esc)	Bu metni at (Esc)
+	Clean-up	Temizleme
+	Original	Orijinal
+	Greyscale	Gri tonlamalı
+	Black and white	Siyah beyaz
