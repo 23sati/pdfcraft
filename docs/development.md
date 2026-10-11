@@ -15,7 +15,9 @@ use the selected application palette, so desktop changes cannot override a manua
 
 On Linux the native app starts an XDG Settings portal subscription when System is first selected.
 It reads `org.freedesktop.appearance` / `color-scheme`, where numeric `1` requests Dark, `2` requests
-Light, and `0` means no preference. The subscription is installed before the initial read. Initial
+Light, and `0` means no preference. When that states no preference or is missing, it falls back to
+`org.gnome.desktop.interface` / `color-scheme` (`prefer-dark`, `prefer-light`, `default`), which
+XFCE's portal answers instead of the freedesktop namespace; KDE answers only the freedesktop one. The subscription is installed before the initial read. Initial
 results and later `SettingChanged` signals wake an idle window. There is no periodic desktop
 polling, and signals received in a manual mode update the cache without requesting frames.
 

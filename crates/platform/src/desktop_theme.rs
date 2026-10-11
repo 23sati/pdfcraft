@@ -153,6 +153,10 @@ mod portal {
     const INTERFACE: &str = "org.freedesktop.portal.Settings";
     const NAMESPACE: &str = "org.freedesktop.appearance";
     const KEY: &str = "color-scheme";
+    /// The colour scheme under its GNOME schema name, as a string. GNOME's portal answers it, and
+    /// so does XFCE's, which proxies the GSettings schemas but not the freedesktop namespace. KDE
+    /// answers only the freedesktop one, so that one wins when it states a preference.
+    const GNOME_NAMESPACE: &str = "org.gnome.desktop.interface";
 
     /// Standard uint32 semantics, including future values treated as no preference.
     fn numeric(value: &Value<'_>) -> Option<Option<DesktopAppearance>> {
@@ -162,6 +166,39 @@ mod portal {
             Value::U32(_) => Some(None),
             _ => None,
         }
+    }
+
+    /// GNOME's string values; anything but the two preferences (`default`) is no preference.
+    fn gnome_scheme(value: &Value<'_>) -> Option<Option<DesktopAppearance>> {
+        match value {
+            Value::Str(scheme) => Some(match scheme.as_str() {
+                "prefer-dark" => Some(DesktopAppearance::Dark),
+                "prefer-light" => Some(DesktopAppearance::Light),
+                _ => None,
+            }),
+            _ => None,
+        }
+    }
+
+    /// The freedesktop answer when it states a preference, otherwise the GNOME schema's.
+    fn combined(freedesktop: Option<DesktopAppearance>, gnome: Option<DesktopAppearance>) -> Option<DesktopAppearance> {
+        freedesktop.or(gnome)
+    }
+
+    fn read_gnome_reply(reply: &zbus::Message) -> Option<DesktopAppearance> {
+        let answer = reply.body().deserialize::<OwnedValue>().ok()?;
+        // Same two variant layers as the freedesktop Read.
+        let Value::Value(inner) = &*answer else { return None };
+        gnome_scheme(inner).flatten()
+    }
+
+    fn gnome_setting_changed(message: &zbus::Message) -> Option<Option<DesktopAppearance>> {
+        let body = message.body();
+        let (namespace, key, value) = body.deserialize::<(&str, &str, OwnedValue)>().ok()?;
+        if namespace != GNOME_NAMESPACE || key != KEY {
+            return None;
+        }
+        gnome_scheme(&value)
     }
 
     fn read_reply(reply: &zbus::Message) -> Option<DesktopAppearance> {
@@ -194,28 +231,41 @@ mod portal {
         watch_connection(shared, connection).await
     }
 
-    async fn watch_connection(shared: &Shared, connection: zbus::Connection) -> zbus::Result<()> {
-        let rule = zbus::MatchRule::builder()
+    fn setting_rule(namespace: &'static str) -> zbus::Result<zbus::MatchRule<'static>> {
+        Ok(zbus::MatchRule::builder()
             .msg_type(zbus::message::Type::Signal)
             .sender(DESTINATION)?
             .path(PATH)?
             .interface(INTERFACE)?
             .member("SettingChanged")?
-            .arg(0, NAMESPACE)?
+            .arg(0, namespace)?
             .arg(1, KEY)?
-            .build();
-        // Install the match before reading. Unlike Proxy::receive_signal this does not require
+            .build())
+    }
+
+    async fn watch_connection(shared: &Shared, connection: zbus::Connection) -> zbus::Result<()> {
+        // Install the matches before reading. Unlike Proxy::receive_signal this does not require
         // the portal to already own its bus name, so Read can activate an installed portal.
-        let mut changes = zbus::MessageStream::for_match_rule(rule, &connection, Some(64)).await?;
+        let freedesktop_changes = zbus::MessageStream::for_match_rule(setting_rule(NAMESPACE)?, &connection, Some(64)).await?;
+        let gnome_changes = zbus::MessageStream::for_match_rule(setting_rule(GNOME_NAMESPACE)?, &connection, Some(64)).await?;
+        let mut changes = freedesktop_changes.or(gnome_changes);
         let reply = connection.call_method(Some(DESTINATION), PATH, Some(INTERFACE), "Read", &(NAMESPACE, KEY)).await;
-        shared.publish(reply.as_ref().ok().and_then(read_reply));
+        let mut freedesktop = reply.as_ref().ok().and_then(read_reply);
+        let reply = connection.call_method(Some(DESTINATION), PATH, Some(INTERFACE), "Read", &(GNOME_NAMESPACE, KEY)).await;
+        let mut gnome = reply.as_ref().ok().and_then(read_gnome_reply);
+        shared.publish(combined(freedesktop, gnome));
         while let Some(message) = changes.next().await {
             let message = message?;
             // Keep every subscribed update, including those queued during Read. A Read handler
             // can capture an old value and emit a new one before returning its older snapshot.
             if let Some(appearance) = setting_changed(&message) {
-                shared.publish(appearance);
+                freedesktop = appearance;
+            } else if let Some(appearance) = gnome_setting_changed(&message) {
+                gnome = appearance;
+            } else {
+                continue;
             }
+            shared.publish(combined(freedesktop, gnome));
         }
         shared.publish(None);
         Ok(())
@@ -263,6 +313,25 @@ mod portal {
             assert_eq!(setting_changed(&signal(NAMESPACE, KEY, Value::Value(Box::new(Value::U32(1))))), None);
             let wrong_body = zbus::Message::signal(PATH, INTERFACE, "SettingChanged").unwrap().build(&(NAMESPACE, KEY)).unwrap();
             assert_eq!(setting_changed(&wrong_body), None);
+        }
+
+        #[test]
+        fn the_gnome_schema_answers_when_the_freedesktop_one_states_no_preference() {
+            // XFCE's portal proxies only the GSettings schemas; its answer is a string.
+            assert_eq!(read_gnome_reply(&reply(Value::Value(Box::new(Value::from("prefer-dark"))))), Some(DesktopAppearance::Dark));
+            assert_eq!(read_gnome_reply(&reply(Value::Value(Box::new(Value::from("prefer-light"))))), Some(DesktopAppearance::Light));
+            assert_eq!(read_gnome_reply(&reply(Value::Value(Box::new(Value::from("default"))))), None);
+            assert_eq!(read_gnome_reply(&reply(Value::Value(Box::new(Value::U32(1))))), None);
+            assert_eq!(read_gnome_reply(&reply(Value::from("prefer-dark"))), None);
+            assert_eq!(gnome_setting_changed(&signal(GNOME_NAMESPACE, KEY, Value::from("prefer-dark"))), Some(Some(DesktopAppearance::Dark)));
+            assert_eq!(gnome_setting_changed(&signal(GNOME_NAMESPACE, KEY, Value::from("default"))), Some(None));
+            assert_eq!(gnome_setting_changed(&signal(GNOME_NAMESPACE, "gtk-theme", Value::from("prefer-dark"))), None);
+            assert_eq!(gnome_setting_changed(&signal(NAMESPACE, KEY, Value::from("prefer-dark"))), None);
+            assert_eq!(gnome_setting_changed(&signal(GNOME_NAMESPACE, KEY, Value::U32(1))), None);
+            // The freedesktop answer wins when it states one (KDE answers only that one).
+            assert_eq!(combined(Some(DesktopAppearance::Light), Some(DesktopAppearance::Dark)), Some(DesktopAppearance::Light));
+            assert_eq!(combined(None, Some(DesktopAppearance::Dark)), Some(DesktopAppearance::Dark));
+            assert_eq!(combined(None, None), None);
         }
 
         #[test]
