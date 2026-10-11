@@ -525,7 +525,8 @@ fn create_multiple_reads_each_source_only_after_the_previous_one_is_released() {
 
 #[test]
 fn create_multiple_gives_the_bytes_of_combine_ranges_and_refuses_a_bad_source() {
-    let s = Session::new();
+    // The two combines are compared byte for byte, and each stamps the clock: pin it.
+    let s = Session::new().with_clock(|| 1_700_000_000);
     let (a, b) = (Arc::new(fixture(3)), Arc::new(fixture(2)));
     let sources: Vec<CombineSource> =
         vec![("a".into(), a.clone(), Some("1-2".into())), ("b".into(), b, None), ("a".into(), a.clone(), Some("3".into()))];
