@@ -699,7 +699,7 @@
 	Centre	Centrar
 	Align right	Alinear a la derecha
 	Justify	Justificar
-	Standard fonts; text outside Windows-1252 isn't supported yet.	Fuentes estándar; el texto fuera de Windows-1252 aún no es compatible.
+	Thai and Arabic use regular fallback fonts when available.	El tailandés y el árabe usan fuentes alternativas de estilo normal cuando están disponibles.
 	Edit image	Editar imagen
 	Rotate counterclockwise	Girar a la izquierda
 	Rotate clockwise	Girar a la derecha
@@ -2048,7 +2048,10 @@
 	Couldn't import the signature image: {e}	No se pudo importar la imagen de la firma: {e}
 	Go to page…	Ir a la página…
 	For page sizes and margins.	Para tamaños de página y márgenes.
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	Las fuentes de texto PDF no pueden mostrar «{c}» ({code}). Elija texto compatible.
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Las fuentes estándar no pueden mostrar «{c}» ({code}). Por ahora solo se pueden añadir como texto caracteres de Europa occidental.
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	La fuente de este campo no puede mostrar «{c}» ({code}), así que PdfCraft muestra ? en su lugar. El valor se guarda y los demás visores de PDF vuelven a dibujar el campo a partir de él.
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Las fuentes con las que escribe PdfCraft no pueden mostrar «{c}» ({code}), así que aparece como ? en todos los visores de PDF. El texto se guarda.
 	Open arrow	Flecha abierta
 	Closed arrow	Flecha cerrada
 	Butt	Extremo recto
