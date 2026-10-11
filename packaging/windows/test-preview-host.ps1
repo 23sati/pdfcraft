@@ -275,6 +275,87 @@ foreach ($k in "HKCU:\Software\Classes\CLSID\$Clsid", 'HKCU:\Software\Classes\Ap
 }
 Run-Host 'D machine-wide registration only (installers), out of process' 'local'
 
+# U: a real standard (non-admin) user - medium integrity, as Explorer for most people - registers
+# per user, exactly as Linkco PDF Editor does when it starts, and hosts the handler.
+if ($IsAdmin) {
+  Stop-Hosts
+  Clear-Registration
+  Say ""
+  Say "=== U standard user: per-user registration (as the app does), then hosted out of process and in process ==="
+  $U = 'C:\LinkcoUserTest'
+  if (Test-Path $U) { Remove-Item $U -Recurse -Force }
+  New-Item -ItemType Directory -Force -Path $U | Out-Null
+  & icacls.exe $U /grant '*S-1-5-32-545:(OI)(CI)M' | Out-Null
+  Copy-Item $HostExe, $Pdf, $vbs $U
+  $uName = 'linkcotest'
+  $uPw = 'Lk!' + [Guid]::NewGuid().ToString('N').Substring(0, 16) + 'aA9'
+  $userOk = $false
+  try {
+    if (Get-LocalUser -Name $uName -ErrorAction SilentlyContinue) { Remove-LocalUser -Name $uName }
+    New-LocalUser -Name $uName -Password (ConvertTo-SecureString $uPw -AsPlainText -Force) -PasswordNeverExpires -AccountNeverExpires | Out-Null
+    Add-LocalGroupMember -SID 'S-1-5-32-545' -Member $uName -ErrorAction SilentlyContinue
+    $userOk = $true
+  } catch { Say "  (could not create a standard user: $($_.Exception.Message))" }
+  if ($userOk) {
+    $q = "'"
+    Set-Content -LiteralPath "$U\register.ps1" -Encoding UTF8 -Value @(
+      ('$ErrorActionPreference = ' + $q + 'Stop' + $q),
+      ('$dll = ' + $q + $Dll + $q),
+      ('$t = [Reflection.Assembly]::Load([IO.File]::ReadAllBytes($dll)).GetType(' + $q + 'LinkcoPdfPreview.LinkcoPdfPreviewHandler' + $q + ')'),
+      '$t::RegisterPreviewHandler($dll, $false)',
+      ('"registered per user; CodeBase: " + (Get-ItemProperty ' + $q + 'HKCU:\Software\Classes\CLSID\' + $Clsid + '\InprocServer32' + $q + ').CodeBase'),
+      '"--- Diagnose() as this user ---"',
+      '$t::Diagnose()')
+    $sh = ' ' + $Seconds + ' '
+    Set-Content -LiteralPath "$U\run.cmd" -Encoding ASCII -Value @(
+      '@echo off',
+      "whoami /groups | findstr /c:""Mandatory Label"" > ""$U\il.txt""",
+      "powershell -NoProfile -ExecutionPolicy Bypass -File ""$U\register.ps1"" > ""$U\reg.txt"" 2>&1",
+      """$U\PreviewHostTest.exe"" $Clsid ""$U\sample.pdf"" local$sh""$U\shot-local.png"" > ""$U\local.txt"" 2>&1",
+      ">""$U\local.code"" echo %ERRORLEVEL%",
+      """$U\PreviewHostTest.exe"" $Clsid ""$U\sample.pdf"" inproc$sh""$U\shot-inproc.png"" > ""$U\inproc.txt"" 2>&1",
+      ">""$U\inproc.code"" echo %ERRORLEVEL%",
+      "%SystemRoot%\System32\cscript.exe //nologo ""$U\create.vbs"" > ""$U\vbs.txt"" 2>&1",
+      "type ""%USERPROFILE%\AppData\LocalLow\LinkcoPdfPreview\preview.log"" > ""$U\log.txt"" 2>&1",
+      ">""$U\done.txt"" echo done")
+    $how = $null
+    try {
+      $cred = New-Object Management.Automation.PSCredential(".\$uName", (ConvertTo-SecureString $uPw -AsPlainText -Force))
+      Start-Process -FilePath (Join-Path $env:WINDIR 'System32\cmd.exe') -ArgumentList '/c', "$U\run.cmd" -Credential $cred -LoadUserProfile -WorkingDirectory $U -WindowStyle Hidden | Out-Null
+      $how = 'Start-Process -Credential'
+    } catch { Say "  (Start-Process -Credential failed: $($_.Exception.Message))" }
+    if (-not $how) {
+      try {
+        $action = New-ScheduledTaskAction -Execute (Join-Path $env:WINDIR 'System32\cmd.exe') -Argument "/c ""$U\run.cmd"""
+        Register-ScheduledTask -TaskName 'LinkcoPreviewTest-U' -Action $action -User "$env:COMPUTERNAME\$uName" -Password $uPw -RunLevel Limited -Force | Out-Null
+        Start-ScheduledTask -TaskName 'LinkcoPreviewTest-U'
+        $how = 'scheduled task with password'
+      } catch { Say "  (scheduled task as the standard user failed: $($_.Exception.Message))" }
+    }
+    if ($how) {
+      $deadline = (Get-Date).AddSeconds(2 * $Seconds + 180)
+      while (-not (Test-Path "$U\done.txt") -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+      $il = if (Test-Path "$U\il.txt") { ((Get-Content "$U\il.txt" -Raw) -replace '\s{2,}', ' ').Trim() } else { 'integrity level unknown' }
+      Say "  (ran as standard user $uName via $how; $il)"
+      if (-not (Test-Path "$U\done.txt")) { Say "  (did not finish in time)" }
+      foreach ($part in @(@('reg.txt', 'registration'), @('local.txt', 'out of process (prevhost, as Explorer)'), @('local.code', 'exit code'), @('inproc.txt', 'in process'), @('inproc.code', 'exit code'), @('vbs.txt', 'native cscript CreateObject'), @('log.txt', 'preview.log'))) {
+        $f = Join-Path $U $part[0]
+        Say "  --- $($part[1]) ---"
+        if (Test-Path $f) { foreach ($l in ((Get-Content -LiteralPath $f) | Where-Object { "$_".Trim() } | Select-Object -Last 40)) { Say "    $l" } } else { Say "    (missing)" }
+      }
+      Show-FusionLog
+    }
+    try { Unregister-ScheduledTask -TaskName 'LinkcoPreviewTest-U' -Confirm:$false -ErrorAction SilentlyContinue } catch { }
+    Get-Process -IncludeUserName -ErrorAction SilentlyContinue | Where-Object { $_.UserName -like "*\$uName" } | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+    try { Remove-LocalUser -Name $uName } catch { }
+    Get-CimInstance Win32_UserProfile -ErrorAction SilentlyContinue | Where-Object { $_.LocalPath -like "*\$uName*" } | Remove-CimInstance -ErrorAction SilentlyContinue
+  }
+  Remove-Item $U -Recurse -Force -ErrorAction SilentlyContinue
+  Clear-Registration
+  $type::RegisterPreviewHandler($Dll, $true)
+}
+
 Say ""
 Say "=== Diagnose() ==="
 Say ($type::Diagnose())
