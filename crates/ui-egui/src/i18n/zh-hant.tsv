@@ -2092,6 +2092,10 @@ key	Space	空格
 	Resize panel window	調整面板視窗大小
 	Tools	工具
 	Inspector	檢查器
+	Mouse wheel scroll speed	滑鼠滾輪捲動速度
+scroll speed	Slow	慢
+scroll speed	Normal	正常
+scroll speed	Fast	快
 	Table rows belong directly in a table or its head, body or foot. Fix the table's tags.	表格列應直接位於表格或其表頭、主體、表尾內。請修正表格標記。
 	Enhance camera image	增強相機影像
 	Drag the corners onto the document's edges, then choose Enhance page.	將四個角拖曳到文件邊緣，然後選擇「增強頁面」。

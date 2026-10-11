@@ -2227,6 +2227,10 @@ key	Space	مسافة
 	Panels	اللوحات
 	Resize panels	تغيير حجم اللوحات
 	Resize panel window	تغيير حجم نافذة اللوحة
+	Mouse wheel scroll speed	سرعة التمرير بعجلة الماوس
+scroll speed	Slow	بطيئة
+scroll speed	Normal	عادية
+scroll speed	Fast	سريعة
 	Enhance camera image	تحسين صورة الكاميرا
 	Drag the corners onto the document's edges, then choose Enhance page.	اسحب الزوايا إلى حواف المستند، ثم اختر تحسين الصفحة.
 	Enhance page	تحسين الصفحة

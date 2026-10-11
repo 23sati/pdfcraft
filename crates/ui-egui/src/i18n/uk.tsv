@@ -2228,6 +2228,10 @@ key	Space	Пробіл
 	Panels	Панелі
 	Resize panels	Змінити розмір панелей
 	Resize panel window	Змінити розмір вікна панелі
+	Mouse wheel scroll speed	Швидкість прокручування коліщатком миші
+scroll speed	Slow	Повільна
+scroll speed	Normal	Звичайна
+scroll speed	Fast	Швидка
 	Enhance camera image	Поліпшити знімок з камери
 	Drag the corners onto the document's edges, then choose Enhance page.	Перетягніть кути до країв документа, потім виберіть «Поліпшити сторінку».
 	Enhance page	Поліпшити сторінку

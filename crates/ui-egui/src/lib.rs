@@ -112,6 +112,7 @@ pub(crate) const MAX_AUTHOR_CHARS: usize = 200;
 pub mod portable;
 mod protect;
 mod recovery;
+pub mod scroll_speed;
 #[cfg(not(target_arch = "wasm32"))]
 mod system_fonts;
 pub mod theme;
@@ -422,6 +423,8 @@ pub struct PdfCraftApp {
     desktop_theme: pdfcraft_platform::desktop_theme::DesktopTheme,
     /// The last answer [`desktop_theme`] gave, so a frame that asks costs nothing.
     desktop_dark: Option<bool>,
+    /// How far a mouse-wheel notch scrolls.
+    pub scroll_speed: scroll_speed::ScrollSpeed,
     /// Interface language preference: `auto` (follow the system) or a code from [`i18n::LANGUAGES`].
     pub language: String,
     /// Preferences ▸ Interface size as a factor, or `None` to follow [`Self::system_text_scale`].
@@ -735,6 +738,7 @@ impl PdfCraftApp {
             theme_preference: ThemePreference::Light,
             desktop_theme: pdfcraft_platform::desktop_theme::DesktopTheme::start(),
             desktop_dark: None,
+            scroll_speed: scroll_speed::ScrollSpeed::default(),
             language: i18n::AUTO.to_string(),
             ui_scale: None,
             system_text_scale: 1.0,
@@ -1444,6 +1448,7 @@ impl PdfCraftApp {
             "last_session": self.reopen_last_session.then(|| self.session_to_save()),
             "pinned_folders": self.pinned.folders,
             "theme": self.theme_preference,
+            "scroll_speed": self.scroll_speed,
             "default_mode": self.default_mode,
             "default_layout": self.view_defaults.layout.as_str(),
             "default_zoom": self.view_defaults.zoom_name(),
@@ -1520,6 +1525,9 @@ impl PdfCraftApp {
         self.pinned.restore(&v["pinned_folders"]);
         if let Ok(preference) = serde_json::from_value::<ThemePreference>(v["theme"].clone()) {
             self.set_theme_preference(preference);
+        }
+        if let Ok(speed) = serde_json::from_value::<scroll_speed::ScrollSpeed>(v["scroll_speed"].clone()) {
+            self.scroll_speed = speed;
         }
         if let Ok(mode) = serde_json::from_value::<Mode>(v["default_mode"].clone()) {
             self.default_mode = mode;
@@ -1638,6 +1646,9 @@ impl PdfCraftApp {
                     _ => return Err("theme must be light, dark, or system".into()),
                 };
                 self.set_theme_preference(preference);
+            }
+            ("scroll_speed", _) => {
+                self.scroll_speed = scroll_speed::ScrollSpeed::parse(value).ok_or("scroll_speed must be slow, normal, or fast")?;
             }
             ("panel", _) => {
                 self.right = match value {
@@ -1960,6 +1971,8 @@ impl eframe::App for PdfCraftApp {
     /// would keep the place the pointer entered at: tell it where the pointer really is, so the
     /// page grid can show (and use) the gap under it.
     fn raw_input_hook(&mut self, ctx: &egui::Context, raw: &mut egui::RawInput) {
+        // Before egui reads this frame's wheel input.
+        self.scroll_speed.apply(ctx, raw);
         if raw.hovered_files.is_empty() && raw.dropped_files.is_empty() {
             return;
         }
@@ -1999,6 +2012,8 @@ impl eframe::App for PdfCraftApp {
         ui_scale::sync(ctx, ui_scale::factor(self.ui_scale, self.system_text_scale), &mut self.ui_scale_applied);
         // Remember user work even if its tab is subsequently closed or Home is selected.
         self.startup_superseded |= !self.views.is_empty() || self.combine_showing() || self.dialog.is_some() || self.password_prompt.is_some();
+        // Also done in `raw_input_hook`, before input; here for hosts that don't call the hook.
+        self.scroll_speed.set_line_speed(ctx);
         // Before taking this frame's drop: the grid must be drawn once with the pointer where
         // the files were let go before the gap is read.
         self.finish_grid_drop(ctx);
