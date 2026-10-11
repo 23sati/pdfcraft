@@ -65,16 +65,63 @@ fn page_selection() {
     assert_eq!(select_pages(5, Some("ii-2, A-1"), &labels, Subset::All, false).unwrap(), [1, 2, 3, 4], "labels, even with a dash");
     assert_eq!(select_pages(5, None, &[], Subset::Even, true).unwrap(), [3, 1]);
     assert_eq!(select_pages(5, None, &[], Subset::Odd, false).unwrap(), [0, 2, 4]);
-    assert!(matches!(select_pages(5, Some("7"), &[], Subset::All, false), Err(PrintError::Invalid(_))));
-    assert!(matches!(select_pages(5, Some("x"), &[], Subset::All, false), Err(PrintError::Invalid(_))));
+    assert_eq!(select_pages(5, Some("7"), &[], Subset::All, false), Err(PrintError::OutOfRange(7, 5)));
+    assert_eq!(select_pages(5, Some("x"), &[], Subset::All, false), Err(PrintError::NotAPage("x".into())));
+    assert_eq!(select_pages(5, Some("7"), &[], Subset::All, false).unwrap_err().to_string(), "page 7 is out of range (1–5)");
     assert_eq!(select_pages(1, None, &[], Subset::Even, false), Err(PrintError::NoPages));
     // An explicit list (selected thumbnails): positions, never labels, in the order given.
     assert_eq!(select_listed(5, &[1, 3], Subset::All, false).unwrap(), [1, 3]);
     assert_eq!(select_listed(5, &[0, 2, 4], Subset::Even, false).unwrap(), [2]);
     assert_eq!(select_listed(5, &[0, 2, 4], Subset::Odd, true).unwrap(), [4, 0]);
-    assert!(matches!(select_listed(5, &[1, 5], Subset::All, false), Err(PrintError::Invalid(_))));
-    assert!(matches!(select_listed(0, &[usize::MAX], Subset::All, false), Err(PrintError::Invalid(_))));
+    assert_eq!(select_listed(5, &[1, 5], Subset::All, false), Err(PrintError::OutOfRange(6, 5)));
+    assert!(matches!(select_listed(0, &[usize::MAX], Subset::All, false), Err(PrintError::OutOfRange(_, 0))));
     assert_eq!(select_listed(5, &[], Subset::All, false), Err(PrintError::NoPages));
+}
+
+/// Every mistake a person can make about what to print says itself out of a wording on the list
+/// and the numbers apart from it, and says itself in English exactly as the error prints itself.
+#[test]
+fn wordings_are_said() {
+    let mistakes = [PrintError::NoPages, PrintError::OutOfRange(7, 5), PrintError::NotAPage("x".into())];
+    for e in &mistakes {
+        assert_eq!(e.said(&in_english), e.to_string(), "{e:?} says itself in English the way it prints itself");
+    }
+    // Each wording is one of a mistake's, and each mistake's is on the list: the hole names and
+    // all, so a catalog that translates the list translates every sentence a person can be shown.
+    let said: Vec<String> = WORDINGS.iter().map(|w| w.to_string()).collect();
+    assert_eq!(said.len(), mistakes.len(), "one wording per mistake");
+    for w in WORDINGS {
+        assert!(!w.is_empty() && w.ends_with(|c: char| c.is_alphanumeric() || c == ')'), "a whole sentence, not a fragment: {w:?}");
+    }
+    // A fault is not a mistake: it carries its own text and is not on the list.
+    let fault = PrintError::Spool("lp: no such printer".into());
+    assert_eq!(fault.said(&in_english), "lp: no such printer");
+    assert_eq!(fault.said(&|_| "traducido".to_string()), "lp: no such printer", "nothing to translate");
+    // Said in another language, the numbers still go in, and in that language's own order.
+    let other = |w: &str| match w {
+        "page {n} is out of range (1–{count})" => "el documento tiene {count} páginas, no {n}".to_string(),
+        w => w.to_string(),
+    };
+    assert_eq!(PrintError::OutOfRange(7, 5).said(&other), "el documento tiene 5 páginas, no 7");
+    // What was typed goes in as it stands, braces and all, and is never read as a hole.
+    assert_eq!(PrintError::NotAPage("{count}".into()).said(&other), "\"{count}\" is not a page number or label");
+}
+
+#[test]
+fn page_selection_handles_ranges_between_hyphenated_labels() {
+    let labels: Vec<String> = ["A-1", "A-2", "A-3", "B-1", "B-2"].iter().map(|s| s.to_string()).collect();
+    let pages = |range| select_pages(5, Some(range), &labels, Subset::All, false).unwrap();
+    assert_eq!(pages("A-1"), [0], "the complete label takes precedence over a range");
+    assert_eq!(pages("A-1-A-3"), [0, 1, 2]);
+    assert_eq!(pages("A-3-A-1"), [2, 1, 0], "reverse logical ranges");
+    assert_eq!(pages("A-2-"), [1, 2, 3, 4], "an open-ended range starting at a hyphenated label");
+    assert_eq!(pages("-A-2"), [0, 1], "an open-ended range ending at a hyphenated label");
+    assert_eq!(pages("A-2-5"), [1, 2, 3, 4], "a label followed by a numeric endpoint");
+    assert_eq!(pages("B-1-B-2"), [3, 4]);
+    // If an earlier dash yields one known label but an unknown endpoint, continue
+    // checking later dashes instead of rejecting the whole range.
+    let ambiguous: Vec<String> = ["A-1", "A-1-B", "C"].iter().map(|s| s.to_string()).collect();
+    assert_eq!(select_pages(3, Some("A-1-B-C"), &ambiguous, Subset::All, false).unwrap(), [1, 2]);
 }
 
 #[test]
@@ -458,6 +505,19 @@ fn windows_lists_the_printers_the_system_knows() {
     assert!(printers.iter().filter(|p| p.default).count() <= 1, "{printers:?}");
 }
 
+/// Windows: PowerShell is started by its full path under System32, never by its bare name.
+/// Rust resolves a bare name in the app's own folder first, so a `powershell.exe` beside a
+/// portable install would run instead, for every printer list and every job.
+#[cfg(windows)]
+#[test]
+fn windows_starts_powershell_by_its_full_path() {
+    let c = crate::spool::powershell_command("$null");
+    let program = std::path::Path::new(c.get_program());
+    assert!(program.is_absolute(), "{program:?}");
+    assert!(program.ends_with("System32/WindowsPowerShell/v1.0/powershell.exe"), "{program:?}");
+    assert!(program.is_file(), "{program:?}");
+}
+
 /// Windows: the embedded print script is valid PowerShell, checked on every machine — including
 /// runners that have no printer to print to.
 #[cfg(windows)]
@@ -600,4 +660,31 @@ fn a_scaled_appearance_is_not_scaled_twice() {
     let m = appearance_matrix(&doc, &form, [10.0, 10.0, 50.0, 50.0]).unwrap();
     assert!(close(m.0[0], 2.0) && close(m.0[3], 2.0), "{:?}", m.0);
     assert!(close(m.0[4], 10.0) && close(m.0[5], 10.0), "{:?}", m.0);
+}
+
+#[test]
+fn architectural_sheets_preserve_full_scale() {
+    let index = matching_paper((2592.0, 1728.0)).unwrap();
+    assert_eq!(PAPERS[index].0, "ARCH D (24 x 36 in)");
+    assert_eq!(matching_paper((1728.0, 2592.0)), Some(index));
+    assert_eq!(matching_paper((f64::NAN, 2592.0)), None);
+    let s = Settings { pages: vec![0], paper: PAPERS[index].1, layout: Layout::Size(SizeMode::Actual), ..Settings::default() };
+    let sheets = layout(&[(2592.0, 1728.0)], &s).unwrap();
+    assert_eq!(sheets[0].size, (2592.0, 1728.0));
+    assert_eq!(sheets[0].placed[0].matrix.0, [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+    let fit = layout(&[(2592.0, 1728.0)], &Settings { layout: Layout::Size(SizeMode::Fit), ..s }).unwrap();
+    assert!(fit[0].placed[0].matrix.0[0] < 1.0, "Fit adds margins and must not masquerade as full scale");
+}
+
+#[test]
+fn paper_matching_accepts_rounded_metric_sizes_but_not_custom_or_invalid_sizes() {
+    for (i, (_, (w, h))) in PAPERS.iter().enumerate() {
+        assert_eq!(matching_paper((*w, *h)), Some(i));
+        assert_eq!(matching_paper((*h, *w)), Some(i));
+        assert_eq!(matching_paper((w.round(), h.round())), Some(i));
+        assert_eq!(matching_paper((w + 0.51, *h)), None);
+    }
+    for size in [(0.0, 0.0), (-1728.0, 2592.0), (f64::INFINITY, 2592.0), (1728.0, f64::NAN), (1000.0, 1000.0)] {
+        assert_eq!(matching_paper(size), None);
+    }
 }
