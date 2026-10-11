@@ -422,6 +422,8 @@ impl Status {
 pub struct Finding {
     /// 0-based page, when the problem is on a page.
     pub page: Option<usize>,
+    /// Indirect structure element that caused the finding, when one is available.
+    pub object: Option<pdfcraft_cos::ObjRef>,
     pub message: String,
     /// The English sentence with a hole, such as `{p}` or `{what}`, where each value went.
     pub pattern: &'static str,
@@ -432,13 +434,13 @@ pub struct Finding {
 impl Finding {
     /// A finding whose sentence says the same thing however the document is put together.
     pub fn plain(page: Option<usize>, sentence: &'static str) -> Self {
-        Finding { page, message: sentence.to_owned(), pattern: sentence, values: Vec::new() }
+        Finding { page, object: None, message: sentence.to_owned(), pattern: sentence, values: Vec::new() }
     }
 
     /// A finding built from a wording and what goes in its holes. The English `message` is filled
     /// in here, so it and `pattern` can never drift apart.
     pub fn worded(page: Option<usize>, pattern: &'static str, values: Vec<(&'static str, String)>) -> Self {
-        Finding { page, message: say(pattern, &values), pattern, values }
+        Finding { page, object: None, message: say(pattern, &values), pattern, values }
     }
 
     /// A finding that says where the problem is and, in `{what}`, what is wrong, each worded
@@ -450,7 +452,7 @@ impl Finding {
     pub fn nested(page: Option<usize>, pattern: &'static str, what: &'static str, mut values: Vec<(&'static str, String)>) -> Self {
         let message = say(&pattern.replace("{what}", what), &values);
         values.push(("{what}", what.to_owned()));
-        Finding { page, message, pattern, values }
+        Finding { page, object: None, message, pattern, values }
     }
 
     /// This finding as one sentence, said in the language `words` translates into.

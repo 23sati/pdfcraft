@@ -217,6 +217,16 @@ fn cycles_shared_kids_and_missing_kids_are_read_once() {
 }
 
 #[test]
+fn structure_findings_identify_indirect_elements_without_guessing_inline_objects() {
+    let doc = structure_doc(&["<< /S /Document /K [4 0 R << /S /Figure >>] >>".into(), "<< /S /Figure >>".into()]);
+    let r = checked(&doc, &[Rule::FiguresAltText]);
+    let found = &r.result(Rule::FiguresAltText).unwrap().findings;
+    assert_eq!(found.len(), 2);
+    assert_eq!(found[0].object.map(|r| r.num), Some(4));
+    assert_eq!(found[1].object, None);
+}
+
+#[test]
 fn nesting_is_read_to_the_depth_limit_and_no_further() {
     // Sections, each the kid of the one before, ending in a figure without alternate text. The
     // figure is at depth `sections`; the walk reads depths up to 256.
