@@ -665,7 +665,7 @@
 	Centre	Ортаға туралау
 	Align right	Оңға туралау
 	Justify	Екі жаққа туралау
-	Standard fonts; text outside Windows-1252 isn't supported yet.	Стандартты қаріптер; Windows-1252-ден тыс мәтін әзірге қолдау таппайды.
+	Thai and Arabic use regular fallback fonts when available.	Тай және араб тілдері қолжетімді болса, қалыпты қосалқы қаріптерді пайдаланады.
 	Edit image	Суретті түзету
 	Rotate counterclockwise	Сағат тілінің бағытына қарсы бұру
 	Rotate clockwise	Сағат тілінің бағытымен бұру
@@ -2073,7 +2073,7 @@ calendar date	December	Желтоқсан
 	H / Space (hold)	H / Space (ұстап тұру)
 	Rotation:	Бұру:
 	Line ending	Сызық ұшы
-	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Стандартты қаріптер «{c}» таңбасын ({code}) сала алмайды. Әзірге мәтін ретінде тек Батыс Еуропа таңбаларын қосуға болады.
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	PDF мәтін қаріптері «{c}» таңбасын ({code}) сала алмайды. Қолдау көрсетілетін мәтінді таңдаңыз.
 	Larger pages	Үлкенірек беттер
 	Smaller pages	Кішірек беттер
 	Reset page size	Бет өлшемін қалпына келтіру
@@ -2250,3 +2250,6 @@ scroll speed	Fast	Жылдам
 	Original	Түпнұсқа
 	Greyscale	Сұр реңктер
 	Black and white	Ақ-қара
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Бұл принтердің драйвері басқа бағдарламалардан екі жақты басып шығару баптауларын қабылдамайды, сондықтан өз баптауы қолданылады. Оны мына жерден өзгертіңіз: Сипаттар…
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Бұл өрістің қаріпі «{c}» ({code}) таңбасын сала алмайды, сондықтан PdfCraft оның орнына ? көрсетеді. Мән сақталады, ал басқа PDF қарау құралдары өрісті соған қарап қайта салады.
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	PdfCraft жазатын қаріптер «{c}» ({code}) таңбасын сала алмайды, сондықтан ол барлық PDF қарау құралдарында ? болып көрінеді. Мәтін сақталады.

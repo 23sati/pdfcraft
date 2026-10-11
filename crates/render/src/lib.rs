@@ -16,7 +16,7 @@ pub mod text;
 
 pub use inspect::{
     Annotation, Attachment, AttachmentSource, DestView, DocInfo, Field, FieldKind, FontInfo, Layer, LayerOp, Link, LinkTarget, OutlineItem, PageInfo,
-    Xfa, attachment_data, inspect, pretty_date,
+    Xfa, attachment_data, check_pages, inspect, pretty_date,
 };
 pub use pixels::Pixels;
 pub use raster::{

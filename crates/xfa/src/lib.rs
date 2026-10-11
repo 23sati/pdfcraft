@@ -89,6 +89,7 @@ pub(crate) fn xml_nesting_depth(text: &str) -> usize {
     max
 }
 
+pub use data::{DataImport, ImportNode, export_data, import_data, parse_data_file, write_data_image};
 pub use data::{
     DataNode, DataOp, DataPath, DatasetsWrite, FieldData, FieldDatum, add_data_instances, build_data, data_path, iso_to_pattern, parse_datasets,
     pattern_to_iso, read_values, read_values_with, remove_data_instance, som_to_path, write_data_ops, write_data_value, write_datasets,
