@@ -126,7 +126,7 @@ fn plural_polish(n: u64) -> usize {
 }
 
 /// The registry. English first: it is the fallback and the source language.
-pub static LANGUAGES: [LangInfo; 17] = [
+pub static LANGUAGES: [LangInfo; 18] = [
     LangInfo { code: "en", name: "English", source: "", plural: plural_one_other, rtl: false, catalog: OnceLock::new() },
     LangInfo { code: "ja", name: "日本語", source: include_str!("ja.tsv"), plural: plural_none, rtl: false, catalog: OnceLock::new() },
     // Simplified Chinese; `zh`, `zh-CN`, `zh-SG` and `zh-Hans-*` locales resolve here (see `candidates`).
@@ -177,6 +177,8 @@ pub static LANGUAGES: [LangInfo; 17] = [
     LangInfo { code: "ar", name: "العربية", source: include_str!("ar.tsv"), plural: plural_arabic, rtl: true, catalog: OnceLock::new() },
     // Polish; every `pl-*` locale (`pl-pl`, `pl_pl.UTF-8`) resolves here.
     LangInfo { code: "pl", name: "Polski", source: include_str!("pl.tsv"), plural: plural_polish, rtl: false, catalog: OnceLock::new() },
+    // Turkish; every `tr-*` locale (`tr-TR`, `tr_TR.UTF-8`) resolves here.
+    LangInfo { code: "tr", name: "Türkçe", source: include_str!("tr.tsv"), plural: plural_none, rtl: false, catalog: OnceLock::new() },
 ];
 
 impl LangInfo {
@@ -799,7 +801,7 @@ mod tests {
             labels.insert(label.to_string());
         }
         assert!(labels.len() > 20 && labels.contains("Comb of characters"), "the scan found the dialog's labels: {labels:?}");
-        for code in ["bg", "de", "es", "fr", "hu", "it", "ja", "pt-br", "ru", "te", "uk", "zh-hans", "zh-hant"] {
+        for code in ["bg", "de", "es", "fr", "hu", "it", "ja", "pt-br", "ru", "te", "tr", "uk", "zh-hans", "zh-hant"] {
             let lang = Lang::from_code(code).expect("registered");
             let missing: Vec<_> = labels.iter().filter(|l| !has(lang, l)).collect();
             assert!(missing.is_empty(), "{code} lacks Shared Field Properties labels: {missing:#?}");
@@ -1215,6 +1217,95 @@ mod tests {
         let mut restored = crate::PdfCraftApp::default();
         restored.restore(&app.persist());
         assert_eq!(restored.language, "cs");
+    }
+
+    /// Turkish covers every registered menu title and menu command label, keeps ellipses, and
+    /// persists in preferences.
+    #[test]
+    fn turkish_covers_every_menu_label() {
+        let tr_lang = Lang::from_code("tr").expect("tr registered");
+        assert_eq!(tr_lang.name(), "Türkçe");
+        assert_eq!(tr(tr_lang, "File"), "Dosya");
+        assert_eq!(tr(tr_lang, "Türkçe Belge.pdf"), "Türkçe Belge.pdf");
+        assert_eq!((0..=6).map(|n| (tr_lang.0.plural)(n)).collect::<Vec<_>>(), [0; 7]);
+        for spec in pdfcraft_engine::commands::COMMANDS {
+            let Some(menu) = spec.menu else { continue };
+            assert!(has(tr_lang, menu), "Turkish lacks the menu title {menu:?}");
+            assert!(has(tr_lang, spec.label), "Turkish lacks the {menu} menu label {:?} ({})", spec.label, spec.id);
+        }
+        const KEEP_AS_IS: &[&str] = &[
+            "OK",
+            "PDF/A…",
+            "Microsoft Word (.docx)",
+            "PostScript / EPS",
+            "Preflight",
+            "JavaScript",
+            "ZIP",
+            "{n} {kind}",
+            "{rule} - {status}",
+            "Poster",
+            "{field}: {e}",
+            "`{command}` {when}",
+            "{0}: {1}",
+            "{month} {y}",
+            "+LOC",
+            "−LOC",
+            "ΔLOC",
+            "+Bin",
+            "−Bin",
+            "Model",
+            "Home / End",
+        ];
+        let (entries, errors) = parse_entries(tr_lang.0.source, tr_lang.0.plural_forms());
+        assert!(errors.is_empty(), "Turkish catalog errors: {errors:?}");
+        for e in &entries {
+            assert!(
+                e.source != e.translation || KEEP_AS_IS.contains(&e.source.as_str()) || (e.context == "key" && KEY_CAP_NAMES.contains(&e.source.as_str())),
+                "{:?} is untranslated",
+                e.source
+            );
+            assert!(!e.translation.contains("..."), "use … rather than three dots: {:?}", e.translation);
+            assert_eq!(e.source.starts_with(' '), e.translation.starts_with(' '), "leading space mismatch: {:?}", e.translation);
+            assert_eq!(e.source.ends_with(' '), e.translation.ends_with(' '), "trailing space mismatch: {:?}", e.translation);
+        }
+        let mut app = crate::PdfCraftApp::default();
+        app.set_option("language", "tr").unwrap();
+        assert!(app.set_option("language", "tu").is_err());
+        assert_eq!(app.language, "tr");
+        let mut restored = crate::PdfCraftApp::default();
+        restored.restore(&app.persist());
+        assert_eq!(restored.language, "tr");
+    }
+
+    /// Turkish translates every registered command, menu and All tools label.
+    #[test]
+    fn turkish_covers_commands_and_catalogue() {
+        let tr_lang = Lang::from_code("tr").expect("tr registered");
+        for command in pdfcraft_engine::commands::COMMANDS {
+            assert!(has(tr_lang, command.label), "missing command: {}", command.label);
+            if let Some(menu) = command.menu {
+                assert!(has(tr_lang, menu), "missing menu: {menu}");
+            }
+        }
+        for group in pdfcraft_engine::catalog::TOOL_GROUPS {
+            assert!(has(tr_lang, group.label), "missing group: {}", group.label);
+            for section in group.sections {
+                assert!(has(tr_lang, section.title), "missing section: {}", section.title);
+                for item in section.items {
+                    assert!(has(tr_lang, item.label), "missing item: {}", item.label);
+                }
+            }
+        }
+    }
+
+    /// Turkish translates every `tl!("…")` literal in the UI source.
+    #[test]
+    fn turkish_covers_ui_literals() {
+        let literals = ui_literals();
+        assert!(literals.len() > 900, "source scan found only {} literals", literals.len());
+        let tr_lang = Lang::from_code("tr").expect("tr registered");
+        let missing: Vec<_> = literals.iter().filter(|label| !has(tr_lang, label)).collect();
+        assert!(missing.is_empty(), "untranslated Turkish UI literals: {missing:#?}");
     }
 
     #[test]
