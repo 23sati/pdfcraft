@@ -1948,6 +1948,11 @@ impl PdfCraftApp {
                 self.view_defaults =
                     self.view_defaults.with_zoom(value).ok_or("default-zoom must be fit-width, fit-page or a percentage from 8 to 6400")?;
             }
+            ("tools-side", _) => self.docking.set_tools_on_right(match value {
+                "left" => false,
+                "right" => true,
+                _ => return Err("tools-side must be left or right".into()),
+            })?,
             ("organize", Some(v)) => v.organize = value != "off",
             // `--grid-zoom 150`: the size of the pages in the organize grid, in percent.
             ("grid-zoom", Some(v)) => {

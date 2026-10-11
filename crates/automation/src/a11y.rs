@@ -195,7 +195,7 @@ impl Automation {
             .iter()
             .map(|p| match &p.skipped {
                 Some(why) => json!({ "page": p.page + 1, "skipped": why }),
-                None => json!({ "page": p.page + 1, "words": p.words.len(), "text": p.text() }),
+                None => json!({ "page": p.page + 1, "words": p.words.len(), "already_on_page": p.already_on_page, "text": p.text() }),
             })
             .collect();
         Ok(json!({ "words": found.iter().map(|p| p.words.len()).sum::<usize>(), "pages": list }))

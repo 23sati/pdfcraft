@@ -23,7 +23,7 @@ status = "shipped"
 commands = ["file.open"]
 tools = ["doc_open"]
 evidence = ["crates/automation/tests/automation.rs::open_inspect_render_and_find", "crates/ui-egui/tests/ui.rs::opening_a_pdf_shows_comments_and_bookmarks", "crates/ui-egui/tests/ui.rs::files_and_quit_from_the_operating_system"]
-notes = "File ▸ Open, the command line (Linux and Windows file associations), and on macOS Finder, Open With and the Dock (Apple events; the bundle declares PDF as a document type)"
+notes = "File ▸ Open, the command line (Linux and Windows file associations), the Windows MSI's \"Edit with PdfCraft\" entry on PDF files' File Explorer right-click menu (#682; several selected PDFs open as tabs of one window), and on macOS Finder, Open With and the Dock (Apple events; the bundle declares PDF as a document type). Not yet: a first-level Windows 11 menu entry (needs package identity) or Combine from the file manager (#585)"
 
 [[feature]]
 id = "core.repair-broken-files"
@@ -926,8 +926,8 @@ milestone = "M3"
 status = "shipped"
 commands = []
 tools = []
-evidence = ["crates/ui-egui/tests/ui.rs::zoom_keeps_the_point_under_the_cursor_still"]
-notes = ""
+evidence = ["crates/ui-egui/tests/ui.rs::zoom_keeps_the_point_under_the_cursor_still", "crates/ui-egui/tests/ui.rs::trackpad_pinch_zooms_the_pdf_under_the_pointer"]
+notes = "A trackpad pinch zooms the PDF beneath the pointer in either direction, keeping the same page point in place. The viewer handles the platform's zoom gesture where it is available."
 
 [[feature]]
 id = "view.zoom-to-percent"
@@ -1490,8 +1490,8 @@ milestone = "M3"
 status = "shipped"
 commands = []
 tools = []
-evidence = ["crates/ui-egui/tests/ui.rs::drag_selects_text_and_copy_returns_it", "crates/ui-egui/tests/ui.rs::selection_works_in_every_view_rotation", "crates/ui-egui/tests/ui_group/text_select.rs::quick_clicks_select_a_word_then_the_line_then_the_page", "crates/ui-egui/tests/ui_group/text_select.rs::quick_clicks_with_the_highlighter_mark_only_the_word", "crates/ui-egui/tests/ui_group/text_select.rs::shift_click_extends_the_selection_from_its_anchor"]
-notes = "Drag to select; ⇧-click extends the selection to the click, keeping its anchor (same page only); with the Select tool, quick clicks select a word (two), the line (three) or all the text on the page (four). The markup and Redact tools mark a double-clicked word and stop there. Missing: selection across pages (dragging or ⇧-clicking onto another page), paragraph selection, and ⌘A across the whole document (it selects the current page)."
+evidence = ["crates/ui-egui/tests/ui.rs::drag_selects_text_and_copy_returns_it", "crates/ui-egui/tests/ui.rs::selection_works_in_every_view_rotation", "crates/ui-egui/tests/ui_group/text_select.rs::quick_clicks_select_a_word_then_the_line_then_the_page", "crates/ui-egui/tests/ui_group/text_select.rs::quick_clicks_with_the_highlighter_mark_only_the_word", "crates/ui-egui/tests/ui_group/text_select.rs::shift_click_extends_the_selection_from_its_anchor", "crates/ui-egui/tests/comments.rs::selected_text_shows_actions_and_underlines_without_changing_tools", "crates/ui-egui/tests/comments.rs::selected_text_replace_action_opens_replacement_composer", "crates/ui-egui/tests/comments.rs::selected_text_comment_action_opens_note_composer"]
+notes = "Drag to select; ⇧-click extends the selection to the click, keeping its anchor (same page only); with the Select tool, quick clicks select a word (two), the line (three) or all the text on the page (four). A floating action bar offers comment, highlight, underline, strikethrough, replace text and copy after selection. The markup and Redact tools mark a double-clicked word and stop there. Missing: selection across pages (dragging or ⇧-clicking onto another page), paragraph selection, and ⌘A across the whole document (it selects the current page). Acrobat's other selection context actions such as bookmark, link and export selection remain outside this bar."
 
 [[feature]]
 id = "view.column-select"
@@ -2770,7 +2770,7 @@ milestone = "M4"
 status = "shipped"
 commands = ["page.replace"]
 tools = ["page_replace"]
-evidence = ["crates/organize/src/tests.rs::replace_pages_swaps_content_but_keeps_annotations", "crates/ui-egui/tests/editing.rs::replace_pages_dialog_swaps_page_content", "crates/automation/tests/automation.rs::replacing_pages_through_tools"]
+evidence = ["crates/organize/src/tests.rs::replace_pages_swaps_content_but_keeps_annotations", "crates/ui-egui/tests/editing.rs::replace_pages_dialog_swaps_page_content", "crates/ui-egui/tests/editing.rs::replace_button_replaces_selected_pages_in_organize", "crates/automation/tests/automation.rs::replacing_pages_through_tools"]
 notes = "content, resources and boxes replaced; links, comments, fields and bookmarks kept"
 
 [[feature]]
@@ -6427,7 +6427,7 @@ status = "shipped"
 commands = ["ocr.recognize"]
 tools = ["ocr_recognize", "ocr_status"]
 evidence = ["crates/engine/src/tests.rs::recognize_text_makes_a_scanned_page_searchable", "crates/automation/tests/automation.rs::ocr_tools_make_a_scan_searchable", "crates/ui-egui/tests/ocr.rs::recognize_text_dialog_adds_searchable_text"]
-notes = "ocrs engine (MIT/Apache) with CC-BY-SA models fetched by `cargo xtask models`; the desktop release packages ship them (#103; packaging/env.sh stage_models), the web build does not yet; runs on a worker thread with progress; one undoable step; pages with text are skipped."
+notes = "ocrs engine (MIT/Apache) with CC-BY-SA models fetched by `cargo xtask models`; the desktop release packages ship them (#103; packaging/env.sh stage_models), the web build does not yet; runs on a worker thread with progress; one undoable step; pages with text are skipped unless asked (ocr.skip-renderable-text)."
 
 [[feature]]
 id = "ocr.recognize-range"
@@ -6522,8 +6522,8 @@ milestone = "M10"
 status = "shipped"
 commands = ["ocr.recognize"]
 tools = ["ocr_recognize"]
-evidence = ["crates/engine/src/tests.rs::recognize_text_makes_a_scanned_page_searchable", "crates/automation/tests/automation.rs::ocr_tools_make_a_scan_searchable"]
-notes = "Pages that already have text are skipped and reported (skip_text_pages false reads them anyway)."
+evidence = ["crates/engine/src/tests.rs::recognize_text_makes_a_scanned_page_searchable", "crates/automation/tests/automation.rs::ocr_tools_make_a_scan_searchable", "crates/engine/src/tests.rs::recognize_text_reads_a_picture_on_a_page_that_has_text", "crates/automation/tests/automation.rs::ocr_recognize_reads_pictures_on_pages_with_text", "crates/ui-egui/tests/ocr.rs::recognize_text_can_read_pictures_on_pages_with_text"]
+notes = "Pages that already have text are skipped and reported by default. The dialog's \"Also recognize pages that already have text\" (skip_text_pages false, also for multiple files) reads pictures on such pages (#1028); a recognised word at least half covered by the page's own text (an earlier OCR layer included) is left out and counted (already_on_page). Missing: recognising only the image areas (the whole page is still read, so it takes as long as a scan), and a word in a picture that sits under real text is treated as that text."
 
 [[feature]]
 id = "ocr.rotation-detection"
@@ -10035,7 +10035,7 @@ status = "planned"
 commands = []
 tools = []
 evidence = []
-notes = "Windows MSI creates a Start menu shortcut and an optional (default on) desktop shortcut and confirms full-UI completion with Finish (#143); packaging/windows/test-msi.ps1 checks the compiled MSI and windows-arm64.yml checks installation/removal. PDF files use a dedicated embedded document icon when PdfCraft is chosen as the default reader (confirmed in Windows Explorer); first-page thumbnails remain unsupported. Signed installers across platforms remain planned."
+notes = "Windows MSI creates a Start menu shortcut, an optional (default on) desktop shortcut and an optional (default on, INSTALLPDFCONTEXTMENU) \"Edit with PdfCraft\" File Explorer menu entry for PDF files (#682), and confirms full-UI completion with Finish (#143); packaging/windows/test-msi.ps1 checks the compiled MSI and windows-arm64.yml checks installation/removal. PDF files use a dedicated embedded document icon when PdfCraft is chosen as the default reader (confirmed in Windows Explorer); first-page thumbnails remain unsupported. Signed installers across platforms remain planned."
 
 [[feature]]
 id = "misc.web-deploy"

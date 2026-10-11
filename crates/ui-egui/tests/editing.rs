@@ -1325,6 +1325,84 @@ fn extract_button_copies_selected_pages_to_a_new_tab() {
 }
 
 #[test]
+fn replace_button_replaces_selected_pages_in_organize() {
+    let dir = temp_path("replace-btn");
+    std::fs::create_dir_all(&dir).unwrap();
+    let other = dir.join("other.pdf");
+    std::fs::write(&other, fixture(5)).unwrap();
+
+    let mut h = organize(3);
+    h.get_by_label("Page 2").click();
+    h.run_steps(1);
+    h.get_by_label("Page 3").click_modifiers(Modifiers::COMMAND);
+    h.run_steps(2);
+    h.state_mut().pick_override = Some(vec![other.to_string_lossy().into_owned()]);
+    h.get_by_label("Replace pages…").click();
+    h.run_steps(3);
+    egui_kittest::kittest::Queryable::get_by_label(&h, "Replace Pages");
+    assert_eq!(h.state().replace_draft.as_ref().unwrap().from, 2);
+    assert_eq!(h.state().replace_draft.as_ref().unwrap().to, 3);
+    egui_kittest::kittest::Queryable::get_by_label(&h, "OK").click();
+    h.run_steps(3);
+    let s = h.state();
+    let doc = s.session.get(s.views[0].id).unwrap();
+    assert_eq!(doc.info.pages.len(), 3);
+    assert_eq!(doc.can_undo(), Some("Replace pages"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn replace_pages_from_thumbnail_context_menu() {
+    let dir = temp_path("replace-ctx");
+    std::fs::create_dir_all(&dir).unwrap();
+    let other = dir.join("other.pdf");
+    std::fs::write(&other, fixture(5)).unwrap();
+
+    let mut h = organize(3);
+    h.state_mut().pick_override = Some(vec![other.to_string_lossy().into_owned()]);
+    h.get_by_label("Page 2").click_button(egui::PointerButton::Secondary);
+    h.run_steps(2);
+    h.get_all_by_label("Replace pages…").last().unwrap().click();
+    h.run_steps(3);
+    egui_kittest::kittest::Queryable::get_by_label(&h, "Replace Pages");
+    assert_eq!(h.state().replace_draft.as_ref().unwrap().from, 2);
+    assert_eq!(h.state().replace_draft.as_ref().unwrap().to, 2);
+    egui_kittest::kittest::Queryable::get_by_label(&h, "OK").click();
+    h.run_steps(3);
+    let s = h.state();
+    let doc = s.session.get(s.views[0].id).unwrap();
+    assert_eq!(doc.info.pages.len(), 3);
+    assert_eq!(doc.can_undo(), Some("Replace page"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn replace_pages_from_pages_panel_context_menu() {
+    let dir = temp_path("replace-panel-ctx");
+    std::fs::create_dir_all(&dir).unwrap();
+    let other = dir.join("other.pdf");
+    std::fs::write(&other, fixture(5)).unwrap();
+
+    let mut h = harness(4, |app| app.right = Some(pdfcraft_ui_egui::RightPanel::Pages));
+    h.state_mut().pick_override = Some(vec![other.to_string_lossy().into_owned()]);
+    let thumb = h.get_all_by_label("Page 2").max_by(|a, b| a.rect().left().total_cmp(&b.rect().left())).unwrap();
+    thumb.click_button(egui::PointerButton::Secondary);
+    h.run_steps(2);
+    h.get_all_by_label("Replace pages…").last().unwrap().click();
+    h.run_steps(3);
+    egui_kittest::kittest::Queryable::get_by_label(&h, "Replace Pages");
+    assert_eq!(h.state().replace_draft.as_ref().unwrap().from, 2);
+    assert_eq!(h.state().replace_draft.as_ref().unwrap().to, 2);
+    egui_kittest::kittest::Queryable::get_by_label(&h, "OK").click();
+    h.run_steps(3);
+    let s = h.state();
+    let doc = s.session.get(s.views[0].id).unwrap();
+    assert_eq!(doc.info.pages.len(), 4);
+    assert_eq!(doc.can_undo(), Some("Replace page"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn inserting_a_file_goes_after_the_selection_and_undoes() {
     let mut h = organize(2);
     h.get_by_label("Page 1").click();

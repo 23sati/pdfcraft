@@ -2175,6 +2175,49 @@ fn recognize_text_makes_a_scanned_page_searchable() {
     assert!(again[0].skipped.is_some());
 }
 
+/// #1028: a page with its own text and a picture of text. By default it is skipped, as before;
+/// with `skip_text_pages: false` the picture is read and the page's own text is not added again.
+#[test]
+fn recognize_text_reads_a_picture_on_a_page_that_has_text() {
+    if !ocr::available() {
+        eprintln!("skipped: OCR models not installed");
+        return;
+    }
+    let mut s = Session::new().with_clock(|| 1_700_000_000);
+    let text = s.create_from_text("t", "The quick brown fox jumps over the lazy dog.").unwrap();
+    let id = s.open("text.pdf", None, text, None).unwrap();
+    let png = export::Exporter::new(s.get(id).unwrap()).png(0, 150.0).unwrap();
+    let scan = s.create_from_images(&[("scan.png".into(), png)]).unwrap();
+    let id = s.open("scan.pdf", None, scan, None).unwrap();
+    // Real text in the empty lower part of the picture.
+    let (w, h) = {
+        let p = &s.get(id).unwrap().info.pages[0];
+        (p.width as f64, p.height as f64)
+    };
+    let note = AddedText { rect: [w * 0.1, h * 0.75, w * 0.9, h * 0.85], text: "Invoice reference 4711".into(), size: 18.0, ..Default::default() };
+    s.apply(id, Edit::AddText { page: 0, text: note }).unwrap();
+    let count = |s: &Session, word: &str| page_texts(s, id)[0].to_lowercase().matches(word).count();
+    assert_eq!((count(&s, "invoice"), count(&s, "brown")), (1, 0));
+
+    let skipped = s.recognize_text(id, &[], ocr::OcrSettings::default()).unwrap();
+    assert!(skipped[0].skipped.is_some(), "pages with text are still skipped by default");
+    assert_eq!(s.get(id).unwrap().can_undo(), Some("Add text"), "nothing was added");
+
+    let hybrid = ocr::OcrSettings { skip_text_pages: false, ..Default::default() };
+    let found = s.recognize_text(id, &[], hybrid.clone()).unwrap();
+    assert_eq!(found[0].skipped, None);
+    assert!(found[0].already_on_page >= 2, "the page's own words were recognised and left out: {:?}", found[0]);
+    let added = found[0].text().to_lowercase();
+    assert!(added.contains("brown") && added.contains("lazy") && !added.contains("invoice"), "{added}");
+    assert_eq!((count(&s, "invoice"), count(&s, "brown")), (1, 1), "{:?}", page_texts(&s, id));
+    assert_eq!(s.get(id).unwrap().can_undo(), Some("Recognize text"));
+
+    // Reading the page again adds nothing: every word is there now.
+    let again = s.recognize_text(id, &[], hybrid).unwrap();
+    assert!(again[0].words.is_empty(), "{:?}", again[0]);
+    assert_eq!((count(&s, "invoice"), count(&s, "brown")), (1, 1));
+}
+
 /// A form whose scripts are custom JavaScript: total = price × qty (calculate, through a
 /// document-level function), shown with a custom format; qty is validated; a button script.
 fn scripted_form() -> Vec<u8> {
