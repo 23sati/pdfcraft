@@ -34,7 +34,14 @@ pub(crate) fn report_json(r: &Report) -> Value {
             let findings: Vec<Value> = x
                 .findings
                 .iter()
-                .map(|f| json!({ "page": f.page.map(|p| p + 1), "object": f.object.map(|r| r.num), "message": f.message }))
+                .map(|f| {
+                    json!({
+                        "page": f.page.map(|p| p + 1),
+                        "object": f.object.map(|r| r.num),
+                        "object_generation": f.object.map(|r| r.generation),
+                        "message": f.message,
+                    })
+                })
                 .collect();
             json!({ "rule": x.rule.id(), "name": x.rule.name(), "category": category_id(x.rule.category()), "status": status_id(x.status), "findings": findings })
         })
