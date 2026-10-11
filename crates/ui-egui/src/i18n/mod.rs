@@ -1434,7 +1434,9 @@ mod tests {
         assert!(errors.is_empty(), "Turkish catalog errors: {errors:?}");
         for e in &entries {
             assert!(
-                e.source != e.translation || KEEP_AS_IS.contains(&e.source.as_str()) || (e.context == "key" && KEY_CAP_NAMES.contains(&e.source.as_str())),
+                e.source != e.translation
+                    || KEEP_AS_IS.contains(&e.source.as_str())
+                    || (e.context == "key" && KEY_CAP_NAMES.contains(&e.source.as_str())),
                 "{:?} is untranslated",
                 e.source
             );
