@@ -346,6 +346,32 @@ pub struct FontInfo {
     pub encoding: Option<String>,
 }
 
+/// Check that `bytes` still open as the same document: the parser reads them and the page
+/// count matches. Content-only edits skip the full [`inspect`] (seconds on very large files)
+/// but must still catch an edit that produced something the viewer cannot display, so the
+/// caller can roll it back. Never panics: parser crashes are caught and reported.
+pub fn check_pages(bytes: Arc<Vec<u8>>, password: Option<&str>, expected: usize) -> Result<(), OpenError> {
+    let pdf = catch_unwind(AssertUnwindSafe(|| Pdf::new_with_password(bytes, password.unwrap_or(""))))
+        .map_err(|p| OpenError::Invalid(format!("the parser crashed: {}", crate::raster::panic_message(&p))))?
+        .map_err(|e| match e {
+            LoadPdfError::Decryption(DecryptionError::PasswordProtected) => {
+                if password.is_some() {
+                    OpenError::WrongPassword
+                } else {
+                    OpenError::NeedsPassword
+                }
+            }
+            LoadPdfError::Decryption(other) => OpenError::Unsupported(format!("encryption not supported: {other:?}")),
+            LoadPdfError::Invalid => OpenError::Invalid("no readable page tree or cross-reference data was found".into()),
+        })?;
+    let pages = catch_unwind(AssertUnwindSafe(|| pdf.pages().len()))
+        .map_err(|p| OpenError::Invalid(format!("the page tree could not be read: {}", crate::raster::panic_message(&p))))?;
+    if pages != expected {
+        return Err(OpenError::Invalid(format!("the edit changed the page count from {expected} to {pages}")));
+    }
+    Ok(())
+}
+
 /// Inspect a document. Fails only if the renderer itself cannot open the file (or needs a
 /// password). Never panics: parser crashes are caught and reported.
 pub fn inspect(bytes: Arc<Vec<u8>>, password: Option<&str>) -> Result<DocInfo, OpenError> {

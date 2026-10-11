@@ -100,8 +100,8 @@ pub fn typed_signature_shape(at: [f64; 2], text: &str, height: f64, rotation: i6
 pub use pdfcraft_annot::appearance as annot_text;
 pub use pdfcraft_annot::links::{Highlight as LinkHighlight, LinkAction, LinkItem, LinkStyle};
 pub use pdfcraft_annot::{
-    AttachIcon, FillMark, LineEnding, Markup, NOTE_SIZE, NewAnnotation, NoteIcon, OverlayFont, OverlayLook, Props as CommentProps, ReviewState, Rgb,
-    Shape, StampGroup, StampKind, Style, rect_quad,
+    AppearanceCache, AttachIcon, FillMark, LineEnding, Markup, NOTE_SIZE, NewAnnotation, NoteIcon, OverlayFont, OverlayLook, Props as CommentProps,
+    ReviewState, Rgb, Shape, StampGroup, StampKind, Style, rect_quad,
 };
 pub use pdfcraft_forms::detect;
 pub use pdfcraft_optimize as optimize;
@@ -158,6 +158,10 @@ enum Scope {
     Comments,
     /// Only form field values (and their widget appearances).
     Form,
+    /// Only page content streams, resources and added content/marks: the page tree,
+    /// annotations, form fields, links, outline and fonts are unchanged, so the full
+    /// re-inspection is skipped (seconds on very large files).
+    Content,
 }
 
 /// Edits during which field scripts run.
@@ -191,6 +195,21 @@ fn scope_of(edit: &Edit) -> Scope {
         | Edit::FillAnnotation { .. }
         | Edit::SetAnnotationInfo { .. } => Scope::Comments,
         Edit::SetFieldValue { .. } | Edit::ResetForm { .. } | Edit::SetFieldImage { .. } | Edit::ApplyScriptChanges { .. } => Scope::Form,
+        // Page content, resources and added content/marks only: the page tree, annotations,
+        // fields, links and document metadata are untouched (see `refresh_content`).
+        Edit::MoveObjects { .. }
+        | Edit::EditTextLine { .. }
+        | Edit::EditTextBlock { .. }
+        | Edit::EditPageImage { .. }
+        | Edit::AddText { .. }
+        | Edit::AddImage { .. }
+        | Edit::UpdateContent { .. }
+        | Edit::DeleteContent { .. }
+        | Edit::ReplaceImage { .. }
+        | Edit::AddHeaderFooter { .. }
+        | Edit::AddWatermark { .. }
+        | Edit::AddBackground { .. }
+        | Edit::RemoveMarks { .. } => Scope::Content,
         Edit::Batch { edits, .. } => {
             let mut scopes = edits.iter().map(scope_of);
             let first = scopes.next().unwrap_or(Scope::Full);
@@ -210,6 +229,10 @@ struct Editor {
     undo: Vec<Snapshot>,
     redo: Vec<Snapshot>,
     keys: Keys,
+    /// Display appearances built for annotations without any, reused while no annotation edit
+    /// runs (content edits leave every annotation dictionary alone). Cleared on any refresh
+    /// that may change annotations; see [`AppearanceCache`].
+    appearances: AppearanceCache,
 }
 
 pub struct Document {
@@ -541,8 +564,10 @@ fn is_placeholder_title(title: &str) -> bool {
 /// What is displayed: the working file, plus (in memory only, never saved) the appearances
 /// PdfCraft draws for comments that have none ([`pdfcraft_annot::with_missing_appearances`]).
 /// The working file is unchanged, and so is everything that reads it (saving, signatures, …).
-fn display_bytes(editor: Option<&Editor>, bytes: &Arc<Vec<u8>>) -> Arc<Vec<u8>> {
-    let Some(display) = editor.and_then(|e| pdfcraft_annot::with_missing_appearances(&e.cos)) else { return bytes.clone() };
+fn display_bytes(editor: Option<&mut Editor>, bytes: &Arc<Vec<u8>>) -> Arc<Vec<u8>> {
+    let Some(display) = editor.and_then(|e| pdfcraft_annot::with_missing_appearances_cached(&e.cos, &mut e.appearances)) else {
+        return bytes.clone();
+    };
     // Writing fails only as saving the document would; the page then shows as it always did.
     write_incremental(&display, &SaveOptions::default()).map(Arc::new).unwrap_or_else(|_| bytes.clone())
 }
@@ -2385,12 +2410,12 @@ impl Session {
         let (mut editor, read_only_reason) = match cos {
             Ok(Ok(cos)) => {
                 let keys = Keys { render: render_password.clone(), reopen: password.map(str::to_owned) };
-                (Some(Editor { cos, undo: Vec::new(), redo: Vec::new(), keys }), None)
+                (Some(Editor { cos, undo: Vec::new(), redo: Vec::new(), keys, appearances: AppearanceCache::default() }), None)
             }
             Ok(Err(e)) => (None, Some(e.to_string())),
             Err(_) => (None, Some("the document structure could not be read for editing".into())),
         };
-        let display = display_bytes(editor.as_ref(), &bytes);
+        let display = display_bytes(editor.as_mut(), &bytes);
         let renderer = RenderPool::new(display.clone(), render_threads(), config.clone());
         let (form, adopted) = editor
             .as_ref()
@@ -2487,7 +2512,7 @@ impl Session {
         // every calculation (and a reset recalculates). They read the data, so it is brought up
         // to date first.
         if let Some(tpl) = cx.xfa.clone() {
-            if is_xfa && matches!(scope_of(&edit), Scope::Form | Scope::Full) {
+            if is_xfa && matches!(scope_of(&edit), Scope::Form | Scope::Full | Scope::Content) {
                 let datasets = &mut cx.xfa_datasets;
                 let notes = guard(|| xfa_sync_datasets(&mut next, Some(&tpl), datasets))
                     .unwrap_or_else(|m| Err(format!("writing the XFA data failed unexpectedly ({m})")))
@@ -2520,7 +2545,7 @@ impl Session {
         }
         // XFA forms keep their values in the datasets packet too, for Adobe's viewers.
         let mut xfa_notes = Vec::new();
-        if is_xfa && matches!(scope_of(&edit), Scope::Form | Scope::Full) {
+        if is_xfa && matches!(scope_of(&edit), Scope::Form | Scope::Full | Scope::Content) {
             let (tpl, datasets) = (cx.xfa.as_deref(), &mut cx.xfa_datasets);
             xfa_notes = guard(|| xfa_sync_datasets(&mut next, tpl, datasets))
                 .unwrap_or_else(|m| Err(format!("writing the XFA data failed unexpectedly ({m})")))
@@ -2542,7 +2567,8 @@ impl Session {
         }
         editor.redo.clear();
         Self::adopt_keys(doc);
-        let refreshed = guard(|| Self::refresh_scoped(doc, scope)).unwrap_or_else(|m| Err(EditError::Reopen(m)));
+        let refreshed = guard(|| if scope == Scope::Content { Self::refresh_content(doc, Some(&edit)) } else { Self::refresh_scoped(doc, scope) })
+            .unwrap_or_else(|m| Err(EditError::Reopen(m)));
         if let Err(e) = refreshed {
             // Roll back: the edit produced something we cannot display.
             if let Some(ed) = doc.editor.as_mut()
@@ -2615,7 +2641,14 @@ impl Session {
         if scope == Scope::Full || doc.info.encrypted != doc.editor.as_ref().is_some_and(|e| e.cos.output_handler().is_some()) {
             return Self::refresh(doc);
         }
-        let Some(editor) = doc.editor.as_ref() else { return Ok(()) };
+        if scope == Scope::Content {
+            return Self::refresh_content(doc, None);
+        }
+        let Some(editor) = doc.editor.as_mut() else { return Ok(()) };
+        // Comment edits may change annotation dictionaries, invalidating cached appearances.
+        if scope == Scope::Comments {
+            editor.appearances.clear();
+        }
         let bytes = if editor.cos.is_modified() {
             Arc::new(write_incremental(&editor.cos, &SaveOptions::default()).map_err(|e| EditError::Write(e.to_string()))?)
         } else {
@@ -2659,6 +2692,8 @@ impl Session {
             }
             // Handled above; kept as a full refresh so the match stays total.
             Scope::Full => return Self::refresh(doc),
+            // Handled above (content-only refresh); the arm keeps the match total.
+            Scope::Content => return Self::refresh_content(doc, None),
         }
         doc.info.file_size = bytes.len();
         doc.form = form;
@@ -2671,9 +2706,67 @@ impl Session {
         Ok(())
     }
 
+    /// Which derived lists a content-only edit can change: added content (`None`, from
+    /// undo/redo, re-reads both: always correct, rarely paid).
+    fn content_refresh_lists(edit: Option<&Edit>) -> (bool, bool) {
+        let touches_added = edit.is_none_or(|e| {
+            matches!(
+                e,
+                Edit::AddText { .. } | Edit::AddImage { .. } | Edit::UpdateContent { .. } | Edit::DeleteContent { .. } | Edit::ReplaceImage { .. }
+            ) || matches!(e, Edit::MoveObjects { objects, .. } if objects.iter().any(|o| o.kind == ObjectKind::Added))
+        });
+        let touches_marks = edit.is_none_or(|e| {
+            matches!(e, Edit::AddHeaderFooter { .. } | Edit::AddWatermark { .. } | Edit::AddBackground { .. } | Edit::RemoveMarks { .. })
+        });
+        (touches_added, touches_marks)
+    }
+
+    /// Rebuild working bytes, display bytes and renderer after a content-only edit: page
+    /// content streams, resources and added content/marks. The page tree, annotations, form
+    /// fields, links, outline and fonts are unchanged, so the full re-inspection (seconds on
+    /// very large files) is skipped. `edit` selects which derived lists are re-read (`None`,
+    /// from undo/redo, re-reads both: always correct, rarely paid). The cached display
+    /// appearances are kept: content edits leave every annotation dictionary alone.
+    fn refresh_content(doc: &mut Document, edit: Option<&Edit>) -> Result<(), EditError> {
+        let Some(editor) = doc.editor.as_mut() else { return Ok(()) };
+        // A script may have laid an XFA form out again (rows added, subforms shown).
+        if doc.xfa.is_some()
+            && let Some(report) = pdfcraft_xfa::existing_layout(&editor.cos)
+        {
+            doc.xfa = Some(report);
+        }
+        let bytes = if editor.cos.is_modified() {
+            Arc::new(write_incremental(&editor.cos, &SaveOptions::default()).map_err(|e| EditError::Write(e.to_string()))?)
+        } else {
+            editor.cos.bytes().clone()
+        };
+        // The edit must still leave a file the viewer can open; anything else rolls back above.
+        pdfcraft_render::check_pages(bytes.clone(), doc.password.as_deref(), doc.info.pages.len()).map_err(|e| EditError::Reopen(e.to_string()))?;
+        let (touches_added, touches_marks) = Self::content_refresh_lists(edit);
+        if touches_added {
+            doc.added = pdfcraft_edit::list_added(&editor.cos);
+        }
+        if touches_marks {
+            doc.marks = pdfcraft_edit::marks_present(&editor.cos);
+        }
+        doc.info.file_size = bytes.len();
+        if !doc.signatures.is_empty() {
+            doc.signatures = signatures_of(&editor.cos, &bytes, &doc.trust, &doc.sig_cache);
+        }
+        doc.display = display_bytes(Some(editor), &bytes);
+        doc.renderer = RenderPool::new(doc.display.clone(), render_threads(), doc.config.clone());
+        doc.bytes = bytes;
+        Ok(())
+    }
+
     /// Rebuild working bytes, inspection and renderer from the current edit state.
     fn refresh(doc: &mut Document) -> Result<(), EditError> {
-        let Some(editor) = doc.editor.as_ref() else { return Ok(()) };
+        // A full refresh may follow structural or annotation changes: cached appearances
+        // may be stale, so they are rebuilt below.
+        if let Some(editor) = doc.editor.as_mut() {
+            editor.appearances.clear();
+        }
+        let Some(editor) = doc.editor.as_mut() else { return Ok(()) };
         // A script may have laid an XFA form out again (rows added, subforms shown).
         if doc.xfa.is_some()
             && let Some(report) = pdfcraft_xfa::existing_layout(&editor.cos)
