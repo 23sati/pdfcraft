@@ -1,6 +1,8 @@
 # Run only on an isolated GitHub-hosted Windows desktop. Inspect actual MSI
 # preview windows with UI Automation from a separate MTA process. Do not use
 # database strings as the observed result, click buttons or install the fixture.
+# Coverage is exact Unicode text, unique native identity and visible geometry;
+# it does not qualify checkbox state, Invoke/Toggle patterns or user interaction.
 # Use Windows PowerShell (-MTA), whose framework includes UIAutomationClient.
 param([Parameter(Mandatory)] [string] $Msi, [Parameter(Mandatory)] [string] $Work)
 $ErrorActionPreference = 'Stop'
@@ -34,6 +36,14 @@ function Read-ProductName($Database) {
     [void] $view.Close()
     [void] [Runtime.InteropServices.Marshal]::FinalReleaseComObject($view)
   }
+}
+function Test-NativeControlIdentity($Current, [string] $ExpectedText, [string] $ExpectedClass, [int] $ExpectedProcessId) {
+  # MSI preview exposes HWND-backed Win32 controls, but this runner's UIA
+  # provider reports Pane with no patterns even for Static and Button classes.
+  # Match observed native identity; do not claim an unreported UIA role/pattern.
+  return $Current.Name -ceq $ExpectedText -and $Current.ClassName -ceq $ExpectedClass -and
+    $Current.FrameworkId -ceq 'Win32' -and $Current.ProcessId -eq $ExpectedProcessId -and
+    $Current.NativeWindowHandle -ne 0 -and -not [string]::IsNullOrWhiteSpace($Current.AutomationId)
 }
 function Write-PreviewDiagnostics($Child, [string] $Id, [string] $ExpectedTitle) {
   # This runs only after the hosted-runner guard and only on failure. Inspect
@@ -131,19 +141,26 @@ try {
         $observed = @($elements | ForEach-Object {
           [ordered]@{ name = $_.Current.Name; type = $_.Current.ControlType.ProgrammaticName;
             className = $_.Current.ClassName; automationId = $_.Current.AutomationId;
-            framework = $_.Current.FrameworkId; handle = $_.Current.NativeWindowHandle;
+            framework = $_.Current.FrameworkId; handle = $_.Current.NativeWindowHandle; processId = $_.Current.ProcessId;
             patterns = @($_.GetSupportedPatterns() | ForEach-Object { $_.ProgrammaticName });
             offscreen = $_.Current.IsOffscreen; bounds = $_.Current.BoundingRectangle.ToString() }
         })
         $observed | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $Work "$id.controls.json") -Encoding utf8
         $checked = 0
+        $seenHandles = @{}
+        $seenIds = @{}
         foreach ($control in @($dialog.Control | Where-Object { $_.Text })) {
           $expected = Resolve-DialogText $control.Text $strings $productName
-          $kind = @{ Text = 'ControlType.Text'; CheckBox = 'ControlType.CheckBox'; PushButton = 'ControlType.Button' }[$control.Type]
-          if (-not $kind) { throw "Unaccounted native text control type $($control.Type)" }
-          $matching = @($elements | Where-Object { $_.Current.Name -ceq $expected -and $_.Current.ControlType.ProgrammaticName -eq $kind })
-          if ($matching.Count -ne 1) { throw "$id.$($control.Id): expected one visible $kind with exact Unicode text '$expected'; found $($matching.Count)." }
+          $nativeClass = @{ Text = 'Static'; CheckBox = 'Button'; PushButton = 'Button' }[$control.Type]
+          if (-not $nativeClass) { throw "Unaccounted native text control type $($control.Type)" }
+          $matching = @($elements | Where-Object { Test-NativeControlIdentity $_.Current $expected $nativeClass $child.Id })
+          if ($matching.Count -ne 1) { throw "$id.$($control.Id): expected one native $nativeClass with exact Unicode text '$expected' in the preview process; found $($matching.Count)." }
           $element = $matching[0].Current
+          if ($seenHandles.ContainsKey($element.NativeWindowHandle) -or $seenIds.ContainsKey($element.AutomationId)) {
+            throw "$id.$($control.Id) reused another control's native identity"
+          }
+          $seenHandles[$element.NativeWindowHandle] = $true
+          $seenIds[$element.AutomationId] = $true
           $bounds = $element.BoundingRectangle
           if ($element.IsOffscreen -or $bounds.Width -le 0 -or $bounds.Height -le 0 -or
               $bounds.Left -lt $windowBounds.Left -or $bounds.Top -lt $windowBounds.Top -or
