@@ -168,10 +168,12 @@ pub fn tools() -> Vec<ToolDef> {
                 }),
                 &["doc"],
             )),
-        t("text_find", "Find text", "Find a phrase (case-insensitive, whitespace-normalised) and return each match with its page and line rectangles in points (origin top-left).")
+        t("text_find", "Find text", "Find a phrase (case-insensitive, whitespace-normalised) and return each match, in page order, with its page and line rectangles in points (origin top-left). Pages are read only until the limit is reached.")
             .ro()
             .cmd("edit.find")
-            .with(schema(json!({ "doc": doc(), "query": { "type": "string", "minLength": 1 }, "limit": { "type": "integer", "minimum": 1, "description": "Maximum matches (default 500)." } }), &["doc", "query"])),
+            .with(schema(json!({ "doc": doc(), "query": { "type": "string", "minLength": 1 }, "limit": { "type": "integer", "minimum": 1, "description": "Maximum matches (default 500). The search stops once it has this many; `complete` says whether every match was returned, and when it is false `next` holds the start_page and skip that continue the search." },
+                "start_page": { "type": "integer", "minimum": 1, "description": "Page to start searching from (default 1)." },
+                "skip": { "type": "integer", "minimum": 0, "description": "Matches to pass over on start_page before returning any (default 0)." } }), &["doc", "query"])),
         t("page_rotate", "Rotate pages", "Rotate pages by a multiple of 90 degrees (positive is clockwise): the listed pages (default all), filtered like Acrobat's Rotate Pages by subset (all, even, odd page numbers) and orientation (all, landscape, portrait). Undoable.")
             .cmd("page.rotate")
             .with(schema(
@@ -181,6 +183,16 @@ pub fn tools() -> Vec<ToolDef> {
                     "orientation": { "type": "string", "enum": ["all", "landscape", "portrait"] },
                 }),
                 &["doc", "degrees"],
+            )),
+        t("page_enhance_camera", "Enhance camera image", "Straighten a photographed document (Scan & OCR ▸ Enhance ▸ Camera image): the part of the page inside the four corners (x1, y1, … x4, y4 in top-left-origin points, any order, a convex quadrilateral; when omitted, the document's edges are found automatically, or an error says they could not be) is warped to an upright rectangle that replaces what the page shows, at the page picture's own resolution (at most 600 dpi). The page's comments, links and bookmarks stay. Undoable.")
+            .cmd("ocr.enhance_camera")
+            .with(schema(
+                json!({
+                    "doc": doc(),
+                    "page": { "type": "integer", "minimum": 1 },
+                    "corners": { "type": "array", "items": { "type": "number" }, "minItems": 8, "maxItems": 8 },
+                }),
+                &["doc", "page"],
             )),
         t("page_delete", "Delete pages", "Delete pages. Undoable until saved.")
             .destructive()
@@ -222,7 +234,7 @@ pub fn tools() -> Vec<ToolDef> {
             .cmd("create.multiple")
             .with(schema(
                 json!({
-                    "paths": { "type": "array", "items": { "type": "string" }, "minItems": 1, "maxItems": pdfcraft_engine::MAX_CREATE_FILES },
+                    "paths": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
                     "mode": { "type": "string", "enum": ["combine", "separate"] },
                     "pages": { "type": "array", "items": { "type": ["string", "null"] } },
                     "out": save_out.clone(),

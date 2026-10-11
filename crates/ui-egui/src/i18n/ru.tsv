@@ -104,12 +104,18 @@
 	Open a PDF ({key})	Открыть PDF ({key})
 	Dark gray theme	Тёмно-серая тема
 	Light theme	Светлая тема
+	Appearance mode	Режим оформления
+	Light	Светлое
+	Dark	Тёмное
+	Active	Активно
+	Dark theme	Тёмная тема
+	Appearance settings…	Настройки оформления…
 	All tools	Все инструменты
 	Read	Чтение
 	Convert	Конвертация
 	E-Sign	Электронная подпись
 	Print ({key})	Печать ({key})
-	Save (M4)	Сохранить (M4)
+	Save ({key})	Сохранить ({key})
 	Document properties ({key})	Свойства документа ({key})
 	Find tools and commands	Найти инструменты и команды
 	Fit to height	По высоте
@@ -2114,3 +2120,10 @@ key	Space	Пробел
 	Resize panel window	Изменить размер окна панели
 	Tools	Инструменты
 	Inspector	Инспектор
+	Mouse wheel scroll speed	Скорость прокрутки колесом мыши
+scroll speed	Slow	Низкая
+scroll speed	Normal	Обычная
+scroll speed	Fast	Высокая
+	Enhance camera image	Улучшить снимок с камеры
+	Drag the corners onto the document's edges, then choose Enhance page.	Перетащите углы к краям документа, затем выберите «Улучшить страницу».
+	Enhance page	Улучшить страницу
