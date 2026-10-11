@@ -8104,11 +8104,11 @@ title = "Output preview"
 area = "L"
 tier = "P1"
 milestone = "M11"
-status = "planned"
+status = "partial"
 commands = []
-tools = []
-evidence = []
-notes = ""
+tools = ["prepress_inks"]
+evidence = ["crates/prepress/src/tests.rs::cmyk_operators_report_four_process_inks_with_their_tints", "crates/automation/tests/automation.rs::inks_and_overprint_through_tools"]
+notes = "headless: every ink a page draws with (process channels, Separation/DeviceN spot inks incl. None and All), the highest tint per ink, the pages using it, and the pages that paint with overprint on (prepress_inks). Missing: the viewer panel, per-separation rendering, and area coverage"
 
 [[feature]]
 id = "print.separations"
@@ -8116,11 +8116,11 @@ title = "Separations preview with area coverage"
 area = "L"
 tier = "P1"
 milestone = "M11"
-status = "planned"
+status = "partial"
 commands = []
-tools = []
-evidence = []
-notes = ""
+tools = ["prepress_inks"]
+evidence = ["crates/prepress/src/tests.rs::a_spot_separation_ink_is_named_and_its_tint_kept", "crates/prepress/src/tests.rs::devicen_lists_every_ink_of_the_space"]
+notes = "the separation list itself ships: spot inks of Separation and DeviceN spaces with their highest tint and pages, the None and All special inks. Missing: area coverage (needs rasterisation per separation) and the preview"
 
 [[feature]]
 id = "print.total-area-coverage"

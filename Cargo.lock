@@ -3700,6 +3700,7 @@ dependencies = [
  "pdfcraft-optimize",
  "pdfcraft-organize",
  "pdfcraft-preflight",
+ "pdfcraft-prepress",
  "pdfcraft-print",
  "pdfcraft-redact",
  "pdfcraft-render",
@@ -3823,6 +3824,15 @@ dependencies = [
 name = "pdfcraft-preflight"
 version = "0.6.0"
 dependencies = [
+ "pdfcraft-cos",
+ "pdfcraft-model",
+]
+
+[[package]]
+name = "pdfcraft-prepress"
+version = "0.6.0"
+dependencies = [
+ "pdfcraft-content",
  "pdfcraft-cos",
  "pdfcraft-model",
 ]
