@@ -329,7 +329,7 @@ impl PdfCraftApp {
                     self.apply_edit(Edit::InsertBlankPage { at: last + 1, width: w, height: h });
                 }
             }
-            "page.insert" => self.insert_from_file_dialog(),
+            "page.insert" => self.insert_pages_choice(None),
             "page.replace" => self.replace_pages_dialog(),
             "edit.header_footer"
             | "edit.watermark"

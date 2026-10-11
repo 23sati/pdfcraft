@@ -200,7 +200,37 @@ impl PdfCraftApp {
 
     /// Ask for files whose pages to insert after the selection (Organize ▸ Insert from file).
     pub fn insert_from_file_dialog(&mut self) {
-        self.insert_from_file_at(None);
+        self.insert_pages_choice(None);
+    }
+
+    /// Ask whether to insert a blank page or pages from another PDF.
+    pub(crate) fn insert_pages_choice(&mut self, at: Option<usize>) {
+        let Some(i) = self.active else {
+            self.notify_tr("Open a document first");
+            return;
+        };
+        if let Some(view) = self.views.get_mut(i) {
+            view.insert_at = at;
+        }
+        self.dialog = Some(crate::Dialog::InsertPagesChoice);
+    }
+
+    pub(crate) fn insert_blank_page_from_choice(&mut self) {
+        let Some(i) = self.active else { return };
+        let Some(view) = self.views.get_mut(i) else { return };
+        let Some(doc) = self.session.get(view.id) else { return };
+        let count = doc.info.pages.len();
+        if count == 0 {
+            self.notify_tr("The document has no pages to size the blank page from");
+            return;
+        }
+        let selected_at = view.selected.iter().next_back().map(|page| page.saturating_add(1)).unwrap_or(view.current.saturating_add(1));
+        let at = view.insert_at.take().unwrap_or(selected_at).min(count);
+        let size_page = at.saturating_sub(1).min(count.saturating_sub(1));
+        let Some(page) = doc.info.pages.get(size_page) else { return };
+        let crop = page.crop;
+        let (width, height) = ((crop[2] - crop[0]).abs().max(1.0) as f64, (crop[3] - crop[1]).abs().max(1.0) as f64);
+        self.apply_edit(Edit::InsertBlankPage { at, width, height });
     }
 
     /// Ask for files to insert at grid gap `at` (0 = before the first page), or after the

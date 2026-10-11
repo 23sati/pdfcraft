@@ -84,6 +84,8 @@ fn insert_from_file_uses_the_pick_on_the_next_frame() {
     assert!(h.state_mut().execute("page.insert"));
     assert_eq!(pages(h.state(), 0), 3, "nothing is inserted until the pick arrives");
     h.run_steps(2);
+    h.get_by_label("Insert pages from a file…").click();
+    h.run_steps(2);
     assert_eq!(pages(h.state(), 0), 5);
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -99,6 +101,9 @@ fn a_pick_for_a_document_that_is_no_longer_active_is_dropped() {
     h.state_mut().active = Some(0);
     h.state_mut().pick_override = Some(vec![file.to_string_lossy().into_owned()]);
     assert!(h.state_mut().execute("page.insert"));
+    h.run_steps(2);
+    h.get_by_label("Insert pages from a file…").click();
+    h.run_steps(1);
     // The user switches tabs before the pick arrives.
     h.state_mut().active = Some(1);
     h.run_steps(2);

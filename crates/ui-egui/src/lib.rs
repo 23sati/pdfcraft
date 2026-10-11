@@ -246,6 +246,8 @@ struct GridDrop {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Dialog {
+    /// Choose whether to insert a blank page or pages from a PDF.
+    InsertPagesChoice,
     CreateImages,
     Properties(PropsTab),
     About,
@@ -1473,6 +1475,12 @@ impl PdfCraftApp {
 
     /// Run a catalogue command. Commands that aren't implemented yet say which milestone ships them.
     pub fn run_command(&mut self, command: &str) {
+        // The Tools ▸ Edit a PDF entry has two insertion modes. Handle it here, before the
+        // ordinary command executor, so opening the tool always presents that choice first.
+        if command == "page.insert" {
+            self.insert_pages_choice(None);
+            return;
+        }
         if let Some(spec) = pdfcraft_engine::commands::command(command) {
             use pdfcraft_engine::commands::Needs;
             // A tool that needs a document, chosen with none open, asks for the file and then

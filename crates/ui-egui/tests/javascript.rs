@@ -97,6 +97,10 @@ fn document_scripts_and_preferences() {
     // Below the fold in a 900-point window: the preferences scroll to it.
     h.get_by_label("Enable Acrobat JavaScript").scroll_to_me();
     h.run_steps(4);
+    // The test runner may inherit JavaScript-off from its local app settings; start enabled so
+    // this click exercises the transition that persists an opt-out.
+    h.state_mut().session.set_javascript(true);
+    h.run_steps(1);
     h.get_by_label("Enable Acrobat JavaScript").click();
     h.run_steps(2);
     assert!(!h.state().session.javascript());

@@ -3795,12 +3795,10 @@ fn organize_toolbar(view: &mut DocView, info: &DocInfo, editable: bool, dirty: b
                 if ui.add_enabled_ui(can_delete, |ui| icons::button(ui, "trash-2", 30.0, false, tl!("Delete pages (Delete)"))).inner.clicked() {
                     view.pending_edit = Some(Edit::DeletePages { pages: targets.clone() });
                 }
-                if icons::button(ui, "file-plus", 30.0, false, tl!("Insert a blank page after the selection")).clicked() {
-                    let c = info.pages[last].crop;
-                    let (w, h) = ((c[2] - c[0]).abs().max(1.0) as f64, (c[3] - c[1]).abs().max(1.0) as f64);
-                    view.pending_edit = Some(Edit::InsertBlankPage { at: last + 1, width: w, height: h });
+                if icons::button(ui, "file-plus", 30.0, false, tl!("Insert pages")).clicked() {
+                    view.pending_action = Some(ViewAction::InsertFromFileAt(last + 1));
                 }
-                if icons::button(ui, "file-input", 30.0, false, tl!("Insert pages from a file…")).clicked() {
+                if icons::button(ui, "file-input", 30.0, false, tl!("Insert pages")).clicked() {
                     view.pending_action = Some(ViewAction::InsertFromFile);
                 }
                 if icons::button(ui, "file-output", 30.0, false, tl!("Extract pages to a new document")).clicked() {

@@ -69,6 +69,8 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
     let mut images_now = false;
     let mut stamp_now = false;
     let mut alt_now = false;
+    let mut insert_blank_now = false;
+    let mut insert_file_now = false;
     let t = Tokens::get(ctx);
     let mut close = false;
     let mut next = dialog;
@@ -81,6 +83,19 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
             _ => 520.0,
         });
         match dialog {
+            Dialog::InsertPagesChoice => {
+                ui.label(egui::RichText::new(tl!("Insert pages")).font(theme::semibold(18.0)));
+                ui.add_space(8.0);
+                if widgets::pill_button(ui, tl!("Insert a blank page after the selection"), true).clicked() {
+                    insert_blank_now = true;
+                    close = true;
+                }
+                ui.add_space(6.0);
+                if widgets::pill_button(ui, tl!("Insert pages from a file…"), false).clicked() {
+                    insert_file_now = true;
+                    close = true;
+                }
+            }
             Dialog::CreateImages => {
                 let (go, cancel) = crate::create_ui::image_import_body(ui, app);
                 images_now = go;
@@ -1306,6 +1321,13 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
         app.bulk_field_props = None;
     } else {
         app.dialog = Some(next);
+    }
+    if insert_blank_now {
+        app.insert_blank_page_from_choice();
+    }
+    if insert_file_now {
+        let at = app.active.and_then(|i| app.views.get(i)).and_then(|view| view.insert_at);
+        app.insert_from_file_at(at);
     }
     if let Some(cmd) = link_command {
         app.execute(cmd);

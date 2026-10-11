@@ -359,6 +359,8 @@ fn insert_blank_page_after_selection() {
     let mut h = organize(2);
     h.get_by_label("Page 1").click();
     h.run_steps(1);
+    h.get_all_by_label("Insert pages").next().unwrap().click();
+    h.run_steps(2);
     h.get_by_label("Insert a blank page after the selection").click();
     h.run_steps(3);
     assert_eq!(page_texts(h.state()), ["Page 1", "", "Page 2"]);
@@ -1350,6 +1352,8 @@ fn plus_between_pages_inserts_picked_files_there_in_order() {
     h.run_steps(2);
     h.state_mut().pick_override = Some(vec![extra.to_string_lossy().into_owned(), note.to_string_lossy().into_owned()]);
     h.get_by_label("Insert a file before page 2").click();
+    h.run_steps(2);
+    h.get_by_label("Insert pages from a file…").click();
     h.run_steps(4);
     assert_eq!(texts_of(h.state(), 0), ["Page 1", "Page 1", "Page 2", "a note", "Page 2", "Page 3"]);
     assert_eq!(picked(&h), [1, 2, 3], "the inserted pages are selected");
@@ -1362,12 +1366,18 @@ fn plus_between_pages_inserts_picked_files_there_in_order() {
     // Both ends.
     h.state_mut().pick_override = Some(vec![note.to_string_lossy().into_owned()]);
     h.get_by_label("Insert a file before page 1").click();
+    h.run_steps(2);
+    h.get_by_label("Insert pages from a file…").click();
     h.run_steps(4);
     h.get_by_label("Insert a file at the end").click();
+    h.run_steps(2);
+    h.get_by_label("Insert pages from a file…").click();
     h.run_steps(4);
     assert_eq!(texts_of(h.state(), 0), ["a note", "Page 1", "Page 2", "Page 3", "a note"]);
     // The toolbar button still inserts after the selection, not at the last "+" used.
     h.get_by_label("Page 2").click();
+    h.run_steps(2);
+    h.get_all_by_label("Insert pages").last().unwrap().click();
     h.run_steps(2);
     h.get_by_label("Insert pages from a file…").click();
     h.run_steps(4);
@@ -1548,6 +1558,8 @@ fn a_zoomed_page_grid_still_inserts_and_moves_at_the_right_gap() {
     assert_eq!(grid_zoom(&h), 2.0);
     h.state_mut().pick_override = Some(vec![note.to_string_lossy().into_owned()]);
     h.get_by_label("Insert a file before page 2").click();
+    h.run_steps(2);
+    h.get_by_label("Insert pages from a file…").click();
     h.run_steps(4);
     assert_eq!(texts_of(h.state(), 0), ["Page 1", "a note", "Page 2", "Page 3"]);
     // Files dropped over a gap go there too.

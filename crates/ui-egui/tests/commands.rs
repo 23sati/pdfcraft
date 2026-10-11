@@ -49,7 +49,6 @@ fn harness() -> Harness<'static, PdfCraftApp> {
 const PICKERS: &[&str] = &[
     "file.open",
     "page.combine",
-    "page.insert",
     "file.save_as",
     "create.file",
     "create.images",
@@ -64,6 +63,19 @@ const PICKERS: &[&str] = &[
     "export.rtf",
     "measure.export",
 ];
+
+#[test]
+fn insert_pages_opens_a_choice_before_any_file_picker() {
+    let mut h = harness();
+    h.state_mut().run_command("page.insert");
+    assert_eq!(h.state().dialog, Some(Dialog::InsertPagesChoice));
+    h.run_steps(2);
+    h.get_by_label("Insert a blank page after the selection").click();
+    h.run_steps(3);
+    let app = h.state();
+    assert_eq!(app.session.get(app.views[0].id).unwrap().info.pages.len(), 4);
+    assert_eq!(app.dialog, None);
+}
 
 #[test]
 fn every_registered_command_is_implemented() {
