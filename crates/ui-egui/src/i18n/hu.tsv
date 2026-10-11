@@ -81,6 +81,12 @@
 	Open a PDF ({key})	PDF megnyitása ({key})
 	Dark gray theme	Sötétszürke téma
 	Light theme	Világos téma
+	Appearance mode	Megjelenési mód
+	Light	Világos
+	Dark	Sötét
+	Active	Aktív
+	Dark theme	Sötét téma
+	Appearance settings…	Megjelenési beállítások…
 	All tools	Minden eszköz
 	Read	Olvasás
 	Convert	Konvertálás
@@ -820,6 +826,10 @@
 	The signature will be invisible.	Az aláírás láthatatlan lesz.
 	Distinguished name	Megkülönböztető név
 	Labels	Címkék
+	Graphic	Grafika
+	Signer's name	Aláíró neve
+	Fill & Sign signature	A Kitöltés és aláírás aláírása
+	Choose image…	Kép kiválasztása…
 	Permitted actions after certifying	Engedélyezett műveletek hitelesítés után
 	No changes allowed	Semmilyen módosítás nem engedélyezett
 	Annotations, form fill-in, and digital signatures	Széljegyzetek, űrlapkitöltés és digitális aláírások
@@ -1625,6 +1635,7 @@
 	This document isn't password-protected	Ez a dokumentum nincs jelszóval védve
 	Only the document's owner can change its security (open it with the permissions password)	Csak a dokumentum tulajdonosa módosíthatja a biztonságát (nyisd meg a jogosultsági jelszóval)
 	The document's security settings don't allow this change	A dokumentum biztonsági beállításai nem engedik ezt a módosítást
+	The document's security settings don't allow copying text and images	A dokumentum biztonsági beállításai nem engedik a szöveg és a képek másolását
 	Open a document first	Előbb nyiss meg egy dokumentumot
 	Security will be removed when you save	A védelem mentéskor megszűnik
 	Click text or an image to edit it	Kattints a szövegre vagy egy képre a szerkesztéshez
@@ -2199,6 +2210,10 @@ key	Space	Szóköz
 	Resize panel window	Panelablak átméretezése
 	Tools	Eszközök
 	Inspector	Tulajdonságvizsgáló
+	Select page {label}	{label}. oldal kijelölése
+	Rotate page {label} counterclockwise	{label}. oldal elforgatása az óramutató járásával ellentétesen
+	Rotate page {label} clockwise	{label}. oldal elforgatása az óramutató járásával megegyezően
+	Delete page {label}	{label}. oldal törlése
 	Mouse wheel scroll speed	Egérgörgő görgetési sebessége
 scroll speed	Slow	Lassú
 scroll speed	Normal	Normál

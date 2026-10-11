@@ -87,6 +87,12 @@ comment menu	Edit	సవరించు
 	Open a PDF ({key})	PDFను తెరువు ({key})
 	Dark gray theme	ముదురు బూడిద రంగు థీమ్
 	Light theme	లేత థీమ్
+	Appearance mode	రూపం మోడ్
+	Light	లైట్
+	Dark	డార్క్
+	Active	సక్రియం
+	Dark theme	డార్క్ థీమ్
+	Appearance settings…	రూపం సెట్టింగ్‌లు…
 	All tools	అన్ని సాధనాలు
 	Read	చదవడం
 	Convert	మార్పిడి
@@ -825,6 +831,10 @@ comment menu	Edit	సవరించు
 	The signature will be invisible.	సంతకం కనిపించదు.
 	Distinguished name	విశిష్ట పేరు
 	Labels	లేబుల్‌లు
+	Graphic	గ్రాఫిక్
+	Signer's name	సంతకదారు పేరు
+	Fill & Sign signature	నింపడం & సంతకం సంతకం
+	Choose image…	చిత్రాన్ని ఎంచుకోండి…
 	Permitted actions after certifying	సర్టిఫై చేసిన తర్వాత అనుమతించే చర్యలు
 	No changes allowed	మార్పులు ఏవీ అనుమతించబడవు
 	Annotations, form fill-in, and digital signatures	ఉల్లేఖనలు, ఫారం నింపడం మరియు డిజిటల్ సంతకాలు
@@ -1628,6 +1638,7 @@ action wizard	Start	ప్రారంభించు
 	This document isn't password-protected	ఈ పత్రం పాస్‌వర్డ్‌తో రక్షించబడలేదు
 	Only the document's owner can change its security (open it with the permissions password)	పత్రం యజమాని మాత్రమే దాని భద్రతను మార్చగలరు (అనుమతుల పాస్‌వర్డ్‌తో దాన్ని తెరవండి)
 	The document's security settings don't allow this change	పత్రం భద్రతా సెట్టింగ్‌లు ఈ మార్పును అనుమతించవు
+	The document's security settings don't allow copying text and images	పత్రం భద్రతా సెట్టింగ్‌లు టెక్స్ట్, చిత్రాలను కాపీ చేయడాన్ని అనుమతించవు
 	Open a document first	ముందుగా ఒక పత్రాన్ని తెరవండి
 	Security will be removed when you save	మీరు సేవ్ చేసినప్పుడు భద్రత తీసివేయబడుతుంది
 	Click text or an image to edit it	సవరించడానికి టెక్స్ట్ లేదా చిత్రంపై క్లిక్ చేయండి
@@ -2130,6 +2141,10 @@ key	Space	స్పేస్
 	Resize panel window	ప్యానెల్ విండో పరిమాణం మార్చు
 	Tools	సాధనాలు
 	Inspector	పరిశీలకుడు
+	Select page {label}	{label} పేజీని ఎంచుకోండి
+	Rotate page {label} counterclockwise	{label} పేజీని అపసవ్య దిశలో తిప్పండి
+	Rotate page {label} clockwise	{label} పేజీని సవ్య దిశలో తిప్పండి
+	Delete page {label}	{label} పేజీని తొలగించండి
 	Mouse wheel scroll speed	మౌస్ వీల్ స్క్రోల్ వేగం
 scroll speed	Slow	నెమ్మదిగా
 scroll speed	Normal	సాధారణం

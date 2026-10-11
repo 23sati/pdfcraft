@@ -83,6 +83,12 @@
 	Open a PDF ({key})	PDF öffnen ({key})
 	Dark gray theme	Dunkelgraues Design
 	Light theme	Helles Design
+	Appearance mode	Darstellungsmodus
+	Light	Hell
+	Dark	Dunkel
+	Active	Aktiv
+	Dark theme	Dunkles Design
+	Appearance settings…	Darstellungseinstellungen…
 	All tools	Alle Werkzeuge
 	Read	Lesen
 	Convert	Konvertieren
@@ -676,6 +682,10 @@
 	Edit image	Bild bearbeiten
 	Rotate counterclockwise	Gegen den Uhrzeigersinn drehen
 	Rotate clockwise	Im Uhrzeigersinn drehen
+	Select page {label}	Seite {label} auswählen
+	Rotate page {label} counterclockwise	Seite {label} gegen den Uhrzeigersinn drehen
+	Rotate page {label} clockwise	Seite {label} im Uhrzeigersinn drehen
+	Delete page {label}	Seite {label} löschen
 	Flip horizontal	Horizontal spiegeln
 	Flip vertical	Vertikal spiegeln
 	Replace image	Bild ersetzen
@@ -823,6 +833,10 @@
 	The signature will be invisible.	Die Signatur wird unsichtbar sein.
 	Distinguished name	Distinguished Name
 	Labels	Beschriftungen
+	Graphic	Grafik
+	Signer's name	Name des Unterzeichners
+	Fill & Sign signature	Unterschrift aus „Ausfüllen und unterschreiben“
+	Choose image…	Bild auswählen…
 	Permitted actions after certifying	Erlaubte Aktionen nach dem Zertifizieren
 	No changes allowed	Keine Änderungen erlaubt
 	Annotations, form fill-in, and digital signatures	Anmerkungen, Ausfüllen von Formularen und digitale Signaturen
@@ -1636,6 +1650,7 @@
 	This document isn't password-protected	Dieses Dokument ist nicht passwortgeschützt
 	Only the document's owner can change its security (open it with the permissions password)	Nur der Eigentümer des Dokuments kann die Sicherheit ändern (öffne es mit dem Berechtigungspasswort)
 	The document's security settings don't allow this change	Die Sicherheitseinstellungen des Dokuments erlauben diese Änderung nicht
+	The document's security settings don't allow copying text and images	Die Sicherheitseinstellungen des Dokuments erlauben kein Kopieren von Text und Bildern
 	Open a document first	Öffne zuerst ein Dokument
 	Security will be removed when you save	Die Sicherheit wird beim Speichern entfernt
 	Click text or an image to edit it	Klicke auf Text oder ein Bild, um es zu bearbeiten

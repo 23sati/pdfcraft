@@ -1,5 +1,7 @@
 # PdfCraft roadmap: milestones and what's next
 
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (direct Organize overview and page actions; localized shortcut labels, #496; alpha gate added; convert-and-share re-judged with the cross-app rule → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (closed issues synced: #774, #756, #817–#821, #809, #819, #816, #844; earlier: localized shortcut labels, #496; alpha gate added; convert-and-share re-judged with the cross-app rule → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (M6: respect existing form-font encodings; retain source fonts on appearance fallback; estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (M6: keep accepted form values when Tab reopens the same field before Save; estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (M13: reject malformed CLI --root options before dispatch; estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
@@ -25,14 +27,14 @@ exchange with Acrobat users or a missing sub-case is `partial, not blocking` (a 
 | Core workflow | Works end to end? | Evidence | Hours to pass |
 |---|---|---|---|
 | View, search and print | yes | Render, find, select, panels, tiles; 500-page scrolling test; Print with CUPS on macOS/Linux and the Windows spooler (web printing missing, a beta item). Rendering borrowed from `hayro` | 0 |
-| Organize, combine and split pages | yes | `organize.*` P0s shipped with tests; links, fields, layers and bookmarks carried over; open fixes #817, #821 are edge cases | 0 |
-| Comment and review | yes | Every markup type with appearances, replies, status, XFDF/FDF; comments saved in the PDF reopen in other readers. XFDF fidelity bugs #809, #819 | 0 |
+| Organize, combine and split pages | yes | `organize.*` P0s shipped with tests; links, fields, layers and bookmarks carried over; page deletion drops dangling destinations and the opening action (#817, #821) | 0 |
+| Comment and review | yes | Every markup type with appearances, replies, status, XFDF/FDF; comments saved in the PDF reopen in other readers; XFDF keeps polygon vertices and callouts (#809, #819) | 0 |
 | Fill and sign forms | yes | All AcroForm field types, Acrobat's AF functions, Fill & Sign, PAdES signatures validated with `pdfsig`/OpenSSL | 0 |
-| Edit text and images | partial, not blocking | Editing a paragraph of Latin text works (embedded font reused, else Helvetica substituted, rewrapped); added text and images stay editable. Fails for CJK/RTL (#766), can't move several objects (#844); a beta item (gap 3) | 0 (beta: 100–180) |
-| Convert and share (Office ↔ PDF, password protection) | partial, not blocking | Unencrypted PDFs we save open in Acrobat and other readers (958-file corpus round trip, `qpdf --check`); export to Word, RTF, HTML, text and images works, lossily (#773: an invoice's layout lost in Word); Create PDF works from images, text, the clipboard and many files at once. Missing sub-cases: password-protected output that Acrobat and Reader accept (#774; the file opens in PdfCraft, SumatraPDF, PDF24 and LibreOffice), an in-app Create PDF from Office (Office on macOS saves PDF itself), Excel/PowerPoint export. All beta items (gaps 1, 8) | 0 (beta: 40–70 for #774, Office→PDF and a layout-keeping Word export) |
+| Edit text and images | partial, not blocking | Editing a paragraph of Latin text works (embedded font reused, else Helvetica substituted, rewrapped); added text and images stay editable. Several objects on one page move together (#844), not across pages. Fails for CJK/RTL (#766); a beta item (gap 3) | 0 (beta: 100–180) |
+| Convert and share (Office ↔ PDF, password protection) | partial, not blocking | PDFs we save open in Acrobat and other readers (958-file corpus round trip, `qpdf --check`), password-protected ones too since #836 (#774: Acrobat DC opens AES-256 and RC4-128 output); export to Word, RTF, HTML, text and images works, lossily (#773: an invoice's layout lost in Word); Create PDF works from images, text, the clipboard and many files at once. Missing sub-cases: an in-app Create PDF from Office (Office on macOS saves PDF itself), Excel/PowerPoint export. Beta items (gap 8) | 0 (beta: 32–55 for Office→PDF and a layout-keeping Word export) |
 
 **Result: alpha.** Every core workflow can be completed on macOS; two are lossy or missing sub-cases
-(editing CJK/RTL text; encrypted output for Acrobat users, Office→PDF, Word layout), which are the
+(editing CJK/RTL text; Office→PDF, Word layout), which are the
 first beta items. Ready for real work, ≈ 49%, is inside the alpha band. (A first application of the
 gate the same day judged convert and share as blocking and put PdfCraft at pre-alpha; re-judged with
 the shared rule, encryption and Office→PDF are sub-cases and Word export is lossy, not absent.)
@@ -41,10 +43,10 @@ the shared rule, encryption and Office→PDF are sub-cases and Word export is lo
 
 In order. Each item names its entry in [gaps.md](gaps.md).
 
-1. **Convert and share:** encrypted output that Acrobat opens (gap 1, #774, small and the most
-   damaging), then Create PDF from Office and a Word export that keeps layout (gap 8, #773).
-2. **Fix the crash and wrong-result reports** filed against shipped features (gap 6), starting with
-   the panic in #816.
+1. **Convert and share:** Create PDF from Office and a Word export that keeps layout (gap 8, #773).
+   Encrypted output that Acrobat opens shipped with #836 (#774).
+2. **Fix the crash and wrong-result reports** filed against shipped features (gap 6). The first
+   batch (#799–#821, including the panic in #816) is fixed.
 3. **A Chinese UI face in releases** (gap 5, #826).
 4. **A fidelity harness against Acrobat, then the renderer decision** (gaps 12 and 2). Owner
    decision needed: our own M2 devices, or #841's proposal as the bridge.
@@ -70,6 +72,8 @@ total matches the parity estimate.
 | M0 | Skeleton: workspace, xtask gates, CI | 15–30 | 98% | 1–2 | GitHub workflow, `deny.toml` (licence audit of every dependency), parity checklist (826 features, `xtask parity`) done. Missing: remaining crate stubs, testkit/oracle crates |
 | M1 | COS: filters, crypt, parser, xref, writer | 120–200 | 80% | 20–40 | Done:<br>- filters and crypt: every standard-security revision R2–R6 (RC4, AES-128/256), SASLprep, permissions, creating encryption;<br>- cos: parse and repair (including invalid xref object-number ranges), decoded-stream limits including unfiltered data, decrypt on load, re-encrypt on save, incremental and full writing.<br>Corpus: open/edit/save passes on 958 files, and all 7 password-protected files open.<br>Full saves now pack objects into compressed object streams. Fuzzing runs nightly (`xtask fuzz`). Missing: ≥ 250 tests, own image codecs |
 | M2 | Model, render, text | 200–350 | 15% | 130–230 | hayro bootstrap renderer (vendored patches); inspector predictor scratch is bounded by available input, and JPX sample rescaling handles 1–32 bits safely. Text extraction reaches word-F1 0.98 against pdftotext. Missing: model crate, fonts, DisplayList, renderer independent of hayro. Inspector page-label traversal and output are resource-bounded, with physical-number fallback warnings |
+| M3 | Viewer app (native + web) | 80–150 | 90% | 10–20 | Acrobat-style shell, find, select, panels, tiles, web build, UI control channel for agents (opt-in). Missing: 60 fps test on a 500-page document, snapshot tests of every panel<br>Done since: fit visible, document title in the window; Linux middle-button scrolling; shared three-state theme preferences in the toolbar, View menu and control channel; late browser startup downloads preserve the current document and Save target (#171). |
+| M4 | Engine, history, save, organize | 100–180 | 95% | 8–15 | Done:<br>- command registry (menus, shortcuts and palette all use it);<br>- undo/redo; incremental, atomic and encrypted saves;<br>- autosave and crash recovery;<br>- organize, combine, extract, split and insert-from-file, with identical fonts and images stored once;<br>- CLI `edit/combine/extract/split`.<br>Done since: Organize opens directly into the page overview, with checkbox selection and per-page rotate/delete controls; Combine files in its own tab (sortable, resizable columns; folders; early warnings; unlocking protected files), bookmark editing, page labels (Number pages), CLI `run`, Set Page Boxes, Crop tool, Duplicate pages, Ctrl+A / Cmd+A to select all pages in Organize, Replace pages, bookmarks from tagged headings. Missing: page transitions, recovery on the web |
 | M3 | Viewer app (native + web) | 80–150 | 90% | 10–20 | Acrobat-style shell, find, select, panels, tiles, web build, UI control channel for agents (opt-in). Missing: 60 fps test on a 500-page document, snapshot tests of every panel<br>Done since: fit visible, document title in the window; Linux middle-button scrolling; shared three-state theme preferences in the toolbar, View menu and control channel; late browser startup downloads preserve the current document and Save target (#171). Renderer-creation errors return to the existing OpenGL startup fallback; a real-GPU regression covers errors and device reuse. The underlying x86 DX12 shader compiler failure remains unresolved; see `windows-renderer-startup.md`. |
 | M4 | Engine, history, save, organize | 100–180 | 95% | 8–15 | Done:<br>- command registry (menus, shortcuts and palette all use it);<br>- undo/redo; incremental, atomic and encrypted saves;<br>- autosave and crash recovery;<br>- organize, combine, extract, split and insert-from-file, with identical fonts and images stored once;<br>- CLI `edit/combine/extract/split`.<br>Done since: Combine files in its own tab (sortable, resizable columns; folders; early warnings; unlocking protected files), bookmark editing, page labels (Number pages), CLI `run`, Set Page Boxes, Crop tool, Duplicate pages, Ctrl+A / Cmd+A to select all pages in Organize, Replace pages, bookmarks from tagged headings. Missing: page transitions, recovery on the web |
 | M5 | Comments (all annotation types, XFDF) | 120–200 | 88% | 12–25 | Done: notes, highlight/underline/strikeout/squiggly, text boxes, ink, lines, arrows, rectangles, ovals, stamps (dynamic, Sign Here, Standard Business), with appearance streams; replies, status, checkmarks, locking, move/resize/restyle/delete; properties dialog; panel filter and sort; hide all; summaries (comments only); XFDF/FDF import and export; flatten; Fill & Sign; agent tools.<br>Done since: polygons, connected lines, clouds, callouts, inserted text, colour and checkmark filters; image signature pointer previews, selection handles and live image movement/resizing with proportional corners and independent edge handles. Missing: custom stamps, replace-text proposals, summary layouts with the page |
@@ -93,8 +97,8 @@ total matches the parity estimate.
 
 | Rank | Next milestone | Closes | Estimate (h) |
 |---|---|---|---|
-| 0 | Convert and share: encrypted output opens in Acrobat, Create PDF from Office, Word export keeps layout | gap 1, part of gap 8 | 40–70 |
-| 1 | Backlog and platform: crash and wrong-result reports fixed, Windows printing, Chinese UI face | gaps 4, 5, 6 | 65–120 |
+| 0 | Convert and share: Create PDF from Office, Word export keeps layout | part of gap 8 | 32–55 |
+| 1 | Backlog and platform: crash and wrong-result reports fixed, web printing, Chinese UI face | gaps 4, 5, 6 | 65–120 |
 | 2 | Fidelity harness and renderer decision (M2) | gaps 2, 12 | 110–190 |
 | 3 | Editing existing content (M7) | gap 3 | 100–180 |
 | 4 | Pro conversion: OCR languages and clean-up, Office export/import (M10) | gaps 7, 8 | 95–175 |
@@ -119,7 +123,8 @@ M2 (renderer), M7 (content editing), M10 (OCR and Office), M11 (Preflight and st
 - Real-world signature chains, revocation and tokens.
 - The rendering long tail: Type 3 fonts, broken fonts, shadings, blend modes.
 - Correctness of PDF/A, PDF/X and PDF/UA conversion.
-- Interoperability: files other readers (above all Acrobat) reject, as in #774.
+- Interoperability: files other readers (above all Acrobat) reject, as in #774 (fixed by #836; no
+  automated interop suite yet).
 - OCR and AI quality limited by what openly licensed models exist.
 - CPU rendering performance on the web.
 - Hostile input: every fuzz run so far has found new crashes or hangs.
@@ -129,6 +134,8 @@ M2 (renderer), M7 (content editing), M10 (OCR and Office), M11 (Preflight and st
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | M4: direct Organize overview, checkbox selection and individual page actions. Estimates unchanged. |
+| 2026-10-11 | minor | Synced with closed issues: encrypted output opens in Acrobat (#774, #836), so gap 1 left rank 0 and convert and share (32–55 h, the gap's 8–15 h removed); organize, XFDF and multi-object move fixes (#817, #821, #809, #819, #844); the #816 panic and the #799–#821 batch fixed; rank 1 names web printing (Windows shipped, #756). Stage and readiness numbers not re-measured |
 | 2026-10-11 | minor | M6: respect existing form-font encodings; retain source fonts on appearance fallback. Estimates unchanged. |
 | 2026-10-11 | minor | M6: keep accepted form values when Tab reopens the same field before Save. Estimates unchanged. |
 | 2026-10-11 | minor | M13: reject malformed CLI --root options before dispatch. Estimates unchanged. |
