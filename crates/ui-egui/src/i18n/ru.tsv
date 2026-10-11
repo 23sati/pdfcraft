@@ -1587,16 +1587,16 @@
 	Opened, but its security settings don't allow combining. Enter the permissions password.	Открыто, но настройки безопасности не разрешают объединение. Введите пароль разрешений.
 	Unlocked: the combined file won't be password-protected	Разблокировано: объединённый файл не будет защищён паролем
 	Unlocked {n} of {m} files	Разблокировано {n} из {m} файлов
-	Drop PDFs or folders here, or choose them.	Перетащите PDF или папки сюда или выберите их.
+	Drop PDFs, images, text files or folders here, or choose them.	Перетащите PDF, изображения, текстовые файлы или папки сюда или выберите их.
 	Add folder…	Добавить папку…
 	Add folder and subfolders…	Добавить папку и вложенные папки…
 	More ways to add files	Больше способов добавить файлы
-	Every PDF in the folder	Каждый PDF в папке
-	Every PDF in the folder and the folders inside it	Каждый PDF в папке и вложенных папках
+	Every PDF, image and text file in the folder	Каждый PDF, изображение и текстовый файл в папке
+	Every PDF, image and text file in the folder and the folders inside it	Каждый PDF, изображение и текстовый файл в папке и вложенных папках
 	Add folder	Добавить папку
 	Add folder and subfolders	Добавить папку и вложенные папки
-	No PDFs found in {folder}	В {folder} не найдено PDF
-	Added the first {n} PDFs in {folder}	Добавлены первые {n} PDF из {folder}
+	No PDFs, images or text files found in {folder}	В {folder} не найдено PDF, изображений или текстовых файлов
+	Added the first {n} files in {folder}	Добавлены первые {n} файлов из {folder}
 	Click to sort, drag to move the column. Drag its edge to resize it.	Щёлкните для сортировки, перетащите, чтобы переместить столбец. Перетащите край, чтобы изменить размер.
 	Reset columns	Сбросить столбцы
 	Remove {n} files	Удалить {n} файлов
@@ -1614,7 +1614,7 @@
 	{n} files need attention	{n} файлов требуют внимания
 	{name} can't be combined: {why}	{name} нельзя объединить: {why}
 	Check the pages of {name}: {why}	Проверьте страницы {name}: {why}
-	Add the PDFs to combine	Добавить PDF для объединения
+	Add the files to combine	Добавить файлы для объединения
 	File name	Имя файла
 	Warnings	Предупреждения
 	Drag to reorder	Перетащить для изменения порядка
@@ -1627,6 +1627,10 @@
 	Password-protected	Защищён паролем
 	Its security settings don't allow copying pages	Его настройки безопасности не разрешают копировать страницы
 	Can't be read: {e}	Нельзя прочитать: {e}
+	Leave out files that can't be read?	Пропустить файлы, которые не удаётся прочитать?
+	These files can't be read, so they won't be in the combined PDF:	Эти файлы не удаётся прочитать, поэтому их не будет в объединённом PDF:
+	Combine the rest	Объединить остальные
+	and {n} more	и ещё {n}
 	Includes unsaved changes	Включает несохранённые изменения
 	Pages of {name} to combine, e.g. 1-3, 6	Страницы {name} для объединения, например 1-3, 6
 	Remove {name}	Удалить {name}

@@ -1354,7 +1354,10 @@ impl Automation {
                     if let Some(g) = group {
                         firsts.push((g, path.clone(), sources.len()));
                     }
-                    Arc::new(std::fs::read(&path).map_err(|e| failed(format!("{}: {e}", path.display())))?)
+                    let bytes = Arc::new(std::fs::read(&path).map_err(|e| failed(format!("{}: {e}", path.display())))?);
+                    // Images and text files are made into PDFs first (#569), as in the Combine files tab.
+                    let file_name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                    self.session.as_pdf(&file_name, &bytes).map_err(failed)?
                 }
             };
             let name = path.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();

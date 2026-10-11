@@ -167,6 +167,36 @@ fn edit_undo_redo_and_save_round_trip() {
     assert_eq!(after.windows(5).filter(|w| w == b"%%EOF").count(), 2);
 }
 
+/// #569: images and text files combine with PDFs, each made into a PDF first.
+#[test]
+fn combine_takes_images_and_text_files() {
+    let dir = workdir("combine-images");
+    let mut png = Vec::new();
+    {
+        let mut encoder = png::Encoder::new(&mut png, 4, 2);
+        encoder.set_color(png::ColorType::Rgb);
+        encoder.set_depth(png::BitDepth::Eight);
+        encoder.write_header().unwrap().write_image_data(&[90; 24]).unwrap();
+    }
+    std::fs::write(dir.join("scan.png"), png).unwrap();
+    std::fs::write(dir.join("notes.txt"), "Some notes").unwrap();
+    std::fs::write(dir.join("broken.png"), b"\x89PNG\r\n\x1a\nbroken").unwrap();
+    std::fs::write(dir.join("report.docx"), b"PK\x03\x04").unwrap();
+    let mut a = auto(&dir);
+    let combined = ok(&mut a, "doc_combine", json!({ "paths": ["a.pdf", "scan.png", "notes.txt"], "pages": [null, null, "1"], "open": true }));
+    let doc = combined["document"]["doc"].as_u64().unwrap();
+    assert_eq!(combined["document"]["pages"], 5);
+    assert_eq!(page_text(&mut a, doc), ["Page 1", "Page 2", "Page 3", "", "Some notes"]);
+    let marks = ok(&mut a, "bookmark_list", json!({ "doc": doc }))["bookmarks"].clone();
+    let titles: Vec<&str> = marks.as_array().unwrap().iter().map(|b| b["title"].as_str().unwrap()).collect();
+    assert_eq!(titles, ["a", "scan", "notes"]);
+    // A file that can't be made into a PDF stops the combine, and says which.
+    for bad in ["broken.png", "report.docx"] {
+        let refused = a.call("doc_combine", &json!({ "paths": ["a.pdf", bad] }));
+        assert!(matches!(&refused, Err(ToolError::Failed(e)) if e.contains(bad)), "{bad}: {refused:?}");
+    }
+}
+
 #[test]
 fn combine_extract_and_split() {
     let dir = workdir("organize");
