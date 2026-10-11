@@ -433,6 +433,19 @@ fn real_annotation_flags_do_not_lock_comments() {
 }
 
 #[test]
+fn carriage_returns_in_comment_text_become_line_breaks() {
+    let mut doc = fixture();
+    let page = page_refs(&doc).unwrap()[0];
+    let mut entries = annots(&doc, page);
+    let Object::Dict(annotation) = &mut entries[0] else { panic!("fixture annotation is inline") };
+    // Acrobat ends lines in /Contents with CR; the interface only breaks lines at LF.
+    annotation.set(b"Contents".to_vec(), PdfString::text("one\r\rtwo\r\nthree"));
+    set_annots(&mut doc, page, entries).unwrap();
+
+    assert_eq!(summaries(&doc)[0].contents.as_deref(), Some("one\n\ntwo\nthree"));
+}
+
+#[test]
 fn a_locked_text_box_still_refits_its_text() {
     let mut doc = fixture();
     let t = add_annotation(&mut doc, &new(0, Shape::TextBox { rect: [100.0, 680.0, 304.0, 692.0], font_size: 12.0 }), &meta("t")).unwrap();
