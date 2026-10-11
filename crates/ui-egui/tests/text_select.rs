@@ -139,3 +139,28 @@ fn shift_click_extends_the_selection_from_its_anchor() {
     shift_click(&mut h, n);
     assert_eq!(h.state().views[0].selected_text(), None);
 }
+
+/// Issue #1024: multi-click selection triggers immediately on pointer press, before release.
+#[test]
+fn multiclick_selects_on_pointer_press_before_release() {
+    let (mut h, at) = harness(|_| {});
+    // First click: press and release.
+    click(&mut h, at);
+    // Second click: press and HOLD (do not release).
+    h.event(Event::PointerButton { pos: at, button: PointerButton::Primary, pressed: true, modifiers: Modifiers::NONE });
+    h.run_steps(1);
+    assert_eq!(h.state().views[0].selected_text().as_deref(), Some("quick"), "word highlights on press");
+    // Release the second click: still selected.
+    h.event(Event::PointerButton { pos: at, button: PointerButton::Primary, pressed: false, modifiers: Modifiers::NONE });
+    h.run_steps(1);
+    assert_eq!(h.state().views[0].selected_text().as_deref(), Some("quick"), "word stays selected on release");
+
+    // Third click: press and HOLD.
+    h.event(Event::PointerButton { pos: at, button: PointerButton::Primary, pressed: true, modifiers: Modifiers::NONE });
+    h.run_steps(1);
+    assert_eq!(h.state().views[0].selected_text().as_deref(), Some("The quick brown fox"), "line highlights on press");
+    // Release third click.
+    h.event(Event::PointerButton { pos: at, button: PointerButton::Primary, pressed: false, modifiers: Modifiers::NONE });
+    h.run_steps(1);
+    assert_eq!(h.state().views[0].selected_text().as_deref(), Some("The quick brown fox"), "line stays selected on release");
+}
