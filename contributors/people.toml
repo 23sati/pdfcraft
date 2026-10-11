@@ -74,3 +74,8 @@ sync_github_name = true
 
 [people.jay-tau]
 sync_github_name = true
+
+[people.atoslins]
+real_name = "Atos Lins"
+display_name = "Atos Lins"
+sync_github_name = false
