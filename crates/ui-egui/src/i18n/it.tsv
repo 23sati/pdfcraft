@@ -107,6 +107,12 @@
 	Open a PDF ({key})	Apri un PDF ({key})
 	Dark gray theme	Tema grigio scuro
 	Light theme	Tema chiaro
+	Appearance mode	Modalità aspetto
+	Light	Chiaro
+	Dark	Scuro
+	Active	Attivo
+	Dark theme	Tema scuro
+	Appearance settings…	Impostazioni aspetto…
 	All tools	Tutti gli strumenti
 	Read	Lettura
 	Convert	Converti
@@ -2208,6 +2214,10 @@ key	Space	Spazio
 	Panels	Pannelli
 	Resize panels	Ridimensiona pannelli
 	Resize panel window	Ridimensiona finestra pannello
+	Mouse wheel scroll speed	Velocità di scorrimento della rotellina del mouse
+scroll speed	Slow	Lenta
+scroll speed	Normal	Normale
+scroll speed	Fast	Veloce
 	Enhance camera image	Migliora foto della fotocamera
 	Drag the corners onto the document's edges, then choose Enhance page.	Trascina gli angoli sui bordi del documento, poi scegli Migliora la pagina.
 	Enhance page	Migliora la pagina

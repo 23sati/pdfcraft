@@ -1,6 +1,7 @@
 # PdfCraft roadmap: milestones and what's next
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (Word invoice export fixes, #773; estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (Word invoice export fixes, #773; estimates unchanged; closed issues synced: #774, #756, #817–#821, #809, #819, #816, #844; earlier: localized shortcut labels, #496; alpha gate added; convert-and-share re-judged with the cross-app rule → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (M6: respect existing form-font encodings; retain source fonts on appearance fallback; estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (M6: keep accepted form values when Tab reopens the same field before Save; estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (M13: reject malformed CLI --root options before dispatch; estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (Traditional Chinese accessibility semantics and Taiwan form/table terminology; estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
@@ -25,14 +26,14 @@ exchange with Acrobat users or a missing sub-case is `partial, not blocking` (a 
 | Core workflow | Works end to end? | Evidence | Hours to pass |
 |---|---|---|---|
 | View, search and print | yes | Render, find, select, panels, tiles; 500-page scrolling test; Print with CUPS on macOS/Linux and the Windows spooler (web printing missing, a beta item). Rendering borrowed from `hayro` | 0 |
-| Organize, combine and split pages | yes | `organize.*` P0s shipped with tests; links, fields, layers and bookmarks carried over; open fixes #817, #821 are edge cases | 0 |
-| Comment and review | yes | Every markup type with appearances, replies, status, XFDF/FDF; comments saved in the PDF reopen in other readers. XFDF fidelity bugs #809, #819 | 0 |
+| Organize, combine and split pages | yes | `organize.*` P0s shipped with tests; links, fields, layers and bookmarks carried over; page deletion drops dangling destinations and the opening action (#817, #821) | 0 |
+| Comment and review | yes | Every markup type with appearances, replies, status, XFDF/FDF; comments saved in the PDF reopen in other readers; XFDF keeps polygon vertices and callouts (#809, #819) | 0 |
 | Fill and sign forms | yes | All AcroForm field types, Acrobat's AF functions, Fill & Sign, PAdES signatures validated with `pdfsig`/OpenSSL | 0 |
-| Edit text and images | partial, not blocking | Editing a paragraph of Latin text works (embedded font reused, else Helvetica substituted, rewrapped); added text and images stay editable. Fails for CJK/RTL (#766), can't move several objects (#844); a beta item (gap 3) | 0 (beta: 100–180) |
-| Convert and share (Office ↔ PDF, password protection) | partial, not blocking | Unencrypted PDFs we save open in Acrobat and other readers (958-file corpus round trip, `qpdf --check`); export to Word, RTF, HTML, text and images works, lossily (#773: an invoice's layout lost in Word); Create PDF works from images, text, the clipboard and many files at once. Missing sub-cases: password-protected output that Acrobat and Reader accept (#774; the file opens in PdfCraft, SumatraPDF, PDF24 and LibreOffice), an in-app Create PDF from Office (Office on macOS saves PDF itself), Excel/PowerPoint export. All beta items (gaps 1, 8) | 0 (beta: 40–70 for #774, Office→PDF and a layout-keeping Word export) |
+| Edit text and images | partial, not blocking | Editing a paragraph of Latin text works (embedded font reused, else Helvetica substituted, rewrapped); added text and images stay editable. Several objects on one page move together (#844), not across pages. Fails for CJK/RTL (#766); a beta item (gap 3) | 0 (beta: 100–180) |
+| Convert and share (Office ↔ PDF, password protection) | partial, not blocking | PDFs we save open in Acrobat and other readers (958-file corpus round trip, `qpdf --check`), password-protected ones too since #836 (#774: Acrobat DC opens AES-256 and RC4-128 output); export to Word, RTF, HTML, text and images works, lossily (#773: an invoice's layout lost in Word); Create PDF works from images, text, the clipboard and many files at once. Missing sub-cases: an in-app Create PDF from Office (Office on macOS saves PDF itself), Excel/PowerPoint export. Beta items (gap 8) | 0 (beta: 32–55 for Office→PDF and a layout-keeping Word export) |
 
 **Result: alpha.** Every core workflow can be completed on macOS; two are lossy or missing sub-cases
-(editing CJK/RTL text; encrypted output for Acrobat users, Office→PDF, Word layout), which are the
+(editing CJK/RTL text; Office→PDF, Word layout), which are the
 first beta items. Ready for real work, ≈ 49%, is inside the alpha band. (A first application of the
 gate the same day judged convert and share as blocking and put PdfCraft at pre-alpha; re-judged with
 the shared rule, encryption and Office→PDF are sub-cases and Word export is lossy, not absent.)
@@ -41,10 +42,10 @@ the shared rule, encryption and Office→PDF are sub-cases and Word export is lo
 
 In order. Each item names its entry in [gaps.md](gaps.md).
 
-1. **Convert and share:** encrypted output that Acrobat opens (gap 1, #774, small and the most
-   damaging), then Create PDF from Office and a Word export that keeps layout (gap 8, #773).
-2. **Fix the crash and wrong-result reports** filed against shipped features (gap 6), starting with
-   the panic in #816.
+1. **Convert and share:** Create PDF from Office and a Word export that keeps layout (gap 8, #773).
+   Encrypted output that Acrobat opens shipped with #836 (#774).
+2. **Fix the crash and wrong-result reports** filed against shipped features (gap 6). The first
+   batch (#799–#821, including the panic in #816) is fixed.
 3. **A Chinese UI face in releases** (gap 5, #826).
 4. **A fidelity harness against Acrobat, then the renderer decision** (gaps 12 and 2). Owner
    decision needed: our own M2 devices, or #841's proposal as the bridge.
@@ -80,7 +81,7 @@ total matches the parity estimate.
 | M7 | Content editing (text, images, header/footer, watermark) | 250–500 | 20% | 100–180 | Done: header & footer, watermarks, backgrounds, Bates; added text and images that stay editable (move, resize, format, rotate, flip, crop, replace); links (Link tool, Link Properties, create from URLs, remove all). Missing: editing existing text and images in place (the longest pole), image/PDF watermarks |
 | M8 | Security + redaction | 100–180 | 68% | 15–30 | Done: opening protected documents, permissions, Protect Using Password, Remove security; redaction (mark text/areas/pages, Search & Redact with patterns, apply removing glyphs, image pixels, vectors, XObject content, annotations and fields, verification, full rewrite on save); Remove hidden information and Sanitize.<br>Done since: redaction codes (U.S. FOIA and Privacy Act sets as overlay text, in Redaction properties and `redact_mark`). Missing: certificate security, custom redaction code sets and pattern locales, DCT re-encoding |
 | M9 | Signatures (PAdES, validation) | 160–280 | 60% | 40–70 | Done: new `sign` crate (DER, X.509, CMS, PKCS #12 on RustCrypto; aws-lc-rs for RSA private keys); PAdES B-B signing (visible, invisible, existing fields, certification with DocMDP); validation with trust store and changes-after-signing classification; self-signed digital IDs; Signatures panel, message bar, sign dialogs; agent tools. Checked with pdfsig and OpenSSL.<br>Done since: macOS Keychain and Windows Current User Personal store signing (software-backed CNG keys), certificate viewer, signed documents protected from rewrites. Missing: timestamps (B-T), LTV (DSS, OCSP, CRL), FieldMDP, smart cards, PKCS #11 |
-| M10 | OCR, create, export, print | 200–350 | 33% | 120–215 | Done: create from blank/text/PNG/JPEG/TIFF (multi-page)/GIF/BMP; export PNG/JPEG/TIFF and text; Print (Acrobat's sizing, n-up, booklet, poster, comments & forms, preview, the CUPS and Windows spoolers, print-ready PDF).<br>Done since: embedded/72/custom DPI choices for image imports; export all images; OCR (searchable image for pages, ranges and multiple files); single-sided cut-and-stack imposition with cut marks, through Print and doc_print; Create PDF from multiple files (PDFs, images and text, edited as pages in the grid). Done since: Word invoice export uses borderless inferred tables, positioned text/artwork for rotated or large text and image pages, and per-page sizes (#773). Missing: OCR languages beyond Latin, editable-text OCR output, full Office layout fidelity/import, web printing |
+| M10 | OCR, create, export, print | 200–350 | 33% | 120–215 | Done: create from blank/text/PNG/JPEG/TIFF (multi-page)/GIF/BMP; export PNG/JPEG/TIFF and text; Print (Acrobat's sizing, n-up, booklet, poster, comments & forms, preview, the CUPS and Windows spoolers, print-ready PDF).<br>Done since: embedded/72/custom DPI choices for image imports; export all images; OCR (searchable image for pages, ranges and multiple files); single-sided cut-and-stack imposition with cut marks, through Print and doc_print; Create PDF from multiple files (PDFs, images and text, edited as pages in the grid). Done since: Word invoice export uses borderless inferred tables, positioned text/artwork for rotated or large text and image pages, and per-page sizes, covered by synthetic invoice automation regressions (#773). Missing: OCR languages beyond Latin, editable-text OCR output, full Office layout fidelity/import, web printing |
 | M11 | Optimize, preflight, PDF/A/X/UA, print production | 200–350 | 18% | 80–140 | Done: new `optimize` crate: Reduce File Size and the PDF Optimizer (images measured where drawn, bicubic downsampling, JPEG/ZIP recompression only when smaller, discard objects and user data, Flate clean-up, resource merging, object streams). Missing: fonts and transparency panels, space audit, preflight, PDF/A/X/UA |
 | M12 | Accessibility, compare, measure, search, XFA | 200–380 | 30% | 90–160 | Done: new `a11y` crate with the Accessibility Checker (all 32 rules, report, Fix/Skip/Explain, options dialog and results panel, agent tools).<br>Done since: 2D distance, perimeter and area measurements with persistent viewport calibration, snapping, live information and CSV export. Missing: autotag, Tags/Order/Content panels, Reading Order tool, alt-text workflow, compare, geospatial/3D measurement, search index, XFA |
 | M13 | Automation (MCP, Action Wizard, CLI) + AI providers | 60–120 | 45% | 25–45 | Done: MCP resources (document info, text, page images); headless tool table (123 tools incl. signing, optimizing, initial view, links, stamps, data exchange, comment review, forms authoring and scripts, redaction, sanitize, print, add content), opt-in MCP server over stdio, CLI `run`/`tools` (closed stdout pipes exit cleanly), UI control channel with drag. Missing: Action Wizard, AI providers<br>Done since: CLI run and MCP reject missing, empty, repeated and option-valued --root arguments before any tool/script execution or MCP initialization. A single-hyphen directory name remains valid; synthetic CLI regressions preserve a would-be overwritten file. |
@@ -93,8 +94,8 @@ total matches the parity estimate.
 
 | Rank | Next milestone | Closes | Estimate (h) |
 |---|---|---|---|
-| 0 | Convert and share: encrypted output opens in Acrobat, Create PDF from Office, Word export keeps layout | gap 1, part of gap 8 | 40–70 |
-| 1 | Backlog and platform: crash and wrong-result reports fixed, Windows printing, Chinese UI face | gaps 4, 5, 6 | 65–120 |
+| 0 | Convert and share: Create PDF from Office, Word export keeps layout | part of gap 8 | 32–55 |
+| 1 | Backlog and platform: crash and wrong-result reports fixed, web printing, Chinese UI face | gaps 4, 5, 6 | 65–120 |
 | 2 | Fidelity harness and renderer decision (M2) | gaps 2, 12 | 110–190 |
 | 3 | Editing existing content (M7) | gap 3 | 100–180 |
 | 4 | Pro conversion: OCR languages and clean-up, Office export/import (M10) | gaps 7, 8 | 95–175 |
@@ -119,7 +120,8 @@ M2 (renderer), M7 (content editing), M10 (OCR and Office), M11 (Preflight and st
 - Real-world signature chains, revocation and tokens.
 - The rendering long tail: Type 3 fonts, broken fonts, shadings, blend modes.
 - Correctness of PDF/A, PDF/X and PDF/UA conversion.
-- Interoperability: files other readers (above all Acrobat) reject, as in #774.
+- Interoperability: files other readers (above all Acrobat) reject, as in #774 (fixed by #836; no
+  automated interop suite yet).
 - OCR and AI quality limited by what openly licensed models exist.
 - CPU rendering performance on the web.
 - Hostile input: every fuzz run so far has found new crashes or hangs.
@@ -130,6 +132,7 @@ M2 (renderer), M7 (content editing), M10 (OCR and Office), M11 (Preflight and st
 | Date | Change | Summary |
 |---|---|---|
 | 2026-10-11 | minor | M10: Word invoice export regressions (#773); estimates unchanged. |
+| 2026-10-11 | minor | Synced with closed issues: encrypted output opens in Acrobat (#774, #836), so gap 1 left rank 0 and convert and share (32–55 h, the gap's 8–15 h removed); organize, XFDF and multi-object move fixes (#817, #821, #809, #819, #844); the #816 panic and the #799–#821 batch fixed; rank 1 names web printing (Windows shipped, #756). Stage and readiness numbers not re-measured |
 | 2026-10-11 | minor | M6: respect existing form-font encodings; retain source fonts on appearance fallback. Estimates unchanged. |
 | 2026-10-11 | minor | M6: keep accepted form values when Tab reopens the same field before Save. Estimates unchanged. |
 | 2026-10-11 | minor | M13: reject malformed CLI --root options before dispatch. Estimates unchanged. |

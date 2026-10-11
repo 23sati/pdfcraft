@@ -33,6 +33,7 @@ use pdfcraft_ui_egui::PdfCraftApp;
 mod apple_events;
 mod compositor_gpu;
 mod logging;
+mod reopen;
 mod single_instance;
 mod text_scale;
 mod updates;
@@ -300,6 +301,8 @@ fn app_creator<'a>(
     Box::new(move |cc| {
         started.set(true);
         let mut app = PdfCraftApp::new();
+        // The system's reopen-windows choice (macOS) starts the preference; a saved choice replaces it.
+        app.reopen_last_session = reopen::system_default();
         if let Some(json) = cc.storage.and_then(|s| s.get_string("pdfcraft").or_else(|| s.get_string(LEGACY_STORAGE_KEY))) {
             app.restore(&json);
         }

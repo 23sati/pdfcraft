@@ -24,6 +24,7 @@ macro_rules! tl_ctx {
 
 mod a11y_ui;
 mod actions_ui;
+mod appearance;
 pub mod canvas;
 mod chrome;
 mod combine_grid;
@@ -111,6 +112,7 @@ pub(crate) const MAX_AUTHOR_CHARS: usize = 200;
 pub mod portable;
 mod protect;
 mod recovery;
+pub mod scroll_speed;
 #[cfg(not(target_arch = "wasm32"))]
 mod system_fonts;
 pub mod theme;
@@ -218,10 +220,23 @@ pub enum QuickTool {
     ColumnSelect,
 }
 
+/// A file dropped on a page grid: its name, and its bytes or, for a file on disk, the path they are
+/// read from when the file's turn to be inserted comes (so a long drop holds one file at a time).
+type GridFile = (String, Result<Vec<u8>, std::path::PathBuf>);
+
+/// Read a file dropped on a page grid (see [`GridFile`]).
+fn read_grid_file((name, source): GridFile) -> Result<(String, Vec<u8>), (String, String)> {
+    let bytes = match source {
+        Ok(bytes) => bytes,
+        Err(path) => std::fs::read(&path).map_err(|e| (name.clone(), e.to_string()))?,
+    };
+    Ok((name, bytes))
+}
+
 /// Files dropped on a document's page grid.
 struct GridDrop {
     doc: pdfcraft_engine::DocId,
-    files: Vec<(String, Vec<u8>)>,
+    files: Vec<GridFile>,
     /// When to stop waiting for the pointer (egui time, seconds).
     deadline: f64,
 }
@@ -406,6 +421,10 @@ pub struct PdfCraftApp {
     pub left: LeftPanel,
     pub left_open: bool,
     pub right: Option<RightPanel>,
+    /// The right panel that was open when the user switched to Read mode, which starts with the
+    /// panes closed; leaving Read mode brings it back unless the user opened or closed a pane in
+    /// Read mode meanwhile.
+    right_before_read: Option<RightPanel>,
     /// The user closed the Comments panel, so picking a comment tool leaves it closed until they
     /// open it again (#225). Remembered across restarts.
     pub comments_panel_closed: bool,
@@ -421,6 +440,8 @@ pub struct PdfCraftApp {
     desktop_theme: pdfcraft_platform::desktop_theme::DesktopTheme,
     /// The last answer [`desktop_theme`] gave, so a frame that asks costs nothing.
     desktop_dark: Option<bool>,
+    /// How far a mouse-wheel notch scrolls.
+    pub scroll_speed: scroll_speed::ScrollSpeed,
     /// Interface language preference: `auto` (follow the system) or a code from [`i18n::LANGUAGES`].
     pub language: String,
     /// Preferences ▸ Interface size as a factor, or `None` to follow [`Self::system_text_scale`].
@@ -726,6 +747,7 @@ impl PdfCraftApp {
             pending_panel_reveals: Vec::new(),
             left_open: true,
             right: None,
+            right_before_read: None,
             comments_panel_closed: false,
             quick_tool: QuickTool::Select,
             space_hand: None,
@@ -734,6 +756,7 @@ impl PdfCraftApp {
             theme_preference: ThemePreference::Light,
             desktop_theme: pdfcraft_platform::desktop_theme::DesktopTheme::start(),
             desktop_dark: None,
+            scroll_speed: scroll_speed::ScrollSpeed::default(),
             language: i18n::AUTO.to_string(),
             ui_scale: None,
             system_text_scale: 1.0,
@@ -952,7 +975,9 @@ impl PdfCraftApp {
         let doc = self.session.get(id).ok_or("the document could not be opened")?;
         let pages = doc.info.pages.len();
         // Acrobat opens straight to the Comments panel when a document has comments.
-        if activate && self.right.is_none() {
+        // Read mode opens with the panes closed; the rail still opens them (#932).
+        let opening_mode = self.mode_override.unwrap_or(self.default_mode);
+        if activate && self.right.is_none() && opening_mode != Mode::Read {
             self.right = if !doc.info.annotations.is_empty() {
                 Some(RightPanel::Comments)
             } else if !doc.info.outline.is_empty() {
@@ -1023,11 +1048,14 @@ impl PdfCraftApp {
     fn drop_on_grid(&mut self, dropped: Vec<egui::DroppedFileHandle>, ctx: &egui::Context) -> Vec<egui::DroppedFileHandle> {
         let Some(id) = self.grid_target().filter(|_| !dropped.is_empty()) else { return dropped };
         let mut files = Vec::new();
-        for f in dropped.iter().take(pdfcraft_engine::MAX_CREATE_FILES) {
+        for f in &dropped {
             let name = f.path().file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "dropped.pdf".into());
-            let bytes = if f.path().is_absolute() { std::fs::read(f.path()).map_err(|e| e.to_string()) } else { f.bytes() };
-            match bytes {
-                Ok(b) => files.push((name, b)),
+            if f.path().is_absolute() {
+                files.push((name, Err(f.path().to_path_buf())));
+                continue;
+            }
+            match f.bytes() {
+                Ok(b) => files.push((name, Ok(b))),
                 Err(e) => self.notify_fmt("Couldn't read {name}: {e}", &[("name", &name), ("e", &e)]),
             }
         }
@@ -1057,7 +1085,7 @@ impl PdfCraftApp {
         };
         view.insert_at = Some(gap);
         if let Some(drop) = self.grid_drop.take() {
-            self.insert_files(drop.files);
+            self.insert_each(drop.files.into_iter().map(read_grid_file));
         }
     }
 
@@ -1416,9 +1444,36 @@ impl PdfCraftApp {
         };
     }
 
+    /// Switches workspace because the user chose to (mode bar, Read mode command). Entering Read
+    /// mode closes the right panel, as Acrobat's Read mode hides its panes, and leaving it reopens
+    /// that panel. The rail stays in Read mode, and its buttons open panels there too (#932).
+    pub(crate) fn switch_mode(&mut self, mode: Mode, select_tools: bool) {
+        let was_read = self.mode == Mode::Read;
+        if select_tools {
+            self.select_mode(mode);
+        } else {
+            self.mode = mode;
+        }
+        if mode == Mode::Read && !was_read {
+            self.right_before_read = self.right.take();
+        } else if mode != Mode::Read && was_read {
+            let before = self.right_before_read.take();
+            if self.right.is_none() {
+                self.right = before;
+            }
+            if self.right.is_some() {
+                self.pending_panel_reveals.push(docking::Panel::Inspector);
+            }
+        }
+    }
+
     /// Opens a right panel, or closes it with `None`, because the user chose to. Closing Comments
-    /// keeps comment tools from reopening it; opening it again lets them (#225).
+    /// keeps comment tools from reopening it; opening it again lets them (#225). A choice made in
+    /// Read mode replaces the pane saved on the way in, so leaving Read mode doesn't undo it.
     pub fn choose_right_panel(&mut self, panel: Option<RightPanel>) {
+        if self.mode == Mode::Read {
+            self.right_before_read = None;
+        }
         if panel == Some(RightPanel::Comments) {
             self.comments_panel_closed = false;
         } else if panel.is_none() && self.right == Some(RightPanel::Comments) {
@@ -1443,6 +1498,7 @@ impl PdfCraftApp {
             "last_session": self.reopen_last_session.then(|| self.session_to_save()),
             "pinned_folders": self.pinned.folders,
             "theme": self.theme_preference,
+            "scroll_speed": self.scroll_speed,
             "default_mode": self.default_mode,
             "default_layout": self.view_defaults.layout.as_str(),
             "default_zoom": self.view_defaults.zoom_name(),
@@ -1519,6 +1575,9 @@ impl PdfCraftApp {
         self.pinned.restore(&v["pinned_folders"]);
         if let Ok(preference) = serde_json::from_value::<ThemePreference>(v["theme"].clone()) {
             self.set_theme_preference(preference);
+        }
+        if let Ok(speed) = serde_json::from_value::<scroll_speed::ScrollSpeed>(v["scroll_speed"].clone()) {
+            self.scroll_speed = speed;
         }
         if let Ok(mode) = serde_json::from_value::<Mode>(v["default_mode"].clone()) {
             self.default_mode = mode;
@@ -1637,6 +1696,9 @@ impl PdfCraftApp {
                     _ => return Err("theme must be light, dark, or system".into()),
                 };
                 self.set_theme_preference(preference);
+            }
+            ("scroll_speed", _) => {
+                self.scroll_speed = scroll_speed::ScrollSpeed::parse(value).ok_or("scroll_speed must be slow, normal, or fast")?;
             }
             ("panel", _) => {
                 self.right = match value {
@@ -1959,6 +2021,8 @@ impl eframe::App for PdfCraftApp {
     /// would keep the place the pointer entered at: tell it where the pointer really is, so the
     /// page grid can show (and use) the gap under it.
     fn raw_input_hook(&mut self, ctx: &egui::Context, raw: &mut egui::RawInput) {
+        // Before egui reads this frame's wheel input.
+        self.scroll_speed.apply(ctx, raw);
         if raw.hovered_files.is_empty() && raw.dropped_files.is_empty() {
             return;
         }
@@ -1995,9 +2059,12 @@ impl eframe::App for PdfCraftApp {
             }
         }
         self.sync_theme(ctx);
-        ui_scale::sync(ctx, ui_scale::factor(self.ui_scale, self.system_text_scale), &mut self.ui_scale_applied);
+        let native = ctx.native_pixels_per_point().unwrap_or(1.0);
+        ui_scale::sync(ctx, ui_scale::zoom(self.ui_scale, self.system_text_scale, native), &mut self.ui_scale_applied);
         // Remember user work even if its tab is subsequently closed or Home is selected.
         self.startup_superseded |= !self.views.is_empty() || self.combine_showing() || self.dialog.is_some() || self.password_prompt.is_some();
+        // Also done in `raw_input_hook`, before input; here for hosts that don't call the hook.
+        self.scroll_speed.set_line_speed(ctx);
         // Before taking this frame's drop: the grid must be drawn once with the pointer where
         // the files were let go before the gap is read.
         self.finish_grid_drop(ctx);
@@ -2149,6 +2216,17 @@ impl eframe::App for PdfCraftApp {
         chrome::mode_bar(self, ui);
         if self.active.is_some() {
             chrome::right_rail(self, ui);
+            // Read mode hides the tools, not the navigation panes: the rail stays visible
+            // there, so its buttons (Bookmarks, Page thumbnails, ...) must open their panels.
+            // Outside Read mode the docking workspace draws the inspector.
+            if self.mode == Mode::Read && self.right.is_some() {
+                egui::Panel::right("read_right_panel")
+                    .resizable(true)
+                    .default_size(330.0)
+                    .size_range(260.0..=520.0)
+                    .frame(egui::Frame::NONE)
+                    .show(ui, |ui| panels::right_panel(self, ui));
+            }
         }
         let t = theme::Tokens::get(&ctx);
         egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.pasteboard)).show(ui, |ui| {

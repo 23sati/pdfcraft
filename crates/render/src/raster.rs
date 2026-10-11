@@ -4971,6 +4971,159 @@ trailer << /Root 1 0 R >>
         }
     }
 
+    /// InDesign fades are luminosity soft masks whose group is one extended axial `sh`: a
+    /// gradient over the whole page. hayro 0.7 sampled each one pixel by pixel through the
+    /// shading function, so a report page with 40 of them took 15 s at 144 dpi. Vendored hayro
+    /// patch (backport of hayro 0.8): axial and radial shadings that a native gradient can
+    /// represent exactly are drawn as one, with stops placed at stitching-function bounds.
+    #[test]
+    fn axial_and_radial_shadings_draw_as_native_gradients() {
+        use hayro::hayro_interpret::font::Glyph;
+        use hayro::hayro_interpret::hayro_syntax::Pdf;
+        use hayro::hayro_interpret::pattern::Pattern;
+        use hayro::hayro_interpret::{
+            BlendMode, ClipPath, Context, Device, GlyphDrawMode, Image, InterpreterCache, Paint, PathDrawMode, SoftMask, TransformExt, interpret_page,
+        };
+        use kurbo::{Affine, BezPath, Rect, Shape};
+
+        /// For every shading painted, the offsets of its native gradient stops, or `None` when
+        /// it has to be sampled pixel by pixel.
+        #[derive(Default)]
+        struct Gradients(Vec<Option<Vec<f32>>>);
+        impl<'a> Device<'a> for Gradients {
+            fn set_soft_mask(&mut self, _: Option<SoftMask<'a>>) {}
+            fn set_blend_mode(&mut self, _: BlendMode) {}
+            fn draw_path(&mut self, path: &BezPath, transform: Affine, paint: &Paint<'a>, _: &PathDrawMode) {
+                if let Paint::Pattern(pattern) = paint
+                    && let Pattern::Shading(s) = pattern.as_ref()
+                {
+                    let bbox = (transform * path.clone()).bounding_box();
+                    let native = s.encode().as_svg_gradient(bbox, 0.01);
+                    self.0.push(native.map(|g| g.stops.iter().map(|stop| stop.offset).collect()));
+                }
+            }
+            fn push_clip_path(&mut self, _: &ClipPath) {}
+            fn push_transparency_group(&mut self, _: f32, _: Option<SoftMask<'a>>, _: BlendMode) {}
+            fn draw_glyph(&mut self, _: &Glyph<'a>, _: Affine, _: Affine, _: &Paint<'a>, _: &GlyphDrawMode) {}
+            fn draw_image(&mut self, _: Image<'a, '_>, _: Affine) {}
+            fn pop_clip_path(&mut self) {}
+            fn pop_transparency_group(&mut self) {}
+        }
+
+        // A 40 × 20 pt page painting `/Sh0 sh`, with optional extra objects from 6 0 obj on.
+        let pdf = |shading: &str, extra: &str| {
+            let content = "/Sh0 sh";
+            format!(
+                "%PDF-1.7
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 40 20] /Contents 4 0 R /Resources << /Shading << /Sh0 5 0 R >> >> >> endobj
+4 0 obj << /Length {} >> stream
+{content}
+endstream endobj
+5 0 obj {shading} endobj
+{extra}trailer << /Root 1 0 R >>
+%%EOF",
+                content.len()
+            )
+            .into_bytes()
+        };
+        let gradients = |bytes: &[u8]| {
+            let parsed = Pdf::new(Arc::new(bytes.to_vec())).expect("parses");
+            let page = &parsed.pages()[0];
+            let cache = InterpreterCache::new();
+            let initial = page.initial_transform(true).to_kurbo();
+            let mut ctx = Context::new(initial, Rect::new(0.0, 0.0, 40.0, 20.0), &cache, page.xref(), InterpreterSettings::default());
+            let mut device = Gradients::default();
+            interpret_page(page, &mut ctx, &mut device);
+            device.0
+        };
+        let render = |bytes: Vec<u8>| {
+            let mut r = PageRenderer::new(Arc::new(bytes), RenderConfig::default());
+            let p = r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 1.0, tag: 0 });
+            assert!(p.error.is_none(), "{:?}", p.error);
+            p
+        };
+        let grey = |p: &RenderedPage, x: u32| i32::from(p.rgba[((10 * p.width + x) * 4) as usize]);
+        let ramp = "/FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 1";
+        // A function-based shading (always sampled) that draws the same picture is the reference;
+        // its /Range clamps to 0..1.
+        let sampled = |code: &str| {
+            let extra =
+                format!("6 0 obj << /FunctionType 4 /Domain [0 40 0 20] /Range [0 1] /Length {} >> stream\n{code}\nendstream endobj\n", code.len());
+            pdf("<< /ShadingType 1 /ColorSpace /DeviceGray /Domain [0 40 0 20] /Function 6 0 R >>", &extra)
+        };
+
+        // A steep extended axial ramp, x 10 to 14: one stop at each end, drawn at pixel centres
+        // (a half-pixel shift would move each pixel 32 levels) and padded on both sides.
+        let axial = pdf(&format!("<< /ShadingType 2 /ColorSpace /DeviceGray /Coords [10 0 14 0] /Extend [true true] /Function << {ramp} >> >>"), "");
+        assert_eq!(gradients(&axial), vec![Some(vec![0.0, 1.0])], "an extended axial shading is a native gradient");
+        let native = render(axial);
+        let reference = render(sampled("{ pop 10 sub 4 div }"));
+        for (x, expected) in [(2, 0), (9, 0), (10, 32), (11, 96), (12, 159), (13, 223), (14, 255), (30, 255)] {
+            assert!((grey(&native, x) - expected).abs() <= 4, "axial, x {x}: {} instead of {expected}", grey(&native, x));
+            assert!(
+                (grey(&native, x) - grey(&reference, x)).abs() <= 4,
+                "axial, x {x}: native {} vs sampled {}",
+                grey(&native, x),
+                grey(&reference, x)
+            );
+        }
+
+        // An extended radial shading matches the sampled one everywhere.
+        let radial =
+            pdf(&format!("<< /ShadingType 3 /ColorSpace /DeviceGray /Coords [20 10 0 20 10 8] /Extend [true true] /Function << {ramp} >> >>"), "");
+        assert!(matches!(gradients(&radial).as_slice(), [Some(_)]), "an extended radial shading is a native gradient");
+        let native = render(radial);
+        let reference = render(sampled("{ 10 sub dup mul exch 20 sub dup mul add sqrt 8 div }"));
+        let worst = native.rgba.iter().zip(reference.rgba.iter()).map(|(a, b)| a.abs_diff(*b)).max();
+        assert!(worst.is_some_and(|d| d <= 4), "radial: native and sampled differ by {worst:?} levels");
+
+        // A stitched function peaking at a quarter of the way gets a stop exactly at its bound.
+        let stitched = pdf(
+            "<< /ShadingType 2 /ColorSpace /DeviceGray /Coords [0 0 40 0] /Extend [true true] /Function << /FunctionType 3 /Domain [0 1] /Bounds [0.25] /Encode [0 1 0 1] /Functions [<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 1 >>] >> >>",
+            "",
+        );
+        let stops = gradients(&stitched);
+        assert!(matches!(stops.as_slice(), [Some(offsets)] if offsets.contains(&0.25)), "a stop at the stitching bound: {stops:?}");
+        let native = render(stitched);
+        for (x, expected) in [(0, 13), (9, 242), (10, 250), (39, 4)] {
+            assert!((grey(&native, x) - expected).abs() <= 4, "stitched, x {x}: {} instead of {expected}", grey(&native, x));
+        }
+
+        // Without /Extend the area beyond the axis keeps the background, which a native gradient
+        // can't leave out: still sampled. Function-based shadings are always sampled.
+        let unextended = pdf(&format!("<< /ShadingType 2 /ColorSpace /DeviceGray /Coords [10 0 14 0] /Function << {ramp} >> >>"), "");
+        assert_eq!(gradients(&unextended), vec![None], "an axial shading without /Extend that covers more than its axis");
+        assert_eq!(gradients(&sampled("{ pop pop 0.5 }")), vec![None], "a function-based shading");
+
+        // The report's case: a luminosity soft mask whose group is one extended axial `sh` over
+        // the page. Red through a mask fading in from x 0 to 40 over white: 255, 255 − t, 255 − t.
+        let content = "/M gs 1 0 0 rg 0 0 40 20 re f";
+        let masked = format!(
+            "%PDF-1.7
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 40 20] /Contents 4 0 R /Resources << /ExtGState << /M 5 0 R >> >> >> endobj
+4 0 obj << /Length {} >> stream
+{content}
+endstream endobj
+5 0 obj << /Type /ExtGState /SMask << /Type /Mask /S /Luminosity /G 6 0 R >> >> endobj
+6 0 obj << /Type /XObject /Subtype /Form /BBox [-32768 -32768 32767 32767] /Group << /S /Transparency /CS /DeviceGray >> /Resources << /Shading << /Sh0 << /ShadingType 2 /ColorSpace /DeviceGray /Coords [0 0 40 0] /Extend [true true] /Function << {ramp} >> >> >> >> /Length 7 >> stream
+/Sh0 sh
+endstream endobj
+trailer << /Root 1 0 R >>
+%%EOF",
+            content.len()
+        );
+        let p = render(masked.into_bytes());
+        for x in [2u32, 20, 37] {
+            let px = &p.rgba[((10 * p.width + x) * 4) as usize..][..4];
+            let faded = 255 - (255.0 * (f64::from(x) + 0.5) / 40.0).round() as i32;
+            assert!(px[0] == 255 && (i32::from(px[1]) - faded).abs() <= 4 && px[1] == px[2], "masked, x {x}: {px:?}, green and blue {faded}");
+        }
+    }
+
     /// An alpha soft mask whose transparency group has no /CS (as Chrome writes gradient text)
     /// must still mask. Regression test for the vendored hayro-interpret patch.
     #[test]
