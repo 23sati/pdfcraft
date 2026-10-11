@@ -19,6 +19,8 @@ fn main() {
             }
             Err(e) => println!("cargo::warning=building without craft-fonts: CRAFT_FONTS_DIR={}: {e}", dir.display()),
         }
+    } else if std::env::var_os("CRAFT_FONTS_REQUIRED").is_some() {
+        println!("cargo::error=CRAFT_FONTS_REQUIRED needs CRAFT_FONTS_DIR; prepare the release fonts with cargo xtask fonts");
     }
     src.push_str("];\n");
     let out = PathBuf::from(std::env::var_os("OUT_DIR").unwrap_or_default()).join("craft_fonts.rs");

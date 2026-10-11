@@ -117,6 +117,9 @@ pub struct Bundled {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Fetched {
+    /// An optional build input receiving this file instead of the showcase's fonts directory.
+    #[serde(default)]
+    pub build_input: Option<String>,
     pub file: String,
     pub url: String,
     pub title: String,
@@ -278,6 +281,11 @@ pub fn check(root: &Path, m: &Manifest, repo_files: &[String], lock: &BTreeSet<(
         }
     }
     for f in &m.fetched {
+        if let Some(input) = &f.build_input
+            && !m.build_input.iter().any(|b| &b.name == input)
+        {
+            problems.push(format!("{}: unknown build input {input}", f.file));
+        }
         licence_ok(&f.file, &f.licence, &mut problems);
         if visual(&f.kind) && (mentions_adobe(&f.author) || mentions_adobe(&f.source) || mentions_adobe(&f.title)) {
             problems.push(format!("{}: {} from Adobe is forbidden (AGENTS.md §1.1)", f.file, f.kind));
@@ -321,6 +329,9 @@ fn fetch_verified(url: &str, path: &Path, sha256: &str) -> Result<()> {
         return Ok(());
     }
     println!("assets: fetching {url}");
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
     let tmp = path.with_extension("part");
     let status = Command::new("curl").args(["-sSfL", "--retry", "3", "-o"]).arg(&tmp).arg(url).status().context("running curl")?;
     if !status.success() {
@@ -401,7 +412,7 @@ pub fn render_markdown(m: &Manifest) -> String {
         );
     }
     s.push_str(&format!(
-        "\n## Downloaded at build time ({})\n\nFonts are fetched by `cargo xtask demo-pdf` into `target/demo-fonts/`, OCR models by `cargo xtask models` into `assets/models/`; each is verified by SHA-256 and never committed.\n\n| File | Title | Author | Licence | Source | Used for |\n|---|---|---|---|---|---|\n",
+        "\n## Downloaded at build time ({})\n\nShowcase fonts are fetched by `cargo xtask demo-pdf` into `target/demo-fonts/`, Chinese UI fonts by `cargo xtask fonts` into the optional `craft-fonts/` checkout, OCR models by `cargo xtask models` into `assets/models/`; each is verified by SHA-256 and never committed.\n\n| File | Title | Author | Licence | Source | Used for |\n|---|---|---|---|---|---|\n",
         m.fetched.len()
     ));
     for f in &m.fetched {

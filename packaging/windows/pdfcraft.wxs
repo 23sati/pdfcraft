@@ -58,6 +58,11 @@
 
   <Fragment>
     <ComponentGroup Id="PdfcraftFiles" Directory="INSTALLFOLDER">
+      <?ifdef ChineseFontLicence ?>
+      <Component Id="ChineseFontLicence" Guid="*">
+        <File Id="ChineseFontLicenceFile" Source="$(var.ChineseFontLicence)" Name="DroidSansFallback.ttf.LICENCE.txt" KeyPath="yes" />
+      </Component>
+      <?endif ?>
       <Component Id="PdfcraftApp" Guid="E724C1C6-091F-4E21-A685-80D089FDBE21">
         <File Id="PdfcraftExe" Source="$(var.BinDir)\pdfcraft.exe" KeyPath="yes" />
 

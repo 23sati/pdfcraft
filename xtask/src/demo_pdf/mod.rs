@@ -44,7 +44,8 @@ pub fn run(args: &[String]) -> Result<()> {
     }
 
     // Fonts: only the pinned, openly licensed files listed in ATTRIBUTION.toml (AGENTS.md §1).
-    let manifest = crate::assets::load(&root)?;
+    let mut manifest = crate::assets::load(&root)?;
+    manifest.fetched.retain(|f| f.build_input.is_none());
     let fonts = root.join("target/demo-fonts");
     crate::assets::fetch_all(&manifest, &fonts, "font")?;
 

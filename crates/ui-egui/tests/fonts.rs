@@ -9,6 +9,34 @@ const CHINESE: &str = "简体中文欢迎";
 const ARABIC: &str = "واحد اثنين";
 const TELUGU: &str = "తెలుగు ఫైల్";
 
+/// Covers the actual catalog, rather than six probe characters. The build gate prevents
+/// this optional developer test from being skipped in desktop release builds.
+#[test]
+fn chinese_catalog_has_glyphs_at_desktop_scales() {
+    if pdfcraft_fonts::ui_chinese_fonts().is_empty() {
+        eprintln!("developer build without Hans fonts; desktop releases enforce this in build.rs");
+        return;
+    }
+    let text: String = include_str!("../src/i18n/zh-hans.tsv")
+        .lines()
+        .filter(|line| !line.starts_with('#'))
+        .filter_map(|line| line.split('\t').nth(2))
+        .flat_map(str::chars)
+        .filter(|c| matches!(*c as u32, 0x3400..=0x9fff))
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    let mut fonts = Fonts::new(TextOptions::default(), theme::font_definitions_for(true));
+    for scale in [1.0, 1.25, 1.5, 2.0] {
+        let mut view = fonts.with_pixels_per_point(scale);
+        for id in families() {
+            assert!(view.has_glyphs(&id, &text), "{id:?} at {scale}");
+            let galley = view.layout_no_wrap("简体中文欢迎：界面语言、首选项、导出 PDF".to_owned(), id, Color32::BLACK);
+            assert!(galley.size().x.is_finite() && galley.size().x > 0.0);
+        }
+    }
+}
+
 fn families() -> Vec<FontId> {
     vec![FontId::proportional(13.0), FontId::monospace(13.0), theme::medium(13.0), theme::semibold(17.0)]
 }

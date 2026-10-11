@@ -79,6 +79,12 @@ jobs:
           repository: storytold/craft-fonts
           ref: 8dcdacd5153e64560d109541a47d806f26f048c0
           path: craft-fonts
+          # Fetch only allowed assets; Noto CJK is barred by AGENTS.md section 1.1.
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/fonts/noto-sans-cjk-sc/
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-darwin, x86_64-apple-darwin
@@ -94,6 +100,8 @@ jobs:
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: packaging/macos/import-cert.sh
+      - name: Prepare pinned Chinese interface font
+        run: cargo xtask fonts
       - name: Build, sign, notarize
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -138,6 +146,12 @@ jobs:
           repository: storytold/craft-fonts
           ref: 8dcdacd5153e64560d109541a47d806f26f048c0
           path: craft-fonts
+          # Fetch only allowed assets; Noto CJK is barred by AGENTS.md section 1.1.
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/fonts/noto-sans-cjk-sc/
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -151,6 +165,8 @@ jobs:
       - name: Install WiX
         shell: pwsh
         run: dotnet tool install --global wix --version 5.0.2
+      - name: Prepare pinned Chinese interface font
+        run: cargo xtask fonts
       - name: Build, sign, package
         shell: pwsh
         env:
@@ -197,6 +213,12 @@ jobs:
           repository: storytold/craft-fonts
           ref: 8dcdacd5153e64560d109541a47d806f26f048c0
           path: craft-fonts
+          # Fetch only allowed assets; Noto CJK is barred by AGENTS.md section 1.1.
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/fonts/noto-sans-cjk-sc/
       - name: Install build and packaging tools
         run: |
           sudo apt-get update
@@ -213,6 +235,8 @@ jobs:
       - name: Apply version override
         if: inputs.version != ''
         run: cargo xtask version set "$PDFCRAFT_VERSION"
+      - name: Prepare pinned Chinese interface font
+        run: cargo xtask fonts
       - name: Build and package (AppImage, deb, rpm, tar.gz, CLI tar.gz)
         env:
           CRAFT_FONTS_DIR: ${{ github.workspace }}/craft-fonts
@@ -268,6 +292,12 @@ jobs:
           repository: storytold/craft-fonts
           ref: 8dcdacd5153e64560d109541a47d806f26f048c0
           path: craft-fonts
+          # Fetch only allowed assets; Noto CJK is barred by AGENTS.md section 1.1.
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/fonts/noto-sans-cjk-sc/
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: riscv64gc-unknown-linux-gnu
@@ -300,6 +330,8 @@ jobs:
             libc6-dev:riscv64 qemu-user \
             libxkbcommon-dev:riscv64 libwayland-dev:riscv64 libx11-dev:riscv64 libxrandr-dev:riscv64 \
             libxi-dev:riscv64 libgl1-mesa-dev:riscv64
+      - name: Prepare pinned Chinese interface font
+        run: cargo xtask fonts
       - name: Build and package (tar.gz, CLI tar.gz)
         env:
           CRAFT_FONTS_DIR: ${{ github.workspace }}/craft-fonts
@@ -390,6 +422,12 @@ jobs:
           repository: storytold/craft-fonts
           ref: 8dcdacd5153e64560d109541a47d806f26f048c0
           path: craft-fonts
+          # Fetch only allowed assets; Noto CJK is barred by AGENTS.md section 1.1.
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/fonts/noto-sans-cjk-sc/
       - name: Build and package in a FreeBSD VM (tar.gz)
         # vmactions/freebsd-vm v1.5.9, pinned by commit (it runs our build).
         uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc
@@ -407,6 +445,7 @@ jobs:
             set -e
             . "$HOME/.cargo/env"
             git config --global --add safe.directory "$PWD"
+            cargo xtask fonts
             export CRAFT_FONTS_DIR="$PWD/craft-fonts" CRAFT_FONTS_REQUIRED=1
             if [ -n "$VERSION_OVERRIDE" ]; then cargo xtask version set "$PDFCRAFT_VERSION"; fi
             packaging/freebsd/package.sh
@@ -436,6 +475,12 @@ jobs:
           repository: storytold/craft-fonts
           ref: 8dcdacd5153e64560d109541a47d806f26f048c0
           path: craft-fonts
+          # Fetch only allowed assets; Noto CJK is barred by AGENTS.md section 1.1.
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/fonts/noto-sans-cjk-sc/
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown

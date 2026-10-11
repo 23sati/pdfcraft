@@ -56,3 +56,5 @@ Font files are never
 committed here (`AGENTS.md` §1.4; team members: [craftrules `standards/fonts.md`](https://github.com/storytold/craftrules/blob/main/standards/fonts.md), internal).
 
 The full font subsystem (parsing, shaping, subsetting and embedding) arrives with M2.2/M7.
+
+Desktop release preparation also runs `cargo xtask fonts [CRAFT_FONTS_DIR]` against the pinned checkout, adding the Apache-2.0 Droid Sans Fallback `Hans` face. Its font and licence hashes are recorded in PdfCraft `ATTRIBUTION.toml`. The UI build script enforces Simplified Chinese catalog coverage when `CRAFT_FONTS_REQUIRED=1`; development builds may still omit the input. The web input is unchanged.

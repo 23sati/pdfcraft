@@ -3273,7 +3273,21 @@ source = "https://github.com/storytold/craft-fonts (pinned by commit in .github/
 licence = "OFL-1.1"
 attribution = "https://github.com/storytold/craft-fonts/blob/main/ATTRIBUTION.md"
 kind = "font"
-usage = "Japanese fallback in the interface (BIZ UDPGothic first) and Japanese glyphs in edited PDF text (Shippori Mincho); Arabic interface text, file names and document titles (Noto Sans Arabic); the web build embeds only BIZ UDPGothic Regular and Noto Sans Arabic. The checkout also holds Noto Sans CJK SC, which crates/fonts/build.rs never embeds (AGENTS.md §1.1)"
+usage = "Japanese fallback in the interface (BIZ UDPGothic first) and Japanese glyphs in edited PDF text (Shippori Mincho); Arabic interface text, file names and document titles (Noto Sans Arabic); the web build embeds only BIZ UDPGothic Regular and Noto Sans Arabic. CI/release blob-filtered sparse checkouts exclude the prohibited Noto CJK directory before fetching font blobs (AGENTS.md §1.1); cargo xtask fonts prepares the separately attributed Droid Sans Fallback"
+
+[[fetched]]
+build_input = "craft-fonts"
+file = "fonts/droid-sans-fallback/DroidSansFallback.ttf"
+url = "https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/df331873c8576e0ae34ae1ee3cc258beed373535/data/fonts/DroidSansFallback.ttf"
+title = "Droid Sans Fallback (Android 4.0.4_r2.1), unmodified"
+author = "Ascender Corporation; Google Corporation; The Android Open Source Project"
+source = "https://android.googlesource.com/platform/frameworks/base/+/df331873c8576e0ae34ae1ee3cc258beed373535/data/fonts"
+licence = "Apache-2.0"
+licence_url = "https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/df331873c8576e0ae34ae1ee3cc258beed373535/data/fonts/NOTICE"
+licence_sha256 = "38751245389e1e23f73e6f5384b5cbe7fa972cc4410c5adc9c04b082a0b9561a"
+kind = "font"
+usage = "cargo xtask fonts downloads this only into the optional craft-fonts checkout; desktop releases embed it as the Hans interface fallback, after Inter and before Japanese faces in Chinese mode; licence beside the font as .LICENCE.txt"
+sha256 = "ce5355d5a23e376de3dc59ff720a2d498ef3d34bb7af24f2043cb629d84f9339"
 
 [[asset]]
 path = "crates/sign/tests/data/x509-rsa-sha1.pdf"

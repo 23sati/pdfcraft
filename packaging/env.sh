@@ -63,6 +63,10 @@ copy_font_licences() {
     family="$(basename "$(dirname "$f")")"
     cp "$f" "$dest/OFL-$family.txt"
   done
+  for f in "$CRAFT_FONTS_DIR"/fonts/*/*.LICENCE.txt; do
+    [ -f "$f" ] || continue
+    cp "$f" "$dest/$(basename "$f")"
+  done
 }
 
 # Fetch the OCR models into a package directory (#103): `cargo xtask models DEST` downloads every

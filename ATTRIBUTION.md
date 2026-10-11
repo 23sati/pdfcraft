@@ -284,9 +284,9 @@ Every asset PdfCraft includes, bundles or uses to build its published material, 
 | `hayro-cmap` 0.1.0 | `assets/cmaps.brotli` | Adobe CMap resources (predefined CJK CMaps) (non-visual data, AGENTS.md §1.1) | Adobe | BSD-3-Clause | https://github.com/adobe-type-tools/cmap-resources (via hayro-cmap) | Character-code mapping tables required to read CJK PDFs. Non-visual data, allowed by AGENTS.md §1.1 |
 | `hayro-interpret` 0.7.0 | `src/font/generated/metrics.rs` | Standard-14 font metrics and encodings (as Rust tables) (non-visual data, AGENTS.md §1.1) | Adobe (Core 14 AFM metrics, PDF specification encodings); tables by The Hayro Authors | MIT OR Apache-2.0 | ISO 32000-2 Annex D; Adobe Core14 AFM files (via vendored hayro-interpret) | Glyph widths and encodings for non-embedded standard fonts. Non-visual data, allowed by AGENTS.md §1.1 |
 
-## Downloaded at build time (22)
+## Downloaded at build time (23)
 
-Fonts are fetched by `cargo xtask demo-pdf` into `target/demo-fonts/`, OCR models by `cargo xtask models` into `assets/models/`; each is verified by SHA-256 and never committed.
+Showcase fonts are fetched by `cargo xtask demo-pdf` into `target/demo-fonts/`, Chinese UI fonts by `cargo xtask fonts` into the optional `craft-fonts/` checkout, OCR models by `cargo xtask models` into `assets/models/`; each is verified by SHA-256 and never committed.
 
 | File | Title | Author | Licence | Source | Used for |
 |---|---|---|---|---|---|
@@ -312,6 +312,7 @@ Fonts are fetched by `cargo xtask demo-pdf` into `target/demo-fonts/`, OCR model
 | `Inter-Italic[opsz,wght].ttf` | Inter Italic (variable) | The Inter Project Authors (Rasmus Andersson) | OFL-1.1 | https://github.com/google/fonts/tree/9710da1eacb3be272583c3224dcb70f9da6eadbb/ofl/inter | Showcase PDF (cargo xtask demo-pdf) |
 | `text-detection.rten` | Ocrs text detection model | Robert Knight (ocrs-models; trained on HierText, CC-BY-SA-4.0) | CC-BY-SA-4.0 | https://github.com/robertknight/ocrs-models (the models ocrs downloads; model card: https://huggingface.co/robertknight/ocrs, cc-by-sa-4.0) | Scan & OCR: finds words on page images (cargo xtask models) |
 | `text-recognition.rten` | Ocrs text recognition model | Robert Knight (ocrs-models; trained on HierText, CC-BY-SA-4.0) | CC-BY-SA-4.0 | https://github.com/robertknight/ocrs-models (the models ocrs downloads; model card: https://huggingface.co/robertknight/ocrs, cc-by-sa-4.0) | Scan & OCR: reads the words it finds (cargo xtask models) |
+| `fonts/droid-sans-fallback/DroidSansFallback.ttf` | Droid Sans Fallback (Android 4.0.4_r2.1), unmodified | Ascender Corporation; Google Corporation; The Android Open Source Project | Apache-2.0 | https://android.googlesource.com/platform/frameworks/base/+/df331873c8576e0ae34ae1ee3cc258beed373535/data/fonts | cargo xtask fonts downloads this only into the optional craft-fonts checkout; desktop releases embed it as the Hans interface fallback, after Inter and before Japanese faces in Chinese mode; licence beside the font as .LICENCE.txt |
 
 ## Optional build inputs (1)
 
@@ -319,4 +320,4 @@ Not in this repository and never downloaded by it: compiled in only when the bui
 
 | Input | Option | Title | Author | Licence | Source | Attribution | Used for |
 |---|---|---|---|---|---|---|---|
-| `craft-fonts` | `CRAFT_FONTS_DIR` | Japanese fonts: BIZ UDPGothic (Regular, Bold), Shippori Mincho, BIZ UDMincho; Arabic font: Noto Sans Arabic | The BIZ UDGothic and BIZ UDMincho Project Authors (Morisawa Inc.), The Shippori Mincho Project Authors (FONTDASU), The Noto Project Authors (Noto Sans Arabic) | OFL-1.1 | https://github.com/storytold/craft-fonts (pinned by commit in .github/workflows/release.yml) | https://github.com/storytold/craft-fonts/blob/main/ATTRIBUTION.md | Japanese fallback in the interface (BIZ UDPGothic first) and Japanese glyphs in edited PDF text (Shippori Mincho); Arabic interface text, file names and document titles (Noto Sans Arabic); the web build embeds only BIZ UDPGothic Regular and Noto Sans Arabic. The checkout also holds Noto Sans CJK SC, which crates/fonts/build.rs never embeds (AGENTS.md §1.1) |
+| `craft-fonts` | `CRAFT_FONTS_DIR` | Japanese fonts: BIZ UDPGothic (Regular, Bold), Shippori Mincho, BIZ UDMincho; Arabic font: Noto Sans Arabic | The BIZ UDGothic and BIZ UDMincho Project Authors (Morisawa Inc.), The Shippori Mincho Project Authors (FONTDASU), The Noto Project Authors (Noto Sans Arabic) | OFL-1.1 | https://github.com/storytold/craft-fonts (pinned by commit in .github/workflows/release.yml) | https://github.com/storytold/craft-fonts/blob/main/ATTRIBUTION.md | Japanese fallback in the interface (BIZ UDPGothic first) and Japanese glyphs in edited PDF text (Shippori Mincho); Arabic interface text, file names and document titles (Noto Sans Arabic); the web build embeds only BIZ UDPGothic Regular and Noto Sans Arabic. CI/release blob-filtered sparse checkouts exclude the prohibited Noto CJK directory before fetching font blobs (AGENTS.md §1.1); cargo xtask fonts prepares the separately attributed Droid Sans Fallback |

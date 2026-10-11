@@ -246,3 +246,7 @@ a match of the `CobaltStrikeBeacon` family rule.
 7. **Report.** To the scanner, send the file's SHA-256, the release URL, the rule name and revision,
    and the matched identifiers and offsets. Report PdfCraft problems at
    <https://github.com/storytold/pdfcraft/issues> with the same facts.
+
+## Chinese interface fonts
+
+Each desktop release job uses a blob-filtered sparse checkout of craft-fonts at the pinned commit, excluding the prohibited Noto CJK directory, and runs `cargo xtask fonts` before building. This downloads the unmodified Apache-2.0 Droid Sans Fallback and original licence into craft-fonts, verifies their SHA-256 values from `ATTRIBUTION.toml`, and adds its Hans manifest entry. With `CRAFT_FONTS_REQUIRED=1`, missing or corrupt Chinese input and incomplete Simplified Chinese catalog coverage are build errors, rather than skipped tests. The web job retains its smaller font input. Both Windows MSI/portable packages and Unix packages carry the Chinese font licence.

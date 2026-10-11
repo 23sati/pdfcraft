@@ -12,7 +12,21 @@ use std::fmt::Write as _;
 
 use serde_json::Value;
 
+mod release_fonts;
+
 fn main() {
+    println!("cargo::rerun-if-env-changed=CRAFT_FONTS_DIR");
+    println!("cargo::rerun-if-env-changed=CRAFT_FONTS_REQUIRED");
+    // The web input deliberately excludes Chinese faces to keep its download small.
+    if std::env::var_os("CRAFT_FONTS_REQUIRED").is_some() && !std::env::var("CARGO_CFG_TARGET_ARCH").is_ok_and(|v| v == "wasm32") {
+        let result = std::env::var_os("CRAFT_FONTS_DIR")
+            .ok_or_else(|| "CRAFT_FONTS_REQUIRED needs CRAFT_FONTS_DIR".to_owned())
+            .and_then(|dir| release_fonts::validate(&std::path::PathBuf::from(dir), include_str!("src/i18n/zh-hans.tsv")));
+        println!("cargo::rerun-if-changed=src/i18n/zh-hans.tsv");
+        if let Err(error) = result {
+            println!("cargo::error=release Chinese fonts: {error}; run cargo xtask fonts before building");
+        }
+    }
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../contributors");
     let json = read(&dir.join("contributors.json"), "the About window shows no contributors", |t| {
         serde_json::from_str::<Value>(t).map_err(|e| e.to_string())

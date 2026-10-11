@@ -384,13 +384,20 @@ dialogs, panels and keyboard shortcuts. Command search accepts the translated la
 English label and the stable command id; filenames, PDF contents, author names, custom
 action names and error details from the engine or the operating system keep their own text.
 
-Japanese fonts come from [craft-fonts](https://github.com/storytold/craft-fonts), an optional build
-input that every release includes. To build with them (Japanese interface text, and Japanese text in
-edited PDFs):
+Japanese fonts and the Simplified Chinese interface fallback come from [craft-fonts](https://github.com/storytold/craft-fonts), an optional build
+input that every release includes. Desktop releases add the SHA-256-pinned, Apache-2.0
+Droid Sans Fallback with `cargo xtask fonts`; fonts stay in that checkout, never in this repository.
+To build with Japanese and Simplified Chinese interface fonts (and Japanese text in edited PDFs):
 
 ```sh
-git clone https://github.com/storytold/craft-fonts ../craft-fonts
-CRAFT_FONTS_DIR=../craft-fonts cargo run --release -p pdfcraft -- some.pdf
+git init ../craft-fonts
+git -C ../craft-fonts remote add origin https://github.com/storytold/craft-fonts
+# Exclude prohibited Noto CJK before fetching any font blobs (AGENTS.md section 1.1).
+git -C ../craft-fonts sparse-checkout set --no-cone '/*' '!/fonts/noto-sans-cjk-sc/'
+git -C ../craft-fonts fetch --filter=blob:none --depth 1 origin 8dcdacd5153e64560d109541a47d806f26f048c0
+git -C ../craft-fonts checkout --detach FETCH_HEAD
+cargo xtask fonts ../craft-fonts
+CRAFT_FONTS_DIR=../craft-fonts CRAFT_FONTS_REQUIRED=1 cargo run --release -p pdfcraft -- some.pdf
 ```
 
 Each [GitHub release](https://github.com/storytold/pdfcraft/releases) has ready-made builds for macOS,

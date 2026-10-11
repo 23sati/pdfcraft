@@ -109,12 +109,17 @@ if (-not (Test-Path (Join-Path $Models 'ATTRIBUTION.txt')) -or -not (Get-ChildIt
 }
 
 # ---- MSI ---------------------------------------------------------------------------------------
+$FontLicenceArgs = @()
+if ($env:CRAFT_FONTS_DIR) {
+  $ChineseLicence = Join-Path $env:CRAFT_FONTS_DIR 'fonts\droid-sans-fallback\DroidSansFallback.ttf.LICENCE.txt'
+  if (Test-Path -LiteralPath $ChineseLicence) { $FontLicenceArgs = @('-d', "ChineseFontLicence=$ChineseLicence") }
+}
 $Msi = Join-Path $Dist "pdfcraft-$Version-windows-$Arch.msi"
 Invoke-Native 'wix build' {
   wix build (Join-Path $PSScriptRoot 'pdfcraft.wxs') -arch $Arch `
     (Join-Path $PSScriptRoot 'installer-ui.wxs') `
     -d "Version=$MsiVersion" -d "BinDir=$Stage" -d "ModelsDir=$Models" -d "IconPath=$(Join-Path $Root 'assets\app-icon\pdfcraft.ico')" `
-    -o $Msi
+    @FontLicenceArgs -o $Msi
 }
 # Inspect the built MSI, not just the XML, before signing/publishing it. In a child process, so
 # its Windows Installer database handle is gone before signtool opens the MSI.
@@ -142,6 +147,7 @@ if ($env:CRAFT_FONTS_DIR) {
   Get-ChildItem -Path (Join-Path $env:CRAFT_FONTS_DIR 'fonts') -Directory -ErrorAction SilentlyContinue | ForEach-Object {
     $ofl = Join-Path $_.FullName 'OFL.txt'
     if (Test-Path $ofl) { Copy-Item $ofl (Join-Path $Portable "OFL-$($_.Name).txt") }
+    Get-ChildItem -LiteralPath $_.FullName -Filter '*.LICENCE.txt' -File | ForEach-Object { Copy-Item $_.FullName $Portable }
   }
 }
 # portable.txt beside pdfcraft.exe switches on portable mode: settings, logs, recovery files and new

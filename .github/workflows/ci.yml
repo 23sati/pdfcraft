@@ -38,6 +38,12 @@ jobs:
           repository: storytold/craft-fonts
           ref: 8dcdacd5153e64560d109541a47d806f26f048c0
           path: craft-fonts
+          # Fetch only allowed assets; Noto CJK is barred by AGENTS.md section 1.1.
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/fonts/noto-sans-cjk-sc/
 
       - name: Install Linux system dependencies (egui/winit/rfd)
         if: runner.os == 'Linux'
@@ -64,6 +70,10 @@ jobs:
 
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Prepare pinned Chinese interface font (Linux)
+        if: runner.os == 'Linux'
+        run: cargo xtask fonts
 
       - name: Test
         if: runner.os != 'Linux'

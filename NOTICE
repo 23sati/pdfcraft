@@ -12,6 +12,11 @@ Third-party material
 This product bundles third-party material under its own licenses, listed below. The per-file
 list (author, source, license) is in ATTRIBUTION.md.
 
+- Droid Sans Fallback, unmodified, from Android 4.0.4_r2.1 (Ascender Corporation), digitized data
+  copyright Google Corporation 2006; Copyright (c) 2005-2008, The Android Open Source Project.
+  Apache License 2.0. Desktop releases embed it from craft-fonts; packages include
+  DroidSansFallback.ttf.LICENCE.txt with the original copyright notice and licence.
+
 - Lucide icons (assets/icons/*.svg) — ISC License. See assets/icons/LICENSE-lucide.txt.
   The Windows PDF file icon (assets/app-icon/pdfcraft-document.svg and .ico) adapts Lucide's
   file-text outline and combines it with contributor-original artwork. See

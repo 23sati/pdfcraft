@@ -1,6 +1,6 @@
 # Where PdfCraft falls short of Acrobat Pro
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-10 · **Change:** minor (alpha markers removed after the gate was re-judged: no gap blocks alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (alpha markers removed after the gate was re-judged: no gap blocks alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
 Every known shortfall, one entry each, ranked by what it costs users. This is the work list: agents
 choose from the top unless the owner says otherwise, and prefer these over new P2/P3 checklist
@@ -23,7 +23,7 @@ update the numbers.
 | 2 | Rendering is borrowed and its fidelity unmeasured | feature, spec | 110–190 | [pdf-spec-parity.md](pdf-spec-parity.md) |
 | 3 | Editing existing text is fragile on real files | feature | 100–180 | [target-app-parity.md](target-app-parity.md) |
 | 4 | No printing on Windows or the web | feature, platform | 15–30 | [hardware-parity.md](hardware-parity.md) |
-| 5 | Chinese UI shows missing-glyph boxes in releases | localization | 6–12 | [localization-parity.md](localization-parity.md) |
+| 5 | Chinese UI release delivery verification | localization | 6–12 | [localization-parity.md](localization-parity.md) |
 | 6 | Open-issue backlog of wrong results in shipped features | stability | 45–80 | this file |
 | 7 | OCR reads only unaccented Latin | feature | 40–75 | [file-format-parity.md](file-format-parity.md) |
 | 8 | Office export weak, Office import absent | file format | 55–100 | [file-format-parity.md](file-format-parity.md) |
@@ -105,19 +105,11 @@ update the numbers.
 - **Impact:** Windows is most of Acrobat's market. Printing is a P0 workflow.
 - **Estimate:** 15–30 h. **Doc:** [hardware-parity.md](hardware-parity.md).
 
-### 5. Chinese UI shows missing-glyph boxes in releases
+### 5. Chinese UI release delivery verification
 
-- **Missing:** a Simplified Chinese (`Hans`) UI face in release builds and a working fallback.
-- **Evidence:** [#826](https://github.com/storytold/pdfcraft/issues/826),
-  [#688](https://github.com/storytold/pdfcraft/issues/688),
-  [#728](https://github.com/storytold/pdfcraft/issues/728),
-  [#758](https://github.com/storytold/pdfcraft/issues/758),
-  [#689](https://github.com/storytold/pdfcraft/issues/689) (Flatpak). `AGENTS.md` §1.1 bars Noto
-  CJK (Source Han rebranded), so craft-fonts needs another openly licensed Hans face.
-- **Impact:** the second-largest language group sees a broken interface although the catalog is 97%
-  translated.
-- **Estimate:** 6–12 h (font sourcing in craft-fonts plus the fallback chain). **Doc:**
-  [localization-parity.md](localization-parity.md).
+- **Implemented:** desktop releases prepare a SHA-256-pinned, Apache-2.0 Droid Sans Fallback in craft-fonts. Required builds reject missing, corrupt or incomplete Hans coverage; all four UI font families are checked at 100%, 125%, 150% and 200% scale.
+- **Evidence:** `crates/ui-egui/tests/release_fonts.rs::old_release_input_is_rejected` and `crates/ui-egui/tests/fonts.rs::chinese_catalog_has_glyphs_at_desktop_scales`; missing glyphs reproduced in an isolated Windows 0.5.0 installation and verified with the fixed build.
+- **Remaining:** verify the next published desktop packages across platforms. Web Chinese font delivery and Traditional Chinese-specific faces remain open. **Doc:** [localization-parity.md](localization-parity.md).
 
 ### 6. Open-issue backlog of wrong results in shipped features
 
@@ -300,6 +292,7 @@ update the numbers.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Chinese desktop font fix implemented; published package verification remains. |
 | 2026-10-10 | minor | Removed the alpha markers: with the cross-app gate rule, gaps 1 and 8 are partial sub-cases, not blockers; stage alpha |
 | 2026-10-10 | minor | Marked the alpha blockers (gap 1 and the Office part of gap 8) after the core-workflow gate put the stage at pre-alpha |
 | 2026-10-10 | major | Created. Ranked 24 gaps from the 2026-10-10 re-measure, the open GitHub issues and the former ROADMAP.md §Where we're lacking and where we're going (renderer, hardening, fidelity, editing, Pro workflows, 1.0 polish), which this file replaces |
