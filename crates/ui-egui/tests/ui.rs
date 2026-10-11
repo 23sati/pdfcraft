@@ -37,6 +37,26 @@ fn home_shows_welcome_and_tools() {
     h.get_by_label("Open file");
 }
 
+#[test]
+fn tools_panel_side_preference_moves_and_persists() {
+    use pdfcraft_ui_egui::Dialog;
+
+    let mut h = harness(|_| {});
+    h.state_mut().dialog = Some(Dialog::Preferences);
+    h.run_steps(3);
+    h.get_by_label("Tools panel side");
+    h.get_by_label("Right").click();
+    h.run_steps(3);
+    assert!(h.state().docking.tools_on_right());
+    let saved = h.state().persist();
+    let mut restored = PdfCraftApp::new();
+    restored.restore(&saved);
+    assert!(restored.docking.tools_on_right());
+    h.get_by_label("Left").click();
+    h.run_steps(3);
+    assert!(!h.state().docking.tools_on_right());
+}
+
 /// Every piece of text painted on the last frame: its whole text, whether it was cut with "…",
 /// and where it was drawn.
 fn painted_text(h: &Harness<'static, PdfCraftApp>) -> Vec<(String, bool, egui::Rect)> {
