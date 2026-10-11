@@ -4,7 +4,7 @@
 
 Every asset PdfCraft includes, bundles or uses to build its published material, with its author, source and licence. The policy is in [AGENTS.md](AGENTS.md) §1. The machine-readable list, with SHA-256 hashes, is [ATTRIBUTION.toml](ATTRIBUTION.toml). Licence texts are kept beside the assets and summarised in [NOTICE](NOTICE).
 
-## In this repository (264)
+## In this repository (278)
 
 | Asset | Title | Author | Licence | Source | Used for |
 |---|---|---|---|---|---|
@@ -272,6 +272,20 @@ Every asset PdfCraft includes, bundles or uses to build its published material, 
 | `packaging/macos/dmg/background.svg` | PdfCraft macOS DMG window background | @XusBadia | MIT OR Apache-2.0 | Original work for this repository, derived from the PdfCraft app icon (assets/app-icon/pdfcraft.svg, referenced via an SVG image element, not copied) | Finder window of the macOS DMG; rendered to background.tiff by packaging/macos/dmg/generate.py |
 | `packaging/macos/dmg/background.tiff` | PdfCraft macOS DMG window background (rendered) | @XusBadia | MIT OR Apache-2.0 | Rendered from packaging/macos/dmg/background.svg by packaging/macos/dmg/generate.py | 1x + 2x HiDPI 16-colour palette TIFF copied into the macOS DMG by packaging/macos/package.sh; includes the app icon and the free LittleCMS built-in sRGB profile |
 | `crates/sign/tests/data/x509-rsa-sha1.pdf` | One-page PDF with a legacy adbe.x509.rsa_sha1 signature by the RSA test key | PdfCraft contributors | MIT OR Apache-2.0 | Contributor-original: hand-written PDF objects; signature made with `openssl dgst -sha1 -sign` over its byte ranges (see crates/sign/tests/data/README.md) | Signature validation tests (crates/sign/tests/pdf.rs): the legacy adbe.x509.rsa_sha1 format |
+| `packaging/windows/locales/de.wxl` | PdfCraft installer translation catalog (de) | PdfCraft contributors | MIT OR Apache-2.0 | Contributor-original: clean-room translations of PdfCraft installer labels; no proprietary localization resources | Native installer UI; English also supplies generated fallback locale catalogs |
+| `packaging/windows/locales/en.wxl` | PdfCraft installer translation catalog (en) | PdfCraft contributors | MIT OR Apache-2.0 | Contributor-original: clean-room translations of PdfCraft installer labels; no proprietary localization resources | Native installer UI; English also supplies generated fallback locale catalogs |
+| `packaging/windows/locales/es.wxl` | PdfCraft installer translation catalog (es) | PdfCraft contributors | MIT OR Apache-2.0 | Contributor-original: clean-room translations of PdfCraft installer labels; no proprietary localization resources | Native installer UI; English also supplies generated fallback locale catalogs |
+| `packaging/windows/locales/fr.wxl` | PdfCraft installer translation catalog (fr) | PdfCraft contributors | MIT OR Apache-2.0 | Contributor-original: clean-room translations of PdfCraft installer labels; no proprietary localization resources | Native installer UI; English also supplies generated fallback locale catalogs |
+| `packaging/windows/locales/hu.wxl` | PdfCraft installer translation catalog (hu) | PdfCraft contributors | MIT OR Apache-2.0 | Contributor-original: clean-room translations of PdfCraft installer labels; no proprietary localization resources | Native installer UI; English also supplies generated fallback locale catalogs |
+| `packaging/windows/locales/it.wxl` | PdfCraft installer translation catalog (it) | PdfCraft contributors | MIT OR Apache-2.0 | Contributor-original: clean-room translations of PdfCraft installer labels; no proprietary localization resources | Native installer UI; English also supplies generated fallback locale catalogs |
+| `packaging/windows/locales/nl.wxl` | PdfCraft installer translation catalog (nl) | PdfCraft contributors | MIT OR Apache-2.0 | Contributor-original: clean-room translations of PdfCraft installer labels; no proprietary localization resources | Native installer UI; English also supplies generated fallback locale catalogs |
+| `packaging/macos/resources/de.lproj/Localizable.strings` | PdfCraft installer translation catalog (de) | PdfCraft contributors | MIT OR Apache-2.0 | Contributor-original: clean-room translations of PdfCraft installer labels; no proprietary localization resources | Native installer UI; English also supplies generated fallback locale catalogs |
+| `packaging/macos/resources/en.lproj/Localizable.strings` | PdfCraft installer translation catalog (en) | PdfCraft contributors | MIT OR Apache-2.0 | Contributor-original: clean-room translations of PdfCraft installer labels; no proprietary localization resources | Native installer UI; English also supplies generated fallback locale catalogs |
+| `packaging/macos/resources/es.lproj/Localizable.strings` | PdfCraft installer translation catalog (es) | PdfCraft contributors | MIT OR Apache-2.0 | Contributor-original: clean-room translations of PdfCraft installer labels; no proprietary localization resources | Native installer UI; English also supplies generated fallback locale catalogs |
+| `packaging/macos/resources/fr.lproj/Localizable.strings` | PdfCraft installer translation catalog (fr) | PdfCraft contributors | MIT OR Apache-2.0 | Contributor-original: clean-room translations of PdfCraft installer labels; no proprietary localization resources | Native installer UI; English also supplies generated fallback locale catalogs |
+| `packaging/macos/resources/hu.lproj/Localizable.strings` | PdfCraft installer translation catalog (hu) | PdfCraft contributors | MIT OR Apache-2.0 | Contributor-original: clean-room translations of PdfCraft installer labels; no proprietary localization resources | Native installer UI; English also supplies generated fallback locale catalogs |
+| `packaging/macos/resources/it.lproj/Localizable.strings` | PdfCraft installer translation catalog (it) | PdfCraft contributors | MIT OR Apache-2.0 | Contributor-original: clean-room translations of PdfCraft installer labels; no proprietary localization resources | Native installer UI; English also supplies generated fallback locale catalogs |
+| `packaging/macos/resources/nl.lproj/Localizable.strings` | PdfCraft installer translation catalog (nl) | PdfCraft contributors | MIT OR Apache-2.0 | Contributor-original: clean-room translations of PdfCraft installer labels; no proprietary localization resources | Native installer UI; English also supplies generated fallback locale catalogs |
 
 ## Compiled in through dependencies (6)
 
@@ -284,7 +298,7 @@ Every asset PdfCraft includes, bundles or uses to build its published material, 
 | `hayro-cmap` 0.1.0 | `assets/cmaps.brotli` | Adobe CMap resources (predefined CJK CMaps) (non-visual data, AGENTS.md §1.1) | Adobe | BSD-3-Clause | https://github.com/adobe-type-tools/cmap-resources (via hayro-cmap) | Character-code mapping tables required to read CJK PDFs. Non-visual data, allowed by AGENTS.md §1.1 |
 | `hayro-interpret` 0.7.0 | `src/font/generated/metrics.rs` | Standard-14 font metrics and encodings (as Rust tables) (non-visual data, AGENTS.md §1.1) | Adobe (Core 14 AFM metrics, PDF specification encodings); tables by The Hayro Authors | MIT OR Apache-2.0 | ISO 32000-2 Annex D; Adobe Core14 AFM files (via vendored hayro-interpret) | Glyph widths and encodings for non-embedded standard fonts. Non-visual data, allowed by AGENTS.md §1.1 |
 
-## Downloaded at build time (22)
+## Downloaded at build time (25)
 
 Fonts are fetched by `cargo xtask demo-pdf` into `target/demo-fonts/`, OCR models by `cargo xtask models` into `assets/models/`; each is verified by SHA-256 and never committed.
 
@@ -312,6 +326,9 @@ Fonts are fetched by `cargo xtask demo-pdf` into `target/demo-fonts/`, OCR model
 | `Inter-Italic[opsz,wght].ttf` | Inter Italic (variable) | The Inter Project Authors (Rasmus Andersson) | OFL-1.1 | https://github.com/google/fonts/tree/9710da1eacb3be272583c3224dcb70f9da6eadbb/ofl/inter | Showcase PDF (cargo xtask demo-pdf) |
 | `text-detection.rten` | Ocrs text detection model | Robert Knight (ocrs-models; trained on HierText, CC-BY-SA-4.0) | CC-BY-SA-4.0 | https://github.com/robertknight/ocrs-models (the models ocrs downloads; model card: https://huggingface.co/robertknight/ocrs, cc-by-sa-4.0) | Scan & OCR: finds words on page images (cargo xtask models) |
 | `text-recognition.rten` | Ocrs text recognition model | Robert Knight (ocrs-models; trained on HierText, CC-BY-SA-4.0) | CC-BY-SA-4.0 | https://github.com/robertknight/ocrs-models (the models ocrs downloads; model card: https://huggingface.co/robertknight/ocrs, cc-by-sa-4.0) | Scan & OCR: reads the words it finds (cargo xtask models) |
+| `multilingual-recognition.onnx` | PP-OCRv6 small multilingual text recognition model | PaddlePaddle / PaddleOCR contributors | Apache-2.0 | https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx/resolve/b8f84f0b80c529de40b4fbb3544b84fa7233a513/inference.onnx | Offline multilingual OCR and scan orientation correction (cargo xtask models) |
+| `document-orientation.onnx` | PP-LCNet document orientation model | PaddlePaddle / PaddleOCR contributors | Apache-2.0 | https://huggingface.co/PaddlePaddle/PP-LCNet_x1_0_doc_ori_onnx/resolve/7330ab7039123e46af2dc03154b9969aa412c61d/inference.onnx | Offline multilingual OCR and scan orientation correction (cargo xtask models) |
+| `multilingual-dictionary.txt` | PP-OCRv6 recognition dictionary | PaddlePaddle / PaddleOCR contributors | Apache-2.0 | https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/dab3fe35379033fdcb2d0e9572fac0b36c9a9ebf/ppocr/utils/dict/ppocrv6_dict.txt | Offline multilingual OCR and scan orientation correction (cargo xtask models) |
 
 ## Optional build inputs (1)
 
