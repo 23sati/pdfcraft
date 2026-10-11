@@ -758,6 +758,7 @@
 	Rotation	Rotation
 	Appear behind page	Afficher derrière la page
 	Appear on top of page	Afficher au-dessus de la page
+	Offset from centre	Décalage par rapport au centre
 	From colour	À partir d'une couleur
 	Page Range Options	Options d'intervalle de pages
 	Preview: page {p} of {n}	Aperçu : page {p} sur {n}

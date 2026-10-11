@@ -779,6 +779,7 @@
 	Rotation	Поворот
 	Appear behind page	Позади страницы
 	Appear on top of page	Поверх страницы
+	Offset from centre	Смещение от центра
 	From colour	Из цвета
 	Page Range Options	Параметры диапазона страниц
 	Preview: page {p} of {n}	Предпросмотр: стр. {p} из {n}

@@ -479,7 +479,7 @@ pub fn tools() -> Vec<ToolDef> {
         t(
             "page_add_text",
             "Add text to a page",
-            "Add text as page content (not a comment). Place it with at [x, y] (top-left, points from the top-left of the displayed page) and width (wrap width, default 200), or rect. Newlines start new lines; long lines wrap. Style: font helvetica/times/courier, size, bold, italic, color (#RRGGBB or a name), align left/center/right. It stays editable with content_update. Undoable.",
+            "Add text as page content (not a comment). Place it with at [x, y] (top-left, points from the top-left of the displayed page) and width (wrap width, default 200), or rect. Newlines start new lines; long lines wrap. Style: font helvetica/times/courier, size, bold, italic, color (#RRGGBB or a name), align left/center/right. Text must be Western European (WinAnsi) characters; others are refused. It stays editable with content_update. Undoable.",
         )
         .cmd("edit.text")
         .with(schema(
@@ -764,7 +764,7 @@ pub fn tools() -> Vec<ToolDef> {
             }),
             &["doc"],
         )),
-        t("doc_watermark", "Add watermark", "Add a watermark to pages: text, or a picture from `file` (an image, or page `file_page` of a PDF) at `scale` of the page (default 0.5); rotated (degrees counter-clockwise, default 45), semi-transparent (opacity 0–1, default 0.5), text fitted to the page unless font_size is given, on top unless behind: true. replace: true swaps out existing ones. Undoable.")
+        t("doc_watermark", "Add watermark", "Add a watermark to pages: text, or a picture from `file` (an image, or page `file_page` of a PDF) at `scale` of the page (default 0.5); rotated (degrees counter-clockwise, default 45), semi-transparent (opacity 0–1, default 0.5), text fitted to the page unless font_size is given, on top unless behind: true; moved from the page centre by `offset_x` (right) and `offset_y` (up) points (default 0). replace: true swaps out existing ones. Undoable.")
             .cmd("edit.watermark")
             .with(schema(
                 json!({
@@ -779,6 +779,8 @@ pub fn tools() -> Vec<ToolDef> {
                     "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
                     "rotation": { "type": "number" },
                     "behind": { "type": "boolean" },
+                    "offset_x": { "type": "number", "description": "Points right of the page centre (negative: left)." },
+                    "offset_y": { "type": "number", "description": "Points above the page centre (negative: below)." },
                     "replace": { "type": "boolean" },
                 }),
                 &["doc"],
@@ -983,7 +985,7 @@ pub fn tools() -> Vec<ToolDef> {
         t(
             "doc_create",
             "Create a PDF",
-            "Create a new, unsaved document and return it like doc_open: `blank` (pages, width, height in points; default 1 US Letter page), `images` (paths of PNG, JPEG, TIFF (every page), GIF or BMP files, one page each at the image's resolution) or `text` (a .txt path, or `text` directly). Save it with doc_save and a path.",
+            "Create a new, unsaved document and return it like doc_open: `blank` (pages, width, height in points; default 1 US Letter page), `images` (paths of PNG, JPEG, TIFF (every page), GIF or BMP files, one page each at the image's resolution) or `text` (a .txt path, or `text` directly; Western European (WinAnsi) characters only, others are refused). Save it with doc_save and a path.",
         )
         .with(schema(
             json!({

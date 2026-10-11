@@ -755,6 +755,7 @@
 	Rotation	Elforgatás
 	Appear behind page	Az oldal mögött
 	Appear on top of page	Az oldal előtt
+	Offset from centre	Eltolás a középponttól
 	From colour	Színből
 	Page Range Options	Oldaltartomány beállításai
 	Preview: page {p} of {n}	Előnézet: {p}. oldal / {n}

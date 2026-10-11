@@ -76,6 +76,8 @@ fn failed(e: impl std::fmt::Display) -> ToolError {
 /// Default and maximum resolution for `page_render`.
 const DEFAULT_DPI: f64 = 96.0;
 const MAX_DPI: f64 = 600.0;
+/// How far a watermark may be moved from the page centre, in points (a page is at most 14,400).
+const WATERMARK_MAX_OFFSET: f64 = 20_000.0;
 
 /// Bookmarks in one page of the bookmark list, by default and at most.
 const BOOKMARK_PAGE: usize = 100;
@@ -960,7 +962,10 @@ impl Automation {
                     opacity: a.opt_num("opacity")?.unwrap_or(d.opacity),
                     rotation: a.opt_num("rotation")?.unwrap_or(d.rotation),
                     behind: a.opt_bool("behind")?.unwrap_or(false),
-                    offset: [0.0; 2],
+                    offset: [
+                        a.opt_num("offset_x")?.unwrap_or(0.0).clamp(-WATERMARK_MAX_OFFSET, WATERMARK_MAX_OFFSET),
+                        a.opt_num("offset_y")?.unwrap_or(0.0).clamp(-WATERMARK_MAX_OFFSET, WATERMARK_MAX_OFFSET),
+                    ],
                 };
                 Edit::AddWatermark { pages, settings: wm, replace, file }
             }
@@ -1076,6 +1081,10 @@ impl Automation {
                     }
                     (None, None) => return Err(ToolError::InvalidArgs("text needs `text` or `path`".into())),
                 };
+                // The page font is Helvetica/WinAnsi: refuse what it would silently turn into `?`.
+                if let Some(c) = pdfcraft_engine::first_undrawable_plain(&text) {
+                    return Err(ToolError::InvalidArgs(pdfcraft_engine::undrawable_message(c)));
+                }
                 (format!("{title}.pdf"), self.session.create_from_text(&title, &text).map_err(failed)?)
             }
             other => return Err(ToolError::InvalidArgs(format!("unknown source {other:?}"))),
