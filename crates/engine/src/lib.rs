@@ -39,7 +39,8 @@ pub use pdfcraft_organize::view::{InitialView, Layout as InitialLayout, Magnific
 pub use pdfcraft_cos::Algorithm;
 pub use pdfcraft_create::{CONVERTIBLE, ImageResolution, SourceKind, decode_text, source_kind};
 pub use pdfcraft_edit::{
-    Added, AddedImage, AddedText, Align as TextAlign, Background, Content as AddedContent, Family as FontFamily, HeaderFooter, MarkKind, Watermark,
+    Added, AddedImage, AddedText, Align as TextAlign, Background, Content as AddedContent, Family as FontFamily, HeaderFooter, MAX_REPEATS, MarkKind,
+    MarkSource, Repeat, Watermark, watermark_centres,
 };
 pub use pdfcraft_forms::{
     BorderStyle, CheckStyle, Field as FormField, FieldAction, FieldChange, FieldFont, FieldKind as FormFieldKind, FieldProps, FieldValue,
