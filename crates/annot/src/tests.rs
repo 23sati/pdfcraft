@@ -586,10 +586,7 @@ fn common_email_addresses_become_mailto_links_with_source_character_ranges() {
     let source = "İ Contact ada.lovelace+forms@example.co.uk, browse HTTPS://EXAMPLE.ORG; or ask admin@example.org.";
     let chars: Vec<char> = source.chars().collect();
     let links = crate::links::find_urls(&chars);
-    let found: Vec<(String, String)> = links
-        .into_iter()
-        .map(|(range, url)| (chars.get(range).unwrap().iter().collect(), url))
-        .collect();
+    let found: Vec<(String, String)> = links.into_iter().map(|(range, url)| (chars.get(range).unwrap().iter().collect(), url)).collect();
     assert_eq!(
         found,
         [
