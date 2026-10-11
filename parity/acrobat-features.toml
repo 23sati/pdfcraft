@@ -6427,7 +6427,7 @@ status = "shipped"
 commands = ["ocr.recognize"]
 tools = ["ocr_recognize", "ocr_status"]
 evidence = ["crates/engine/src/tests.rs::recognize_text_makes_a_scanned_page_searchable", "crates/automation/tests/automation.rs::ocr_tools_make_a_scan_searchable", "crates/ui-egui/tests/ocr.rs::recognize_text_dialog_adds_searchable_text"]
-notes = "ocrs engine (MIT/Apache) with CC-BY-SA models fetched by `cargo xtask models`; the desktop release packages ship them (#103; packaging/env.sh stage_models), the web build does not yet; runs on a worker thread with progress; one undoable step; pages with text are skipped."
+notes = "ocrs engine (MIT/Apache) with CC-BY-SA models fetched by `cargo xtask models`; the desktop release packages ship them (#103; packaging/env.sh stage_models), the web build does not yet; runs on a worker thread with progress; one undoable step; pages with text are skipped unless asked (ocr.skip-renderable-text)."
 
 [[feature]]
 id = "ocr.recognize-range"
@@ -6522,8 +6522,8 @@ milestone = "M10"
 status = "shipped"
 commands = ["ocr.recognize"]
 tools = ["ocr_recognize"]
-evidence = ["crates/engine/src/tests.rs::recognize_text_makes_a_scanned_page_searchable", "crates/automation/tests/automation.rs::ocr_tools_make_a_scan_searchable"]
-notes = "Pages that already have text are skipped and reported (skip_text_pages false reads them anyway)."
+evidence = ["crates/engine/src/tests.rs::recognize_text_makes_a_scanned_page_searchable", "crates/automation/tests/automation.rs::ocr_tools_make_a_scan_searchable", "crates/engine/src/tests.rs::recognize_text_reads_a_picture_on_a_page_that_has_text", "crates/automation/tests/automation.rs::ocr_recognize_reads_pictures_on_pages_with_text", "crates/ui-egui/tests/ocr.rs::recognize_text_can_read_pictures_on_pages_with_text"]
+notes = "Pages that already have text are skipped and reported by default. The dialog's \"Also recognize pages that already have text\" (skip_text_pages false, also for multiple files) reads pictures on such pages (#1028); a recognised word at least half covered by the page's own text (an earlier OCR layer included) is left out and counted (already_on_page). Missing: recognising only the image areas (the whole page is still read, so it takes as long as a scan), and a word in a picture that sits under real text is treated as that text."
 
 [[feature]]
 id = "ocr.rotation-detection"
