@@ -198,7 +198,12 @@ fn default_printer(printers: &[spool::Printer]) -> Option<String> {
 
 impl PdfCraftApp {
     pub fn open_print(&mut self) {
-        let Some((i, _)) = self.active_ids() else { return };
+        let Some((i, id)) = self.active_ids() else { return };
+        // The preview is drawn by the renderer of the pages on screen: tell it which layers are
+        // printed, or it would show a layer that is not and hide one that is.
+        if self.session.sync_print_layers(id) {
+            self.views[i].invalidate_content();
+        }
         let (printers, printers_loading) = match self.printer_source.clone() {
             // The list from the last time the dialog opened, until the fresh one arrives.
             #[cfg(not(target_arch = "wasm32"))]

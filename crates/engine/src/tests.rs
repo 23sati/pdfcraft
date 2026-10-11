@@ -3427,3 +3427,38 @@ fn a_watermark_for_the_screen_or_for_print_shows_only_there() {
         assert!(!first_page_has_red(s.save_bytes(id).unwrap().to_vec()), "removed ({visibility:?})");
     }
 }
+
+#[test]
+fn the_print_preview_draws_the_layers_as_they_are_when_printing() {
+    // The same watermark as `a_watermark_for_the_screen_or_for_print_shows_only_there`. The
+    // preview is drawn by the document's own renderer, once with the print flag and once
+    // without: the flag must give what the printed sheets show, and nothing else may change.
+    let cases =
+        [(Visibility::default(), false), (Visibility { screen: true, print: false }, true), (Visibility { screen: false, print: true }, true)];
+    for (visibility, has_layer) in cases {
+        let (mut s, id) = session_with(1);
+        let settings = Watermark {
+            text: "WWWW".into(),
+            color: [1.0, 0.0, 0.0],
+            opacity: 1.0,
+            font_size: 80.0,
+            rotation: 0.0,
+            visibility,
+            ..Watermark::default()
+        };
+        s.apply(id, Edit::AddWatermark { pages: vec![0], settings, replace: false, file: None }).unwrap();
+        // Only a document with a layer of its own needs the renderer rebuilt, and only once.
+        assert_eq!(s.sync_print_layers(id), has_layer, "first sync ({visibility:?})");
+        assert!(!s.sync_print_layers(id), "a second sync changes nothing ({visibility:?})");
+        let doc = s.get(id).unwrap();
+        let draw = |print: bool| {
+            let mut r = pdfcraft_render::PageRenderer::new(doc.display.clone(), doc.config.clone());
+            let page = r.render(pdfcraft_render::RenderRequest { page: 0, scale: 0.5, print, ..Default::default() });
+            page.rgba.as_chunks::<4>().0.iter().any(|p| p[0] > 200 && p[1] < 60 && p[2] < 60)
+        };
+        let sheet = s.print_pdf(id, &print::Settings { pages: vec![0], ..Default::default() }).unwrap();
+        let printed = first_page_has_red(sheet);
+        assert_eq!(draw(true), printed, "the preview shows what the sheets show ({visibility:?})");
+        assert_eq!(draw(false), visibility.screen, "the page on screen is as it was ({visibility:?})");
+    }
+}

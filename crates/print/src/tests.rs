@@ -749,3 +749,16 @@ fn impose_writes_the_layers_into_the_sheets() {
         .collect();
     assert_eq!(names, ["B", "C"]);
 }
+
+#[test]
+fn the_layer_states_for_a_preview_are_the_ones_the_sheets_get() {
+    // The same document as `layers_are_printed_as_they_are_when_printing`: A and D are shown when
+    // printing, B (off by default) and C (not printed) are not. As (object, generation, shown).
+    let as_entries = "/AS [<< /Event /Print /Category [/Print] /OCGs [7 0 R 8 0 R] >> << /Event /View /Category [/View] /OCGs [5 0 R] >>]";
+    let doc = layered(as_entries);
+    assert_eq!(print_layer_states(&doc), [(5, 0, true), (6, 0, false), (7, 0, false), (8, 0, true)]);
+    // Without a Print application the default state is what prints.
+    assert_eq!(print_layer_states(&layered("")), [(5, 0, true), (6, 0, false), (7, 0, true), (8, 0, false)]);
+    // No layers, no states.
+    assert!(print_layer_states(&fixture(1)).is_empty());
+}

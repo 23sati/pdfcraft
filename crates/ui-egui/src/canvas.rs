@@ -1302,7 +1302,7 @@ impl DocView {
             .filter_map(|(page, _)| {
                 let p = info.pages.get(page)?;
                 let scale = thumbnail_scale(p.width, p.height, density);
-                Some(RenderRequest { page, kind: RequestKind::Pixels, tile: None, scale, tag: THUMB_TAG | u64::from(scale.to_bits()) })
+                Some(RenderRequest { page, kind: RequestKind::Pixels, tile: None, scale, tag: THUMB_TAG | u64::from(scale.to_bits()), print: false })
             })
             .collect()
     }
@@ -1656,7 +1656,7 @@ impl DocView {
             let tag = scale_tag(scale) | PRINT_TAG;
             let fresh = self.print_pages.get(&page).is_some_and(|(have, _)| *have == tag);
             if !fresh {
-                self.frame_queue.push(RenderRequest { page, kind: RequestKind::Pixels, tile: None, scale, tag });
+                self.frame_queue.push(RenderRequest { page, kind: RequestKind::Pixels, tile: None, scale, tag, print: true });
             }
         }
     }
@@ -2889,7 +2889,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         }
     }
     let mut queue: Vec<RenderRequest> =
-        wanted.iter().map(|&(page, scale, tag, tile)| RenderRequest { page, kind: RequestKind::Pixels, tile, scale, tag }).collect();
+        wanted.iter().map(|&(page, scale, tag, tile)| RenderRequest { page, kind: RequestKind::Pixels, tile, scale, tag, print: false }).collect();
     // Text layers: visible pages for selection, every page while a search is active.
     let need_text = |p: &usize| !view.texts.contains_key(p) && !view.text_failed.contains(p);
     let mut text_pages: Vec<usize> = if hand { Vec::new() } else { visible_now.iter().copied().filter(need_text).collect() };
@@ -2898,7 +2898,14 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         let rest: Vec<usize> = (0..n).map(|k| (cur + k) % n).filter(need_text).filter(|p| !text_pages.contains(p)).collect();
         text_pages.extend(rest);
     }
-    queue.extend(text_pages.into_iter().map(|page| RenderRequest { page, kind: RequestKind::Text, tile: None, scale: 1.0, tag: TEXT_TAG }));
+    queue.extend(text_pages.into_iter().map(|page| RenderRequest {
+        page,
+        kind: RequestKind::Text,
+        tile: None,
+        scale: 1.0,
+        tag: TEXT_TAG,
+        print: false,
+    }));
     view.frame_queue = queue;
     view.frame_visible = visible_now.iter().copied().collect();
 
@@ -3826,7 +3833,14 @@ fn organize_grid(view: &mut DocView, info: &DocInfo, editable: bool, dirty: bool
                 if !thumb_ok && ui.is_rect_visible(c) {
                     in_view.push((i, want));
                     if !sharp.is_some_and(|(w, _)| sharp_enough(*w, want)) && !view.errors.contains_key(&i) {
-                        sharper.push(RenderRequest { page: i, kind: RequestKind::Pixels, tile: None, scale: want / p.width.max(1.0), tag: GRID_TAG });
+                        sharper.push(RenderRequest {
+                            page: i,
+                            kind: RequestKind::Pixels,
+                            tile: None,
+                            scale: want / p.width.max(1.0),
+                            tag: GRID_TAG,
+                            print: false,
+                        });
                     }
                 }
                 if let Some(tex) = sharp.map(|(_, t)| t).or(thumb) {
@@ -4033,7 +4047,7 @@ endstream endobj
 trailer << /Root 1 0 R >>
 %%EOF";
         let mut r = pdfcraft_render::PageRenderer::new(Arc::new(pdf.to_vec()), Default::default());
-        let out = r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 1.5, tag: 0 });
+        let out = r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 1.5, tag: 0, print: false });
         assert!(out.error.is_none(), "{:?}", out.error);
         let size = [out.width as usize, out.height as usize];
         let copied = egui::ColorImage::from_rgba_premultiplied(size, &out.rgba);
@@ -4576,6 +4590,29 @@ trailer << /Root 1 0 R >>
         h.run_steps(2);
         assert!(h.state().views[0].thumb_demand.is_empty());
         assert!(h.state().views[0].thumbs.is_empty());
+    }
+
+    #[test]
+    fn print_preview_requests_ask_for_the_printed_state_of_the_layers() {
+        let mut h = egui_kittest::Harness::builder().with_size(vec2(1400.0, 900.0)).build_eframe(|_cc| {
+            let mut app = PdfCraftApp::new();
+            let bytes = app.session.create_blank(612.0, 792.0, 3).unwrap();
+            app.open_bytes("three-pages.pdf", None, bytes.as_ref().clone()).unwrap();
+            app
+        });
+        h.run_steps(2);
+        let view = &mut h.state_mut().views[0];
+        view.frame_queue.clear();
+        view.queue_print_previews(&[(0, 1.0), (1, 2.0)]);
+        assert_eq!(view.frame_queue.len(), 2);
+        assert!(
+            view.frame_queue.iter().all(|r| r.print && r.tag & PRINT_TAG != 0),
+            "every preview raster is drawn with the layers as they are when printing"
+        );
+        // The pages on screen are not: nothing else in the queue asks for the printed state.
+        view.frame_queue.clear();
+        view.queue_print_previews(&[]);
+        assert!(view.frame_queue.iter().all(|r| !r.print));
     }
 
     /// One mouse-wheel notch (a line) at `at` seconds.

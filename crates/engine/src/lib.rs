@@ -3275,6 +3275,30 @@ impl Session {
         }
     }
 
+    /// Make the print preview of `id` draw the layers as they are when printing (see
+    /// [`pdfcraft_print::print_layer_states`]): the preview is drawn by the same renderer as the
+    /// pages on screen, so without this it would show a layer that is not printed and hide one
+    /// that is. Returns `true` when that changed what the renderer does, so callers must drop
+    /// the cached print rasters; `false` when the document has no layers or they are as before.
+    pub fn sync_print_layers(&mut self, id: DocId) -> bool {
+        let Some(doc) = self.docs.iter().find(|d| d.id == id) else { return false };
+        let cos = match doc.editor.as_ref() {
+            Some(e) => e.cos.clone(),
+            None => match pdfcraft_cos::Document::open_with_password(doc.bytes.clone(), doc.password.as_deref()) {
+                Ok(cos) => cos,
+                Err(_) => return false,
+            },
+        };
+        let states = pdfcraft_print::print_layer_states(&cos);
+        let Some(doc) = self.docs.iter_mut().find(|d| d.id == id) else { return false };
+        if *doc.config.print_layers == states {
+            return false;
+        }
+        doc.config.print_layers = Arc::new(states);
+        doc.renderer = RenderPool::new(doc.display.clone(), render_threads(), doc.config.clone());
+        true
+    }
+
     /// Show or hide a layer (optional content group) for viewing. Returns `true` if it changed;
     /// callers must drop cached rasters and text for the document.
     pub fn set_layer_visible(&mut self, id: DocId, layer: usize, visible: bool) -> bool {

@@ -560,16 +560,15 @@ fn refs(doc: &Document, o: Option<&Object>) -> Vec<ObjRef> {
     doc.resolve(o).as_array().map(|a| a.iter().filter_map(Object::as_ref).collect()).unwrap_or_default()
 }
 
-/// The optional-content (layer) configuration as it applies when *printing*, written out so that
-/// the sheets show what a printer shows without a reader having to know about the Print event.
+/// The layer groups of `src` and whether each is shown when *printing*, or `None` when it has no
+/// layers.
 ///
 /// Each group starts in the default configuration's state (`/BaseState`, then `/ON` and `/OFF`).
 /// Then every `/AS` entry for the Print event is applied to its groups: when the group's `/Usage`
 /// has a state for each of the entry's categories (`/Print` → `/PrintState`), the group is on if
 /// they are all `/ON` and off otherwise. This is how a layer is made to show only on screen
-/// (`/PrintState /OFF`) or only in print (off by default, `/PrintState /ON`). The result has the
-/// groups and an `/OFF` list and nothing else: no `/AS`, no order, no radio-button groups.
-fn print_layers(src: &Document) -> Option<Object> {
+/// (`/PrintState /OFF`) or only in print (off by default, `/PrintState /ON`).
+fn layer_states(src: &Document) -> Option<(Vec<ObjRef>, std::collections::BTreeMap<ObjRef, bool>)> {
     let root = src.trailer().get(b"Root").map(|r| src.resolve(r))?;
     let props = src.resolve(root.as_dict()?.get(b"OCProperties")?);
     let props = props.as_dict()?;
@@ -627,6 +626,24 @@ fn print_layers(src: &Document) -> Option<Object> {
             }
         }
     }
+    Some((groups, on))
+}
+
+/// Whether each layer group of `src` is shown when printing, as (object number, generation,
+/// shown): what the print-ready PDF holds, and what a print preview has to draw to show it.
+/// Empty when the document has no layers. Not the state on screen, and not the Layers panel's.
+pub fn print_layer_states(src: &Document) -> Vec<(i32, i32, bool)> {
+    let Some((_, states)) = layer_states(src) else { return Vec::new() };
+    // Object numbers beyond i32 can't be addressed by the renderer; they are left out.
+    states.into_iter().filter_map(|(r, shown)| Some((i32::try_from(r.num).ok()?, i32::from(r.generation), shown))).collect()
+}
+
+/// The optional-content (layer) configuration as it applies when *printing*, written out so that
+/// the sheets show what a printer shows without a reader having to know about the Print event.
+/// The result has the groups and an `/OFF` list and nothing else: no `/AS`, no order, no
+/// radio-button groups.
+fn print_layers(src: &Document) -> Option<Object> {
+    let (groups, on) = layer_states(src)?;
     let mut d = Dict::new();
     d.set(b"BaseState".to_vec(), Object::name("ON"));
     let off: Vec<Object> = on.iter().filter(|(_, on)| !**on).map(|(r, _)| Object::Ref(*r)).collect();
