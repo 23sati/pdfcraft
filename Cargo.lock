@@ -3600,6 +3600,7 @@ dependencies = [
  "image",
  "pdfcraft-cos",
  "pdfcraft-engine",
+ "pdfcraft-fonts",
  "pdfcraft-model",
  "pdfcraft-organize",
  "pdfcraft-platform",
@@ -3685,6 +3686,7 @@ dependencies = [
  "pdfcraft-model",
  "thiserror 2.0.21",
  "unicode-bidi",
+ "unicode-normalization",
 ]
 
 [[package]]
