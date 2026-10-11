@@ -40,6 +40,11 @@ fn recognize_text_dialog_adds_searchable_text() {
     for label in ["Nederlands", "Dansk", "Norsk bokmål", "Svenska", "Suomi", "Português"] {
         h.get_by_label(label);
     }
+    h.get_by_label("Português").click();
+    h.run_steps(2);
+    assert_eq!(h.state().ocr_draft.language, "pt", "the last language in the list can be chosen");
+    h.get_by_value("Português").click();
+    h.run_steps(2);
     h.get_by_label("Italiano").click();
     h.run_steps(2);
     assert_eq!(h.state().ocr_draft.language, "it");
