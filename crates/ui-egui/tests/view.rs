@@ -158,6 +158,24 @@ fn two_up_layout_places_pages_side_by_side() {
 }
 
 #[test]
+fn two_page_view_shows_one_spread_at_a_time_until_continuous() {
+    use pdfcraft_ui_egui::canvas::PageLayout;
+    // Two-page view without continuous scrolling shows just the current spread; the continuous
+    // checkbox reveals the rest (#752).
+    let mut h = harness(&[("layout", "two-page"), ("zoom", "50")]);
+    h.run_steps(4);
+    assert_eq!(h.state().views[0].layout, PageLayout::TwoUp);
+    assert!(!h.state().views[0].continuous(), "`two-page` is the non-scrolling two-page display");
+    assert!(rect(&h, 0).is_some() && rect(&h, 1).is_some(), "the first spread is on screen");
+    assert!(rect(&h, 2).is_none(), "the next spread is not shown until paged or scrolled");
+    // Turning on continuous scrolling lays every spread out in one column.
+    h.state_mut().set_option("continuous", "on").unwrap();
+    h.run_steps(4);
+    assert!(rect(&h, 2).is_some(), "continuous scrolling reveals the later spreads");
+    assert_eq!(h.state().views[0].layout, PageLayout::TwoUp, "the base layout is unchanged");
+}
+
+#[test]
 fn single_page_layout_shows_one_page_at_a_time() {
     let mut h = harness(&[("layout", "single"), ("zoom", "50")]);
     h.run_steps(4);
@@ -253,9 +271,15 @@ fn page_display_commands_switch_layouts() {
     assert!(h.state().views[0].cover, "the cover toggle flips");
     assert!(h.state_mut().execute("view.layout.cover"));
     assert!(!h.state().views[0].cover, "toggling twice restores");
-    h.state_mut().execute("view.layout.continuous");
+    // Continuous scrolling is an independent toggle over the base layout (#752).
+    assert!(h.state().views[0].continuous(), "the default view scrolls continuously");
+    h.state_mut().execute("view.continuous");
     h.run_steps(3);
-    assert_eq!(h.state().views[0].layout, pdfcraft_ui_egui::canvas::PageLayout::Continuous);
+    assert!(!h.state().views[0].continuous(), "the checkbox turns continuous scrolling off");
+    assert_eq!(h.state().views[0].layout, pdfcraft_ui_egui::canvas::PageLayout::TwoUp, "toggling scrolling leaves the base layout");
+    h.state_mut().execute("view.layout.single");
+    assert_eq!(h.state().views[0].layout, pdfcraft_ui_egui::canvas::PageLayout::Single);
+    assert!(!h.state().views[0].continuous(), "switching the base layout leaves scrolling off");
 }
 
 #[test]
@@ -264,7 +288,8 @@ fn layout_option_rejects_typos() {
     assert!(h.state_mut().set_option("layout", "singel").is_err());
     assert!(h.state_mut().set_option("default-layout", "bogus").is_err());
     assert!(h.state_mut().set_option("cover", "maybe").is_err());
-    assert_eq!(h.state().views[0].layout, pdfcraft_ui_egui::canvas::PageLayout::Continuous);
+    assert_eq!(h.state().views[0].layout, pdfcraft_ui_egui::canvas::PageLayout::Single);
+    assert!(h.state().views[0].continuous(), "a rejected typo leaves the default display unchanged");
     assert!(h.state_mut().set_option("cover", "on").is_err(), "cover needs two-page view first");
     h.state_mut().set_option("layout", "two-up").unwrap();
     h.state_mut().set_option("cover", "on").unwrap();
@@ -286,8 +311,9 @@ fn view_options_without_a_document() {
 #[test]
 fn default_page_display_is_used_for_new_documents() {
     use pdfcraft_ui_egui::canvas::PageLayout;
-    // The factory default is continuous scrolling without snap jumps.
-    assert_eq!(PdfCraftApp::new().view_defaults.layout, PageLayout::Continuous);
+    // The factory default is single page, scrolling continuously, without snap jumps.
+    assert_eq!(PdfCraftApp::new().view_defaults.layout, PageLayout::Single);
+    assert!(PdfCraftApp::new().view_defaults.continuous);
     let mut h = harness(&[]);
     h.state_mut().set_option("default-layout", "single").unwrap();
     h.state_mut().open_bytes("other.pdf", None, PAGES.to_vec()).expect("opens");
@@ -309,7 +335,8 @@ fn default_page_display_is_used_for_new_documents() {
     let mut legacy = PdfCraftApp::new();
     legacy.set_option("language", "en").unwrap();
     legacy.restore("{}");
-    assert_eq!(legacy.view_defaults.layout, PageLayout::Continuous);
+    assert_eq!(legacy.view_defaults.layout, PageLayout::Single);
+    assert!(legacy.view_defaults.continuous, "a legacy file without the key keeps the factory default");
 }
 
 #[test]
@@ -367,9 +394,9 @@ fn rail_page_display_menu_offers_acrobats_view_choices() {
         h.get_by_label(item).click();
         h.run_steps(4);
     };
-    let shown = |h: &Harness<'static, PdfCraftApp>| (h.state().views[0].layout, h.state().views[0].fit);
+    let shown = |h: &Harness<'static, PdfCraftApp>| (h.state().views[0].layout, h.state().views[0].continuous(), h.state().views[0].fit);
     pick(&mut h, "Fit one full page");
-    assert_eq!(shown(&h), (PageLayout::Single, Fit::Page));
+    assert_eq!(shown(&h), (PageLayout::Single, false, Fit::Page), "one full page at a time, not scrolling");
     // The whole page fits at once, so the wheel turns pages without zooming out first.
     let at = h.state().views[0].viewport_rect().center();
     h.hover_at(at);
@@ -382,7 +409,7 @@ fn rail_page_display_menu_offers_acrobats_view_choices() {
     pick(&mut h, "Zoom to page level");
     assert_eq!(h.state().views[0].fit, Fit::Page);
     pick(&mut h, "Fit to width scrolling");
-    assert_eq!(shown(&h), (PageLayout::Continuous, Fit::Width));
+    assert_eq!(shown(&h), (PageLayout::Single, true, Fit::Width), "single page, scrolling continuously");
 }
 
 #[test]
@@ -919,4 +946,67 @@ trailer << /Root 1 0 R >>
     h.step();
     let first = detail(&mut h);
     assert!(first * 10 > sharp * 7, "the first frame after zooming lost its detail: {first} against {sharp}");
+}
+
+#[test]
+fn sidebar_collapse_and_resize_preserves_scroll_position() {
+    use pdfcraft_ui_egui::canvas::Fit;
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(|_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("pages.pdf", None, PAGES.to_vec()).expect("opens");
+        app.set_option("left", "closed").unwrap();
+        app.set_option("panel", "bookmarks").unwrap();
+        app.set_option("layout", "continuous").unwrap();
+        app
+    });
+    let mut width = 0.0;
+    for _ in 0..400 {
+        h.run_steps(1);
+        let w = h.state().views[0].viewport_rect().width();
+        if w == width {
+            break;
+        }
+        width = w;
+    }
+    h.state_mut().views[0].go_to_page(2);
+    h.run_steps(6);
+
+    let v = &h.state().views[0];
+    assert_eq!(v.current, 2);
+    assert_eq!(v.fit, Fit::Width);
+    let zoom_before = v.zoom;
+    let rect_before = v.page_screen_rect(2).expect("page 2 on screen");
+    let vp_before = v.viewport_rect();
+    let rel_y_before = rect_before.min.y - vp_before.min.y;
+
+    // Collapse bookmarks panel: available width increases, so fit-width zoom increases.
+    h.state_mut().set_option("panel", "none").unwrap();
+    h.run_steps(6);
+
+    let v = &h.state().views[0];
+    let zoom_after = v.zoom;
+    assert!(zoom_after > zoom_before, "zoom increased when panel collapsed: {zoom_after} vs {zoom_before}");
+    assert_eq!(v.current, 2, "still on page 2 after panel collapsed");
+    let rect_after = v.page_screen_rect(2).expect("page 2 still on screen");
+    let vp_after = v.viewport_rect();
+    let rel_y_after = rect_after.min.y - vp_after.min.y;
+    assert!((rel_y_after - rel_y_before).abs() < 1.0, "page 2 scroll position preserved: before {rel_y_before}, after {rel_y_after}");
+
+    // Reopen bookmarks panel: available width decreases, so fit-width zoom decreases.
+    h.state_mut().set_option("panel", "bookmarks").unwrap();
+    for _ in 0..400 {
+        h.run_steps(1);
+        let w = h.state().views[0].viewport_rect().width();
+        if w == width {
+            break;
+        }
+        width = w;
+    }
+    let v = &h.state().views[0];
+    assert_eq!(v.current, 2, "still on page 2 after panel reopened");
+    let rect_reopened = v.page_screen_rect(2).expect("page 2 still on screen");
+    let vp_reopened = v.viewport_rect();
+    let rel_y_reopened = rect_reopened.min.y - vp_reopened.min.y;
+    assert!((rel_y_reopened - rel_y_before).abs() < 1.0, "page 2 scroll position preserved on reopen: before {rel_y_before}, after {rel_y_reopened}");
 }

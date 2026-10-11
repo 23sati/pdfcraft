@@ -109,12 +109,18 @@
 	Open a PDF ({key})	Відкрити PDF ({key})
 	Dark gray theme	Темно-сіра тема
 	Light theme	Світла тема
+	Appearance mode	Режим вигляду
+	Light	Світлий
+	Dark	Темний
+	Active	Активний
+	Dark theme	Темна тема
+	Appearance settings…	Налаштування вигляду…
 	All tools	Усі інструменти
 	Read	Читання
 	Convert	Перетворення
 	E-Sign	Електронний підпис
 	Print ({key})	Друк ({key})
-	Save (M4)	Зберегти (M4)
+	Save ({key})	Зберегти ({key})
 	Document properties ({key})	Властивості документа ({key})
 	Find tools and commands	Знайти інструменти й команди
 	Fit to height	За висотою
@@ -783,6 +789,7 @@
 	Rotation	Поворот
 	Appear behind page	Позаду сторінки
 	Appear on top of page	Поверх сторінки
+	Offset from centre	Зсув від центру
 	From colour	Із кольору
 	Page Range Options	Параметри діапазону сторінок
 	Preview: page {p} of {n}	Попередній перегляд: сторінка {p} із {n}
@@ -847,6 +854,10 @@
 	The signature will be invisible.	Підпис буде невидимим.
 	Distinguished name	Розпізнавальне ім’я
 	Labels	Позначки
+	Graphic	Графіка
+	Signer's name	Ім’я підписувача
+	Fill & Sign signature	Підпис із «Заповнення й підпис»
+	Choose image…	Вибрати зображення…
 	Permitted actions after certifying	Дозволені дії після засвідчення
 	No changes allowed	Зміни заборонено
 	Annotations, form fill-in, and digital signatures	Коментарі, заповнення форми й цифрові підписи
@@ -1583,16 +1594,16 @@
 	Opened, but its security settings don't allow combining. Enter the permissions password.	Відкрито, але налаштування захисту не дозволяють об’єднання. Введіть пароль дозволів.
 	Unlocked: the combined file won't be password-protected	Розблоковано: об’єднаний файл не буде захищено паролем
 	Unlocked {n} of {m} files	Розблоковано {n} із {m} файлів
-	Drop PDFs or folders here, or choose them.	Перетягніть сюди PDF або теки чи виберіть їх.
+	Drop PDFs, images, text files or folders here, or choose them.	Перетягніть сюди PDF, зображення, текстові файли або теки чи виберіть їх.
 	Add folder…	Додати теку…
 	Add folder and subfolders…	Додати теку й підтеки…
 	More ways to add files	Інші способи додати файли
-	Every PDF in the folder	Усі PDF у теці
-	Every PDF in the folder and the folders inside it	Усі PDF у теці та її підтеках
+	Every PDF, image and text file in the folder	Усі PDF, зображення й текстові файли в теці
+	Every PDF, image and text file in the folder and the folders inside it	Усі PDF, зображення й текстові файли в теці та її підтеках
 	Add folder	Додати теку
 	Add folder and subfolders	Додати теку й підтеки
-	No PDFs found in {folder}	У {folder} не знайдено PDF
-	Added the first {n} PDFs in {folder}	Додано перші {n} PDF із {folder}
+	No PDFs, images or text files found in {folder}	У {folder} не знайдено PDF, зображень або текстових файлів
+	Added the first {n} files in {folder}	Додано перші {n} файлів із {folder}
 	Click to sort, drag to move the column. Drag its edge to resize it.	Клацніть для сортування, перетягніть для переміщення стовпця. Тягніть за його край для зміни розміру.
 	Reset columns	Скинути стовпці
 	Remove {n} files	Видалити файли: {n}
@@ -1610,7 +1621,7 @@
 	{n} files need attention	Файли потребують уваги: {n}
 	{name} can't be combined: {why}	{name} неможливо об’єднати: {why}
 	Check the pages of {name}: {why}	Перевірте сторінки {name}: {why}
-	Add the PDFs to combine	Додайте PDF для об’єднання
+	Add the files to combine	Додайте файли для об’єднання
 	File name	Назва файлу
 	Warnings	Попередження
 	Drag to reorder	Перетягніть для зміни порядку
@@ -1623,6 +1634,10 @@
 	Password-protected	Захищено паролем
 	Its security settings don't allow copying pages	Налаштування захисту не дозволяють копіювати сторінки
 	Can't be read: {e}	Не вдалося прочитати: {e}
+	Leave out files that can't be read?	Пропустити файли, які не вдається прочитати?
+	These files can't be read, so they won't be in the combined PDF:	Ці файли не вдається прочитати, тож їх не буде в об’єднаному PDF:
+	Combine the rest	Об’єднати решту
+	and {n} more	і ще {n}
 	Includes unsaved changes	Містить незбережені зміни
 	Pages of {name} to combine, e.g. 1-3, 6	Сторінки з {name} для об’єднання, наприклад 1-3, 6
 	Remove {name}	Видалити {name}
@@ -1696,8 +1711,14 @@
 	watermark	водяний знак
 	background	тло
 	This document isn't password-protected	Цей документ не захищено паролем
-	Only the document's owner can change its security (open it with the permissions password)	Лише власник документа може змінювати захист (відкрийте з паролем дозволів)
+	Enter permissions password…	Ввести пароль дозволів…
+	Permissions password	Пароль дозволів
+	“{name}” has security restrictions. Enter its permissions password to lift them.	«{name}» має обмеження захисту. Введіть пароль дозволів, щоб зняти їх.
+	Restrictions lifted	Обмеження знято
+	Couldn't unlock {name}: {e}	Не вдалося розблокувати {name}: {e}
+	This document has no restrictions to lift	Цей документ не має обмежень, які можна зняти
 	The document's security settings don't allow this change	Налаштування захисту документа не дозволяють цю зміну
+	The document's security settings don't allow copying text and images	Налаштування захисту документа не дозволяють копіювати текст і зображення
 	Open a document first	Спочатку відкрийте документ
 	Security will be removed when you save	Захист буде знято під час збереження
 	Click text or an image to edit it	Клацніть текст або зображення для редагування
@@ -2149,6 +2170,8 @@ calendar date	December	грудня
 	Printer properties	Властивості принтера
 	Reset to printer defaults	Скинути до налаштувань принтера за замовчуванням
 	This printer offers no settings of its own.	Цей принтер не має власних налаштувань.
+	Margins	Поля
+	For page sizes and margins.	Для розмірів сторінок і полів.
 certificate	Subject	Власник сертифіката
 	Scroll tabs left	Прокрутити вкладки ліворуч
 	Scroll tabs right	Прокрутити вкладки праворуч
@@ -2217,3 +2240,31 @@ key	Space	Пробіл
 	Panels	Панелі
 	Resize panels	Змінити розмір панелей
 	Resize panel window	Змінити розмір вікна панелі
+
+# Architectural print controls (follow-up to #599).
+	PDF page: {size}	Сторінка PDF: {size}
+	Match page at 100%	Підібрати папір, масштаб 100%
+	PDF scale: {scale}%	Масштаб PDF: {scale}%
+	Printer paper and scaling may differ. Check driver settings.	Папір і масштаб принтера можуть відрізнятися. Перевірте налаштування драйвера.
+	Drawing scale changes. Use Actual size for full-scale plans.	Масштаб креслення змінюється. Для друку в початковому масштабі виберіть Фактичний розмір.
+	Reload documents when their files change on disk	Перезавантажувати документи, коли їхні файли змінюються на диску
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Цей файл змінено на диску. Перезавантажте його, щоб побачити нову версію; незбережені зміни буде втрачено.
+	Reload	Перезавантажити
+	Couldn't reload {name}: {e}	Не вдалося перезавантажити {name}: {e}
+	Select page {label}	Вибрати сторінку {label}
+	Rotate page {label} counterclockwise	Повернути сторінку {label} проти годинникової стрілки
+	Rotate page {label} clockwise	Повернути сторінку {label} за годинниковою стрілкою
+	Delete page {label}	Видалити сторінку {label}
+	Mouse wheel scroll speed	Швидкість прокручування коліщатком миші
+scroll speed	Slow	Повільна
+scroll speed	Normal	Звичайна
+scroll speed	Fast	Швидка
+	Enhance camera image	Поліпшити знімок з камери
+	Drag the corners onto the document's edges, then choose Enhance page.	Перетягніть кути до країв документа, потім виберіть «Поліпшити сторінку».
+	Enhance page	Поліпшити сторінку
+	Done adding text	Завершити додавання тексту
+	Discard this text (Esc)	Відкинути цей текст (Esc)
+	Clean-up	Очищення
+	Original	Оригінал
+	Greyscale	Відтінки сірого
+	Black and white	Чорно-білий
