@@ -1287,3 +1287,479 @@ fn a_drag_held_while_the_tab_closes_and_reopens_moves_nothing() {
     h.run_steps(3);
     assert_eq!(names(&h), ["a.pdf", "b.pdf", "c.pdf"], "the old drag moves nothing in the new list");
 }
+
+// ---- Stage 3: a file shown as its pages ----
+
+/// The label of a page card: "Page 3 · b.pdf".
+fn page_card(page: usize, name: &str) -> String {
+    format!("Page {page} · {name}")
+}
+
+/// Expand a file from its card's hover bar.
+fn expand(h: &mut Harness<'static, PdfCraftApp>, name: &str) {
+    hover_card(h, name);
+    h.get_by_label("Expand").click();
+    h.run_steps(2);
+}
+
+#[test]
+fn expanding_a_file_shows_the_pages_it_adds_in_order_with_their_numbers() {
+    let mut h = grid_of_pages(&[("a.pdf", 1), ("b.pdf", 4)]);
+    h.state_mut().combine_draft[1].range = "3, 1, 4".into();
+    h.run_steps(2);
+    // A single page has nothing to expand.
+    hover_card(&mut h, "a.pdf");
+    assert!(h.query_by_label("Expand").is_none());
+    expand(&mut h, "b.pdf");
+    assert_eq!(h.state().combine_expanded(), [1]);
+    assert!(h.query_by_label("b.pdf").is_none(), "the file's card gives way to its pages");
+    // The pages it adds, in the range's order, each saying which page of which file.
+    let xs: Vec<f32> = [3, 1, 4].iter().map(|p| card(&h, &page_card(*p, "b.pdf")).left()).collect();
+    assert!(xs.windows(2).all(|w| w[0] < w[1]), "pages 3, 1, 4 in that order: {xs:?}");
+    assert!(h.query_by_label(&page_card(2, "b.pdf")).is_none(), "page 2 isn't added, so isn't shown");
+    // Each renders its own page.
+    assert!(settle(&mut h, |app| {
+        let pages = app.combine_page_thumbnails(1);
+        pages.len() == 3 && pages.iter().all(|(p, t)| matches!(t, CombineThumb::Ready { page, .. } if page == p))
+    }));
+    // A page card collapses the file again.
+    hover_card(&mut h, &page_card(1, "b.pdf"));
+    h.get_by_label("Collapse").click();
+    h.run_steps(2);
+    assert!(h.state().combine_expanded().is_empty());
+    h.get_by_label("b.pdf");
+}
+
+#[test]
+fn expand_all_and_collapse_all_from_the_toolbar_and_a_right_click() {
+    let mut h = grid_of(
+        vec![("a.pdf", fixture(1)), ("b.pdf", fixture(3)), ("c.pdf", fixture(2)), ("secret.pdf", protected("pw", "owner"))],
+        vec2(1400.0, 900.0),
+    );
+    assert!(disabled(&h, "Collapse all"), "nothing to collapse yet");
+    h.get_by_label("Expand all").click();
+    h.run_steps(2);
+    assert_eq!(h.state().combine_expanded(), [1, 2], "every file adding more than one page; not a single page, not a locked file");
+    assert!(disabled(&h, "Expand all"));
+    h.get_by_label("Collapse all").click();
+    h.run_steps(2);
+    assert!(h.state().combine_expanded().is_empty());
+    // On a right click too (the pointer then off the card, so its hover bar is gone and the
+    // label is the menu's alone).
+    h.get_by_label("c.pdf").click_secondary();
+    h.run_steps(2);
+    h.hover_at(egui::pos2(5.0, 890.0));
+    h.run_steps(2);
+    h.get_by_label("Expand").click();
+    h.run_steps(2);
+    assert_eq!(h.state().combine_expanded(), [2]);
+    h.get_by_label(&page_card(2, "c.pdf")).click_secondary();
+    h.run_steps(2);
+    h.hover_at(egui::pos2(5.0, 890.0));
+    h.run_steps(2);
+    h.get_by_label("Collapse").click();
+    h.run_steps(2);
+    assert!(h.state().combine_expanded().is_empty());
+}
+
+#[test]
+fn expanding_is_a_view_kept_across_views_and_zoom_and_never_an_undo_step() {
+    let mut h = grid_of_pages(&[("a.pdf", 1), ("b.pdf", 3)]);
+    let undo = disabled(&h, "Undo");
+    expand(&mut h, "b.pdf");
+    assert_eq!(disabled(&h, "Undo"), undo, "not an edit: the undo history is as it was");
+    assert!(disabled(&h, "Redo"));
+    h.get_by_label("List view").click();
+    h.run_steps(2);
+    h.get_by_label("Grid view").click();
+    h.run_steps(2);
+    h.get_by_label("Larger pages").click();
+    h.run_steps(2);
+    assert_eq!(h.state().combine_expanded(), [1], "still shown as its pages");
+    h.get_by_label(&page_card(3, "b.pdf"));
+    // Its range edited down to one page: that page's card (a part of a file can be one page).
+    h.state_mut().combine_draft[1].range = "2".into();
+    h.run_steps(2);
+    h.get_by_label(&page_card(2, "b.pdf"));
+    // A bad range: its card again, no longer expanded, and it doesn't come back expanded by
+    // itself when the range is fixed.
+    h.state_mut().combine_draft[1].range = "9".into();
+    h.run_steps(2);
+    h.get_by_label("b.pdf");
+    assert!(h.state().combine_expanded().is_empty(), "no longer expanded");
+    assert!(disabled(&h, "Collapse all"));
+    h.state_mut().combine_draft[1].range = String::new();
+    h.run_steps(2);
+    h.get_by_label("b.pdf");
+    assert!(h.state().combine_expanded().is_empty());
+    expand(&mut h, "b.pdf");
+    h.get_by_label(&page_card(2, "b.pdf"));
+    // The file removed (its file selected with the keys, then Delete): forgotten; undo brings
+    // the file back as its card.
+    h.get_by_label("a.pdf").click();
+    h.run_steps(1);
+    h.key_press(Key::ArrowRight);
+    h.run_steps(1);
+    assert_eq!(h.state().combine_selection(), [1]);
+    h.key_press(Key::Delete);
+    h.run_steps(2);
+    assert_eq!(names(&h), ["a.pdf"]);
+    assert!(h.state().combine_expanded().is_empty());
+    h.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+    h.run_steps(2);
+    assert_eq!(names(&h), ["a.pdf", "b.pdf"]);
+    h.get_by_label("b.pdf");
+}
+
+#[test]
+fn a_page_click_selects_that_page_and_the_arrows_step_rows_of_cards() {
+    // a, then b's 6 pages, then eight more files: rows of cards below b's last page whatever
+    // the window's width.
+    let mut files = vec![("a.pdf".to_string(), fixture(1)), ("b.pdf".to_string(), fixture(6))];
+    files.extend((0..8).map(|i| (format!("f{i}.pdf"), fixture(1))));
+    let mut h = grid_of(files.iter().map(|(n, b)| (n.as_str(), b.clone())).collect(), vec2(1000.0, 1100.0));
+    expand(&mut h, "b.pdf");
+    let top = card(&h, "a.pdf").top();
+    let cols = ["a.pdf".to_string(), page_card(1, "b.pdf"), page_card(2, "b.pdf"), page_card(3, "b.pdf"), page_card(4, "b.pdf")]
+        .iter()
+        .filter(|n| (card(&h, n).top() - top).abs() < 1.0)
+        .count();
+    assert!((2..5).contains(&cols), "a row of cards is shorter than a + b's pages ({cols})");
+    h.get_by_label(&page_card(2, "b.pdf")).click();
+    h.run_steps(2);
+    assert_eq!(h.state().combine_selected_pages(), [(1, 1)], "that page");
+    assert!(h.state().combine_selection().is_empty(), "no file");
+    assert!(h.get_by_label(&page_card(2, "b.pdf")).accesskit_node().is_selected() == Some(true));
+    assert!(h.get_by_label(&page_card(5, "b.pdf")).accesskit_node().is_selected() == Some(false), "only that page");
+    // Ctrl adds, Shift takes a run.
+    h.get_by_label(&page_card(4, "b.pdf")).click_modifiers(Modifiers::COMMAND);
+    h.run_steps(2);
+    assert_eq!(h.state().combine_selected_pages(), [(1, 1), (1, 3)]);
+    h.get_by_label(&page_card(6, "b.pdf")).click_modifiers(Modifiers::SHIFT);
+    h.run_steps(2);
+    assert_eq!(h.state().combine_selected_pages(), [(1, 3), (1, 4), (1, 5)], "from the last page clicked");
+    // Down goes a row of cards from b's last page, to the file below it; Up comes back to b.
+    let last = card(&h, &page_card(6, "b.pdf"));
+    h.key_press(Key::ArrowDown);
+    h.run_steps(2);
+    let below = h.state().combine_selection();
+    assert_eq!(below.len(), 1);
+    assert!(h.state().combine_selected_pages().is_empty(), "the keys select files again");
+    let name = names(&h)[below[0]].clone();
+    assert!(below[0] > 1, "a file after b: {name}");
+    let r = card(&h, &name);
+    assert!((r.left() - last.left()).abs() < 1.0 && r.top() > last.top(), "the card right below b's last page: {r:?} vs {last:?}");
+    h.key_press(Key::ArrowUp);
+    h.run_steps(2);
+    assert_eq!(h.state().combine_selection(), [1]);
+    h.key_press(Key::ArrowLeft);
+    h.run_steps(2);
+    assert_eq!(h.state().combine_selection(), [0], "left and right step by file");
+}
+
+#[test]
+fn dragging_a_page_moves_that_page_even_between_another_files_pages() {
+    let mut h = grid_of_pages(&[("a.pdf", 1), ("b.pdf", 4), ("c.pdf", 1)]);
+    expand(&mut h, "b.pdf");
+    // b's page 2 dragged after c: that page alone moves; b is now in two parts.
+    let (p2, c) = (card(&h, &page_card(2, "b.pdf")), card(&h, "c.pdf"));
+    drag(&mut h, p2.center(), c.center() + vec2(c.width() * 0.3, 0.0));
+    let parts =
+        |h: &Harness<'static, PdfCraftApp>| h.state().combine_parts_shown().into_iter().map(|(n, p)| format!("{n}:{p:?}")).collect::<Vec<_>>();
+    assert_eq!(parts(&h), ["a.pdf:[0]", "b.pdf:[0, 2, 3]", "c.pdf:[0]", "b.pdf:[1]"]);
+    // One undo step puts it back, as one file again.
+    h.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+    h.run_steps(2);
+    assert_eq!(parts(&h), ["a.pdf:[0]", "b.pdf:[0, 1, 2, 3]", "c.pdf:[0]"]);
+    // Within its file: only its order changes (page 4 to the front).
+    let (p4, p1) = (card(&h, &page_card(4, "b.pdf")), card(&h, &page_card(1, "b.pdf")));
+    drag(&mut h, p4.center(), p1.center() - vec2(p1.width() * 0.3, 0.0));
+    assert_eq!(parts(&h), ["a.pdf:[0]", "b.pdf:[3, 0, 1, 2]", "c.pdf:[0]"]);
+    // Selected pages go together, in their order: pages 1 and 3 (now 2nd and 4th) before a.
+    h.get_by_label(&page_card(1, "b.pdf")).click();
+    h.run_steps(1);
+    h.get_by_label(&page_card(3, "b.pdf")).click_modifiers(Modifiers::COMMAND);
+    h.run_steps(2);
+    let (p3, a) = (card(&h, &page_card(3, "b.pdf")), card(&h, "a.pdf"));
+    drag(&mut h, p3.center(), a.center() - vec2(a.width() * 0.3, 0.0));
+    assert_eq!(parts(&h), ["b.pdf:[0, 2]", "a.pdf:[0]", "b.pdf:[3, 1]", "c.pdf:[0]"]);
+    // A file's card still moves its whole file, and a drop among a file's pages goes to its nearer end.
+    let (cc, early) = (card(&h, "c.pdf"), card(&h, &page_card(3, "b.pdf")));
+    drag(&mut h, cc.center(), early.center() - vec2(early.width() * 0.3, 0.0));
+    assert_eq!(names(&h), ["b.pdf", "c.pdf", "a.pdf", "b.pdf"], "the second of that part's two pages: its end");
+}
+
+#[test]
+fn a_long_file_expanded_renders_only_its_pages_in_view_within_three_threads() {
+    let mut h = grid_of(vec![("long.pdf", fixture(300)), ("b.pdf", fixture(1))], vec2(1400.0, 900.0));
+    h.get_by_label("Expand all").click();
+    let mut most = 0;
+    for _ in 0..200 {
+        h.run_steps(1);
+        let threads = h.state_mut().combine_thumbnail_threads();
+        most = most.max(threads);
+        assert!(threads <= 3, "{threads} render threads");
+        if h.state().combine_thumbnails_rendering() == 0 && h.state().combine_page_thumbnails(0).first().is_some_and(|(_, t)| ready(t)) {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    let pages = h.state().combine_page_thumbnails(0);
+    assert_eq!(pages.len(), 300);
+    let drawn = pages.iter().filter(|(_, t)| ready(t)).count();
+    assert!(drawn > 0 && drawn < 60, "only the pages in view (and a row either side): {drawn} of 300");
+    assert!(h.query_by_label(&page_card(300, "long.pdf")).is_none(), "the last page, far out of view, isn't even laid out as a widget");
+}
+
+#[test]
+fn a_page_cards_magnifier_opens_the_preview_on_that_page() {
+    let mut h = grid_of_pages(&[("a.pdf", 1), ("b.pdf", 5)]);
+    // Pages 3, 1, 4: page 4 is the third the file adds.
+    h.state_mut().combine_draft[1].range = "3, 1, 4".into();
+    h.run_steps(2);
+    expand(&mut h, "b.pdf");
+    hover_card(&mut h, &page_card(4, "b.pdf"));
+    h.get_by_label("Preview").click();
+    h.run_steps(2);
+    assert_eq!(h.state().combine_preview().map(|p| (p.0, p.1)), Some(("b.pdf".to_string(), 3)));
+    h.get_by_label("Page 3 of 3");
+    // A page card's own actions: Collapse, Remove page, Preview (its file can't be removed from
+    // it); nothing is selected yet, so no "Remove b.pdf" anywhere.
+    h.get_by_label("Remove page");
+    h.key_press(Key::Escape);
+    h.run_steps(2);
+    hover_card(&mut h, &page_card(4, "b.pdf"));
+    h.get_by_label("Collapse");
+    assert!(h.query_by_label("Remove b.pdf").is_none());
+    // Space on a page card that has the keyboard: that page too.
+    h.get_by_label(&page_card(1, "b.pdf")).click();
+    h.run_steps(2);
+    h.get_by_label(&page_card(1, "b.pdf")).focus();
+    h.run_steps(2);
+    h.key_press(Key::Space);
+    h.run_steps(2);
+    assert_eq!(h.state().combine_preview().map(|p| p.1), Some(0), "page 1, the second the file adds");
+    h.get_by_label("Page 2 of 3");
+}
+
+#[test]
+fn combining_with_files_expanded_gives_the_same_document() {
+    let mut h = grid_of_pages(&[("one.pdf", 2), ("two.pdf", 3)]);
+    h.state_mut().combine_draft[1].range = "3, 1".into();
+    h.get_by_label("Expand all").click();
+    h.run_steps(2);
+    assert_eq!(h.state().combine_expanded(), [0, 1]);
+    h.get_by_label("Combine").click();
+    h.run_steps(3);
+    let app = h.state();
+    assert_eq!(app.views.len(), 1, "the result opens");
+    assert_eq!(texts_of(app, 0), ["Page 1", "Page 2", "Page 3", "Page 1"]);
+}
+
+#[test]
+fn collapsing_brings_the_files_card_into_view() {
+    // Many files after it, so the grid stays long once it collapses (it would otherwise scroll
+    // back by itself).
+    let mut files = vec![("long.pdf".to_string(), fixture(60))];
+    files.extend((0..40).map(|i| (format!("f{i:02}.pdf"), fixture(1))));
+    let mut h = grid_of(files.iter().map(|(n, b)| (n.as_str(), b.clone())).collect(), vec2(1400.0, 900.0));
+    expand(&mut h, "long.pdf");
+    // Down to its last pages.
+    h.hover_at(egui::pos2(900.0, 600.0));
+    for _ in 0..80 {
+        if h.query_by_label(&page_card(60, "long.pdf")).is_some_and(|c| c.rect().top() > 300.0 && c.rect().bottom() < 880.0) {
+            break;
+        }
+        h.event(egui::Event::MouseWheel {
+            unit: egui::MouseWheelUnit::Point,
+            delta: vec2(0.0, -120.0),
+            phase: egui::TouchPhase::Move,
+            modifiers: Modifiers::NONE,
+        });
+        h.run_steps(3);
+    }
+    hover_card(&mut h, &page_card(60, "long.pdf"));
+    h.get_by_label("Collapse").click();
+    for _ in 0..20 {
+        h.run_steps(1);
+    }
+    let r = card(&h, "long.pdf");
+    let toolbar = h.get_by_label("Grid view").rect().bottom();
+    assert!(r.bottom() > toolbar && r.top() < 900.0, "the file's card is in view: {r:?}");
+}
+
+#[test]
+fn a_file_too_long_to_spread_out_offers_no_expand() {
+    // 2001 pages: more cards than are laid out comfortably every frame.
+    let mut h = grid_of(vec![("huge.pdf", fixture(2001)), ("b.pdf", fixture(3))], vec2(1400.0, 900.0));
+    hover_card(&mut h, "huge.pdf");
+    assert!(h.query_by_label("Expand").is_none());
+    h.get_by_label("Expand all").click();
+    h.run_steps(2);
+    assert_eq!(h.state().combine_expanded(), [1], "only the file that can be");
+}
+
+#[test]
+fn removing_pages_from_the_hover_bar_the_toolbar_and_delete_never_touches_the_file() {
+    let mut h = grid_of_pages(&[("a.pdf", 1), ("b.pdf", 4)]);
+    let original = h.state().combine_draft[1].bytes.clone();
+    expand(&mut h, "b.pdf");
+    let parts =
+        |h: &Harness<'static, PdfCraftApp>| h.state().combine_parts_shown().into_iter().map(|(n, p)| format!("{n}:{p:?}")).collect::<Vec<_>>();
+    // A page card's trash: that page.
+    hover_card(&mut h, &page_card(2, "b.pdf"));
+    h.get_by_label("Remove page").click();
+    h.run_steps(2);
+    assert_eq!(parts(&h), ["a.pdf:[0]", "b.pdf:[0, 2, 3]"]);
+    // Two selected: the toolbar's trash says so, and takes both.
+    h.get_by_label(&page_card(1, "b.pdf")).click();
+    h.run_steps(1);
+    h.get_by_label(&page_card(4, "b.pdf")).click_modifiers(Modifiers::COMMAND);
+    h.run_steps(2);
+    h.hover_at(egui::pos2(5.0, 890.0));
+    h.run_steps(1);
+    h.get_by_label("Remove 2 pages").click();
+    h.run_steps(2);
+    assert_eq!(parts(&h), ["a.pdf:[0]", "b.pdf:[2]"]);
+    // Delete on the last page left: the file leaves the list.
+    h.get_by_label(&page_card(3, "b.pdf")).click();
+    h.run_steps(2);
+    h.key_press(Key::Delete);
+    h.run_steps(2);
+    assert_eq!(parts(&h), ["a.pdf:[0]"]);
+    // Each was one undo step; the file itself was never changed.
+    for expected in [vec!["a.pdf:[0]", "b.pdf:[2]"], vec!["a.pdf:[0]", "b.pdf:[0, 2, 3]"], vec!["a.pdf:[0]", "b.pdf:[0, 1, 2, 3]"]] {
+        h.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+        h.run_steps(2);
+        assert_eq!(parts(&h), expected);
+    }
+    assert!(std::sync::Arc::ptr_eq(&h.state().combine_draft[1].bytes, &original), "the same, untouched bytes");
+}
+
+#[test]
+fn a_split_file_counts_once_and_combines_with_one_bookmark() {
+    let mut h = grid_of_pages(&[("one.pdf", 2), ("two.pdf", 3)]);
+    expand(&mut h, "one.pdf");
+    expand(&mut h, "two.pdf");
+    let totals = |h: &Harness<'static, PdfCraftApp>| {
+        let n = h.get_by_label_contains(" pages · ");
+        let a = n.accesskit_node();
+        a.label().or(a.value()).unwrap_or_default().to_string()
+    };
+    let before = totals(&h);
+    assert!(before.starts_with("2 files · 5 pages · "), "{before}");
+    // one's page 2 between two's pages 1 and 2.
+    let (p2, t2) = (card(&h, &page_card(2, "one.pdf")), card(&h, &page_card(2, "two.pdf")));
+    drag(&mut h, p2.center(), t2.center() - vec2(t2.width() * 0.3, 0.0));
+    assert_eq!(names(&h), ["one.pdf", "two.pdf", "one.pdf", "two.pdf"]);
+    // Still two files, of the same size (each counted once), and the parts aren't "added more
+    // than once".
+    assert_eq!(totals(&h), before);
+    hover_card(&mut h, &page_card(2, "one.pdf"));
+    for _ in 0..60 {
+        h.run_steps(1);
+    }
+    assert!(h.query_by_label_contains("Added more than once").is_none());
+    h.hover_at(egui::pos2(5.0, 890.0));
+    h.run_steps(2);
+    h.get_by_label("Combine").click();
+    h.run_steps(3);
+    let app = h.state();
+    assert_eq!(app.views.len(), 1, "the result opens");
+    assert_eq!(texts_of(app, 0), ["Page 1", "Page 1", "Page 2", "Page 2", "Page 3"], "the order shown");
+    let doc = app.session.get(app.views[0].id).unwrap();
+    assert_eq!(doc.info.outline.iter().map(|o| o.title.as_str()).collect::<Vec<_>>(), ["one", "two"], "one bookmark per file");
+}
+
+#[test]
+fn pages_picked_out_of_sight_or_before_an_undo_are_let_go_of() {
+    // Regression: a page picked, then hidden (its file collapsed, or the list shown) or undone,
+    // stayed picked, and the trash or Delete took it.
+    let mut h = grid_of_pages(&[("a.pdf", 1), ("b.pdf", 4), ("c.pdf", 1)]);
+    let parts =
+        |h: &Harness<'static, PdfCraftApp>| h.state().combine_parts_shown().into_iter().map(|(n, p)| format!("{n}:{p:?}")).collect::<Vec<_>>();
+    expand(&mut h, "b.pdf");
+    // Collapsed from its hover bar: nothing picked, Delete takes nothing.
+    h.get_by_label(&page_card(2, "b.pdf")).click();
+    h.run_steps(2);
+    hover_card(&mut h, &page_card(3, "b.pdf"));
+    h.get_by_label("Collapse").click();
+    h.run_steps(2);
+    assert!(h.state().combine_selected_pages().is_empty());
+    h.key_press(Key::Delete);
+    h.run_steps(2);
+    assert_eq!(parts(&h), ["a.pdf:[0]", "b.pdf:[0, 1, 2, 3]", "c.pdf:[0]"]);
+    // In the list: the same.
+    expand(&mut h, "b.pdf");
+    h.get_by_label(&page_card(2, "b.pdf")).click();
+    h.run_steps(2);
+    h.get_by_label("List view").click();
+    h.run_steps(2);
+    assert!(h.state().combine_selected_pages().is_empty());
+    h.get_by_label("Grid view").click();
+    h.run_steps(2);
+    // After an undo: let go of, and a Delete then changes nothing and keeps the redo.
+    let (p2, c) = (card(&h, &page_card(2, "b.pdf")), card(&h, "c.pdf"));
+    drag(&mut h, p2.center(), c.center() + vec2(c.width() * 0.3, 0.0));
+    assert_eq!(parts(&h), ["a.pdf:[0]", "b.pdf:[0, 2, 3]", "c.pdf:[0]", "b.pdf:[1]"]);
+    // Page 3, the second of b's first part: after the undo that place is page 2, another page.
+    h.get_by_label(&page_card(3, "b.pdf")).click();
+    h.run_steps(2);
+    h.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+    h.run_steps(2);
+    assert!(h.state().combine_selected_pages().is_empty());
+    assert!(!disabled(&h, "Redo"));
+    h.key_press(Key::Delete);
+    h.run_steps(2);
+    assert_eq!(parts(&h), ["a.pdf:[0]", "b.pdf:[0, 1, 2, 3]", "c.pdf:[0]"]);
+    assert!(!disabled(&h, "Redo"), "a Delete with nothing picked makes no undo step");
+    // A file picked (by dragging its card) lets go of the pages: Delete takes the file.
+    h.get_by_label(&page_card(2, "b.pdf")).click();
+    h.run_steps(2);
+    let (cc, a) = (card(&h, "c.pdf"), card(&h, "a.pdf"));
+    drag(&mut h, cc.center(), a.center() - vec2(a.width() * 0.3, 0.0));
+    assert_eq!(h.state().combine_selection(), [0]);
+    assert!(h.state().combine_selected_pages().is_empty());
+    h.key_press(Key::Delete);
+    h.run_steps(2);
+    assert_eq!(parts(&h), ["a.pdf:[0]", "b.pdf:[0, 1, 2, 3]"]);
+}
+
+#[test]
+fn a_files_parts_join_when_what_was_between_them_goes_and_one_file_cannot_be_combined() {
+    let mut h = grid_of_pages(&[("one.pdf", 2), ("two.pdf", 1)]);
+    let parts =
+        |h: &Harness<'static, PdfCraftApp>| h.state().combine_parts_shown().into_iter().map(|(n, p)| format!("{n}:{p:?}")).collect::<Vec<_>>();
+    expand(&mut h, "one.pdf");
+    // one's page 2 after two: one is in two parts.
+    let (p2, two) = (card(&h, &page_card(2, "one.pdf")), card(&h, "two.pdf"));
+    drag(&mut h, p2.center(), two.center() + vec2(two.width() * 0.3, 0.0));
+    assert_eq!(parts(&h), ["one.pdf:[0]", "two.pdf:[0]", "one.pdf:[1]"]);
+    // two goes: one's parts meet and are one entry again, in the same undo step.
+    hover_card(&mut h, "two.pdf");
+    h.get_by_label("Remove two.pdf").click();
+    h.run_steps(2);
+    assert_eq!(parts(&h), ["one.pdf:[0, 1]"]);
+    // One file is nothing to combine, however it is split.
+    assert!(h.get_by_label("Combine").accesskit_node().is_disabled());
+    h.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+    h.run_steps(2);
+    assert_eq!(parts(&h), ["one.pdf:[0]", "two.pdf:[0]", "one.pdf:[1]"]);
+}
+
+#[test]
+fn files_picked_by_automation_let_go_of_the_pages_picked() {
+    // Regression (found by review): selecting rows through the API left a page picked, and
+    // Delete took that page instead of the file.
+    let mut h = grid_of_pages(&[("a.pdf", 1), ("b.pdf", 3)]);
+    expand(&mut h, "b.pdf");
+    h.get_by_label(&page_card(2, "b.pdf")).click();
+    h.run_steps(2);
+    assert_eq!(h.state().combine_selected_pages(), [(1, 1)]);
+    h.state_mut().select_combine_rows(&[0]);
+    h.run_steps(2);
+    assert!(h.state().combine_selected_pages().is_empty());
+    h.key_press(Key::Delete);
+    h.run_steps(2);
+    assert_eq!(h.state().combine_parts_shown(), [("b.pdf".to_string(), vec![0, 1, 2])], "the file picked goes, b keeps its pages");
+}
