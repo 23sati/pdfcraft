@@ -108,6 +108,52 @@ pub fn row_text(ui: &egui::Ui, pos: egui::Pos2, text: impl Into<String>, font: e
     ui.painter().galley(rect.min, galley, color);
 }
 
+/// Text wrapped to the available width, for text people write (comments, replies). A paragraph
+/// in a right-to-left script (Persian, Arabic, Hebrew) reads right to left and sits against the
+/// right edge ([`crate::bidi::wrap`]); text without one is an ordinary wrapping label.
+/// `truncate` keeps the first line only, with an ellipsis where the text goes on.
+pub fn wrapped_text(ui: &mut egui::Ui, text: &str, font: egui::FontId, color: Color32, truncate: bool) -> Response {
+    if !crate::bidi::has_rtl(text) {
+        let mut label = egui::Label::new(egui::RichText::new(text).font(font).color(color)).wrap();
+        if truncate {
+            label = label.truncate();
+        }
+        return ui.add(label);
+    }
+    let width = ui.available_width().max(1.0);
+    let measure = |f: &mut egui::epaint::text::FontsView<'_>, s: &str| f.layout_no_wrap(s.to_owned(), font.clone(), color).size().x;
+    let mut lines = ui.fonts_mut(|f| {
+        let room = if truncate { width - measure(f, ELLIPSIS) } else { width };
+        crate::bidi::wrap(text, |s| measure(f, s) <= room)
+    });
+    if truncate && lines.len() > 1 {
+        lines.truncate(1);
+        if let Some(line) = lines.first_mut() {
+            // The ellipsis goes where the line's reading ends: the left of a right-to-left line.
+            if line.rtl {
+                line.text.insert_str(0, ELLIPSIS);
+            } else {
+                line.text.push_str(ELLIPSIS);
+            }
+        }
+    }
+    let galleys: Vec<_> = lines.into_iter().map(|line| (line.rtl, ui.painter().layout_no_wrap(line.text, font.clone(), color))).collect();
+    let height = galleys.iter().map(|(_, g)| g.size().y).sum();
+    let (rect, resp) = ui.allocate_exact_size(vec2(width, height), Sense::hover());
+    // Painted text only: the accessibility name keeps the logical order.
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Label, true, text));
+    let mut y = rect.top();
+    for (rtl, galley) in galleys {
+        let x = if rtl { rect.right() - galley.size().x } else { rect.left() };
+        let h = galley.size().y;
+        ui.painter().galley(egui::pos2(x, y), galley, color);
+        y += h;
+    }
+    resp
+}
+
+const ELLIPSIS: &str = "\u{2026}";
+
 /// Transient message at the bottom centre.
 pub fn toast(app: &mut PdfCraftApp, ctx: &egui::Context) {
     let Some((msg, start)) = app.toast.clone() else { return };
@@ -379,5 +425,48 @@ mod tests {
         app.notify("Saved");
         let again = toast_rect(&mut app, &ctx, 1280.0, &mut now);
         assert!((again.width() - short.width()).abs() < 1.0, "long notices must not impose a permanent minimum width");
+    }
+
+    /// The text shapes `wrapped_text` paints in a 120 pt wide column at x = 0.
+    fn wrapped_shapes(text: &str, truncate: bool) -> Vec<(Pos2, Rect, String)> {
+        let ctx = egui::Context::default();
+        ctx.set_fonts(theme::font_definitions());
+        let output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            let column = Rect::from_min_size(Pos2::ZERO, vec2(120.0, 400.0));
+            ui.scope_builder(egui::UiBuilder::new().max_rect(column), |ui| {
+                wrapped_text(ui, text, theme::regular(13.0), Color32::WHITE, truncate);
+            });
+        });
+        let shapes = output
+            .shapes
+            .iter()
+            .filter_map(|shape| if let egui::Shape::Text(t) = &shape.shape { Some((t.pos, t.galley.rect, t.galley.job.text.clone())) } else { None })
+            .collect();
+        output.drop_without_applying_deltas();
+        shapes
+    }
+
+    #[test]
+    fn rtl_comment_wraps_against_the_right_edge() {
+        let persian = "این یک نظر طولانی به زبان فارسی است که باید در چند خط شکسته شود";
+        let lines = wrapped_shapes(persian, false);
+        assert!(lines.len() > 1, "{lines:?}");
+        let right = lines.iter().map(|(pos, rect, _)| pos.x + rect.width()).fold(0.0, f32::max);
+        for (pos, rect, text) in &lines {
+            assert!(pos.x >= -0.5 && (pos.x + rect.width() - right).abs() < 0.5, "{text:?} at {pos:?} must be right-aligned");
+        }
+        assert!(right <= 120.5, "lines stay inside the column: {right}");
+        // The first words read on the first line, at the top.
+        let top = lines.iter().min_by(|a, b| a.0.y.total_cmp(&b.0.y)).unwrap();
+        assert!(top.2.contains("این"), "{top:?}");
+        // Collapsed: one line, its ellipsis on the left where right-to-left reading ends.
+        let collapsed = wrapped_shapes(persian, true);
+        assert_eq!(collapsed.len(), 1);
+        assert!(collapsed[0].2.starts_with('\u{2026}'), "{collapsed:?}");
+        // Text without right-to-left script is a plain label, as before.
+        let latin = wrapped_shapes("A short note", false);
+        assert_eq!(latin.len(), 1);
+        assert_eq!(latin[0].2, "A short note");
+        assert!(latin[0].0.x.abs() < 0.5);
     }
 }
