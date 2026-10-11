@@ -337,6 +337,8 @@ pub(crate) fn editor(ctx: &egui::Context, view: &mut DocView, info: &DocInfo, ad
     let memo = &view.content.undrawable;
     egui::Area::new(egui::Id::new(("added-text", view.id.0))).order(egui::Order::Foreground).fixed_pos(r.min).show(ctx, |ui| {
         let Some(t) = view.content.draft.as_mut() else { return };
+        // The box is white in every theme, so the caret must not follow the theme (pale in dark mode) (#655).
+        ui.visuals_mut().text_cursor.stroke.color = crate::edit_text_ui::caret_color_on(Color32::WHITE);
         let [cr, cg, cb] = t.style.color.map(|v| (v.clamp(0.0, 1.0) * 255.0) as u8);
         ui.horizontal_top(|ui| {
             ui.spacing_mut().item_spacing.x = 4.0;
@@ -362,8 +364,8 @@ pub(crate) fn editor(ctx: &egui::Context, view: &mut DocView, info: &DocInfo, ad
                 .show(ui, |ui| {
                     ui.spacing_mut().item_spacing = egui::vec2(2.0, 2.0);
                     ui.horizontal(|ui| {
-                        done = crate::icons::button(ui, "check", 24.0, false, "Done adding text").clicked();
-                        cancel = crate::icons::button(ui, "x", 24.0, false, "Discard this text (Esc)").clicked();
+                        done = crate::icons::button(ui, "check", 24.0, false, tl!("Done adding text")).clicked();
+                        cancel = crate::icons::button(ui, "x", 24.0, false, tl!("Discard this text (Esc)")).clicked();
                     });
                 })
                 .response
@@ -521,6 +523,9 @@ impl crate::PdfCraftApp {
     /// Edit text & images ▸ Save Image As.
     pub(crate) fn save_page_image(&mut self, page: usize, index: usize) {
         let Some((_, id)) = self.active_ids() else { return };
+        if !self.may_copy(id) {
+            return;
+        }
         let file = self.session.get(id).map(|d| d.page_image_file(page, index));
         match file {
             Some(Ok((ext, bytes))) => {

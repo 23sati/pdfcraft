@@ -23,8 +23,7 @@ pub enum ThemePreference {
 
 impl ThemePreference {
     /// The colours to draw. `system` is what the operating system says, `None` when it says
-    /// nothing; `fallback` is then what the app last drew, so an unanswering desktop leaves the
-    /// user's choice alone.
+    /// nothing; `fallback` is supplied by the caller. PdfCraft uses Light for an unknown desktop.
     pub fn resolve(self, system: Option<bool>, fallback: ThemeKind) -> ThemeKind {
         match self {
             Self::Light => ThemeKind::Light,
@@ -134,28 +133,71 @@ pub fn install_fonts(ctx: &egui::Context) {
     ctx.set_fonts(font_definitions());
 }
 
+/// The interface language's claim on the CJK fallback faces.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CjkPreference {
+    /// Japanese faces first (every non-Chinese language).
+    #[default]
+    Default,
+    SimplifiedChinese,
+    TraditionalChinese,
+}
+
+impl CjkPreference {
+    /// The preference for a UI language code (`zh-hans`, `zh-hant`, anything else).
+    pub fn for_language(code: &str) -> Self {
+        match code {
+            "zh-hans" => Self::SimplifiedChinese,
+            "zh-hant" => Self::TraditionalChinese,
+            _ => Self::Default,
+        }
+    }
+}
+
 /// Install the interface fonts with the CJK fallback order for the UI language (Chinese
-/// first for Simplified Chinese, Japanese first otherwise). Call it when the language
-/// changes; the new faces take effect next frame.
-pub fn install_fonts_for(ctx: &egui::Context, prefer_hans: bool) {
-    ctx.set_fonts(installed_font_definitions(prefer_hans));
+/// first for Chinese, Japanese first otherwise). Call it when the language changes; the new
+/// faces take effect next frame.
+pub fn install_fonts_for(ctx: &egui::Context, cjk: CjkPreference) {
+    ctx.set_fonts(installed_font_definitions(cjk));
 }
 
 /// The name of the installed face [`installed_font_definitions`] may add after the embedded ones.
 pub const SYSTEM_FALLBACK: &str = "system-fallback";
 
 /// What [`install_fonts_for`] installs: [`font_definitions_for`], then, on desktop, one face
-/// already installed on this machine as the last fallback of every family. It only draws
-/// characters no embedded face has (an Arabic file name in a build without craft-fonts);
+/// already installed on this machine. It only draws characters no embedded face has.
+///
+/// - In a Chinese interface built without a `Hans` craft-fonts face (every release so far,
+///   #826), it is a Chinese system face (Microsoft YaHei, PingFang, …), placed before the
+///   Japanese craft-fonts faces: they lack hundreds of the catalog's characters (欢, 导, 签, …),
+///   and one line drawn from two faces with different vertical metrics would not sit on one
+///   baseline.
+/// - Otherwise it is the last fallback of every family (an Arabic file name in a build without
+///   craft-fonts).
+///
 /// `PDFCRAFT_SYSTEM_FONTS=0` leaves it out.
-pub fn installed_font_definitions(prefer_hans: bool) -> FontDefinitions {
+pub fn installed_font_definitions(cjk: CjkPreference) -> FontDefinitions {
     #[cfg_attr(target_arch = "wasm32", expect(unused_mut))]
-    let mut fonts = font_definitions_for(prefer_hans);
+    let mut fonts = font_definitions_for(cjk == CjkPreference::SimplifiedChinese);
     #[cfg(not(target_arch = "wasm32"))]
-    if let Some(data) = crate::system_fonts::fallback() {
-        fonts.font_data.insert(SYSTEM_FALLBACK.to_owned(), data);
-        for stack in fonts.families.values_mut() {
-            stack.push(SYSTEM_FALLBACK.to_owned());
+    {
+        use crate::system_fonts::{Need, fallback};
+        let need = match cjk {
+            _ if !pdfcraft_fonts::ui_chinese_fonts().is_empty() => Need::Other,
+            CjkPreference::SimplifiedChinese => Need::Hans,
+            CjkPreference::TraditionalChinese => Need::Hant,
+            CjkPreference::Default => Need::Other,
+        };
+        if let Some(data) = fallback(need) {
+            fonts.font_data.insert(SYSTEM_FALLBACK.to_owned(), data);
+            let japanese: Vec<String> = pdfcraft_fonts::ui_japanese_fonts().iter().map(|f| f.name()).collect();
+            for stack in fonts.families.values_mut() {
+                let at = match need {
+                    Need::Other => None,
+                    Need::Hans | Need::Hant => stack.iter().position(|n| japanese.contains(n)),
+                };
+                stack.insert(at.unwrap_or(stack.len()), SYSTEM_FALLBACK.to_owned());
+            }
         }
     }
     fonts
@@ -177,7 +219,8 @@ pub fn font_definitions_for(prefer_hans: bool) -> FontDefinitions {
     let add = |fonts: &mut FontDefinitions, name: &str, bytes: &'static [u8]| {
         fonts.font_data.insert(name.to_owned(), Arc::new(FontData::from_static(bytes)));
     };
-    add(&mut fonts, "Inter", include_bytes!("../../../assets/fonts/Inter-Regular.ttf"));
+    // Shared with typed signatures' fallback glyphs, so the font is embedded once.
+    add(&mut fonts, "Inter", pdfcraft_fonts::INTER_REGULAR);
     add(&mut fonts, "Inter-Medium", include_bytes!("../../../assets/fonts/Inter-Medium.ttf"));
     add(&mut fonts, "Inter-SemiBold", include_bytes!("../../../assets/fonts/Inter-SemiBold.ttf"));
     add(&mut fonts, "JetBrainsMono", include_bytes!("../../../assets/fonts/JetBrainsMono-Regular.ttf"));
@@ -228,8 +271,10 @@ pub fn semibold(size: f32) -> FontId {
 }
 
 pub fn apply(ctx: &egui::Context, kind: ThemeKind) {
-    // egui must use the same theme for popup/menu styles as our custom chrome.
-    ctx.set_theme(if kind == ThemeKind::Dark { egui::Theme::Dark } else { egui::Theme::Light });
+    // Keep the native window inherited. A concrete egui theme pins macOS's
+    // NSWindow appearance and prevents winit from delivering ThemeChanged.
+    // Our saved choice owns the palette; both egui branches receive it below.
+    ctx.set_theme(egui::ThemePreference::System);
     let t = Tokens::for_kind(kind);
     ctx.data_mut(|d| d.insert_temp(egui::Id::new("pdfcraft-theme"), t));
     let mut v = if t.dark() { Visuals::dark() } else { Visuals::light() };
@@ -282,6 +327,9 @@ pub fn apply(ctx: &egui::Context, kind: ThemeKind) {
         s.text_styles.insert(egui::TextStyle::Heading, semibold(17.0));
         s.interaction.tooltip_delay = 0.35;
     });
+    let style = ctx.global_style();
+    ctx.set_style_of(egui::Theme::Light, style.clone());
+    ctx.set_style_of(egui::Theme::Dark, style);
 }
 
 #[cfg(test)]

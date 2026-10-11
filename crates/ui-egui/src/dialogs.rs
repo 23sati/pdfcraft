@@ -10,6 +10,12 @@ use crate::{CloseRequest, Dialog, PdfCraftApp, PropsTab, panels::human_size, wid
 const INFO_KEYS: [&str; 4] = ["Title", "Author", "Subject", "Keywords"];
 
 pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
+    dialogs(app, ctx);
+    // Last, so it sits above Document Properties when Security's Unlock… asked for it.
+    unlock(app, ctx);
+}
+
+fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
     password(app, ctx);
     save_prompt(app, ctx);
     link_prompt(app, ctx);
@@ -62,7 +68,7 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
     let t = Tokens::get(ctx);
     let mut close = false;
     let mut next = dialog;
-    let modal = egui::Modal::new(egui::Id::new("dialog")).show(ctx, |ui| {
+    let modal = widgets::show_modal(ctx, "dialog", |ui| {
         ui.set_width(match dialog {
             Dialog::Properties(_) => 640.0,
             Dialog::Print => 820.0,
@@ -70,14 +76,6 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
             Dialog::About => 780.0,
             _ => 520.0,
         });
-        // Dialog controls are outlined (radio buttons, check boxes, combo boxes and number fields
-        // would otherwise blend into the dialog, whose fill matches the theme's field colour).
-        let w = &mut ui.visuals_mut().widgets;
-        w.inactive.bg_stroke = egui::Stroke::new(1.0, t.border);
-        w.inactive.weak_bg_fill = t.field;
-        // Slider rails and check-box interiors use the plain fill.
-        w.inactive.bg_fill = t.hover;
-        w.hovered.bg_stroke = egui::Stroke::new(1.0, t.text_muted);
         match dialog {
             Dialog::CreateImages => {
                 let (go, cancel) = crate::create_ui::image_import_body(ui, app);
@@ -88,7 +86,7 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
             Dialog::Properties(tab) => {
                 ui.label(egui::RichText::new(tl!("Document Properties")).font(theme::semibold(18.0)));
                 ui.add_space(8.0);
-                ui.horizontal(|ui| {
+                ui.horizontal_wrapped(|ui| {
                     for (tb, label) in [
                         (PropsTab::Description, tl!("Description")),
                         (PropsTab::InitialView, tl!("Initial View")),
@@ -102,6 +100,7 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                     }
                 });
                 ui.separator();
+                let units = app.units;
                 let Some((_, id)) = app.active_ids() else { return };
                 let Some(doc) = app.session.get(id) else { return };
                 let i = &doc.info;
@@ -119,14 +118,8 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                                 Some((_, draft)) if doc.allows_modification() => {
                                     for (k, v) in INFO_KEYS.iter().zip(draft.iter_mut()) {
                                         let l = ui.label(egui::RichText::new(tl!(k)).color(t.text_muted));
-                                        ui.add(
-                                            egui::TextEdit::singleline(v)
-                                                .desired_width(420.0)
-                                                .background_color(t.field)
-                                                .margin(egui::Margin::symmetric(6, 4))
-                                                .id_salt(("info", *k)),
-                                        )
-                                        .labelled_by(l.id);
+                                        ui.add(widgets::line(v).desired_width(420.0).background_color(t.field).id_salt(("info", *k)))
+                                            .labelled_by(l.id);
                                         ui.end_row();
                                     }
                                 }
@@ -271,8 +264,12 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                                         tl!("User password").to_string()
                                     },
                                 );
-                                if doc.allows_security_change() {
+                                // A restricted document asks for its permissions password first.
+                                if doc.allows_security_change() || doc.can_unlock() {
                                     ui.horizontal(|ui| {
+                                        if doc.can_unlock() && ui.button(tl!("Unlock…")).clicked() {
+                                            link_command = Some("protect.unlock");
+                                        }
                                         if ui.button(tl!("Change settings…")).clicked() {
                                             link_command = Some("protect.password");
                                         }
@@ -324,9 +321,9 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                         PropsTab::Advanced => {
                             row(ui, "PDF version", i.pdf_version.clone());
                             row(ui, "Location", crate::bidi::visual(doc.path.as_deref().unwrap_or_default()).into_owned());
-                            row(ui, "File size", format!("{} ({} bytes)", human_size(i.file_size), i.file_size));
+                            row(ui, "File size", format!("{} ({})", human_size(i.file_size), crate::panels::byte_count(i.file_size)));
                             let p = &i.pages[0];
-                            row(ui, "Page size", format!("{:.2} × {:.2} in", p.width / 72.0, p.height / 72.0));
+                            row(ui, "Page size", units.size(f64::from(p.width), f64::from(p.height)));
                             row(ui, "Number of pages", i.pages.len().to_string());
                             row(ui, "Tagged PDF", yes(i.tagged));
                             row(ui, "Form fields", i.fields.len().to_string());
@@ -366,7 +363,7 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                                 let l = ui.label(egui::RichText::new(tl!("Language")).color(t.text_muted));
                                 let mut lang = v.language.clone().unwrap_or_default();
                                 if ui
-                                    .add_enabled(editable, egui::TextEdit::singleline(&mut lang).hint_text(tl!("e.g. en-US")).desired_width(160.0))
+                                    .add_enabled(editable, widgets::line(&mut lang).hint_text(tl!("e.g. en-US")).desired_width(160.0))
                                     .labelled_by(l.id)
                                     .changed()
                                 {
@@ -949,15 +946,6 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 let d = &mut app.number_draft;
                 d.to = d.to.clamp(1, n);
                 d.from = d.from.clamp(1, d.to);
-                // Editable values get a visible border (the dialog and field fills are alike).
-                let boxed = |ui: &mut egui::Ui, add: &mut dyn FnMut(&mut egui::Ui) -> egui::Response| {
-                    egui::Frame::new()
-                        .stroke(egui::Stroke::new(1.0, t.border))
-                        .corner_radius(egui::CornerRadius::same(5))
-                        .inner_margin(egui::Margin::symmetric(4, 1))
-                        .show(ui, |ui| add(ui))
-                        .inner
-                };
                 egui::Grid::new("number_pages").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
                     ui.label(tl!("Pages"));
                     ui.horizontal(|ui| {
@@ -984,8 +972,7 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                     });
                     ui.end_row();
                     let l = ui.label(tl!("Prefix"));
-                    boxed(ui, &mut |ui| ui.add(egui::TextEdit::singleline(&mut d.prefix).desired_width(160.0).frame(egui::Frame::NONE)))
-                        .labelled_by(l.id);
+                    ui.add(widgets::line(&mut d.prefix).desired_width(160.0)).labelled_by(l.id);
                     ui.end_row();
                     ui.label(tl!("Start"));
                     ui.add(egui::DragValue::new(&mut d.start).range(1..=99_999));
@@ -1085,7 +1072,7 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 // Tabs About · Contributors · Models (craftrules standards/contributors.md).
                 let tab_id = egui::Id::new("about_tab");
                 let mut tab = ui.data_mut(|d| d.get_temp::<u8>(tab_id)).unwrap_or(0);
-                ui.horizontal(|ui| {
+                ui.horizontal_wrapped(|ui| {
                     for (i, label) in ["About", "Contributors", "Models"].into_iter().enumerate() {
                         let i = i as u8;
                         if widgets::mode_tab(ui, tl!(label), tab == i).clicked() {
@@ -1128,7 +1115,7 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 }
             }
         }
-        ui.add_space(12.0);
+        ui.add_space(16.0);
         let changed = draft_changes(app).is_some_and(|c| !c.is_empty());
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             if dialog == Dialog::Recovery {
@@ -1397,7 +1384,7 @@ fn save_prompt(app: &mut PdfCraftApp, ctx: &egui::Context) {
     // the prompt taller than the window (#236); 80 characters wrap to a few lines.
     let shown = shorten_middle(&name, 80);
     let mut choice: Option<Option<bool>> = None;
-    let modal = egui::Modal::new(egui::Id::new("save_prompt")).show(ctx, |ui| {
+    let modal = widgets::show_modal(ctx, "save_prompt", |ui| {
         ui.set_width(420.0);
         ui.horizontal(|ui| {
             ui.add(crate::icons::image("save", 22.0, t.accent));
@@ -1458,7 +1445,7 @@ fn link_prompt(app: &mut PdfCraftApp, ctx: &egui::Context) {
     let email = pending.url.get(..7).is_some_and(|s| s.eq_ignore_ascii_case("mailto:"));
     let (title, open) = if email { (tl!("Write this email?"), tl!("Open email app")) } else { (tl!("Open this web page?"), tl!("Open link")) };
     let mut choice: Option<bool> = None;
-    let modal = egui::Modal::new(egui::Id::new("link_prompt")).show(ctx, |ui| {
+    let modal = widgets::show_modal(ctx, "link_prompt", |ui| {
         ui.set_width(460.0);
         ui.horizontal(|ui| {
             ui.add(crate::icons::image("external-link", 22.0, t.accent));
@@ -1518,47 +1505,83 @@ fn yes(b: bool) -> String {
     tl!(if b { "Yes" } else { "No" }).to_string()
 }
 
-/// Password prompt for encrypted documents (Acrobat: "Password" dialog on open).
-fn password(app: &mut PdfCraftApp, ctx: &egui::Context) {
-    let Some(prompt) = app.password_prompt.as_mut() else { return };
+/// What a password box was answered with.
+enum PasswordAnswer {
+    Submit,
+    Cancel,
+}
+
+/// A password box: a lock, a title, a message, the masked field, an error and two buttons.
+fn password_modal(
+    ctx: &egui::Context,
+    id: &str,
+    title: &str,
+    message: String,
+    input: &mut String,
+    error: Option<&str>,
+    ok: &str,
+) -> Option<PasswordAnswer> {
     let t = Tokens::get(ctx);
-    let mut submit = false;
-    let mut cancel = false;
-    let modal = egui::Modal::new(egui::Id::new("password")).show(ctx, |ui| {
+    let mut answer = None;
+    let modal = widgets::show_modal(ctx, id, |ui| {
         ui.set_width(400.0);
         ui.horizontal(|ui| {
             ui.add(crate::icons::image("lock", 22.0, t.accent));
-            ui.label(egui::RichText::new(tl!("Password required")).font(theme::semibold(17.0)));
+            ui.label(egui::RichText::new(title).font(theme::semibold(17.0)));
         });
         ui.add_space(6.0);
-        ui.add(egui::Label::new(crate::i18n::fmt(tl!("“{name}” is protected. Enter a password to open it."), &[("name", &prompt.name)])).wrap());
+        ui.add(egui::Label::new(message).wrap());
         ui.add_space(8.0);
-        let r = ui.add(egui::TextEdit::singleline(&mut prompt.input).password(true).hint_text(tl!("Password")).desired_width(f32::INFINITY));
+        let r = ui.add(widgets::line(input).password(true).hint_text(tl!("Password")).desired_width(f32::INFINITY));
         // Enter submits. The field keeps focus (we request it every frame), so check the key
         // while it is focused as well as on the frame focus is lost.
         if (r.has_focus() || r.lost_focus()) && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-            submit = true;
+            answer = Some(PasswordAnswer::Submit);
         }
         r.request_focus();
-        if let Some(e) = &prompt.error {
+        if let Some(e) = error {
             ui.add_space(4.0);
             // Known error text is translated; anything else passes through.
             ui.label(egui::RichText::new(tl!(e)).color(egui::Color32::from_rgb(0xD1, 0x3B, 0x3B)));
         }
         ui.add_space(12.0);
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            if widgets::pill_button(ui, tl!("Open"), true).clicked() {
-                submit = true;
+            if widgets::pill_button(ui, ok, true).clicked() {
+                answer = Some(PasswordAnswer::Submit);
             }
             if widgets::pill_button(ui, tl!("Cancel"), false).clicked() {
-                cancel = true;
+                answer = Some(PasswordAnswer::Cancel);
             }
         });
     });
-    if submit {
-        let pw = prompt.input.clone();
-        app.submit_password(Some(pw));
-    } else if cancel || modal.should_close() {
-        app.submit_password(None);
+    answer.or(modal.should_close().then_some(PasswordAnswer::Cancel))
+}
+
+/// Password prompt for encrypted documents (Acrobat: "Password" dialog on open).
+fn password(app: &mut PdfCraftApp, ctx: &egui::Context) {
+    let Some(prompt) = app.password_prompt.as_mut() else { return };
+    let message = crate::i18n::fmt(tl!("“{name}” is protected. Enter a password to open it."), &[("name", &prompt.name)]);
+    match password_modal(ctx, "password", tl!("Password required"), message, &mut prompt.input, prompt.error.as_deref(), tl!("Open")) {
+        Some(PasswordAnswer::Submit) => {
+            let pw = prompt.input.clone();
+            app.submit_password(Some(pw));
+        }
+        Some(PasswordAnswer::Cancel) => app.submit_password(None),
+        None => {}
+    }
+}
+
+/// Permissions password prompt: lifts the restrictions of an open document (#995).
+fn unlock(app: &mut PdfCraftApp, ctx: &egui::Context) {
+    let Some(prompt) = app.unlock_prompt.as_mut() else { return };
+    let message =
+        crate::i18n::fmt(tl!("“{name}” has security restrictions. Enter its permissions password to lift them."), &[("name", &prompt.name)]);
+    match password_modal(ctx, "unlock", tl!("Permissions password"), message, &mut prompt.input, prompt.error.as_deref(), tl!("Unlock")) {
+        Some(PasswordAnswer::Submit) => {
+            let pw = prompt.input.clone();
+            app.submit_unlock(Some(pw));
+        }
+        Some(PasswordAnswer::Cancel) => app.submit_unlock(None),
+        None => {}
     }
 }

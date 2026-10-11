@@ -106,12 +106,18 @@
 	Open a PDF (⌘O)	Otwórz PDF (⌘O)
 	Dark gray theme	Ciemnoszary motyw
 	Light theme	Jasny motyw
+	Appearance mode	Tryb wyglądu
+	Light	Jasny
+	Dark	Ciemny
+	Active	Aktywny
+	Dark theme	Ciemny motyw
+	Appearance settings…	Ustawienia wyglądu…
 	All tools	Wszystkie narzędzia
 	Read	Czytaj
 	Convert	Konwertuj
 	E-Sign	Podpis elektroniczny
 	Print (⌘P)	Drukuj (⌘P)
-	Save (M4)	Zapisz (M4)
+	Save ({key})	Zapisz ({key})
 	Document properties (⌘D)	Właściwości dokumentu (⌘D)
 	Find tools and commands	Znajdź narzędzia i polecenia
 	Fit to height	Dopasuj do wysokości
@@ -844,6 +850,10 @@
 	The signature will be invisible.	Podpis będzie niewidoczny.
 	Distinguished name	Nazwa wyróżniająca
 	Labels	Etykiety
+	Graphic	Grafika
+	Signer's name	Nazwa podpisującego
+	Fill & Sign signature	Podpis z „Wypełnij i podpisz”
+	Choose image…	Wybierz obraz…
 	Permitted actions after certifying	Dozwolone działania po certyfikacji
 	No changes allowed	Zmiany niedozwolone
 	Annotations, form fill-in, and digital signatures	Adnotacje, wypełnianie formularzy i podpisy cyfrowe
@@ -1580,16 +1590,16 @@
 	Opened, but its security settings don't allow combining. Enter the permissions password.	Otwarto, ale ustawienia zabezpieczeń nie zezwalają na łączenie. Wpisz hasło uprawnień.
 	Unlocked: the combined file won't be password-protected	Odblokowano: połączony plik nie będzie chroniony hasłem
 	Unlocked {n} of {m} files	Odblokowano {n} z {m} plików
-	Drop PDFs or folders here, or choose them.	Upuść tutaj pliki PDF lub foldery albo wybierz je.
+	Drop PDFs, images, text files or folders here, or choose them.	Upuść tutaj pliki PDF, obrazy, pliki tekstowe lub foldery albo wybierz je.
 	Add folder…	Dodaj folder…
 	Add folder and subfolders…	Dodaj folder i podfoldery…
 	More ways to add files	Więcej sposobów dodawania plików
-	Every PDF in the folder	Każdy PDF w folderze
-	Every PDF in the folder and the folders inside it	Każdy PDF w folderze i jego podfolderach
+	Every PDF, image and text file in the folder	Każdy PDF, obraz i plik tekstowy w folderze
+	Every PDF, image and text file in the folder and the folders inside it	Każdy PDF, obraz i plik tekstowy w folderze i jego podfolderach
 	Add folder	Dodaj folder
 	Add folder and subfolders	Dodaj folder i podfoldery
-	No PDFs found in {folder}	Nie znaleziono plików PDF w {folder}
-	Added the first {n} PDFs in {folder}	Dodano pierwsze {n} plików PDF z {folder}
+	No PDFs, images or text files found in {folder}	Nie znaleziono plików PDF, obrazów ani plików tekstowych w {folder}
+	Added the first {n} files in {folder}	Dodano pierwsze {n} plików z {folder}
 	Click to sort, drag to move the column. Drag its edge to resize it.	Kliknij, aby sortować; przeciągnij, aby przenieść kolumnę. Przeciągnij jej krawędź, aby zmienić szerokość.
 	Reset columns	Zresetuj kolumny
 	Remove {n} files	Usuń pliki w liczbie {n}
@@ -1607,7 +1617,7 @@
 	{n} files need attention	Liczba plików wymagających uwagi: {n}
 	{name} can't be combined: {why}	Nie można połączyć {name}: {why}
 	Check the pages of {name}: {why}	Sprawdź strony {name}: {why}
-	Add the PDFs to combine	Dodaj pliki PDF do połączenia
+	Add the files to combine	Dodaj pliki do połączenia
 	File name	Nazwa pliku
 	Warnings	Ostrzeżenia
 	Drag to reorder	Przeciągnij, aby zmienić kolejność
@@ -1620,6 +1630,10 @@
 	Password-protected	Chroniony hasłem
 	Its security settings don't allow copying pages	Ustawienia zabezpieczeń nie zezwalają na kopiowanie stron
 	Can't be read: {e}	Nie można odczytać: {e}
+	Leave out files that can't be read?	Pominąć pliki, których nie można odczytać?
+	These files can't be read, so they won't be in the combined PDF:	Tych plików nie można odczytać, więc nie znajdą się w połączonym pliku PDF:
+	Combine the rest	Połącz pozostałe
+	and {n} more	i jeszcze {n}
 	Includes unsaved changes	Zawiera niezapisane zmiany
 	Pages of {name} to combine, e.g. 1-3, 6	Strony z {name} do połączenia, np. 1-3, 6
 	Remove {name}	Usuń {name}
@@ -1695,7 +1709,12 @@
 	watermark	znak wodny
 	background	tło
 	This document isn't password-protected	Ten dokument nie jest chroniony hasłem
-	Only the document's owner can change its security (open it with the permissions password)	Tylko właściciel dokumentu może zmienić zabezpieczenia (otwórz go przy użyciu hasła uprawnień)
+	Enter permissions password…	Wpisz hasło uprawnień…
+	Permissions password	Hasło uprawnień
+	“{name}” has security restrictions. Enter its permissions password to lift them.	Plik „{name}” ma ograniczenia zabezpieczeń. Wpisz jego hasło uprawnień, aby je znieść.
+	Restrictions lifted	Ograniczenia zniesione
+	Couldn't unlock {name}: {e}	Nie udało się odblokować pliku {name}: {e}
+	This document has no restrictions to lift	Ten dokument nie ma ograniczeń do zniesienia
 	The document's security settings don't allow this change	Ustawienia zabezpieczeń dokumentu nie zezwalają na tę zmianę
 	Open a document first	Najpierw otwórz dokument
 	Security will be removed when you save	Zabezpieczenia zostaną usunięte przy zapisie
@@ -2191,3 +2210,22 @@ key	Space	Spacja
 	Text used as a clipping path cannot be moved with this selection.	Tekstu używanego jako ścieżka przycinania nie można przenieść razem z tym zaznaczeniem.
 	These objects could not be moved. Select them again and try a smaller move.	Nie udało się przenieść tych obiektów. Zaznacz je ponownie i spróbuj mniejszego przesunięcia.
 	This page contains objects that cannot be selected together.	Ta strona zawiera obiekty, których nie można zaznaczyć razem.
+	Reload documents when their files change on disk	Wczytuj ponownie dokumenty, gdy ich pliki zmienią się na dysku
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Ten plik zmienił się na dysku. Wczytaj go ponownie, aby zobaczyć nową wersję; niezapisane zmiany zostaną utracone.
+	Reload	Wczytaj ponownie
+	Couldn't reload {name}: {e}	Nie można ponownie wczytać {name}: {e}
+	Select page {label}	Wybierz stronę {label}
+	Rotate page {label} counterclockwise	Obróć stronę {label} w lewo
+	Rotate page {label} clockwise	Obróć stronę {label} w prawo
+	Delete page {label}	Usuń stronę {label}
+	Mouse wheel scroll speed	Szybkość przewijania kółkiem myszy
+scroll speed	Slow	Wolna
+scroll speed	Normal	Normalna
+scroll speed	Fast	Szybka
+	Enhance camera image	Popraw zdjęcie z aparatu
+	Drag the corners onto the document's edges, then choose Enhance page.	Przeciągnij narożniki na krawędzie dokumentu, a następnie wybierz Popraw stronę.
+	Enhance page	Popraw stronę
+	Clean-up	Oczyszczanie
+	Original	Oryginał
+	Greyscale	Skala szarości
+	Black and white	Czarno-biały
