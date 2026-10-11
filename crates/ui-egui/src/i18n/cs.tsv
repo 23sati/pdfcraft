@@ -2230,3 +2230,7 @@ certificate	Subject	Subjekt
 	No PDFs, images or text files found in {folder}	Ve složce {folder} nebyly nalezeny žádné soubory PDF, obrázky ani textové soubory
 	These files can't be read, so they won't be in the combined PDF:	Tyto soubory nelze přečíst, a proto nebudou ve sloučeném PDF:
 	and {n} more	a dalších {n}
+	Drag the corners onto the document's edges, then choose Enhance page.	Přetáhněte rohy na okraje dokumentu a pak zvolte Vylepšit stránku.
+	Enhance camera image	Vylepšit snímek z kamery
+	Enhance page	Vylepšit stránku
+	Save ({key})	Uložit ({key})
