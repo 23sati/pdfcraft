@@ -108,6 +108,7 @@ pub(crate) fn show(
     // Search (the header's magnifier toggles it).
     if let Some(q) = view.comments.search.as_mut() {
         let r = ui.add(egui::TextEdit::singleline(q).hint_text(tl!("Search comments")).desired_width(f32::INFINITY).id_salt("comment-search"));
+        crate::widgets::name(&r, tl!("Search comments"));
         if view.comments.search_focus {
             r.request_focus();
             view.comments.search_focus = false;
@@ -123,6 +124,7 @@ pub(crate) fn show(
                 .margin(egui::Margin::symmetric(8, 6))
                 .id_salt("comment-add-box"),
         );
+        crate::widgets::name(&r, tl!("Add a comment"));
         if r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) && !view.comments.add_box.trim().is_empty() {
             let page = view.current.min(info.pages.len().saturating_sub(1));
             if let Some(p) = info.pages.get(page) {
@@ -296,9 +298,7 @@ fn card(
                         r.request_focus();
                     }
                     ui.horizontal(|ui| {
-                        if ui
-                            .add(egui::Button::new(egui::RichText::new(tl!("Save")).color(Color32::WHITE)).fill(t.accent).corner_radius(12))
-                            .clicked()
+                        if ui.add(egui::Button::new(egui::RichText::new(tl!("Save")).color(t.on_accent)).fill(t.accent).corner_radius(12)).clicked()
                             && let Some((page, index, text)) = view.comments.editing.take()
                         {
                             edit = Some(Edit::SetAnnotationContents { page, index, text });
@@ -362,6 +362,7 @@ fn card(
                             .desired_width(f32::INFINITY)
                             .id_salt(("comment-reply", key)),
                     );
+                    crate::widgets::name(&r, tl!("Add a reply"));
                     let enter = r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
                     let ok = !view.comments.reply.trim().is_empty();
                     let post =
