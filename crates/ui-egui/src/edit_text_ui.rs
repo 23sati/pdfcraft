@@ -261,6 +261,7 @@ pub(crate) enum ImageAction {
     Replace(usize, usize),
     Save(usize, usize),
     Copy(usize, usize),
+    CopyFile(usize, usize),
 }
 
 fn user_box(xf: &PageXform, info: &DocInfo, page: usize, r: Rect) -> [f64; 4] {
@@ -398,6 +399,10 @@ pub(crate) fn image_input(
             }
             if ui.add_enabled(raster, egui::Button::new(tl!("Copy Image"))).clicked() {
                 *action = Some(ImageAction::Copy(page, hit));
+                ui.close();
+            }
+            if ui.add_enabled(raster, egui::Button::new(tl!("Copy Image in Original Format"))).clicked() {
+                *action = Some(ImageAction::CopyFile(page, hit));
                 ui.close();
             }
             ui.separator();

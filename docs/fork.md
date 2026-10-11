@@ -8,9 +8,15 @@ resta aggiornata **e** mantiene le modifiche.
 
 | Funzione | Dove | Note |
 |---|---|---|
-| **Copia immagine** | Tasto destro su un'immagine della pagina ▸ *Copia immagine*; anche in *Modifica testo e immagini* (tasto destro sull'immagine selezionata) | Copia negli appunti l'immagine originale alla sua risoluzione (non uno screenshot della pagina), con la trasparenza. Immagini oltre 64 milioni di pixel: usare *Salva immagine con nome*. Le immagini che PdfCraft non sa ancora decodificare (JPEG 2000, JBIG2, CCITT) danno un messaggio d'errore. Non disponibile nella versione web. |
+| **Seleziona e copia un'immagine nel formato originale** | Strumento *Seleziona*: clic su un'immagine (si evidenzia in blu), poi ⌘C / Ctrl+C. Oppure tasto destro sull'immagine ▸ *Copia immagine nel formato originale*. Esc deseleziona. | Negli appunti finisce un **file**: il JPEG così com'è salvato nel PDF (nessuna ricompressione), ogni altra immagine come PNG senza perdita, con la trasparenza. Si incolla dove si incollano i file (Finder/Esplora risorse, email, chat, Word). Il file temporaneo sta nella cartella `pdfcraft-clipboard` della cartella temporanea di sistema e viene sostituito alla copia successiva. |
+| **Copia immagine** (pixel) | Tasto destro su un'immagine ▸ *Copia immagine*; anche in *Modifica testo e immagini* | Copia i pixel dell'immagine alla sua risoluzione (non uno screenshot della pagina): si incolla in qualunque programma che accetta immagini (editor di immagini, browser). Oltre 64 milioni di pixel: usare *Salva immagine con nome*. |
+
+Limiti comuni: le immagini che PdfCraft non sa ancora estrarre (JPEG 2000, JBIG2, CCITT) danno un
+messaggio d'errore; i disegni vettoriali non sono immagini e non si selezionano; nella versione web
+la copia negli appunti non è disponibile.
 
 Codice: `Document::page_image_at` e `Document::page_image_rgba` (`crates/engine/src/lib.rs`),
+`crates/ui-egui/src/image_pick.rs` (selezione e copia come file),
 `PdfCraftApp::copy_page_image` (`crates/ui-egui/src/content_ui.rs`), voci di menu in
 `crates/ui-egui/src/canvas.rs` e `crates/ui-egui/src/edit_text_ui.rs`.
 

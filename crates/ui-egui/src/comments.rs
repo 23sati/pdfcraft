@@ -1365,6 +1365,8 @@ pub enum CanvasAction {
     Properties(usize, usize),
     /// Copy Image: image (page, index in `page_images`) to the clipboard.
     CopyImage(usize, usize),
+    /// Copy Image in Original Format: the same image as a file (JPEG as stored, else PNG).
+    CopyImageFile(usize, usize),
 }
 
 /// A grid of colour swatches; returns the one clicked.

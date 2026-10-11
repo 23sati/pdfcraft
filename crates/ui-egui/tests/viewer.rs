@@ -795,8 +795,8 @@ fn pages_panel_thumbnails_have_a_context_menu() {
     assert_eq!(h.state().page_clipboard.as_ref().map(|c| c.pages.clone()), Some(vec![2]));
 }
 
-#[test]
-fn right_click_on_a_picture_copies_it_at_full_size() {
+/// A 40 × 30 picture (one red corner) and a harness showing a PDF of it.
+fn picture_harness() -> (image::RgbaImage, Harness<'static, PdfCraftApp>) {
     let mut px = image::RgbaImage::from_pixel(40, 30, image::Rgba([10, 200, 30, 255]));
     px.put_pixel(0, 0, image::Rgba([255, 0, 0, 255]));
     let mut png = std::io::Cursor::new(Vec::new());
@@ -810,6 +810,35 @@ fn right_click_on_a_picture_copies_it_at_full_size() {
     });
     h.run_steps(4);
     h.state_mut().system_clipboard = false;
+    (px, h)
+}
+
+#[test]
+fn a_clicked_picture_is_selected_and_copied_in_its_original_format() {
+    let (px, mut h) = picture_harness();
+    let i = h.state().active.unwrap();
+    let at = h.state().views[i].page_screen_rect(0).expect("on screen").center();
+    h.hover_at(at);
+    h.run_steps(1);
+    h.event(egui::Event::PointerButton { pos: at, button: egui::PointerButton::Primary, pressed: true, modifiers: Default::default() });
+    h.event(egui::Event::PointerButton { pos: at, button: egui::PointerButton::Primary, pressed: false, modifiers: Default::default() });
+    h.run_steps(2);
+    assert_eq!(h.state().views[i].picked_image.map(|p| (p.page, p.index)), Some((0, 0)));
+    h.event(egui::Event::Copy);
+    h.run_steps(2);
+    let (name, bytes) = h.state().last_copied_file.clone().expect("the image was copied as a file");
+    assert_eq!(name, "pic p1 img1.png");
+    let decoded = image::load_from_memory_with_format(&bytes, image::ImageFormat::Png).unwrap().into_rgba8();
+    assert_eq!(decoded.into_raw(), px.into_raw(), "lossless, at full size");
+    // Escape deselects.
+    h.key_press(egui::Key::Escape);
+    h.run_steps(1);
+    assert_eq!(h.state().views[i].picked_image, None);
+}
+
+#[test]
+fn right_click_on_a_picture_copies_it_at_full_size() {
+    let (px, mut h) = picture_harness();
     let i = h.state().active.unwrap();
     let at = h.state().views[i].page_screen_rect(0).expect("on screen").center();
     h.hover_at(at);
