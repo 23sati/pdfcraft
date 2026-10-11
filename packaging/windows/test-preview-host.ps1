@@ -47,7 +47,7 @@ $IsAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
 # Where the installers put it (Program Files) when we may write there; else a temp folder.
 $App = if ($IsAdmin) { Join-Path $env:ProgramFiles 'Linkco Preview Test\Linkco PDF Editor' } else { Join-Path $Work 'Linkco PDF Editor' }
 if (Test-Path $App) { Remove-Item $App -Recurse -Force }
-New-Item -ItemType Directory -Force -Path $App | Out-Null
+New-Item -ItemType Directory -Force -Path $Work, $App | Out-Null
 
 $Csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path $Csc)) { $Csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe' }
