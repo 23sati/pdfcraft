@@ -133,6 +133,7 @@ impl PdfCraftApp {
                 commands::Needs::Assembly | commands::Needs::Modification | commands::Needs::Annotate if self.active.is_some() => {
                     tl!("The document's security settings don't allow this change").to_string()
                 }
+                commands::Needs::Copying if self.active.is_some() => crate::copy_refused().to_string(),
                 commands::Needs::TwoPageView if self.active.is_some() => tl!("Switch to two-page view first to show the cover page").to_string(),
                 _ => tl!("Open a document first").to_string(),
             };
@@ -221,6 +222,13 @@ impl PdfCraftApp {
                     self.views[i].set_layout(layout);
                 }
             }
+            // The Continuous scrolling checkbox (an independent toggle over the base layout).
+            "view.continuous" => {
+                if let Some(i) = active {
+                    let v = &mut self.views[i];
+                    v.set_continuous(!v.continuous());
+                }
+            }
             "view.layout.cover" => {
                 if let Some(i) = active {
                     let v = &mut self.views[i];
@@ -229,9 +237,10 @@ impl PdfCraftApp {
             }
             "view.fit_width_scrolling" | "view.fit_one_page" => {
                 use crate::canvas::{Fit, PageLayout};
-                let (layout, fit) = if id == "view.fit_one_page" { (PageLayout::Single, Fit::Page) } else { (PageLayout::Continuous, Fit::Width) };
+                // Fit one full page shows a single page on its own; fit width scrolls it.
+                let (continuous, fit) = if id == "view.fit_one_page" { (false, Fit::Page) } else { (true, Fit::Width) };
                 if let Some(i) = active {
-                    self.views[i].set_layout(layout);
+                    self.views[i].set_display(PageLayout::Single, continuous);
                     self.views[i].set_fit(fit);
                 }
             }

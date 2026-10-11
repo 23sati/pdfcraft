@@ -854,6 +854,10 @@
 	The signature will be invisible.	Підпис буде невидимим.
 	Distinguished name	Розпізнавальне ім’я
 	Labels	Позначки
+	Graphic	Графіка
+	Signer's name	Ім’я підписувача
+	Fill & Sign signature	Підпис із «Заповнення й підпис»
+	Choose image…	Вибрати зображення…
 	Permitted actions after certifying	Дозволені дії після засвідчення
 	No changes allowed	Зміни заборонено
 	Annotations, form fill-in, and digital signatures	Коментарі, заповнення форми й цифрові підписи
@@ -1709,6 +1713,7 @@
 	This document isn't password-protected	Цей документ не захищено паролем
 	Only the document's owner can change its security (open it with the permissions password)	Лише власник документа може змінювати захист (відкрийте з паролем дозволів)
 	The document's security settings don't allow this change	Налаштування захисту документа не дозволяють цю зміну
+	The document's security settings don't allow copying text and images	Налаштування захисту документа не дозволяють копіювати текст і зображення
 	Open a document first	Спочатку відкрийте документ
 	Security will be removed when you save	Захист буде знято під час збереження
 	Click text or an image to edit it	Клацніть текст або зображення для редагування
@@ -2228,6 +2233,10 @@ key	Space	Пробіл
 	Panels	Панелі
 	Resize panels	Змінити розмір панелей
 	Resize panel window	Змінити розмір вікна панелі
+	Select page {label}	Вибрати сторінку {label}
+	Rotate page {label} counterclockwise	Повернути сторінку {label} проти годинникової стрілки
+	Rotate page {label} clockwise	Повернути сторінку {label} за годинниковою стрілкою
+	Delete page {label}	Видалити сторінку {label}
 	Mouse wheel scroll speed	Швидкість прокручування коліщатком миші
 scroll speed	Slow	Повільна
 scroll speed	Normal	Звичайна
