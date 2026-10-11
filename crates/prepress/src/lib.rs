@@ -104,12 +104,7 @@ fn channels(space: &Space) -> &'static [(&'static str, Kind)] {
     match space {
         Space::Gray => &[("Gray", Kind::Process)],
         Space::Rgb => &[("Red", Kind::Process), ("Green", Kind::Process), ("Blue", Kind::Process)],
-        Space::Cmyk => &[
-            ("Cyan", Kind::Process),
-            ("Magenta", Kind::Process),
-            ("Yellow", Kind::Process),
-            ("Black", Kind::Process),
-        ],
+        Space::Cmyk => &[("Cyan", Kind::Process), ("Magenta", Kind::Process), ("Yellow", Kind::Process), ("Black", Kind::Process)],
         _ => &[],
     }
 }
@@ -292,9 +287,7 @@ impl<'a> Walk<'a> {
                     // A shading names its colour space; its tints live in the shading.
                     if let Some(n) = op.name(0) {
                         let shading = sub(res, b"Shading").and_then(|d| d.get(n).cloned());
-                        let space = shading
-                            .as_ref()
-                            .and_then(|o| self.doc.resolve(o).as_dict().and_then(|d| d.get(b"ColorSpace").cloned()));
+                        let space = shading.as_ref().and_then(|o| self.doc.resolve(o).as_dict().and_then(|d| d.get(b"ColorSpace").cloned()));
                         if let Some(space) = space {
                             let space = self.space(cs.as_ref(), &space, depth);
                             self.use_space(&space, None, page);
@@ -369,10 +362,7 @@ impl<'a> Walk<'a> {
                 b"DeviceCMYK" | b"CMYK" => self.defaulted(cs, b"DefaultCMYK", depth),
                 b"Pattern" => Space::Other,
                 // A named space from the resources; an unknown name has no ink to report.
-                other => cs
-                    .and_then(|d| d.get(other).cloned())
-                    .map(|o| self.space(cs, &o, depth + 1))
-                    .unwrap_or(Space::Other),
+                other => cs.and_then(|d| d.get(other).cloned()).map(|o| self.space(cs, &o, depth + 1)).unwrap_or(Space::Other),
             },
             Object::Array(a) => {
                 let Some(head) = a.first().and_then(|o| self.doc.resolve(o).as_name().map(|n| n.to_vec())) else {
