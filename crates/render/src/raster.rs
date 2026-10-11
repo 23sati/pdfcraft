@@ -5050,6 +5050,88 @@ trailer << /Root 1 0 R >>
         assert_ne!(preview.rgba, first.rgba, "the tiny image is skipped only in the preview");
     }
 
+    /// A page whose stream objects 5, 6, … are `objects` (dictionary, data), drawn by `content`
+    /// with `resources`, on a 130 × 70 pt page.
+    fn image_cache_pdf(content: &str, resources: &str, objects: &[(&str, &[u8])]) -> Vec<u8> {
+        let mut pdf = format!(
+            "%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 130 70] /Contents 4 0 R /Resources {resources} >> endobj
+4 0 obj << /Length {} >> stream
+{content}
+endstream endobj
+",
+            content.len()
+        )
+        .into_bytes();
+        for (i, (dict, data)) in objects.iter().enumerate() {
+            pdf.extend(format!("{} 0 obj {dict} stream\n", i + 5).bytes());
+            pdf.extend_from_slice(data);
+            pdf.extend_from_slice(b"\nendstream endobj\n");
+        }
+        pdf.extend_from_slice(b"trailer << /Root 1 0 R >>\n%%EOF");
+        pdf
+    }
+
+    /// The RGB of the pixel at (`x`, `y`) (from the top left) of a `width`-pixel-wide RGBA raster.
+    fn rgb_at(rgba: &[u8], width: usize, x: usize, y: usize) -> [u8; 3] {
+        let i = (y * width + x) * 4;
+        [rgba[i], rgba[i + 1], rgba[i + 2]]
+    }
+
+    const ONE_PIXEL_RGB: &str = "<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Length 3 >>";
+
+    /// Two images whose dictionaries are byte for byte the same (uncompressed, one size) but
+    /// whose pixels differ each draw their own: the decoded-image cache tells them apart by the
+    /// stream, not by the dictionary's bytes alone, in one render and across renders sharing a
+    /// cache, and previews never hand their entries to a final render.
+    #[test]
+    fn decoded_images_with_identical_dictionaries_keep_their_own_pixels() {
+        let pdf = image_cache_pdf(
+            // B over A at the same place and size (so one decode target): B must show. A alone
+            // on the right, at a size of its own.
+            "q 50 0 0 50 10 10 cm /A Do Q q 50 0 0 50 10 10 cm /B Do Q q 40 0 0 40 80 15 cm /A Do Q",
+            "<< /XObject << /A 5 0 R /B 6 0 R >> >>",
+            &[(ONE_PIXEL_RGB, b"\xff\x00\x00"), (ONE_PIXEL_RGB, b"\x00\x00\xff")],
+        );
+        let req = |preview| RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 1.0, tag: 0, preview };
+        let mut r = PageRenderer::new(Arc::new(pdf.clone()), RenderConfig::default());
+        let out = r.render(req(false));
+        assert!(out.error.is_none(), "{:?}", out.error);
+        let w = out.width as usize;
+        assert_eq!(rgb_at(&out.rgba, w, 35, 35), [0, 0, 255], "the second image drew the first one's pixels");
+        assert_eq!(rgb_at(&out.rgba, w, 100, 35), [255, 0, 0]);
+        // One cache across a preview and then a final render, as a render worker keeps it.
+        let pdf = parse(&Arc::new(pdf), None).expect("parses");
+        let cache = RenderCache::new();
+        let settings = InterpreterSettings::default();
+        let preview = render_page(&pdf, &cache, &settings, false, req(true)).expect("preview renders");
+        let fin = render_page(&pdf, &cache, &settings, false, req(false)).expect("final renders");
+        let fresh = render_page(&pdf, &RenderCache::new(), &settings, false, req(false)).expect("final renders");
+        assert_eq!(rgb_at(&preview.2, w, 35, 35), [0, 0, 255]);
+        assert_eq!(&fin.2[..], &fresh.2[..], "a final render after a preview matches one with a fresh cache");
+    }
+
+    /// An image drawn under a transfer function (`/TR`) is decoded with it, even when the same
+    /// image was drawn without one just before (and the other way round).
+    #[test]
+    fn decoded_images_under_a_transfer_function_are_not_shared() {
+        let pdf = image_cache_pdf(
+            // The image, then the same image at the same place under the inverting function
+            // (one decode target), then the image alone on the right.
+            "q 50 0 0 50 10 10 cm /A Do Q q /Inv gs 50 0 0 50 10 10 cm /A Do Q q 40 0 0 40 80 15 cm /A Do Q",
+            "<< /XObject << /A 5 0 R >> /ExtGState << /Inv << /TR 6 0 R >> >> >>",
+            &[(ONE_PIXEL_RGB, b"\xff\x00\x00"), ("<< /FunctionType 4 /Domain [0 1] /Range [0 1] /Length 14 >>", b"{ 1 exch sub }")],
+        );
+        let mut r = PageRenderer::new(Arc::new(pdf), RenderConfig::default());
+        let out = r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 1.0, tag: 0, preview: false });
+        assert!(out.error.is_none(), "{:?}", out.error);
+        let w = out.width as usize;
+        assert_eq!(rgb_at(&out.rgba, w, 35, 35), [0, 255, 255], "the transfer function was not applied to a cached image");
+        assert_eq!(rgb_at(&out.rgba, w, 100, 35), [255, 0, 0]);
+    }
+
     /// A Japanese CID font that isn't embedded (Adobe-Japan1, as `HeiseiMin-W3` with
     /// `UniJIS-UCS2-H` in #260's test file) drew nothing: hayro's substitutes for fonts that
     /// aren't embedded are Latin-only. With craft-fonts (the build input release builds embed),

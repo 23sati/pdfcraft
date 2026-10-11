@@ -403,6 +403,9 @@ fn may_paint_rect(rect: Rect, transform: Affine, width: u16, height: u16) -> boo
 pub(crate) struct Renderer {
     pub(crate) ctx: RenderContext,
     pub(crate) inside_pattern: bool,
+    /// Soft masks drawn during this render. PdfCraft note: it belongs to one `Renderer` (one
+    /// render, every nested renderer starting empty) and so to one `preview` setting: a mask
+    /// drawn for a preview, which may leave out tiny images, never reaches a final render.
     pub(crate) soft_mask_cache: HashMap<u128, Mask>,
     pub(crate) outline_cache: Rc<std::cell::RefCell<HashMap<u128, Rc<BezPath>>>>,
     pub(crate) cur_mask: Option<Mask>,
