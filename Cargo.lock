@@ -3732,6 +3732,8 @@ dependencies = [
  "pdfcraft-xfa",
  "pdfcraft-xfdf",
  "png 0.18.1",
+ "serde",
+ "serde_json",
  "thiserror 2.0.21",
  "url",
 ]
