@@ -3055,11 +3055,11 @@ title = "Rename or merge colliding field names when combining"
 area = "D"
 tier = "P1"
 milestone = "M4"
-status = "planned"
-commands = []
-tools = []
-evidence = []
-notes = ""
+status = "shipped"
+commands = ["page.insert", "page.combine"]
+tools = ["doc_combine"]
+evidence = ["crates/organize/src/tests.rs::import_renames_a_colliding_field_name", "crates/organize/src/tests.rs::import_renames_to_the_first_free_variant", "crates/organize/src/tests.rs::import_renames_away_from_an_orphaned_widgets_name", "crates/organize/src/tests.rs::import_renames_a_nested_field_whose_full_name_collides", "crates/organize/src/tests.rs::import_renames_the_colliding_child_not_the_whole_tree", "crates/organize/src/tests.rs::import_renames_a_field_colliding_with_another_incoming_field", "crates/organize/src/tests.rs::import_can_merge_into_same_named_fields_instead", "crates/organize/src/tests.rs::a_renamed_field_tree_survives_a_save_and_reopen", "crates/organize/src/tests.rs::a_repeated_page_joins_the_renamed_field", "crates/organize/src/tests.rs::combine_renames_colliding_field_names_and_reports_them", "crates/organize/src/tests.rs::combine_grouped_renames_colliding_field_names", "crates/organize/src/tests.rs::combine_field_conflicts_previews_each_file_in_order", "crates/engine/src/tests.rs::insert_from_file_renames_colliding_fields_and_notes_it", "crates/engine/src/tests.rs::combine_reports_renamed_fields_and_can_merge", "crates/automation/tests/automation.rs::combine_renames_colliding_field_names", "crates/ui-egui/tests/editing.rs::combine_list_warns_that_colliding_field_names_will_be_renamed"]
+notes = "Collisions are found by fully-qualified name (parent.T.child), counting names that hang only off page widgets even when /AcroForm never lists them, and also between two incoming fields. The colliding field's own /T takes the first free variant (Text1-1, Text1-2, …), children keep their place, and nothing is silent: inserting into an open document notes each rename in the repair log (warning that scripts referring to the old names were not rewritten) and the undo step's label counts them; doc_combine lists renamed_fields in its result; the Combine tab's Warnings column previews the renames per file before combining. field_conflicts \"merge\" on doc_combine (and the engine policy) keeps the older one-field behaviour. Still missing: the Combine tab's preview considers whole files, not a narrowed page range; the UI offers no merge choice (it always renames); Create ▸ Multiple files renames without reporting; scripts and XFA bindings that reference old names are never rewritten; Acrobat's behaviour not observed."
 
 [[feature]]
 id = "organize.struct-tree-merge"
