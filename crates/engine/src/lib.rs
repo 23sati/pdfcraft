@@ -21,6 +21,7 @@ pub mod export;
 pub mod js;
 pub mod links;
 pub mod ocr;
+mod ocr_pdf;
 pub mod optimizer;
 pub mod signature_image;
 mod upright_image;
@@ -1050,6 +1051,10 @@ pub enum Edit {
     },
     /// Scan & OCR ▸ Recognize text: put recognised words on `page` as invisible text over the
     /// image (from [`ocr::OcrJob::run`]).
+    DeskewPage {
+        page: usize,
+        degrees: f64,
+    },
     AddOcrText {
         page: usize,
         words: Vec<pdfcraft_ocr::PlacedWord>,
@@ -1255,6 +1260,7 @@ impl Edit {
             Edit::SetInitialView(_) => "Change initial view".into(),
             Edit::SetAltText { .. } => "Set alternate text".into(),
             Edit::MarkDecorative { .. } => "Mark figure as decorative".into(),
+            Edit::DeskewPage { .. } => "Straighten scanned page".into(),
             Edit::AddOcrText { .. } => "Recognize text".into(),
             Edit::ApplyScriptChanges { .. } => "Run JavaScript".into(),
             Edit::XfaEvent { .. } => "Run form script".into(),
@@ -1436,6 +1442,7 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::SetInitialView(_)
         | Edit::SetAltText { .. }
         | Edit::MarkDecorative { .. }
+        | Edit::DeskewPage { .. }
         | Edit::AddOcrText { .. }
         | Edit::SetDocumentScript { .. }
         | Edit::SetFieldScript { .. }
@@ -1691,8 +1698,9 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
             pdfcraft_preflight::convert(doc, *level).map_err(|e| EditError::Invalid(e.to_string()))?;
         }
         Edit::SetDocumentScript { name, script } => pdfcraft_forms::set_document_script(doc, name, script.as_deref())?,
+        Edit::DeskewPage { page, degrees } => ocr_pdf::deskew(doc, *page, *degrees)?,
         Edit::AddOcrText { page, words } => {
-            pdfcraft_edit::stamp(doc, *page, "OCR", pdfcraft_ocr::text_layer(words))?;
+            ocr_pdf::add_text(doc, *page, words)?;
         }
         Edit::EditPageImage { page, index, change } => {
             let img = pdfcraft_edit::page_images(doc, *page)?

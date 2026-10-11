@@ -2112,3 +2112,19 @@ key	Space	Espacio
 	Resize panel window	Cambiar tamaño de la ventana del panel
 	Tools	Herramientas
 	Inspector	Inspector
+	Scan and text recognition	Escaneo y reconocimiento de texto
+	Searchable Image	Imagen con texto buscable
+	Corrected scan	Escaneo corregido
+	Scan correction	Corrección de escaneo
+	Automatically rotate sideways and upside-down pages	Girar automáticamente las páginas de lado o boca abajo
+	Straighten skewed scans	Enderezar las páginas escaneadas torcidas
+	Add searchable text	Añadir texto buscable
+	Uncertain orientations are left unchanged. Deskew fits the full image inside the page.	Las orientaciones dudosas no se modifican. Al enderezar, toda la imagen cabe en la página.
+	Correct scans	Corregir escaneos
+	Scan processing cancelled	Procesamiento de escaneos cancelado
+	; 1 page skipped	; 1 página omitida
+	; {n} pages skipped	; {n} páginas omitidas
+	; corrected {n} pages	; {n} páginas corregidas
+	Crop scanner borders to the paper edge	Recortar los bordes del escaneo hasta el papel
+	Safety margin (pt)	Margen de seguridad (pt)
+	Only clear paper edges are cropped. Indistinguishable white borders are kept.	Solo se recortan los bordes claros del papel. Se conservan los bordes blancos indistinguibles.
