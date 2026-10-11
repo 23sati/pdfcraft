@@ -284,6 +284,17 @@ foreach ($k in "HKCU:\Software\Classes\CLSID\$Clsid", 'HKCU:\Software\Classes\Ap
 }
 Run-Host 'D machine-wide registration only (installers), out of process' 'local'
 
+# M: control - Microsoft's own (native) PDF previewer in the same harness, if this Windows has one.
+$msPdf = '{3A84F9C2-6164-485C-A7D9-4B27F8AC009E}'
+if (Test-Path "Registry::HKEY_CLASSES_ROOT\CLSID\$msPdf") {
+  Stop-Hosts
+  Say ""
+  Say "=== M control: Microsoft PDF Previewer $msPdf in the same harness (out of process) ==="
+  $ErrorActionPreference = 'Continue'
+  & $HostExe $msPdf $Pdf 'local' $Seconds (Join-Path $Work 'shot-M.png') 2>&1 | ForEach-Object { Say "$_" }
+  $ErrorActionPreference = 'Stop'
+}
+
 # U: a real standard (non-admin) user - medium integrity, as Explorer for most people - registers
 # per user, exactly as Linkco PDF Editor does when it starts, and hosts the handler.
 if ($IsAdmin) {
