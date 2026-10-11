@@ -118,6 +118,8 @@ pub fn tools() -> Vec<ToolDef> {
     let save_out = json!({ "type": "string", "description": "File to write. Omit to open the result as a new unsaved document instead." });
     let open = json!({ "type": "boolean", "description": "Also open the result as a new document (default: only when out is omitted)." });
     vec![
+        t("doc_email_draft", "Prepare an email draft with PDFs", "Convert supported sources to separate PDFs and save an unsent MIME .eml draft plus the PDF attachments in a new unique subdirectory of out_dir. Never overwrites files, starts a mail client, chooses recipients or sends mail. Webmail users can attach the saved PDFs manually. All sources must convert successfully; limited to 100 files, 64 MiB per source and 128 MiB of PDFs.")
+            .with(schema(json!({ "paths": { "type": "array", "items": { "type": "string" }, "minItems": 1, "maxItems": 100 }, "out_dir": { "type": "string", "description": "Existing parent directory for the new draft bundle." } }), &["paths", "out_dir"])),
         t("doc_open", "Open a PDF", "Open a PDF file and return its document id, page count and whether it can be edited.")
             .cmd("file.open")
             .with(schema(json!({ "path": { "type": "string" }, "password": { "type": "string", "description": "User or owner password for encrypted files." } }), &["path"])),

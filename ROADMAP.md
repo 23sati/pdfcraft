@@ -135,7 +135,9 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 ## Progress log
 
+- 2026-10-11: Windows Explorer conversion, reviewed multi-file combination, and local unsent PDF email drafts; localized classic verbs and bounded single-instance handoff. Windows 11 uses Show more options; webmail attaches the saved PDFs manually. See [Windows Explorer actions](docs/windows-explorer.md).
 - **2026-10-11 (M10.5, focused follow-up to #599):** Carry the architectural/ANSI/large ISO paper presets, current-page matching at 100%, and previewed PDF scale into the current print dialog and `doc_print`. Retains the #847/#1007 spooler and background discovery. Driver substitution, physical calibration, vector Windows printing and managed-endpoint restrictions remain separate gaps. Overall estimates unchanged.
+- 2026-10-11: Windows default-PDF offer after a successful open, persistent opt-out and Preferences reset; supported Settings links and synthetic host/UI regressions.
 
 Newest first: the date, what moved, and the new overall estimate.
 

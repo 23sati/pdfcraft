@@ -15,6 +15,7 @@ mod a11y;
 mod comments;
 mod content;
 mod conventions;
+mod email;
 mod forms;
 mod links;
 #[cfg(feature = "mcp")]
@@ -253,6 +254,7 @@ impl Automation {
             "page_extract" => self.page_extract(&a)?,
             "doc_combine" => self.doc_combine(&a)?,
             "doc_create_multiple" => self.doc_create_multiple(&a)?,
+            "doc_email_draft" => self.doc_email_draft(&a)?,
             "doc_split" => self.doc_split(&a)?,
             "edit_undo" => {
                 let id = self.doc(&a)?.id;

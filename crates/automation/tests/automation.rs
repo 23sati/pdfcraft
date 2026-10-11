@@ -82,6 +82,29 @@ fn tool_table_is_well_formed() {
     }
 }
 
+#[test]
+fn email_draft_converts_all_sources_keeps_pdfs_and_respects_root() {
+    let directory = workdir("email-draft");
+    std::fs::write(directory.join("notes.txt"), b"Synthetic note attachment").unwrap();
+    let mut a = auto(&directory);
+    let result = ok(&mut a, "doc_email_draft", json!({"paths": ["a.pdf", "notes.txt"], "out_dir": "."}));
+    assert_eq!(result["sent"], false);
+    let path = std::path::Path::new(result["path"].as_str().unwrap());
+    assert!(path.canonicalize().unwrap().starts_with(directory.canonicalize().unwrap()));
+    let message = std::fs::read_to_string(path).unwrap();
+    assert!(message.starts_with("X-Unsent: 1\r\n"));
+    assert_eq!(result["attachments"].as_array().unwrap().len(), 2);
+    for attachment in result["attachments"].as_array().unwrap() {
+        let info = ok(&mut a, "doc_open", json!({"path": attachment}));
+        assert!(info["pages"].as_u64().unwrap() > 0);
+    }
+    let before = std::fs::read_dir(&directory).unwrap().count();
+    assert!(a.call("doc_email_draft", &json!({"paths": ["a.pdf", "missing.txt"], "out_dir": "."})).is_err());
+    assert!(a.call("doc_email_draft", &json!({"paths": ["../outside.txt"], "out_dir": "."})).is_err());
+    assert!(a.call("doc_email_draft", &json!({"paths": ["a.pdf"], "out_dir": ".."})).is_err());
+    assert_eq!(std::fs::read_dir(&directory).unwrap().count(), before, "failed draft leaves no partial output");
+}
+
 /// Each of these writes to its required `path` and replaces an existing file there, so the MCP
 /// annotations must not tell clients the call is read-only or harmless (#130).
 #[test]

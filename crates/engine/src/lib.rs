@@ -20,6 +20,7 @@ pub mod catalog;
 pub mod commands;
 pub mod compare;
 pub mod dates;
+pub mod email;
 pub mod export;
 pub mod js;
 pub mod links;
