@@ -213,21 +213,115 @@ impl PageText {
 
     /// Merge the boxes of `range` into one rectangle per line (for highlighting).
     pub fn line_rects(&self, range: std::ops::Range<usize>) -> Vec<[f32; 4]> {
-        let mut out: Vec<(u32, [f32; 4])> = Vec::new();
-        for i in range {
-            let Some(g) = self.glyphs.get(i) else { break };
-            let line = self.line_of[i];
+        self.merged_rects(range)
+    }
+
+    /// One rectangle per run of consecutive glyphs on one line, for glyph indices in ascending
+    /// order (a reading-order range, or [`Self::glyphs_in`]). A run stops at a skipped glyph, so
+    /// the rectangle never covers text that is not selected.
+    pub fn glyph_rects(&self, glyphs: &[usize]) -> Vec<[f32; 4]> {
+        self.merged_rects(glyphs.iter().copied())
+    }
+
+    fn merged_rects(&self, glyphs: impl IntoIterator<Item = usize>) -> Vec<[f32; 4]> {
+        let mut out: Vec<(u32, usize, [f32; 4])> = Vec::new();
+        for i in glyphs {
+            let (Some(g), Some(&line)) = (self.glyphs.get(i), self.line_of.get(i)) else { break };
             match out.last_mut() {
-                Some((l, r)) if *l == line => {
-                    r[0] = r[0].min(g.rect[0]);
-                    r[1] = r[1].min(g.rect[1]);
-                    r[2] = r[2].max(g.rect[2]);
-                    r[3] = r[3].max(g.rect[3]);
+                Some((l, last, r)) if *l == line && last.checked_add(1) == Some(i) => {
+                    *last = i;
+                    union(r, &g.rect);
                 }
-                _ => out.push((line, g.rect)),
+                _ => out.push((line, i, g.rect)),
             }
         }
-        out.into_iter().map(|(_, r)| r).collect()
+        out.into_iter().map(|(_, _, r)| r).collect()
+    }
+
+    /// The glyphs whose centre lies inside `rect` (view space, corners in either order), in
+    /// reading order: what a column selection covers (Alt/Option-drag, Acrobat's column select).
+    /// A glyph only partly inside counts when its centre is, so a rectangle drawn a little into
+    /// the next column does not pick up the edge of its text.
+    pub fn glyphs_in(&self, rect: [f32; 4]) -> Vec<usize> {
+        let (x0, x1) = (rect[0].min(rect[2]), rect[0].max(rect[2]));
+        let (y0, y1) = (rect[1].min(rect[3]), rect[1].max(rect[3]));
+        let inside = |g: &TextGlyph| {
+            let (cx, cy) = ((g.rect[0] + g.rect[2]) / 2.0, (g.rect[1] + g.rect[3]) / 2.0);
+            (x0..=x1).contains(&cx) && (y0..=y1).contains(&cy)
+        };
+        self.glyphs.iter().enumerate().filter(|(_, g)| inside(g)).map(|(i, _)| i).collect()
+    }
+
+    /// The text of a column selection ([`Self::glyphs_in`]) as it looks on the page: one row per
+    /// visual line, top to bottom. Pieces of different lines that sit side by side (table cells,
+    /// newspaper columns) share a row and are separated by a tab, so a pasted table lands in
+    /// spreadsheet cells. Rows of right-to-left text put their pieces right to left. When any
+    /// selected glyph does not run horizontally (CJK vertical writing, turned text, a page shown
+    /// turned by `/Rotate`) rows mean nothing, and the lines come out one per row in reading order
+    /// instead.
+    pub fn column_text(&self, glyphs: &[usize]) -> String {
+        // The selected glyphs of each line, with their box: (glyphs, bbox).
+        let mut lines: Vec<(Vec<usize>, [f32; 4])> = Vec::new();
+        let mut line_ids: Vec<u32> = Vec::new();
+        for &i in glyphs {
+            let (Some(g), Some(&line)) = (self.glyphs.get(i), self.line_of.get(i)) else { continue };
+            match (lines.last_mut(), line_ids.last()) {
+                (Some((members, bb)), Some(&l)) if l == line => {
+                    members.push(i);
+                    union(bb, &g.rect);
+                }
+                _ => {
+                    lines.push((vec![i], g.rect));
+                    line_ids.push(line);
+                }
+            }
+        }
+        // Within the layout's own tolerance for reading a glyph as unturned.
+        let vertical = glyphs.iter().any(|&i| self.glyphs.get(i).is_some_and(|g| g.direction[1].abs() > WORD_GAP));
+        let piece = |members: &[usize]| {
+            let mut s = String::new();
+            let mut prev: Option<usize> = None;
+            for &i in members {
+                let Some(g) = self.glyphs.get(i) else { continue };
+                let gap = self.space_before.get(i).copied().unwrap_or(false) || prev.and_then(|p| p.checked_add(1)) != Some(i);
+                if prev.is_some() && gap {
+                    s.push(' ');
+                }
+                s.push_str(&g.text);
+                prev = Some(i);
+            }
+            s
+        };
+        if vertical {
+            return lines.iter().map(|(members, _)| piece(members)).collect::<Vec<_>>().join("\n");
+        }
+        // Rows: a line joins the row whose first line its vertical centre falls within.
+        let mut order: Vec<usize> = (0..lines.len()).collect();
+        order.sort_by(|a, b| {
+            let cy = |k: usize| lines.get(k).map_or(0.0, |(_, bb)| (bb[1] + bb[3]) / 2.0);
+            cy(*a).total_cmp(&cy(*b))
+        });
+        let mut rows: Vec<(f32, f32, Vec<usize>)> = Vec::new();
+        for k in order {
+            let Some((_, bb)) = lines.get(k) else { continue };
+            let cy = (bb[1] + bb[3]) / 2.0;
+            match rows.last_mut() {
+                Some((top, bottom, members)) if cy >= *top && cy <= *bottom => members.push(k),
+                _ => rows.push((bb[1], bb[3], vec![k])),
+            }
+        }
+        let rtl = |members: &[usize]| members.iter().any(|&i| self.glyphs.get(i).is_some_and(|g| g.text.chars().any(is_rtl)));
+        let mut out = Vec::with_capacity(rows.len());
+        for (_, _, mut members) in rows {
+            let right_to_left = members.iter().all(|&k| lines.get(k).is_some_and(|(m, _)| rtl(m)));
+            members.sort_by(|a, b| {
+                let x = |k: usize| lines.get(k).map_or(0.0, |(_, bb)| bb[0]);
+                if right_to_left { x(*b).total_cmp(&x(*a)) } else { x(*a).total_cmp(&x(*b)) }
+            });
+            let cells: Vec<String> = members.iter().filter_map(|&k| lines.get(k)).map(|(m, _)| piece(m)).collect();
+            out.push(cells.join("\t"));
+        }
+        out.join("\n")
     }
 }
 
@@ -725,7 +819,23 @@ fn arrange(glyphs: &[TextGlyph]) -> (Vec<usize>, Vec<u32>, Vec<bool>) {
         for si in &blocks[b].0 {
             let s = &segs[*si];
             let mut idx = s.idx.clone();
-            // Reverse right-to-left runs (visual → logical).
+            // Word gaps relative to this line's typical letter gap (handles tracking).
+            let mut gaps: Vec<f32> = s.idx.windows(2).map(|w| glyphs[w[1]].rect[0] - glyphs[w[0]].rect[2]).collect();
+            gaps.sort_by(f32::total_cmp);
+            let typical = gaps.get(gaps.len() / 3).copied().unwrap_or(0.0).max(0.0);
+            let threshold = (typical + s.h * WORD_GAP).max(s.h * WORD_GAP);
+            // `spaces[w]`: a word gap left of the glyph at `idx[w]`, by position on the line, not
+            // by drawing order (#1062).
+            let mut spaces = vec![false; idx.len()];
+            for (space, pair) in spaces.iter_mut().skip(1).zip(s.idx.windows(2)) {
+                let &[p, c] = pair else { continue };
+                let gap = glyphs[c].rect[0] - glyphs[p].rect[2];
+                let (pt, ct) = (&glyphs[p].text, &glyphs[c].text);
+                let cjk = pt.chars().any(is_cjk) && ct.chars().any(is_cjk) && gap < s.h * 0.5;
+                let tight_cluster = (pt.chars().any(is_complex) || ct.chars().any(is_complex)) && gap < s.h * 0.6;
+                *space = gap > threshold && !cjk && !tight_cluster && !pt.trim().is_empty() && !ct.trim().is_empty();
+            }
+            // Reverse right-to-left runs (visual → logical), and the gaps between their glyphs with them.
             let rtl = |i: usize| glyphs[i].text.chars().any(is_rtl);
             let mut k = 0;
             while k < idx.len() {
@@ -737,28 +847,10 @@ fn arrange(glyphs: &[TextGlyph]) -> (Vec<usize>, Vec<u32>, Vec<bool>) {
                         e += 1;
                     }
                     idx[k..=e].reverse();
+                    spaces[k + 1..=e].reverse();
                     k = e + 1;
                 } else {
                     k += 1;
-                }
-            }
-            // Word gaps relative to this line's typical letter gap (handles tracking).
-            let mut gaps: Vec<f32> = s.idx.windows(2).map(|w| glyphs[w[1]].rect[0] - glyphs[w[0]].rect[2]).collect();
-            gaps.sort_by(f32::total_cmp);
-            let typical = gaps.get(gaps.len() / 3).copied().unwrap_or(0.0).max(0.0);
-            let threshold = (typical + s.h * WORD_GAP).max(s.h * WORD_GAP);
-            let mut spaces = vec![false; idx.len()];
-            for w in 1..s.idx.len() {
-                let (p, c) = (s.idx[w - 1], s.idx[w]);
-                let gap = glyphs[c].rect[0] - glyphs[p].rect[2];
-                let (pt, ct) = (&glyphs[p].text, &glyphs[c].text);
-                let cjk = pt.chars().any(is_cjk) && ct.chars().any(is_cjk) && gap < s.h * 0.5;
-                let tight_cluster = (pt.chars().any(is_complex) || ct.chars().any(is_complex)) && gap < s.h * 0.6;
-                if gap > threshold && !cjk && !tight_cluster && !pt.trim().is_empty() && !ct.trim().is_empty() {
-                    // Mark the space before glyph `c` wherever it ended up after RTL reversal.
-                    if let Some(pos) = idx.iter().position(|x| *x == c.max(p)) {
-                        spaces[pos] = true;
-                    }
                 }
             }
             for (k, g) in idx.iter().enumerate() {
@@ -1064,6 +1156,21 @@ mod tests {
         assert_eq!(layout(v).plain_text(), "每个字");
     }
 
+    /// #1062: the word gap stays between the runs when the right-hand run is drawn first, and
+    /// between the words of a right-to-left line.
+    #[test]
+    fn word_gaps_follow_position_not_drawing_order() {
+        let mut v = Vec::new();
+        word(&mut v, "19.4", 40.0, 10.0, 6.0);
+        word(&mut v, "20.0", 10.0, 10.0, 6.0);
+        assert_eq!(layout(v).plain_text(), "20.0 19.4");
+        let mut v = Vec::new();
+        // "שלום עולם" drawn visually: עולם reversed on the left, שלום reversed on the right.
+        word(&mut v, "םלוע", 10.0, 10.0, 6.0);
+        word(&mut v, "םולש", 40.0, 10.0, 6.0);
+        assert_eq!(layout(v).plain_text(), "שלום עולם");
+    }
+
     /// Two lines, "ab cd" and "e fg": words stop at blank glyphs, word gaps and line ends.
     #[test]
     fn words_and_lines_around_a_glyph() {
@@ -1202,5 +1309,86 @@ mod tests {
         assert_eq!(skewed.direction, [1.0, 0.0]);
         let slant = skewed.quad[3][0] - skewed.quad[0][0];
         assert!((slant - 10.0).abs() < 1e-3, "the skewed glyph's upright edge leans by half its 20 pt height: {skewed:?}");
+    }
+
+    /// A three-row table, "Name Qty / Apple 12 / Pear 7": the columns sit far enough apart that
+    /// reading order takes one column, then the other.
+    fn table() -> PageText {
+        let mut v = Vec::new();
+        for (row, (name, qty)) in [("Name", "Qty"), ("Apple", "12"), ("Pear", "7")].into_iter().enumerate() {
+            let y = 10.0 + row as f32 * 14.0;
+            word(&mut v, name, 10.0, y, 6.0);
+            word(&mut v, qty, 100.0, y, 6.0);
+        }
+        layout(v)
+    }
+
+    /// Issue #740: a column selection takes only what is inside the rectangle.
+    #[test]
+    fn a_column_selection_takes_one_table_column() {
+        let t = table();
+        assert_eq!(t.plain_text(), "Name\nApple\nPear\nQty\n12\n7", "reading order is column by column");
+        let qty = t.glyphs_in([95.0, 0.0, 130.0, 60.0]);
+        assert_eq!(t.column_text(&qty), "Qty\n12\n7");
+        assert_eq!(t.glyph_rects(&qty).len(), 3, "one highlight per row");
+        // Corners in either order.
+        assert_eq!(t.glyphs_in([130.0, 60.0, 95.0, 0.0]), qty);
+    }
+
+    /// Across columns the text comes out row by row, cells separated by tabs.
+    #[test]
+    fn a_column_selection_across_columns_reads_row_by_row() {
+        let t = table();
+        let all = t.glyphs_in([0.0, 0.0, 200.0, 60.0]);
+        assert_eq!(t.column_text(&all), "Name\tQty\nApple\t12\nPear\t7");
+        // The middle row only, and only the start of "Apple": centres decide.
+        let part = t.glyphs_in([0.0, 25.0, 31.0, 33.0]);
+        assert_eq!(t.column_text(&part), "Appl");
+        assert_eq!(t.glyph_rects(&part), vec![[10.0, 24.0, 34.0, 34.0]]);
+    }
+
+    /// A rectangle that misses every glyph, or is not a number, selects nothing.
+    #[test]
+    fn an_empty_or_degenerate_column_selection_is_empty() {
+        let t = table();
+        for r in [[300.0, 300.0, 400.0, 400.0], [f32::NAN, 0.0, 200.0, 60.0], [50.0, 50.0, 50.0, 50.0]] {
+            let none = t.glyphs_in(r);
+            assert!(none.is_empty(), "{r:?}");
+            assert_eq!(t.column_text(&none), "");
+            assert!(t.glyph_rects(&none).is_empty());
+        }
+        assert_eq!(PageText::default().column_text(&[0, 7, usize::MAX]), "", "indices past the text are ignored");
+    }
+
+    /// Right-to-left rows put their cells right to left.
+    #[test]
+    fn right_to_left_rows_read_right_to_left() {
+        let mut v = Vec::new();
+        // "שלום" (right) and "עולם" (left), each drawn visually.
+        word(&mut v, "םולש", 100.0, 10.0, 6.0);
+        word(&mut v, "םלוע", 10.0, 10.0, 6.0);
+        let t = layout(v);
+        let all = t.glyphs_in([0.0, 0.0, 200.0, 30.0]);
+        assert_eq!(t.column_text(&all), "שלום\tעולם");
+    }
+
+    /// Vertical lines (CJK vertical writing) come out one per row, in reading order.
+    #[test]
+    fn vertical_lines_keep_reading_order() {
+        // Written downwards: the em box's edge towards the next line is its left one.
+        let cell = |t: &str, x: f32, y: f32| TextGlyph {
+            text: t.into(),
+            rect: [x, y, x + 10.0, y + 10.0],
+            quad: [[x, y], [x, y + 10.0], [x + 10.0, y + 10.0], [x + 10.0, y]],
+            direction: [0.0, 1.0],
+        };
+        let t = PageText {
+            // Right column 日本 first, then the left column 語文, each top to bottom.
+            glyphs: vec![cell("日", 40.0, 10.0), cell("本", 40.0, 20.0), cell("語", 20.0, 10.0), cell("文", 20.0, 20.0)],
+            line_of: vec![0, 0, 1, 1],
+            space_before: vec![false; 4],
+        };
+        let all = t.glyphs_in([0.0, 0.0, 60.0, 40.0]);
+        assert_eq!(t.column_text(&all), "日本\n語文");
     }
 }

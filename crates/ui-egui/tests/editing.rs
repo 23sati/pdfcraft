@@ -6,7 +6,7 @@ use egui::{Key, Modifiers};
 use egui_kittest::Harness;
 use egui_kittest::kittest::{NodeT, Queryable};
 use pdfcraft_render::{PageRenderer, RenderRequest, RequestKind};
-use pdfcraft_ui_egui::{CloseRequest, PdfCraftApp};
+use pdfcraft_ui_egui::{CloseRequest, Dialog, PdfCraftApp};
 
 /// An `n`-page document with a proper xref table; page `i` shows "Page i+1".
 fn fixture(n: usize) -> Vec<u8> {
@@ -357,6 +357,46 @@ fn the_save_prompt_answers_to_the_keyboard() {
 }
 
 #[test]
+fn keys_leave_the_document_under_a_dialog_alone() {
+    // Issue #870: ⌘W with Preferences open closed the file underneath it, and in the page grid
+    // Delete deleted the selected page. While a dialog is open its keys are its own.
+    let mut h = organize(3);
+    h.get_by_label("Page 2").click();
+    h.run_steps(2);
+    h.get_by_label("Rotate clockwise").click();
+    h.run_steps(3);
+    assert!(h.state_mut().execute("app.preferences"));
+    h.run_steps(3);
+    let shift = Modifiers::COMMAND | Modifiers::SHIFT;
+    for (m, key) in [
+        (Modifiers::COMMAND, Key::W),
+        (shift, Key::W),
+        (Modifiers::COMMAND, Key::Z),
+        (Modifiers::COMMAND, Key::D),
+        (Modifiers::COMMAND, Key::F),
+        (Modifiers::NONE, Key::Delete),
+        (Modifiers::NONE, Key::Backspace),
+    ] {
+        h.key_press_modifiers(m, key);
+        h.run_steps(3);
+        let app = h.state();
+        assert_eq!(app.views.len(), 1, "{m:?}+{key:?} closed the file");
+        assert!(app.close_request.is_none(), "{m:?}+{key:?} asked to close the file");
+        assert!(app.session.get(app.views[0].id).unwrap().can_undo().is_some(), "{m:?}+{key:?} undid the rotation");
+        assert!(app.views[0].find.is_none(), "{m:?}+{key:?} opened Find");
+        assert_eq!(app.dialog, Some(Dialog::Preferences), "{m:?}+{key:?} replaced Preferences");
+    }
+    assert_eq!(page_texts(h.state()), ["Page 1", "Page 2", "Page 3"], "a page was deleted under the dialog");
+    h.key_press(Key::Escape);
+    h.run_steps(3);
+    assert!(h.state().dialog.is_none(), "Escape closes Preferences");
+    assert_eq!(h.state().views[0].target_pages(), [1], "Escape went to the dialog, not the page selection");
+    h.key_press_modifiers(Modifiers::COMMAND, Key::W);
+    h.run_steps(3);
+    assert!(h.state().close_request.is_some(), "with the dialog closed, ⌘W closes the file again");
+}
+
+#[test]
 fn clean_tabs_close_without_asking() {
     let mut h = harness(1, |_| {});
     h.key_press_modifiers(Modifiers::COMMAND, Key::W);
@@ -661,6 +701,7 @@ fn combining_files_opens_a_new_unsaved_tab() {
 #[test]
 fn combine_files_takes_chosen_pages_in_the_order_listed() {
     let mut h = harness(1, |app| {
+        app.set_option("combine-view", "list").unwrap();
         app.use_files(pdfcraft_ui_egui::FilePurpose::Combine, vec![("one.pdf".into(), fixture(3)), ("two.pdf".into(), fixture(2))]);
     });
     h.run_steps(3);
@@ -694,7 +735,7 @@ fn combine_files_opens_in_its_own_tab() {
     h.state_mut().execute("page.combine");
     h.run_steps(3);
     assert!(h.state().combine_showing() && h.state().active.is_none());
-    h.get_by_label("Add the PDFs to combine");
+    h.get_by_label("Add the files to combine");
     // Back to the document, then to Combine through its tab.
     h.get_by_label("doc.pdf").click();
     h.run_steps(3);
@@ -727,6 +768,7 @@ fn closing_the_combine_tab_forgets_its_list() {
 #[test]
 fn combine_lists_size_and_warns_before_combining() {
     let mut h = harness(1, |app| {
+        app.set_option("combine-view", "list").unwrap();
         app.use_files(
             pdfcraft_ui_egui::FilePurpose::Combine,
             vec![
@@ -792,9 +834,13 @@ fn combine_names(h: &Harness<'static, PdfCraftApp>) -> Vec<String> {
     h.state().combine_draft.iter().map(|f| f.name.clone()).collect()
 }
 
+/// Files in the Combine tab's list view (the table: headings, page ranges, row links).
 fn combine_of(names: &[(&str, usize)]) -> Harness<'static, PdfCraftApp> {
     let files: Vec<(String, Vec<u8>)> = names.iter().map(|(n, p)| (n.to_string(), fixture(*p))).collect();
-    let mut h = harness(1, move |app| app.use_files(pdfcraft_ui_egui::FilePurpose::Combine, files));
+    let mut h = harness(1, move |app| {
+        app.set_option("combine-view", "list").unwrap();
+        app.use_files(pdfcraft_ui_egui::FilePurpose::Combine, files);
+    });
     h.run_steps(3);
     h
 }
@@ -887,6 +933,7 @@ fn undo_and_redo_restore_the_combine_list() {
 #[test]
 fn protected_files_that_can_be_combined_are_flagged() {
     let mut h = harness(1, |app| {
+        app.set_option("combine-view", "list").unwrap();
         app.use_files(
             pdfcraft_ui_egui::FilePurpose::Combine,
             vec![("one.pdf".into(), fixture(1)), ("no-copy.pdf".into(), protected("", "owner", -1 ^ 16))],
@@ -944,31 +991,91 @@ fn columns_resize_and_the_layout_is_kept_in_the_settings() {
 }
 
 #[test]
-fn a_folder_adds_its_pdfs_in_order_and_optionally_its_subfolders() {
+fn a_folder_adds_its_pdfs_images_and_text_in_order_and_optionally_its_subfolders() {
     let dir = std::env::temp_dir().join(format!("pdfcraft-combine-folder-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("sub")).unwrap();
     for (name, pages) in [("page10.pdf", 1), ("page2.PDF", 2), ("sub/inner.pdf", 3)] {
         std::fs::write(dir.join(name), fixture(pages)).unwrap();
     }
-    std::fs::write(dir.join("notes.txt"), b"not a pdf").unwrap();
+    // #569: images and text files join too; other files are left out.
+    std::fs::write(dir.join("notes.txt"), b"Some notes").unwrap();
+    std::fs::write(dir.join("readme.md"), b"# not combinable").unwrap();
     let mut h = harness(1, |_| {});
     h.state_mut().execute("page.combine");
     h.run_steps(2);
     h.state_mut().pick_override = Some(vec![dir.to_string_lossy().into_owned()]);
     h.get_by_label("Add folder…").click();
     h.run_steps(4);
-    assert_eq!(combine_names(&h), ["page2.PDF", "page10.pdf"], "PDFs only, numbers by value");
+    assert_eq!(combine_names(&h), ["notes.txt", "page2.PDF", "page10.pdf"], "numbers by value");
     // The toolbar's menu: the folder and its subfolders, as one undo step.
     h.get_by_label("More ways to add files").click();
     h.run_steps(2);
     h.get_by_label("Add folder and subfolders…").click();
     h.run_steps(4);
-    assert_eq!(combine_names(&h), ["page2.PDF", "page10.pdf", "page2.PDF", "page10.pdf", "inner.pdf"]);
+    assert_eq!(combine_names(&h), ["notes.txt", "page2.PDF", "page10.pdf", "notes.txt", "page2.PDF", "page10.pdf", "inner.pdf"]);
     h.key_press_modifiers(Modifiers::COMMAND, Key::Z);
     h.run_steps(2);
-    assert_eq!(combine_names(&h).len(), 2);
+    assert_eq!(combine_names(&h).len(), 3);
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// #569: an image or a text file added to Combine files becomes a PDF as it joins the list, an
+/// ordinary row with its pages.
+#[test]
+fn images_and_text_files_join_the_combine_list_as_pdfs() {
+    let mut png = std::io::Cursor::new(Vec::new());
+    image::RgbImage::from_pixel(40, 20, image::Rgb([90, 120, 200])).write_to(&mut png, image::ImageFormat::Png).unwrap();
+    let mut h = combine_of(&[("one.pdf", 2)]);
+    h.state_mut()
+        .use_files(pdfcraft_ui_egui::FilePurpose::Combine, vec![("scan.png".into(), png.into_inner()), ("notes.txt".into(), b"Some notes".to_vec())]);
+    h.run_steps(3);
+    assert_eq!(combine_names(&h), ["one.pdf", "scan.png", "notes.txt"]);
+    let draft = &h.state().combine_draft;
+    assert!(draft.iter().all(|f| f.bytes.starts_with(b"%PDF-") && f.problem.is_none()), "made into PDFs");
+    assert_eq!(draft.iter().map(|f| f.pages).collect::<Vec<_>>(), [2, 1, 1]);
+    h.get_by_label("Combine").click();
+    h.run_steps(3);
+    assert_eq!(texts_of(h.state(), 1), ["Page 1", "Page 2", "", "Some notes"]);
+}
+
+/// A file that can't be read (a damaged image, a type that can't be made into a PDF) joins the
+/// list all the same, with why; Combine asks before leaving it out, and Cancel changes nothing.
+#[test]
+fn files_that_cannot_be_read_are_listed_and_left_out_once_the_user_agrees() {
+    let mut h = combine_of(&[("one.pdf", 2)]);
+    let bad = vec![("broken.jpg".to_string(), b"\xff\xd8\xff\xe0 not a JPEG".to_vec()), ("report.docx".to_string(), b"PK\x03\x04".to_vec())];
+    h.state_mut().use_files(pdfcraft_ui_egui::FilePurpose::Combine, bad);
+    h.run_steps(3);
+    assert_eq!(combine_names(&h), ["one.pdf", "broken.jpg", "report.docx"]);
+    for f in &h.state().combine_draft[1..] {
+        let why = f.problem.as_deref().expect("why it can't be combined");
+        assert!(why.starts_with("Can't be read: ") && !why.contains(&f.name), "{why}");
+        assert!(f.lock.is_none() && f.pages == 0);
+    }
+    h.get_by_label_contains("this file type can't be converted");
+    // One readable file is not enough to combine.
+    assert!(h.get_by_label("Combine").accesskit_node().is_disabled());
+    h.state_mut().use_files(pdfcraft_ui_egui::FilePurpose::Combine, vec![("two.pdf".into(), fixture(1))]);
+    h.run_steps(3);
+    assert!(!h.get_by_label("Combine").accesskit_node().is_disabled());
+    // Combine asks first, naming the files left out; Cancel leaves everything as it was.
+    h.get_by_label("Combine").click();
+    h.run_steps(3);
+    h.get_by_label("Leave out files that can't be read?");
+    h.get_by_label("• broken.jpg");
+    h.get_by_label("• report.docx");
+    h.get_by_label("Cancel").click();
+    h.run_steps(3);
+    assert!(h.query_by_label("Leave out files that can't be read?").is_none());
+    assert_eq!(h.state().views.len(), 1, "nothing combined");
+    assert_eq!(combine_names(&h).len(), 4);
+    // Asked again: Combine the rest.
+    h.get_by_label("Combine").click();
+    h.run_steps(3);
+    h.get_by_label("Combine the rest").click();
+    h.run_steps(3);
+    assert_eq!(texts_of(h.state(), 1), ["Page 1", "Page 2", "Page 1"]);
 }
 
 fn type_password(h: &mut Harness<'static, PdfCraftApp>, password: &str) {

@@ -883,6 +883,48 @@ impl RenderPool {
     }
 }
 
+/// A pool's threads after [`RenderPool::retire`]. Idle ones exit at once; one still rendering is
+/// told to stop at its next drawing operator and exits when its render returns, which a single
+/// long operator (such as decoding a huge image) can delay.
+pub struct Retiring(Vec<JoinHandle<()>>);
+
+impl Retiring {
+    /// The threads that haven't exited yet.
+    pub fn running(&mut self) -> usize {
+        self.0.retain(|h| !h.is_finished());
+        self.0.len()
+    }
+
+    /// Whether every thread has exited.
+    pub fn exited(&self) -> bool {
+        self.0.iter().all(JoinHandle::is_finished)
+    }
+}
+
+impl RenderPool {
+    /// No replacement threads: when the watchdog gives up on a render, the request (and any
+    /// later one) is answered with an error instead of starting another thread. For a caller that
+    /// bounds how many render threads exist at once: the stuck thread keeps running until its
+    /// operator returns, and a replacement would run beside it.
+    pub fn without_replacements(self) -> Self {
+        *lock(&self.replacements_left) = 0;
+        self
+    }
+
+    /// This pool's threads that haven't exited (workers and replacements; 0 when rendering inline).
+    pub fn threads(&self) -> usize {
+        lock(&self._workers).iter().filter(|h| !h.is_finished()).count()
+    }
+
+    /// Drop the pool but keep its threads' handles, for a caller that bounds how many render
+    /// threads run at once: a render the watchdog gave up on can outlive its pool.
+    pub fn retire(self) -> Retiring {
+        let handles = std::mem::take(&mut *lock(&self._workers));
+        drop(self);
+        Retiring(handles)
+    }
+}
+
 impl Drop for RenderPool {
     fn drop(&mut self) {
         #[cfg(not(target_arch = "wasm32"))]
@@ -1292,6 +1334,58 @@ mod tests {
         waiter.join().unwrap();
         release_tx.send(()).unwrap();
         assert!(initializer.join().unwrap().unwrap().is_some());
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn a_retired_pool_counts_its_threads_until_they_exit() {
+        // Idle: its thread leaves as soon as the pool is gone.
+        let mut idle = RenderPool::new(Arc::new(ONE_PAGE_TWICE.to_vec()), 1, RenderConfig::default()).retire();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while idle.running() > 0 && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert_eq!(idle.running(), 0);
+        // Busy in a step that can't be interrupted: still counted after the pool is dropped.
+        let pool = RenderPool::new(Arc::new(ONE_PAGE_TWICE.to_vec()), 1, RenderConfig::default());
+        *lock(&pool.shared.slow_page) = Some((0, std::time::Duration::from_secs(2)));
+        pool.set_queue(vec![RenderRequest { page: 0, scale: 1.0, ..Default::default() }]);
+        while pool.shared.render_started.load(Ordering::Relaxed) == 0 && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        let mut busy = pool.retire();
+        assert_eq!(busy.running(), 1, "the render is still under way");
+        while busy.running() > 0 && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert_eq!(busy.running(), 0, "and the thread exits when it returns");
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn a_pool_without_replacements_never_runs_a_second_thread() {
+        // The watchdog gives up on a render stuck in one long step; with no replacement, the
+        // request is answered with an error and the stuck thread is the only one.
+        let mut pool = RenderPool::new(Arc::new(ONE_PAGE_TWICE.to_vec()), 1, RenderConfig::default()).without_replacements();
+        pool.set_stuck_after(std::time::Duration::from_millis(50));
+        *lock(&pool.shared.slow_page) = Some((0, std::time::Duration::from_secs(2)));
+        pool.set_queue(vec![RenderRequest { page: 0, scale: 1.0, ..Default::default() }]);
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        let answer = loop {
+            assert!(pool.threads() <= 1, "{} render threads", pool.threads());
+            if let Some(page) = pool.try_recv() {
+                break page;
+            }
+            assert!(std::time::Instant::now() < deadline, "the stuck render is answered");
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        };
+        assert!(answer.error.is_some(), "answered with an error, not a second attempt");
+        assert!(pool.threads() <= 1);
+        let mut retired = pool.retire();
+        while retired.running() > 0 {
+            assert!(std::time::Instant::now() < deadline, "the stuck thread exits when its step ends");
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -3745,6 +3839,152 @@ trailer << /Root 1 0 R >>
                 .unwrap_or_else(|_| panic!("{what}: a JBIG2 symbol dictionary must not stall the renderer"));
             assert!(page.error.is_none(), "{what}: {:?}", page.error);
             assert_eq!(&page.rgba[((38 * 40 + 1) * 4)..][..4], &[255, 0, 0, 255], "{what}: the rest of the page draws");
+        }
+    }
+
+    /// Item 1 of storytold/pdfcraft#623: a page's content used to be cut at `MAX_DECODED_STREAM`,
+    /// so everything after the cut was lost (the text and the title block of the A1 sample). Content
+    /// that expands by a few times over is read to its end, however large it is.
+    #[test]
+    fn page_content_past_the_old_cap_renders() {
+        let limit = hayro::hayro_syntax::MAX_DECODED_STREAM;
+        // Blocks of a comment and a run of blanks. Each compresses about thirty times over, well
+        // within the budget that `ContentReader` allows.
+        let mut content = Vec::with_capacity(limit + (8 << 20));
+        let mut state = 0x2545_f491_4f6c_dd1d_u64;
+        while content.len() < limit + (8 << 20) {
+            content.push(b'%');
+            for _ in 0..3 {
+                state = state.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+                content.push(b'a' + ((state >> 33) % 26) as u8);
+            }
+            content.push(b'\n');
+            content.resize(content.len() + 128, b' ');
+        }
+        content.extend_from_slice(b"1 0 0 rg 0 0 4 4 re f");
+        let mut z = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+        std::io::Write::write_all(&mut z, &content).unwrap();
+        let stream = z.finish().unwrap();
+        assert!(content.len() < 64 * stream.len(), "the content expands by less than the budget allows");
+
+        let mut pdf = b"%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 40 40] /Contents 4 0 R >> endobj\n".to_vec();
+        pdf.extend_from_slice(format!("4 0 obj << /Filter /FlateDecode /Length {} >> stream\n", stream.len()).as_bytes());
+        pdf.extend_from_slice(&stream);
+        pdf.extend_from_slice(b"\nendstream endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n");
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut r = PageRenderer::new(Arc::new(pdf), RenderConfig::default());
+            let _ = tx.send(r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 1.0, tag: 0 }));
+        });
+        let page = rx.recv_timeout(std::time::Duration::from_secs(120)).expect("a large page must render");
+        assert!(page.error.is_none(), "{:?}", page.error);
+        assert!(!page.warnings.contains(&RenderWarning::ContentTruncated), "nothing was cut");
+        assert_eq!(&page.rgba[((38 * 40 + 1) * 4)..][..4], &[255, 0, 0, 255], "the square after the old cap draws");
+    }
+
+    /// The content stream is interpreted a window at a time. An inline image with more data than
+    /// a window is read whole, and what follows it is still drawn.
+    #[test]
+    fn inline_images_longer_than_a_window_are_read_whole() {
+        let mut content = b"q 300 0 0 300 0 0 cm BI /W 300 /H 300 /BPC 8 /CS /G ID ".to_vec();
+        content.extend(std::iter::repeat_n(0x80_u8, 300 * 300));
+        content.extend_from_slice(b" EI Q 1 0 0 rg 0 0 4 4 re f");
+        let pdf = one_page_pdf(&content, "");
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut r = PageRenderer::new(Arc::new(pdf), RenderConfig::default());
+            let _ = tx.send(r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 1.0, tag: 0 }));
+        });
+        let page = rx.recv_timeout(std::time::Duration::from_secs(60)).expect("an inline image must not stall the renderer");
+        assert!(page.error.is_none(), "{:?}", page.error);
+        let pixel = |x: u32, y: u32| {
+            let offset = ((y * page.width + x) * 4) as usize;
+            [page.rgba[offset], page.rgba[offset + 1], page.rgba[offset + 2], page.rgba[offset + 3]]
+        };
+        assert_eq!(pixel(1, 38), [255, 0, 0, 255], "the square after the image draws");
+        let grey = pixel(30, 5);
+        assert!(grey[0] == grey[1] && grey[1] == grey[2] && grey[0] < 255, "the image covers the page: {grey:?}");
+    }
+
+    /// A one-page PDF whose content is the stream `stream`, with the entries `dict` in its
+    /// dictionary.
+    fn one_page_pdf(stream: &[u8], dict: &str) -> Vec<u8> {
+        let mut pdf = b"%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 40 40] /Contents 4 0 R >> endobj\n".to_vec();
+        pdf.extend_from_slice(format!("4 0 obj << {dict} /Length {} >> stream\n", stream.len()).as_bytes());
+        pdf.extend_from_slice(stream);
+        pdf.extend_from_slice(b"\nendstream endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n");
+        pdf
+    }
+
+    /// A page whose content expands far beyond its compressed stream stops at the expansion budget,
+    /// which is 64 times the compressed size and at least `MAX_DECODED_STREAM`, and the page says so.
+    #[test]
+    fn content_bombs_stop_at_the_budget_and_say_so() {
+        let bomb = zlib_zeros(hayro::hayro_syntax::MAX_DECODED_STREAM + (32 << 20));
+        let pdf = one_page_pdf(&bomb, "/Filter /FlateDecode");
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut r = PageRenderer::new(Arc::new(pdf), RenderConfig::default());
+            let _ = tx.send(r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 1.0, tag: 0 }));
+        });
+        let page = rx.recv_timeout(std::time::Duration::from_secs(60)).expect("a content bomb must not stall the renderer");
+        assert!(page.error.is_none(), "{:?}", page.error);
+        assert!(page.warnings.contains(&RenderWarning::ContentTruncated), "the cut content is observable");
+    }
+
+    /// A stream read in pieces of any size gives the same bytes: stored and dynamic blocks, and in
+    /// a `/Contents` array a stream that is not Flate-coded, between two that are.
+    #[test]
+    fn content_reader_returns_the_same_bytes_in_any_pieces() {
+        use hayro::hayro_syntax::Pdf;
+        use std::io::Write;
+        let mut plain = Vec::new();
+        for i in 0..40_000_u32 {
+            plain.extend_from_slice(format!("{} {} l\n", i % 977, i % 613).as_bytes());
+        }
+        let zlib = |data: &[u8], level| {
+            let mut z = flate2::write::ZlibEncoder::new(Vec::new(), level);
+            z.write_all(data).unwrap();
+            z.finish().unwrap()
+        };
+        let read = |pdf: Vec<u8>, piece: usize| {
+            let doc = Pdf::new(pdf).expect("parses");
+            let page = doc.pages().first().expect("one page");
+            let mut content = page.content_reader();
+            let mut out = Vec::new();
+            while content.read_into(&mut out, piece) > 0 {}
+            out
+        };
+        let pieces = [1, 3, 64, 4096, 65_536, 1_000_000];
+
+        for level in [flate2::Compression::none(), flate2::Compression::best()] {
+            let pdf = one_page_pdf(&zlib(&plain, level), "/Filter /FlateDecode");
+            for piece in pieces {
+                assert!(read(pdf.clone(), piece) == plain, "piece {piece}");
+            }
+        }
+
+        // A `/Contents` array: Flate, then ASCIIHex (decoded whole), then Flate. As before, each
+        // stream is followed by a space.
+        let hex: String = plain[..100].iter().map(|b| format!("{b:02x}")).collect::<String>() + ">";
+        let first = zlib(&plain, flate2::Compression::default());
+        let last = zlib(&plain[..50], flate2::Compression::default());
+        let mut expected = plain.clone();
+        expected.push(b' ');
+        expected.extend_from_slice(&plain[..100]);
+        expected.push(b' ');
+        expected.extend_from_slice(&plain[..50]);
+        expected.push(b' ');
+        let mut pdf = b"%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 40 40] /Contents [4 0 R 5 0 R 6 0 R] >> endobj\n".to_vec();
+        pdf.extend_from_slice(format!("4 0 obj << /Filter /FlateDecode /Length {} >> stream\n", first.len()).as_bytes());
+        pdf.extend_from_slice(&first);
+        pdf.extend_from_slice(format!("\nendstream endobj\n5 0 obj << /Filter /ASCIIHexDecode /Length {} >> stream\n", hex.len()).as_bytes());
+        pdf.extend_from_slice(hex.as_bytes());
+        pdf.extend_from_slice(format!("\nendstream endobj\n6 0 obj << /Filter /FlateDecode /Length {} >> stream\n", last.len()).as_bytes());
+        pdf.extend_from_slice(&last);
+        pdf.extend_from_slice(b"\nendstream endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n");
+        for piece in pieces {
+            assert!(read(pdf.clone(), piece) == expected, "the array: piece {piece}");
         }
     }
 
