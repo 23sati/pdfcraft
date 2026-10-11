@@ -266,7 +266,7 @@ fn the_panel_posts_comments_and_replies() {
 
 /// The side panel's width as egui keeps it from one frame to the next.
 fn panel_width(h: &Harness<'static, PdfCraftApp>) -> f32 {
-    egui::containers::panel::PanelState::load(&h.ctx, egui::Id::new("right_panel")).expect("the side panel is shown").size().x
+    h.ctx.data(|data| data.get_temp::<egui::Rect>(egui::Id::new("pdfcraft-inspector-body"))).expect("the inspector body is shown").width()
 }
 
 #[test]
@@ -785,6 +785,11 @@ fn hovering_a_comment_shows_its_author_and_text() {
     h.run_steps(3);
     h.get_by_label_contains("Check this figure");
     h.get_by_label_contains("Ada");
+    // The tip is drawn above every window. A dialog must hide it, or the author floats over the dialog.
+    h.state_mut().set_option("dialog", "shortcuts").unwrap();
+    h.hover_at(p);
+    h.run_steps(3);
+    assert!(h.query_by_label_contains("Check this figure").is_none(), "a dialog covers the page hover");
 }
 
 #[test]
