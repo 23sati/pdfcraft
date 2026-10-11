@@ -48,6 +48,10 @@ const RESULTS_PER_FRAME: usize = 8;
 const MAX_THUMB_DEMAND: usize = 256;
 /// At most this many whole-page rasters are cached beyond the ones on screen.
 const MAX_CACHED_PAGES: usize = 24;
+/// At most this many text layers are cached beyond visible, selected and matched pages.
+/// Text layers are glyph structs, far smaller than rasters; deliberately independent of
+/// `MAX_CACHED_PAGES` so raster tuning never silently retunes text memory.
+const MAX_CACHED_TEXT_PAGES: usize = 24;
 
 fn rgba_bytes(width: usize, height: usize) -> usize {
     width.saturating_mul(height).saturating_mul(4)
@@ -1258,9 +1262,37 @@ impl DocView {
         }
         self.thumbs.retain(|p, _| admitted.contains(p));
         self.stale_thumbs.retain(|p| admitted.contains(p));
+        self.retain_text_layers();
         // Visible main pages and thumbnails take precedence over background search work.
         queue.extend(requests.into_iter().filter(|r| r.kind == RequestKind::Text));
         queue
+    }
+
+    /// Drop text layers nothing can still need. Every visited page's text used to stay
+    /// cached for the session. Keep visible, selected and matched pages plus the nearest
+    /// prefetch window; evicted pages re-extract on revisit. (Count window only: unlike
+    /// rasters there is no byte budget here.) While a search is active keep everything:
+    /// demand still wants every page, so evicting would re-request evicted pages each
+    /// frame and churn the workers. Failures are never evicted either: they cost nothing
+    /// to remember, and evicting one would re-request and re-fail it every frame.
+    fn retain_text_layers(&mut self) {
+        if self.texts.len() <= MAX_CACHED_TEXT_PAGES {
+            return;
+        }
+        if self.find.as_ref().is_some_and(|f| !f.case_query.trim().is_empty()) {
+            return;
+        }
+        let mut keep: HashSet<usize> = self.frame_visible.clone();
+        if let Some(s) = self.selection {
+            keep.insert(s.page);
+        }
+        if let Some(f) = self.find.as_ref() {
+            keep.extend(f.matches.iter().map(|(p, _)| *p));
+        }
+        let mut rest: Vec<usize> = self.texts.keys().filter(|p| !keep.contains(*p)).copied().collect();
+        rest.sort_by_key(|p| p.abs_diff(self.current));
+        keep.extend(rest.into_iter().take(MAX_CACHED_TEXT_PAGES));
+        self.texts.retain(|p, _| keep.contains(p));
     }
 
     pub(crate) fn finish_render_frame(&mut self, ctx: &egui::Context, info: &DocInfo, pool: &RenderPool) {
@@ -3735,6 +3767,60 @@ trailer << /Root 1 0 R >>
             ..Default::default()
         };
         DocView::new(DocId(1), &info, ViewDefaults { layout, ..Default::default() })
+    }
+
+    #[test]
+    fn text_layers_evict_far_pages_but_keep_visible_and_matches() {
+        let info = thumbnail_info(100);
+        let mut v = DocView::new(DocId(1), &info, ViewDefaults::default());
+        v.current = 50;
+        v.frame_visible = HashSet::from([50, 51]);
+        for p in 0..100 {
+            v.texts.insert(p, Arc::new(PageText::default()));
+        }
+        v.text_failed.insert(0);
+        v.text_failed.insert(99);
+        v.find = Some(Find { matches: vec![(0, 0..1)], ..Default::default() });
+        let _ = v.prepare_render_queue(&info, 1.0);
+        assert!(v.texts.contains_key(&50) && v.texts.contains_key(&51), "visible pages stay");
+        assert!(v.texts.contains_key(&0), "matched pages stay");
+        assert!(v.texts.contains_key(&49), "nearest prefetch window stays");
+        assert!(!v.texts.contains_key(&99), "far pages go");
+        assert_eq!(v.texts.len(), 2 + 1 + MAX_CACHED_TEXT_PAGES, "visible + matched + prefetch window");
+        assert!(v.text_failed.contains(&0) && v.text_failed.contains(&99), "failures are bytes-free: never evict");
+    }
+
+    #[test]
+    fn text_layers_keep_the_selection_page() {
+        let info = thumbnail_info(100);
+        let mut v = DocView::new(DocId(1), &info, ViewDefaults::default());
+        let text = PageText {
+            glyphs: vec![pdfcraft_render::TextGlyph { text: "x".into(), rect: [0.0, 0.0, 10.0, 10.0], quad: [[0.0, 0.0]; 4], direction: [1.0, 0.0] }],
+            line_of: vec![0],
+            space_before: vec![false],
+        };
+        for p in 0..100 {
+            v.texts.insert(p, Arc::new(text.clone()));
+        }
+        v.select_text(0, 0, 0);
+        v.current = 90;
+        v.frame_visible = HashSet::from([90, 91]);
+        let _ = v.prepare_render_queue(&info, 1.0);
+        assert_eq!(v.selected_text().as_deref(), Some("x"), "stale selections still copy");
+    }
+
+    #[test]
+    fn text_layers_stay_while_a_search_is_active() {
+        let info = thumbnail_info(100);
+        let mut v = DocView::new(DocId(1), &info, ViewDefaults::default());
+        v.current = 50;
+        v.frame_visible = HashSet::from([50]);
+        for p in 0..100 {
+            v.texts.insert(p, Arc::new(PageText::default()));
+        }
+        v.find = Some(Find { query: "dup".into(), case_query: "dup".into(), matches: vec![(0, 0..1)], ..Default::default() });
+        let _ = v.prepare_render_queue(&info, 1.0);
+        assert_eq!(v.texts.len(), 100, "evicting mid-search would churn the workers");
     }
 
     fn thumbnail_info(count: usize) -> DocInfo {
