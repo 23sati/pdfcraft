@@ -475,6 +475,19 @@ fn windows_lists_the_printers_the_system_knows() {
     assert!(printers.iter().filter(|p| p.default).count() <= 1, "{printers:?}");
 }
 
+/// Windows: PowerShell is started by its full path under System32, never by its bare name.
+/// Rust resolves a bare name in the app's own folder first, so a `powershell.exe` beside a
+/// portable install would run instead, for every printer list and every job.
+#[cfg(windows)]
+#[test]
+fn windows_starts_powershell_by_its_full_path() {
+    let c = crate::spool::powershell_command("$null");
+    let program = std::path::Path::new(c.get_program());
+    assert!(program.is_absolute(), "{program:?}");
+    assert!(program.ends_with("System32/WindowsPowerShell/v1.0/powershell.exe"), "{program:?}");
+    assert!(program.is_file(), "{program:?}");
+}
+
 /// Windows: the embedded print script is valid PowerShell, checked on every machine — including
 /// runners that have no printer to print to.
 #[cfg(windows)]

@@ -351,11 +351,17 @@ pub fn printers_parsed(queues: &str, available: Option<&str>) -> Vec<Printer> {
 /// writing banners into what is parsed, `-NonInteractive` from waiting for input.
 /// `CREATE_NO_WINDOW`: the release app has no console of its own, so without it Windows opens
 /// a console window for PowerShell over the app for as long as the script runs.
+///
+/// Named by its full path, as `rundll32` is in [`open_printer_preferences`]: given a bare name,
+/// Rust looks in the app's own folder before System32, so a `powershell.exe` beside a portable
+/// `pdfcraft.exe` would run in its place each time the Print dialog opens and on every job.
 #[cfg(windows)]
-fn powershell_command(script: &str) -> std::process::Command {
+pub(crate) fn powershell_command(script: &str) -> std::process::Command {
     use std::os::windows::process::CommandExt as _;
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    let mut c = std::process::Command::new("powershell");
+    let root = std::env::var_os("SystemRoot").unwrap_or_else(|| "C:\\Windows".into());
+    let exe = std::path::Path::new(&root).join("System32").join("WindowsPowerShell").join("v1.0").join("powershell.exe");
+    let mut c = std::process::Command::new(exe);
     c.args(["-NoProfile", "-NonInteractive", "-Command", script]);
     c.creation_flags(CREATE_NO_WINDOW);
     c

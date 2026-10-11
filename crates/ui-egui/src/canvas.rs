@@ -48,6 +48,10 @@ const RESULTS_PER_FRAME: usize = 8;
 const MAX_THUMB_DEMAND: usize = 256;
 /// At most this many whole-page rasters are cached beyond the ones on screen.
 const MAX_CACHED_PAGES: usize = 24;
+/// At most this many text layers are cached beyond visible, selected and matched pages.
+/// Text layers are glyph structs, far smaller than rasters; deliberately independent of
+/// `MAX_CACHED_PAGES` so raster tuning never silently retunes text memory.
+const MAX_CACHED_TEXT_PAGES: usize = 24;
 
 fn rgba_bytes(width: usize, height: usize) -> usize {
     width.saturating_mul(height).saturating_mul(4)
@@ -296,6 +300,9 @@ pub struct DocView {
     pub highlight_fields: bool,
     pub page_input: String,
     pub notice_dismissed: bool,
+    /// The file changed on disk while this document had unsaved changes: the notice bar asks
+    /// before replacing it (#431).
+    pub disk_changed: bool,
     /// Two-page view: show the first page alone, as a cover (View ▸ Page display).
     pub cover: bool,
     /// Previous view / Next view: pages visited before (and after, once going back).
@@ -547,6 +554,7 @@ impl DocView {
             highlight_fields: defaults.highlight_fields,
             page_input: "1".into(),
             notice_dismissed: false,
+            disk_changed: false,
             cover: false,
             back: Vec::new(),
             forward: Vec::new(),
@@ -647,6 +655,38 @@ impl DocView {
         self.flash = None;
         // A thumbnail drag holds page indexes from before the change.
         self.panel_drag = None;
+    }
+
+    /// The document was replaced by a newer version of its file (#431). The reader's place
+    /// stays: zoom, layout, rotation, page, scroll, view history and the find bar, and the page
+    /// images on screen until their replacements are drawn, so nothing flashes. Everything that
+    /// pointed into the old version (a selected comment, a field being typed in, text being
+    /// edited, a drag, page selection) starts afresh, so no stale index reaches the new one.
+    pub fn document_replaced(&mut self, info: &DocInfo) {
+        let mut fresh = Self::new(self.id, info, ViewDefaults::default());
+        fresh.zoom = self.zoom;
+        fresh.fit = self.fit;
+        fresh.layout = self.layout;
+        fresh.rotation = self.rotation;
+        fresh.current = self.current;
+        fresh.organize = self.organize;
+        fresh.grid_zoom = self.grid_zoom;
+        // Same document id, so the scroll offset egui keeps for it is still this document's.
+        fresh.shown = self.shown;
+        fresh.highlight_fields = self.highlight_fields;
+        fresh.notice_dismissed = self.notice_dismissed;
+        fresh.cover = self.cover;
+        fresh.back = std::mem::take(&mut self.back);
+        fresh.forward = std::mem::take(&mut self.forward);
+        fresh.find = self.find.take();
+        fresh.pages = std::mem::take(&mut self.pages);
+        fresh.thumbs = std::mem::take(&mut self.thumbs);
+        fresh.viewport_w = self.viewport_w;
+        fresh.viewport_h = self.viewport_h;
+        fresh.viewport_screen = self.viewport_screen;
+        *self = fresh;
+        // Marks the kept images out of date and clamps the page to the new page count.
+        self.document_changed(info);
     }
 
     /// Pages an organize command acts on: the selection, or the current page.
@@ -1312,6 +1352,21 @@ impl DocView {
         // bounded few under a page whose current tiles are still missing (OLD_TILES).
         self.tiles.retain(|key, _| tiles.contains(key) || !tile_tags.contains(&key.1));
         queue.extend(grid);
+        // Opening (or turning to) a page queues its pixels alongside thumbnails and
+        // text extraction. The workers would otherwise spend the first seconds on
+        // thumbnails and search text while the visible page stays blank: hold those
+        // until no visible main-page raster is still missing. Errored pages never
+        // block: they are never re-requested.
+        let visible_mains_pending = queue.iter().any(|r| {
+            r.kind == RequestKind::Pixels
+                && r.tag & (GRID_TAG | PRINT_TAG | THUMB_TAG | TEXT_TAG) == 0
+                && self.frame_visible.contains(&r.page)
+                && !self.errors.contains_key(&r.page)
+        });
+        if visible_mains_pending {
+            // Caches are kept; demand is re-evaluated next frame once pixels arrive.
+            return queue;
+        }
         let thumbs = self.thumbnail_requests(info, ppp);
         let mut thumb_bytes = 0usize;
         let mut admitted = HashSet::new();
@@ -1329,9 +1384,37 @@ impl DocView {
         }
         self.thumbs.retain(|p, _| admitted.contains(p));
         self.stale_thumbs.retain(|p| admitted.contains(p));
+        self.retain_text_layers();
         // Visible main pages and thumbnails take precedence over background search work.
         queue.extend(requests.into_iter().filter(|r| r.kind == RequestKind::Text));
         queue
+    }
+
+    /// Drop text layers nothing can still need. Every visited page's text used to stay
+    /// cached for the session. Keep visible, selected and matched pages plus the nearest
+    /// prefetch window; evicted pages re-extract on revisit. (Count window only: unlike
+    /// rasters there is no byte budget here.) While a search is active keep everything:
+    /// demand still wants every page, so evicting would re-request evicted pages each
+    /// frame and churn the workers. Failures are never evicted either: they cost nothing
+    /// to remember, and evicting one would re-request and re-fail it every frame.
+    fn retain_text_layers(&mut self) {
+        if self.texts.len() <= MAX_CACHED_TEXT_PAGES {
+            return;
+        }
+        if self.find.as_ref().is_some_and(|f| !f.case_query.trim().is_empty()) {
+            return;
+        }
+        let mut keep: HashSet<usize> = self.frame_visible.clone();
+        if let Some(s) = self.selection {
+            keep.insert(s.page);
+        }
+        if let Some(f) = self.find.as_ref() {
+            keep.extend(f.matches.iter().map(|(p, _)| *p));
+        }
+        let mut rest: Vec<usize> = self.texts.keys().filter(|p| !keep.contains(*p)).copied().collect();
+        rest.sort_by_key(|p| p.abs_diff(self.current));
+        keep.extend(rest.into_iter().take(MAX_CACHED_TEXT_PAGES));
+        self.texts.retain(|p, _| keep.contains(p));
     }
 
     pub(crate) fn finish_render_frame(&mut self, ctx: &egui::Context, info: &DocInfo, pool: &RenderPool) {
@@ -1837,6 +1920,10 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     let secured = doc.security_summary().is_some_and(|s| !(s.owner || (s.permissions.modify() && s.permissions.assemble())));
     let repaired = !doc.repair_log().is_empty();
     match notices(view, doc, secured, repaired, crate::sign_ui::banner(&doc.signatures), ui, &t) {
+        #[cfg(not(target_arch = "wasm32"))]
+        Some(Notice::Reload) => app.watch.reload_request = Some(view.id),
+        #[cfg(target_arch = "wasm32")]
+        Some(Notice::Reload) => {}
         Some(Notice::Repairs) => app.dialog = Some(crate::Dialog::Properties(crate::PropsTab::Advanced)),
         Some(Notice::Security) => app.dialog = Some(crate::Dialog::Properties(crate::PropsTab::Security)),
         Some(Notice::Signatures) => app.right = Some(RightPanel::Signatures),
@@ -3149,6 +3236,8 @@ enum FieldMenu {
 
 /// What the notice bar's buttons ask for.
 enum Notice {
+    /// Reload the file that changed on disk, dropping unsaved changes.
+    Reload,
     Security,
     Signatures,
     Repairs,
@@ -3169,6 +3258,27 @@ fn notices(
 ) -> Option<Notice> {
     let info = &doc.info;
     let xfa = doc.xfa.as_ref();
+    // The file changed on disk while this document has unsaved changes (#431): ask before
+    // replacing it, ahead of every other notice.
+    if view.disk_changed {
+        let mut reload = false;
+        egui::Frame::NONE.fill(t.accent_soft).inner_margin(egui::Margin::symmetric(14, 7)).show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.add(icons::image("rotate-cw", 16.0, t.accent_text));
+                ui.label(
+                    egui::RichText::new(tl!("This file changed on disk. Reload it to see the new version; your unsaved changes will be lost."))
+                        .color(t.text),
+                );
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if icons::button(ui, "x", 22.0, false, tl!("Dismiss")).clicked() {
+                        view.disk_changed = false;
+                    }
+                    reload = crate::widgets::pill_button(ui, tl!("Reload"), false).clicked();
+                });
+            });
+        });
+        return reload.then_some(Notice::Reload);
+    }
     if let Some((icon, color, template, arg)) = signed {
         let mut open = false;
         notice_bar(ui, t, icon, color, crate::i18n::fmt(tl!(template), &[("by", &arg)]), |ui| {
@@ -3918,6 +4028,60 @@ trailer << /Root 1 0 R >>
         DocView::new(DocId(1), &info, ViewDefaults { layout, continuous, ..Default::default() })
     }
 
+    #[test]
+    fn text_layers_evict_far_pages_but_keep_visible_and_matches() {
+        let info = thumbnail_info(100);
+        let mut v = DocView::new(DocId(1), &info, ViewDefaults::default());
+        v.current = 50;
+        v.frame_visible = HashSet::from([50, 51]);
+        for p in 0..100 {
+            v.texts.insert(p, Arc::new(PageText::default()));
+        }
+        v.text_failed.insert(0);
+        v.text_failed.insert(99);
+        v.find = Some(Find { matches: vec![(0, 0..1)], ..Default::default() });
+        let _ = v.prepare_render_queue(&info, 1.0);
+        assert!(v.texts.contains_key(&50) && v.texts.contains_key(&51), "visible pages stay");
+        assert!(v.texts.contains_key(&0), "matched pages stay");
+        assert!(v.texts.contains_key(&49), "nearest prefetch window stays");
+        assert!(!v.texts.contains_key(&99), "far pages go");
+        assert_eq!(v.texts.len(), 2 + 1 + MAX_CACHED_TEXT_PAGES, "visible + matched + prefetch window");
+        assert!(v.text_failed.contains(&0) && v.text_failed.contains(&99), "failures are bytes-free: never evict");
+    }
+
+    #[test]
+    fn text_layers_keep_the_selection_page() {
+        let info = thumbnail_info(100);
+        let mut v = DocView::new(DocId(1), &info, ViewDefaults::default());
+        let text = PageText {
+            glyphs: vec![pdfcraft_render::TextGlyph { text: "x".into(), rect: [0.0, 0.0, 10.0, 10.0], quad: [[0.0, 0.0]; 4], direction: [1.0, 0.0] }],
+            line_of: vec![0],
+            space_before: vec![false],
+        };
+        for p in 0..100 {
+            v.texts.insert(p, Arc::new(text.clone()));
+        }
+        v.select_text(0, 0, 0);
+        v.current = 90;
+        v.frame_visible = HashSet::from([90, 91]);
+        let _ = v.prepare_render_queue(&info, 1.0);
+        assert_eq!(v.selected_text().as_deref(), Some("x"), "stale selections still copy");
+    }
+
+    #[test]
+    fn text_layers_stay_while_a_search_is_active() {
+        let info = thumbnail_info(100);
+        let mut v = DocView::new(DocId(1), &info, ViewDefaults::default());
+        v.current = 50;
+        v.frame_visible = HashSet::from([50]);
+        for p in 0..100 {
+            v.texts.insert(p, Arc::new(PageText::default()));
+        }
+        v.find = Some(Find { query: "dup".into(), case_query: "dup".into(), matches: vec![(0, 0..1)], ..Default::default() });
+        let _ = v.prepare_render_queue(&info, 1.0);
+        assert_eq!(v.texts.len(), 100, "evicting mid-search would churn the workers");
+    }
+
     fn thumbnail_info(count: usize) -> DocInfo {
         DocInfo {
             pages: (0..count)
@@ -4127,6 +4291,48 @@ trailer << /Root 1 0 R >>
         v.frame_visible = [0].into();
         v.frame_queue = vec![req(0)];
         assert!(v.prepare_render_queue(&info, 1.0).is_empty());
+    }
+
+    #[test]
+    fn visible_pages_render_before_thumbnails_and_text() {
+        let ctx = egui::Context::default();
+        let info = thumbnail_info(4);
+        let mut v = DocView::new(DocId(1), &info, ViewDefaults::default());
+        let main = RenderRequest { page: 0, scale: 1.0, tag: 1000, ..Default::default() };
+        let text = RenderRequest { page: 0, kind: RequestKind::Text, scale: 1.0, tag: TEXT_TAG, ..Default::default() };
+        // Opening page 0 queues its pixels and text alongside Pages-panel thumbnails.
+        v.begin_render_frame();
+        v.frame_visible = [0].into();
+        v.frame_queue = vec![main, text];
+        for p in 1..4 {
+            v.need_thumbnail(p, true);
+        }
+        let queue = v.prepare_render_queue(&info, 1.0);
+        assert_eq!(queue, vec![main], "visible pixels first: no thumbnails or text yet");
+        // Once the visible raster arrives, background work is admitted.
+        v.last_queue = queue;
+        assert!(v.receive_result(&ctx, solid_result(main, 100, 130)) > 0);
+        v.begin_render_frame();
+        v.frame_visible = [0].into();
+        v.frame_queue = vec![text];
+        for p in 1..4 {
+            v.need_thumbnail(p, true);
+        }
+        let queue = v.prepare_render_queue(&info, 1.0);
+        assert!(queue.iter().any(|r| r.kind == RequestKind::Text), "text admitted after pixels");
+        assert!(queue.iter().any(|r| r.tag & THUMB_TAG != 0), "thumbnails admitted after pixels");
+        assert!(!queue.iter().any(|r| r.kind == RequestKind::Pixels && r.tag & THUMB_TAG == 0), "no main pixels re-requested");
+        // An errored visible page never holds background work back.
+        v.errors.insert(0, "gone".to_string());
+        v.begin_render_frame();
+        v.frame_visible = [0].into();
+        v.frame_queue = vec![main, text];
+        for p in 1..4 {
+            v.need_thumbnail(p, true);
+        }
+        let queue = v.prepare_render_queue(&info, 1.0);
+        assert!(queue.iter().any(|r| r.kind == RequestKind::Text), "text admitted despite the error");
+        assert!(queue.iter().any(|r| r.tag & THUMB_TAG != 0), "thumbnails still admitted");
     }
 
     #[test]
