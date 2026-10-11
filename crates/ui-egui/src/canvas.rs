@@ -317,6 +317,8 @@ pub struct DocView {
     selection: Option<Selection>,
     /// Clicks in the current run on the text layer: two select a word, three the line, four the page.
     clicks: u32,
+    last_press_time: f64,
+    last_press_pos: Option<Pos2>,
     last_queue: Vec<RenderRequest>,
     viewport_w: f32,
     viewport_h: f32,
@@ -527,6 +529,8 @@ impl DocView {
             find: None,
             selection: None,
             clicks: 0,
+            last_press_time: 0.0,
+            last_press_pos: None,
             last_queue: Vec::new(),
             viewport_w: 800.0,
             viewport_h: 600.0,
@@ -2357,14 +2361,40 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                         ui.ctx().set_cursor_icon(egui::CursorIcon::Text);
                     }
                     let press_here = ui.input(|inp| inp.pointer.press_origin()).is_some_and(|o| r.contains(o));
+                    let pressed = ui.input(|inp| inp.pointer.primary_pressed());
+                    if pressed && press_here && !over_link {
+                        let now = ui.input(|inp| inp.time);
+                        const MAX_DOUBLE_CLICK_DELAY: f64 = 0.35;
+                        const MAX_CLICK_DIST: f32 = 6.0;
+                        let is_consecutive = now - view.last_press_time <= MAX_DOUBLE_CLICK_DELAY
+                            && view.last_press_pos.is_some_and(|pos| pos.distance(p) <= MAX_CLICK_DIST);
+                        view.clicks = if is_consecutive { view.clicks.saturating_add(1) } else { 1 };
+                        view.last_press_time = now;
+                        view.last_press_pos = Some(p);
+
+                        // Multi-click highlights immediately on pointer press instead of release (#1024).
+                        let clicks = if view.clicks > 2 && tool != QuickTool::Select { 1 } else { view.clicks };
+                        if clicks >= 2 && over_text {
+                            let span = text.nearest(vx, vy).and_then(|a| match clicks {
+                                2 => text.word_at(a),
+                                3 => text.line_at(a),
+                                _ => text.glyphs.len().checked_sub(1).map(|last| (0, last)),
+                            });
+                            if let Some((first, last)) = span {
+                                view.selection = Some(Selection::run(i, first, last));
+                            }
+                        }
+                    }
                     if resp.drag_started() && press_here && !over_link {
                         let origin = ui.input(|inp| inp.pointer.press_origin()).unwrap_or(p);
                         let (ox, oy) = xf.screen_to_view(origin);
-                        view.selection = if column {
-                            Some(Selection { page: i, span: Span::Column { rect: [ox, oy, vx, vy] } })
-                        } else {
-                            text.nearest(ox, oy).map(|a| Selection::run(i, a, a))
-                        };
+                        if view.clicks < 2 {
+                            view.selection = if column {
+                                Some(Selection { page: i, span: Span::Column { rect: [ox, oy, vx, vy] } })
+                            } else {
+                                text.nearest(ox, oy).map(|a| Selection::run(i, a, a))
+                            };
+                        }
                     }
                     if resp.dragged()
                         && let Some(sel) = view.selection.as_mut().filter(|s| s.page == i)
@@ -2388,29 +2418,30 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                         view.selection = None;
                     }
                     // Quick clicks widen the selection: two a word, three the line, four the page.
-                    // egui counts up to three, so four come from the run kept here. The markup and
-                    // Redact tools mark a double-clicked word at once, so they stop at the word.
-                    let clicks = if resp.triple_clicked() {
+                    // Release-based fallback for platforms or synthetic events that report double_clicked.
+                    let release_clicks = if resp.triple_clicked() {
                         view.clicks.max(2).saturating_add(1)
                     } else if resp.double_clicked() {
-                        2
+                        view.clicks.max(2)
                     } else {
-                        u32::from(resp.clicked())
+                        0
                     };
-                    if clicks > 0 {
-                        view.clicks = clicks;
+                    if release_clicks > 0 {
+                        view.clicks = release_clicks;
                     }
-                    let clicks = if clicks > 2 && tool != QuickTool::Select { 1 } else { clicks };
+                    let clicks = if view.clicks > 2 && tool != QuickTool::Select { 1 } else { view.clicks };
                     if clicks >= 2 && over_text {
-                        let span = text.nearest(vx, vy).and_then(|a| match clicks {
-                            2 => text.word_at(a),
-                            3 => text.line_at(a),
-                            _ => text.glyphs.len().checked_sub(1).map(|last| (0, last)),
-                        });
-                        if let Some((first, last)) = span {
-                            view.selection = Some(Selection::run(i, first, last));
+                        if view.selection.is_none() {
+                            let span = text.nearest(vx, vy).and_then(|a| match clicks {
+                                2 => text.word_at(a),
+                                3 => text.line_at(a),
+                                _ => text.glyphs.len().checked_sub(1).map(|last| (0, last)),
+                            });
+                            if let Some((first, last)) = span {
+                                view.selection = Some(Selection::run(i, first, last));
+                            }
                         }
-                    } else if resp.clicked() && !over_link {
+                    } else if resp.clicked() && view.clicks < 2 && !over_link {
                         // ⇧-click extends a selection on this page to the click, keeping its
                         // anchor (#527). Otherwise (no shift, no selection on this page, or a
                         // column selection, which has no anchor glyph; a selection cannot yet
