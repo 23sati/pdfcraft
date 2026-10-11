@@ -1931,7 +1931,9 @@ pub fn summaries(doc: &Document) -> Vec<Summary> {
                 index,
                 subtype,
                 author: text_value(doc, d, b"T"),
-                contents: text_value(doc, d, b"Contents"),
+                // Acrobat ends lines with CR, which the interface would draw as nothing (keep in
+                // step with `pdfcraft_render::inspect`).
+                contents: text_value(doc, d, b"Contents").map(|s| s.replace("\r\n", "\n").replace('\r', "\n")),
                 modified: text_value(doc, d, b"M"),
                 name: text_value(doc, d, b"NM"),
                 in_reply_to,

@@ -561,7 +561,7 @@ pub(crate) fn overlay(ctx: &egui::Context, view: &mut DocView, info: &DocInfo) -
             // banner, #913): then a dark box, with a caret that shows on it.
             let fill = editor_fill(text_color);
             egui::Frame::NONE.fill(fill).stroke(Stroke::new(1.5, ACCENT)).inner_margin(egui::Margin::symmetric(2, 0)).show(ui, |ui| {
-                ui.visuals_mut().text_cursor.stroke.color = if fill == Color32::WHITE { Color32::BLACK } else { Color32::WHITE };
+                ui.visuals_mut().text_cursor.stroke.color = caret_color_on(fill);
                 let rows = ed.text.lines().count().max(1);
                 let r = ui.add(
                     egui::TextEdit::multiline(&mut ed.text)
@@ -601,6 +601,12 @@ pub(crate) fn overlay(ctx: &egui::Context, view: &mut DocView, info: &DocInfo) -
     }
 }
 
+/// Caret colour that stays visible on a field filled with `fill`: black on light fills, white on dark ones.
+pub(crate) fn caret_color_on(fill: Color32) -> Color32 {
+    let luma = 299 * u32::from(fill.r()) + 587 * u32::from(fill.g()) + 114 * u32::from(fill.b());
+    if luma > 127_500 { Color32::BLACK } else { Color32::WHITE }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -616,5 +622,13 @@ mod tests {
         for dark in [Color32::BLACK, Color32::from_rgb(0x1F, 0x2A, 0x6B), Color32::from_rgb(0xC0, 0x00, 0x00), Color32::from_gray(0x60)] {
             assert_eq!(editor_fill(dark), Color32::WHITE, "{dark:?}");
         }
+    }
+
+    #[test]
+    fn caret_contrasts_with_its_fill() {
+        assert_eq!(caret_color_on(Color32::WHITE), Color32::BLACK);
+        assert_eq!(caret_color_on(Color32::from_rgb(0xFF, 0xFF, 0xF4)), Color32::BLACK);
+        assert_eq!(caret_color_on(Color32::BLACK), Color32::WHITE);
+        assert_eq!(caret_color_on(DARK_EDITOR_FILL), Color32::WHITE);
     }
 }
