@@ -2233,3 +2233,12 @@ key	Space	스페이스바
 scroll speed	Fast	빠르게
 scroll speed	Normal	보통
 scroll speed	Slow	느리게
+	Select page {label}	{label}페이지 선택
+	Rotate page {label} counterclockwise	{label}페이지를 시계 반대 방향으로 회전
+	Rotate page {label} clockwise	{label}페이지를 시계 방향으로 회전
+	Delete page {label}	{label}페이지 삭제
+	Graphic	그래픽
+	Signer's name	서명자 이름
+	Fill & Sign signature	채우기 및 서명의 서명
+	Choose image…	이미지 선택…
+	The document's security settings don't allow copying text and images	문서의 보안 설정에서 텍스트 및 이미지 복사를 허용하지 않습니다

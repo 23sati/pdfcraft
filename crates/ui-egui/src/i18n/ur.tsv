@@ -2237,3 +2237,12 @@ key	Space	اسپیس
 scroll speed	Fast	تیز
 scroll speed	Normal	معمول
 scroll speed	Slow	آہستہ
+	Select page {label}	صفحہ {label} منتخب کریں
+	Rotate page {label} counterclockwise	صفحہ {label} کو گھڑی کی مخالف سمت میں گھمائیں
+	Rotate page {label} clockwise	صفحہ {label} کو گھڑی کی سمت میں گھمائیں
+	Delete page {label}	صفحہ {label} حذف کریں
+	Graphic	گرافک
+	Signer's name	دستخط کنندہ کا نام
+	Fill & Sign signature	پُر کریں اور دستخط کریں کے دستخط
+	Choose image…	تصویر منتخب کریں…
+	The document's security settings don't allow copying text and images	دستاویز کی حفاظتی ترتیبات متن اور تصاویر نقل کرنے کی اجازت نہیں دیتیں

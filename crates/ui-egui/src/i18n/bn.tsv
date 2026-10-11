@@ -2237,3 +2237,12 @@ key	Space	স্পেস
 scroll speed	Fast	দ্রুত
 scroll speed	Normal	স্বাভাবিক
 scroll speed	Slow	ধীর
+	Select page {label}	পৃষ্ঠা {label} নির্বাচন করুন
+	Rotate page {label} counterclockwise	পৃষ্ঠা {label} ঘড়ির কাঁটার বিপরীত দিকে ঘোরান
+	Rotate page {label} clockwise	পৃষ্ঠা {label} ঘড়ির কাঁটার দিকে ঘোরান
+	Delete page {label}	পৃষ্ঠা {label} মুছুন
+	Graphic	গ্রাফিক
+	Signer's name	স্বাক্ষরকারীর নাম
+	Fill & Sign signature	পূরণ ও স্বাক্ষরের স্বাক্ষর
+	Choose image…	ছবি বেছে নিন…
+	The document's security settings don't allow copying text and images	নথির নিরাপত্তা সেটিংস লেখা ও ছবি কপি করার অনুমতি দেয় না

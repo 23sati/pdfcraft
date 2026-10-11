@@ -2237,3 +2237,12 @@ key	Space	स्पेस
 scroll speed	Fast	तेज़
 scroll speed	Normal	सामान्य
 scroll speed	Slow	धीमा
+	Select page {label}	पृष्ठ {label} चुनें
+	Rotate page {label} counterclockwise	पृष्ठ {label} को घड़ी की विपरीत दिशा में घुमाएँ
+	Rotate page {label} clockwise	पृष्ठ {label} को घड़ी की दिशा में घुमाएँ
+	Delete page {label}	पृष्ठ {label} हटाएँ
+	Graphic	ग्राफ़िक
+	Signer's name	हस्ताक्षरकर्ता का नाम
+	Fill & Sign signature	भरें और हस्ताक्षर करें का हस्ताक्षर
+	Choose image…	चित्र चुनें…
+	The document's security settings don't allow copying text and images	दस्तावेज़ की सुरक्षा सेटिंग पाठ और चित्र कॉपी करने की अनुमति नहीं देतीं

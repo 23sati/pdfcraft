@@ -2233,3 +2233,12 @@ key	Space	Spasi
 scroll speed	Fast	Cepat
 scroll speed	Normal	Normal
 scroll speed	Slow	Lambat
+	Select page {label}	Pilih halaman {label}
+	Rotate page {label} counterclockwise	Putar halaman {label} berlawanan arah jarum jam
+	Rotate page {label} clockwise	Putar halaman {label} searah jarum jam
+	Delete page {label}	Hapus halaman {label}
+	Graphic	Grafis
+	Signer's name	Nama penanda tangan
+	Fill & Sign signature	Tanda tangan Isi & Tanda Tangan
+	Choose image…	Pilih gambar…
+	The document's security settings don't allow copying text and images	Pengaturan keamanan dokumen tidak mengizinkan penyalinan teks dan gambar
