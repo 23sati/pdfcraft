@@ -1296,7 +1296,6 @@ impl PdfCraftApp {
         self.dialog.is_some()
             || self.close_request.is_some()
             || self.password_prompt.is_some()
-            || self.owner_password_prompt.is_some()
             || self.pending_link.is_some()
             || self.pending_submission.is_some()
             || self.updates.open

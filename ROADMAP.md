@@ -29,7 +29,7 @@ and add a line to the [progress log](#progress-log); when a gap closes, remove i
 
 | | Value | Kind |
 |---|---|---|
-| **Feature breadth** | **≈ 67%** tier-weighted (56.9% unweighted: 423 shipped + 74 partial of 808; P0 94.2%) | measured, `parity/acrobat-features.toml` |
+| **Feature breadth** | **≈ 67%** tier-weighted (57.2% unweighted: 425 shipped + 77 partial of 810; P0 94.2%) | measured, `parity/acrobat-features.toml` |
 | Feature breadth, mainstream practitioner | ≈ 70% tier-weighted (63.2% unweighted; P0 95.3%) | measured ([split](docs/target-app-parity.md#mainstream-practitioner-vs-full-acrobat-pro)) |
 | **Ready for real work**, full Acrobat Pro | **≈ 49%** (45–53%) | estimated, weighted sum over [dimensions](#by-dimension) |
 | **Ready for real work**, mainstream practitioner | **≈ 55%** (50–60%) | estimated ([split](docs/target-app-parity.md#mainstream-practitioner-vs-full-acrobat-pro)) |
@@ -80,7 +80,7 @@ Hours are calibrated as in [Effort and calibration](docs/target-app-parity.md#ef
 | C Content editing | 53.3% | 30% | 100–180 |
 | D Organize pages | 61.2% | 70% | 12–25 |
 | E Comments and review | 77.7% | 70% | 12–25 |
-| F Forms and JavaScript | 78.5% | 65% | 40–75 |
+| F Forms and JavaScript | 79.1% | 65% | 40–75 |
 | G Protect, redact, sanitize | 58.5% | 55% | 15–30 |
 | H Digital signatures | 62.2% | 45% | 40–70 |
 | I Scan and OCR | 23.1% | 15% | 40–75 |
@@ -135,6 +135,7 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 Newest first: the date, what moved, and the new overall estimate.
 
+- **2026-10-11 (M6, form submission):** Native buttons and the explicit tool now submit current form values as HTML POST or GET, FDF or XFDF POST, and full-PDF POST after desktop review. Imported selected-field actions and NoExport filtering are covered by local-server tests. Email, JavaScript `submitForm`, browser transport and desktop selected-field authoring remain. `form.submit-form` is partial: 425 shipped + 77 partial of 810; readiness estimates unchanged.
 - **2026-10-11 (M14, absolute interface sizes):** A chosen Interface size is now absolute, as PhotoCraft's UI Scale is: "100%" is one screen pixel per point whatever scale the display reports, so on a 1080p screen whose system reports 200 % it draws at a true 100 % (#456, reported after the first change). Auto still keeps the display's scale and adds GNOME's text scaling, and its menu entry shows the size it draws at. The menu offers PhotoCraft's sizes (75–300 %).
 - **2026-10-11 (automation, #971):** `text_find` reads pages in growing batches (8, doubling to 128) and stops once `limit` is reached, so a bounded search on a long document no longer extracts and caches every page first. Results say `complete`, and a capped one gives `next` (`start_page`, `skip`) to continue. Still open from #971: a byte budget for the automation text cache and per-page warnings for pages whose text can't be extracted.
 - **2026-10-11 (docs, closed issues):** The progress docs caught up with issues closed on 2026-10-10: encrypted output opens in Acrobat (#774, #836; gap 1 closed, rank 0 is 32–55 h), Windows prints (#756, #847), column select (#740), 1:1 touchpad scrolling (#759), same-page multi-object move (#844), and the #799–#821 batch of wrong-result fixes including the #816 panic. Scores and readiness not re-judged; overall estimate unchanged.
