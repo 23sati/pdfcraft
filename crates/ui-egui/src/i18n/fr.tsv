@@ -2037,7 +2037,7 @@
 	{n} files	{n} fichiers
 	{n} files need attention	{n} fichiers demandent votre attention
 	{n} selected	{n} sélectionnés
-	Choose a PNG or JPEG image (up to 4 MiB). Transparency is preserved.	Choisissez une image PNG ou JPEG (jusqu’à 4 Mio). La transparence est conservée.
+	Choose a PNG or JPEG image. Large images are scaled down. Transparency is preserved.	Choisissez une image PNG ou JPEG. Les grandes images sont réduites. La transparence est conservée.
 	Couldn't import the signature image: {e}	Impossible d’importer l’image de la signature : {e}
 	Open Recent	Ouvrir un fichier récent
 	Clear Recent Files	Effacer les fichiers récents
@@ -2196,3 +2196,11 @@ key	Space	Espace
 	Resize panel window	Redimensionner la fenêtre du panneau
 	Tools	Outils
 	Inspector	Inspecteur
+	Scan	Numériser
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Signez une feuille de papier blanc et prenez-la en photo sous une lumière vive et uniforme (utilisez le flash). Choisissez la photo ou déposez-la ici : PdfCraft trouve la signature et retire le papier.
+	Choose photo…	Choisir une photo…
+	No photo chosen	Aucune photo choisie
+	Photo	Photo
+	Ink sensitivity	Sensibilité à l’encre
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Aucune signature trouvée dans le cadre. Placez le cadre sur la signature ou augmentez la sensibilité à l’encre.
+	Couldn't use the photo: {e}	Impossible d’utiliser la photo : {e}

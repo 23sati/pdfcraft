@@ -1997,7 +1997,7 @@
 	Default page display	Типове відображення сторінок
 	Default zoom	Типовий масштаб
 	Used when a PDF doesn't ask for a layout or zoom. Continuous scrolling never snaps between pages.	Використовується, коли PDF не задає макет або масштаб. Безперервне прокручування ніколи не прив’язується до сторінок.
-	Choose a PNG or JPEG image (up to 4 MiB). Transparency is preserved.	Виберіть зображення PNG або JPEG (до 4 МіБ). Прозорість зберігається.
+	Choose a PNG or JPEG image. Large images are scaled down. Transparency is preserved.	Виберіть зображення PNG або JPEG. Великі зображення зменшуються. Прозорість зберігається.
 	Couldn't import the signature image: {e}	Не вдалося імпортувати зображення підпису: {e}
 @plural	{n} page|{n} pages	{n} сторінка|{n} сторінки|{n} сторінок
 @plural	{n} field|{n} fields	{n} поле|{n} поля|{n} полів
@@ -2217,3 +2217,11 @@ key	Space	Пробіл
 	Panels	Панелі
 	Resize panels	Змінити розмір панелей
 	Resize panel window	Змінити розмір вікна панелі
+	Scan	Сканувати
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Розпишіться на аркуші білого паперу та сфотографуйте його за яскравого рівномірного освітлення (зі спалахом). Виберіть фото або перетягніть його сюди: PdfCraft знайде підпис і прибере папір.
+	Choose photo…	Вибрати фото…
+	No photo chosen	Фото не вибрано
+	Photo	Фото
+	Ink sensitivity	Чутливість до чорнила
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	У рамці не знайдено підпису. Наведіть рамку на підпис або збільште чутливість до чорнила.
+	Couldn't use the photo: {e}	Не вдалося використати фото: {e}

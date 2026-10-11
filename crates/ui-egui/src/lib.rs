@@ -612,6 +612,8 @@ pub struct PdfCraftApp {
     /// The Create signature / initials dialog, and its typed preview.
     pub signature_draft: fill_sign::SigDraft,
     pub(crate) signature_preview: Option<(fill_sign::SavedSig, egui::TextureHandle)>,
+    /// The Scan tab's photo, keyed by its version.
+    pub(crate) signature_photo: Option<(u64, egui::TextureHandle)>,
     pub(crate) saved_signature_previews: [Option<(fill_sign::SavedSig, egui::TextureHandle)>; 2],
     #[cfg(target_arch = "wasm32")]
     pub(crate) signature_images: fill_sign::ImageInbox,
@@ -840,6 +842,7 @@ impl PdfCraftApp {
             initials: None,
             signature_draft: Default::default(),
             signature_preview: None,
+            signature_photo: None,
             saved_signature_previews: [None, None],
             #[cfg(target_arch = "wasm32")]
             signature_images: Default::default(),
@@ -1956,6 +1959,8 @@ impl eframe::App for PdfCraftApp {
         #[cfg(target_arch = "wasm32")]
         self.process_signature_images();
         let dropped = ctx.input(|i| i.raw.dropped_files.clone());
+        #[cfg(not(target_arch = "wasm32"))]
+        let dropped = self.drop_on_signature_pad(dropped);
         #[cfg(not(target_arch = "wasm32"))]
         let dropped = self.drop_on_grid(dropped, ctx);
         for f in dropped {

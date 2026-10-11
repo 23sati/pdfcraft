@@ -2030,7 +2030,7 @@ action wizard	Start	ప్రారంభించు
 	Includes unsaved changes	సేవ్ చేయని మార్పులు ఉన్నాయి
 	This web address mixes letters from different alphabets, a common way to imitate another site's name.	ఈ వెబ్ చిరునామాలో వేర్వేరు లిపుల అక్షరాలు కలిసి ఉన్నాయి. వేరే సైట్ పేరును అనుకరించడానికి ఇది తరచూ వాడే పద్ధతి.
 	This web address uses letters from another alphabet, which can look like familiar ones.	ఈ వెబ్ చిరునామాలో వేరే లిపి అక్షరాలు ఉన్నాయి. అవి మీకు తెలిసిన అక్షరాల్లాగే కనిపించవచ్చు.
-	Choose a PNG or JPEG image (up to 4 MiB). Transparency is preserved.	PNG లేదా JPEG చిత్రాన్ని ఎంచుకోండి (గరిష్ఠంగా 4 MiB). పారదర్శకత అలాగే ఉంటుంది.
+	Choose a PNG or JPEG image. Large images are scaled down. Transparency is preserved.	PNG లేదా JPEG చిత్రాన్ని ఎంచుకోండి. పెద్ద చిత్రాలు చిన్నవిగా చేయబడతాయి. పారదర్శకత అలాగే ఉంటుంది.
 	Couldn't import the signature image: {e}	సంతకం చిత్రాన్ని దిగుమతి చేయడం సాధ్యం కాలేదు: {e}
 	Open Recent	ఇటీవలివి తెరువు
 	Clear Recent Files	ఇటీవలి ఫైళ్లను క్లియర్ చేయి
@@ -2126,3 +2126,11 @@ key	Space	స్పేస్
 	Resize panel window	ప్యానెల్ విండో పరిమాణం మార్చు
 	Tools	సాధనాలు
 	Inspector	పరిశీలకుడు
+	Scan	స్కాన్
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	తెల్ల కాగితంపై సంతకం చేసి, ప్రకాశవంతమైన, సమానమైన వెలుతురులో దాని ఫోటో తీయండి (ఫ్లాష్ ఉపయోగించండి). ఫోటోను ఎంచుకోండి లేదా ఇక్కడ వదలండి: PdfCraft సంతకాన్ని కనుగొని కాగితాన్ని తొలగిస్తుంది.
+	Choose photo…	ఫోటో ఎంచుకోండి…
+	No photo chosen	ఫోటో ఎంచుకోలేదు
+	Photo	ఫోటో
+	Ink sensitivity	ఇంక్ సున్నితత్వం
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	ఫ్రేమ్‌లో సంతకం కనబడలేదు. ఫ్రేమ్‌ను సంతకం మీదకు జరపండి లేదా ఇంక్ సున్నితత్వాన్ని పెంచండి.
+	Couldn't use the photo: {e}	ఫోటోను ఉపయోగించలేకపోయాం: {e}

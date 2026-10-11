@@ -2024,7 +2024,7 @@
 	{n} files	{n} fájl
 	{n} files need attention	{n} fájl figyelmet kér
 	{n} selected	{n} kijelölve
-	Choose a PNG or JPEG image (up to 4 MiB). Transparency is preserved.	Válassz PNG- vagy JPEG-képet (legfeljebb 4 MiB). Az átlátszóság megmarad.
+	Choose a PNG or JPEG image. Large images are scaled down. Transparency is preserved.	Válassz PNG- vagy JPEG-képet. A nagy képek kicsinyítve lesznek. Az átlátszóság megmarad.
 	Couldn't import the signature image: {e}	Az aláírásképet nem sikerült importálni: {e}
 	Open Recent	Legutóbbi megnyitása
 	Pin folder to Home…	Mappa kitűzése a kezdőlapra…
@@ -2194,3 +2194,11 @@ key	Space	Szóköz
 	Resize panel window	Panelablak átméretezése
 	Tools	Eszközök
 	Inspector	Tulajdonságvizsgáló
+	Scan	Beolvasás
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Írja alá a nevét egy fehér papírlapon, és fényképezze le erős, egyenletes fényben (vakuval). Válassza ki a fényképet, vagy húzza ide: a PdfCraft megkeresi az aláírást, és eltávolítja a papírt.
+	Choose photo…	Fénykép kiválasztása…
+	No photo chosen	Nincs kiválasztott fénykép
+	Photo	Fénykép
+	Ink sensitivity	Tintaérzékenység
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	A keretben nem található aláírás. Húzza a keretet az aláírásra, vagy növelje a tintaérzékenységet.
+	Couldn't use the photo: {e}	A fénykép nem használható: {e}

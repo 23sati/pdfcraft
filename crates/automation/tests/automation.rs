@@ -1800,6 +1800,68 @@ fn image_signatures_through_tools_preserve_transparency_and_survive_save() {
 }
 
 #[test]
+fn scanned_signatures_through_tools_drop_the_paper_and_report_bad_arguments() {
+    let dir = workdir("scanned-signatures");
+    // A grey, unevenly lit sheet with a pen stroke for the signature, and a blank one.
+    let photo = |ink: bool| {
+        let mut png = Vec::new();
+        let mut encoder = png::Encoder::new(&mut png, 400, 300);
+        encoder.set_color(png::ColorType::Rgb);
+        encoder.set_depth(png::BitDepth::Eight);
+        let rgb: Vec<u8> = (0..300_u32)
+            .flat_map(|y| {
+                (0..400_u32).flat_map(move |x| {
+                    let paper = (215 - x / 20) as u8;
+                    if ink && (100..300).contains(&x) && (144..148).contains(&y) { [20, 20, 25] } else { [paper, paper, paper] }
+                })
+            })
+            .collect();
+        encoder.write_header().unwrap().write_image_data(&rgb).unwrap();
+        png
+    };
+    std::fs::write(dir.join("photo.png"), photo(true)).unwrap();
+    std::fs::write(dir.join("blank.png"), photo(false)).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_create", json!({ "from": "blank", "width": 200, "height": 300 }))["doc"].as_u64().unwrap();
+    ok(&mut a, "fill_sign_add", json!({ "doc": doc, "page": 1, "type": "signature", "at": [20, 60], "path": "photo.png", "scan": true }));
+    let output = a.call("page_render", &json!({ "doc": doc, "page": 1, "dpi": 72 })).unwrap();
+    let Content::Png { data, .. } = &output[0] else { panic!() };
+    let page = image::load_from_memory(data).unwrap().to_rgba8();
+    let dark = (20..170).filter(|&x| page.get_pixel(x, 60).0[0] < 80).count();
+    assert!(dark > 100, "the stroke is placed as ink across the signature width ({dark} px)");
+    for (x, y) in [(22, 50), (100, 50), (100, 70)] {
+        assert_eq!(page.get_pixel(x, y).0, [255, 255, 255, 255], "the grey paper is gone at {x},{y}");
+    }
+    ok(
+        &mut a,
+        "fill_sign_add",
+        json!({ "doc": doc, "page": 1, "type": "initials", "at": [20, 150], "path": "photo.png", "scan": true, "sensitivity": 0 }),
+    );
+    for args in [
+        json!({ "type": "signature", "path": "blank.png", "scan": true }),
+        json!({ "type": "signature", "path": "photo.png", "scan": true, "sensitivity": 101 }),
+        json!({ "type": "signature", "path": "photo.png", "scan": true, "sensitivity": -1 }),
+        json!({ "type": "signature", "path": "photo.png", "sensitivity": 50 }),
+        json!({ "type": "signature", "text": "Ada", "scan": true }),
+        json!({ "type": "signature", "path": "photo.png", "scan": "yes" }),
+    ] {
+        let mut args = args;
+        args["doc"] = json!(doc);
+        args["page"] = json!(1);
+        args["at"] = json!([20, 80]);
+        let error = a.call("fill_sign_add", &args).unwrap_err();
+        assert!(matches!(error, ToolError::InvalidArgs(_)), "{args}: {error:?}");
+    }
+    let Err(ToolError::InvalidArgs(no_ink)) =
+        a.call("fill_sign_add", &json!({ "doc": doc, "page": 1, "type": "signature", "at": [20, 80], "path": "blank.png", "scan": true }))
+    else {
+        panic!()
+    };
+    assert!(no_ink.contains("No signature was found"), "{no_ink}");
+    assert_eq!(ok(&mut a, "comment_list", json!({ "doc": doc }))["count"], 2, "errors leave the PDF intact");
+}
+
+#[test]
 fn image_signature_preview_layers_are_read_only_and_survive_encrypted_save() {
     let dir = workdir("signature-preview");
     let mut png = Vec::new();
