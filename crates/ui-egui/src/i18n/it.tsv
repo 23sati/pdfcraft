@@ -1599,7 +1599,6 @@
 	Unlock	Sblocca
 	Opened, but its security settings don't allow combining. Enter the permissions password.	Aperto, ma le sue impostazioni di sicurezza non consentono la combinazione. Inserisci la password delle autorizzazioni.
 	Unlocked: the combined file won't be password-protected	Sbloccato: il file combinato non sarà protetto da password
-	Unlocked {n} of {m} files	Sbloccati {n} file su {m}
 	Drop PDFs, images, text files or folders here, or choose them.	Trascina qui PDF, immagini, file di testo o cartelle, oppure sceglili.
 	Unlocked {n} of {m} files	File sbloccati: {n} su {m}
 	Drop PDFs or folders here, or choose them.	Trascina qui PDF o cartelle, oppure sceglili.
