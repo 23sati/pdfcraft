@@ -147,8 +147,29 @@ impl Automation {
             }
             settings.language = l.into();
         }
+        if let Some(recognizer) = a.opt_str("recognizer")? {
+            settings.recognizer = pdfcraft_engine::ocr::Recognizer::from_id(recognizer).map_err(ToolError::InvalidArgs)?;
+        }
         if let Some(s) = a.opt_bool("skip_text_pages")? {
             settings.skip_text_pages = s;
+        }
+        if let Some(v) = a.opt_bool("auto_rotate")? {
+            settings.auto_rotate = v;
+        }
+        if let Some(v) = a.opt_bool("deskew")? {
+            settings.deskew = v;
+        }
+        if let Some(v) = a.opt_bool("auto_crop")? {
+            settings.auto_crop = v;
+        }
+        if let Some(v) = a.opt_num("crop_margin")? {
+            if !v.is_finite() || !(0.0..=20.0).contains(&v) {
+                return Err(ToolError::InvalidArgs("crop_margin must be between 0 and 20 pt".into()));
+            }
+            settings.crop_margin = v;
+        }
+        if let Some(v) = a.opt_bool("recognize")? {
+            settings.recognize = v;
         }
         Ok(settings)
     }
@@ -185,7 +206,18 @@ impl Automation {
     }
 
     pub(crate) fn ocr_recognize(&mut self, a: &Args) -> Result<Value> {
-        let settings = self.ocr_settings(a)?;
+        self.ocr_process(a, false)
+    }
+    pub(crate) fn ocr_enhance(&mut self, a: &Args) -> Result<Value> {
+        self.ocr_process(a, true)
+    }
+    fn ocr_process(&mut self, a: &Args, correction_only: bool) -> Result<Value> {
+        let mut settings = self.ocr_settings(a)?;
+        if correction_only {
+            settings.recognize = false;
+            settings.auto_crop = a.opt_bool("auto_crop")?.unwrap_or(true);
+            settings.skip_text_pages = a.opt_bool("skip_text_pages")?.unwrap_or(false);
+        }
         let pages = if a.opt_ints("pages")?.is_some() { self.pages(a, "pages")? } else { Vec::new() };
         let id = self.doc(a)?.id;
         let found = self.session.recognize_text(id, &pages, settings).map_err(failed)?;
@@ -193,7 +225,7 @@ impl Automation {
             .iter()
             .map(|p| match &p.skipped {
                 Some(why) => json!({ "page": p.page + 1, "skipped": why }),
-                None => json!({ "page": p.page + 1, "words": p.words.len(), "text": p.text() }),
+                None => json!({ "page": p.page + 1, "words": p.words.len(), "text": p.text(), "rotation":p.correction.rotation,"deskew":p.correction.deskew,"crop_box":p.crop }),
             })
             .collect();
         Ok(json!({ "words": found.iter().map(|p| p.words.len()).sum::<usize>(), "pages": list }))
@@ -203,7 +235,35 @@ impl Automation {
         use pdfcraft_engine::ocr;
         let dirs: Vec<String> = ocr::Models::search_dirs().iter().map(|d| d.to_string_lossy().into_owned()).collect();
         let langs: Vec<Value> = ocr::LANGUAGES.iter().map(|(c, n)| json!({ "code": c, "name": n })).collect();
-        Ok(json!({ "available": ocr::available(), "search_dirs": dirs, "languages": langs }))
+        Ok(
+            json!({ "available": ocr::available(), "search_dirs": dirs, "languages": langs, "recognizers": ["modern", "historical", "historical-handwriting"], "historical_addon": pdfcraft_engine::ocr_addons::status() }),
+        )
+    }
+
+    pub(crate) fn ocr_addon_status(&self, a: &Args) -> Result<Value> {
+        let status = match a.opt_str("directory")? {
+            Some(path) => pdfcraft_engine::ocr_addons::status_at(&self.resolve(path, true)?),
+            None => pdfcraft_engine::ocr_addons::status(),
+        };
+        Ok(json!(status))
+    }
+
+    pub(crate) fn ocr_addon_install(&mut self, a: &Args) -> Result<Value> {
+        let path = match a.opt_str("directory")? {
+            Some(path) => self.resolve(path, true)?,
+            None => self.resolve(&pdfcraft_engine::ocr_addons::default_dir().map_err(failed)?.to_string_lossy(), true)?,
+        };
+        let status = pdfcraft_engine::ocr_addons::install_at(&path).map_err(failed)?;
+        Ok(json!(status))
+    }
+
+    pub(crate) fn ocr_addon_remove(&mut self, a: &Args) -> Result<Value> {
+        let path = match a.opt_str("directory")? {
+            Some(path) => self.resolve(path, true)?,
+            None => self.resolve(&pdfcraft_engine::ocr_addons::default_dir().map_err(failed)?.to_string_lossy(), true)?,
+        };
+        pdfcraft_engine::ocr_addons::remove_at(&path).map_err(failed)?;
+        Ok(json!(pdfcraft_engine::ocr_addons::status_at(&path)))
     }
 }
 

@@ -2196,3 +2196,34 @@ key	Space	Leertaste
 	Resize panel window	Größe des Bereichsfensters ändern
 	Tools	Werkzeuge
 	Inspector	Inspektor
+	Scan and text recognition	Scan und Texterkennung
+	Searchable Image	Durchsuchbares Bild
+	Corrected scan	Korrigierter Scan
+	Scan correction	Scan korrigieren
+	Automatically rotate sideways and upside-down pages	Seitlich oder kopfstehend gescannte Seiten automatisch drehen
+	Straighten skewed scans	Schief eingescannte Seiten geraderichten
+	Add searchable text	Durchsuchbaren Text hinzufügen
+	Uncertain orientations are left unchanged. Deskew fits the full image inside the page.	Unsichere Ausrichtungen bleiben unverändert. Beim Geraderichten bleibt das gesamte Bild innerhalb der Seite.
+	Correct scans	Scans korrigieren
+	Scan processing cancelled	Scan-Verarbeitung abgebrochen
+	; 1 page skipped	; 1 Seite übersprungen
+	; {n} pages skipped	; {n} Seiten übersprungen
+	; corrected {n} pages	; {n} Seiten korrigiert
+	Crop scanner borders to the paper edge	Scanränder bis zur Papierkante beschneiden
+	Safety margin (pt)	Sicherheitsrand (pt)
+	Only clear paper edges are cropped. Indistinguishable white borders are kept.	Nur erkennbare Papierkanten werden beschnitten. Nicht unterscheidbare weiße Ränder bleiben erhalten.
+	Text style	Schriftart
+	Modern print	Moderne Druckschrift
+	Historical print (Fraktur)	Historischer Druck (Fraktur)
+	Fraktur and Kurrent use an optional 13 MB add-on. After download, recognition works offline.	Fraktur und Kurrent verwenden ein optionales Add-on mit 13 MB. Nach dem Download funktioniert die Erkennung offline.
+	Historical spelling is preserved. Handwriting, abbreviations and complex layouts need checking.	Die historische Schreibweise bleibt erhalten. Handschrift, Abkürzungen und komplexe Layouts bitte nachprüfen.
+	Preparing OCR add-on…	OCR-Add-on wird vorbereitet…
+	Historical OCR add-on installed	Add-on für historische OCR installiert
+	Remove add-on	Add-on entfernen
+	Download historical OCR add-on (13 MB)	Add-on für historische OCR herunterladen (13 MB)
+	Historical OCR add-ons require the desktop app.	Add-ons für historische OCR benötigen die Desktop-App.
+	Wait for text recognition to finish before changing add-ons	Bitte warten, bis die Texterkennung abgeschlossen ist, bevor Add-ons geändert werden
+	Automatic (historical model)	Automatisch (historisches Modell)
+	The historical model detects its supported scripts automatically; Japanese is not included.	Das historische Modell erkennt seine unterstützten Schriften automatisch; Japanisch ist nicht enthalten.
+	Historical handwriting (Kurrent)	Historische Handschrift (Kurrent)
+	Handwriting requires upright horizontal lines in one text column. Columns, tables and marginal notes are not supported.	Handschrift benötigt aufrechte, waagerechte Zeilen in einer Textspalte. Mehrere Spalten, Tabellen und Randnotizen werden nicht unterstützt.

@@ -2203,3 +2203,34 @@ key	Space	Spazio
 	Panels	Pannelli
 	Resize panels	Ridimensiona pannelli
 	Resize panel window	Ridimensiona finestra pannello
+	Scan and text recognition	Scansione e riconoscimento del testo
+	Searchable Image	Immagine ricercabile
+	Corrected scan	Scansione corretta
+	Scan correction	Correzione scansione
+	Automatically rotate sideways and upside-down pages	Ruota automaticamente le pagine laterali o capovolte
+	Straighten skewed scans	Raddrizza le scansioni inclinate
+	Add searchable text	Aggiungi testo ricercabile
+	Uncertain orientations are left unchanged. Deskew fits the full image inside the page.	Gli orientamenti incerti restano invariati. Il raddrizzamento mantiene l’intera immagine nella pagina.
+	Correct scans	Correggi scansioni
+	Scan processing cancelled	Elaborazione scansioni annullata
+	; 1 page skipped	; 1 pagina saltata
+	; {n} pages skipped	; {n} pagine saltate
+	; corrected {n} pages	; {n} pagine corrette
+	Crop scanner borders to the paper edge	Ritaglia i bordi della scansione fino al foglio
+	Safety margin (pt)	Margine di sicurezza (pt)
+	Only clear paper edges are cropped. Indistinguishable white borders are kept.	Vengono ritagliati solo i bordi riconoscibili del foglio. I bordi bianchi indistinguibili vengono mantenuti.
+	Text style	Stile del testo
+	Modern print	Testo stampato moderno
+	Historical print (Fraktur)	Testo stampato storico (Fraktur)
+	Fraktur and Kurrent use an optional 13 MB add-on. After download, recognition works offline.	Fraktur e Kurrent utilizzano un componente aggiuntivo facoltativo di 13 MB. Dopo il download, il riconoscimento funziona offline.
+	Historical spelling is preserved. Handwriting, abbreviations and complex layouts need checking.	L’ortografia storica viene conservata. Controllare i manoscritti, le abbreviazioni e le impaginazioni complesse.
+	Preparing OCR add-on…	Preparazione del componente OCR…
+	Historical OCR add-on installed	Componente OCR storico installato
+	Remove add-on	Rimuovi componente
+	Download historical OCR add-on (13 MB)	Scarica il componente OCR storico (13 MB)
+	Historical OCR add-ons require the desktop app.	I componenti OCR storici richiedono l’applicazione desktop.
+	Wait for text recognition to finish before changing add-ons	Attendere il termine del riconoscimento del testo prima di modificare i componenti aggiuntivi
+	Automatic (historical model)	Automatico (modello storico)
+	The historical model detects its supported scripts automatically; Japanese is not included.	Il modello storico rileva automaticamente le scritture supportate; il giapponese non è incluso.
+	Historical handwriting (Kurrent)	Scrittura a mano storica (Kurrent)
+	Handwriting requires upright horizontal lines in one text column. Columns, tables and marginal notes are not supported.	La scrittura a mano richiede righe orizzontali orientate correttamente in una sola colonna. Non sono supportate più colonne, tabelle e note a margine.
