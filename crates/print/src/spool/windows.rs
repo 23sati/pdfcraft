@@ -13,7 +13,7 @@ use std::io::Write as _;
 
 use winprint::printer::{FilePrinter as _, PrinterDevice, WinPdfPrinter};
 use winprint::ticket::document::{NS_PSF, NS_PSK, OwnedName, PrintFeature, PrintTicketDocument, reader::ParsableXmlDocument as _};
-use winprint::ticket::{PrintCapabilities, PrintTicket, PrintTicketBuilder};
+use winprint::ticket::{FeatureOptionPack as _, PrintCapabilities, PrintTicket, PrintTicketBuilder};
 
 use super::{Duplex, Job, Printer};
 use crate::PrintError;
@@ -93,6 +93,18 @@ fn job_filename(title: &str) -> String {
     format!("PdfCraft-{safe}.pdf")
 }
 
+/// The name of PdfCraft's paper preset for a sheet of this size, either way round, without
+/// the size in brackets: "ARCH D" for 24 × 36 in, "A4", "US Letter" (#599).
+fn preferred_paper_name(width: f64, height: f64) -> Option<&'static str> {
+    let name = crate::PAPERS.get(crate::matching_paper((width, height))?)?.0;
+    Some(name.split(" (").next().unwrap_or(name))
+}
+
+/// Whether a driver's paper name is the preset's: it starts with it, ignoring case.
+fn names_paper(display: Option<&str>, preset: &str) -> bool {
+    display.and_then(|d| d.get(..preset.len())).is_some_and(|start| start.eq_ignore_ascii_case(preset))
+}
+
 /// The ticket the driver accepted for this job: [`ticket_xml`] with the driver's own paper of
 /// the sheet's size (its exact option, so a vendor's sizes survive; a ticket with dimensions
 /// only can come back as Letter) and its own "no scaling" option, merged and validated against
@@ -109,8 +121,13 @@ fn driver_ticket(device: &PrinterDevice, job: &Job, width: f64, height: f64) -> 
             s.width_in_micron().abs_diff(w) <= 250 && s.height_in_micron().abs_diff(h) <= 250
         })
         .collect();
-    // The closest first; on a tie the driver's own order (stable sort).
-    candidates.sort_by_key(|m| m.size().width_in_micron().abs_diff(w) + m.size().height_in_micron().abs_diff(h));
+    // The driver's paper named like PdfCraft's preset for this size first (its "ARCH D" over
+    // another 24 × 36 in entry), then the closest; on a tie the driver's own order (stable sort).
+    let preferred = preferred_paper_name(width, height);
+    candidates.sort_by_key(|m| {
+        let named = preferred.is_some_and(|p| names_paper(m.display_name(), p));
+        (!named, m.size().width_in_micron().abs_diff(w) + m.size().height_in_micron().abs_diff(h))
+    });
     let media = candidates.into_iter().next().ok_or_else(|| {
         spool_error(format!(
             "{} has no {:.2} × {:.2} inch paper; choose a paper size it has, or add this one in its driver",
@@ -248,6 +265,22 @@ mod tests {
         assert_eq!(std::path::Path::new(&name).components().count(), 1);
         assert!(name.starts_with("PdfCraft-") && name.ends_with(".pdf"));
         assert_eq!(job_filename("Invoice 42.pdf"), "PdfCraft-Invoice 42.pdf");
+    }
+
+    #[test]
+    fn the_driver_paper_named_like_the_preset_is_preferred() {
+        // ARCH D either way round, A4 (rounded metric points), Letter; no preset for 5 × 7 in.
+        assert_eq!(preferred_paper_name(2592.0, 1728.0), Some("ARCH D"));
+        assert_eq!(preferred_paper_name(595.0, 842.0), Some("A4"));
+        assert_eq!(preferred_paper_name(612.0, 792.0), Some("US Letter"));
+        assert_eq!(preferred_paper_name(360.0, 504.0), None);
+        assert_eq!(preferred_paper_name(f64::NAN, 792.0), None);
+        assert!(names_paper(Some("ARCH D 24 x 36 in"), "ARCH D"));
+        assert!(names_paper(Some("arch d"), "ARCH D"));
+        assert!(!names_paper(Some("ANSI D"), "ARCH D"));
+        assert!(!names_paper(Some("A4"), "A4 Extra Long"));
+        assert!(!names_paper(Some("Ä"), "A4"), "never slices inside a character");
+        assert!(!names_paper(None, "A4"));
     }
 
     #[test]
