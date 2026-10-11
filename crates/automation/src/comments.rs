@@ -501,6 +501,14 @@ impl Automation {
             // A typed signature or initials in the script font, left edge at `at`, upright as displayed.
             kind @ ("signature" | "initials") => {
                 let t = a.str("text")?;
+                // Nobody sees a preview here: refuse what the script font would leave out.
+                if let Some(c) = pdfcraft_engine::script_missing(t) {
+                    return Err(ToolError::InvalidArgs(format!(
+                        "the signature script font can't draw \"{}\" (U+{:04X}); type the {kind} in Latin, Cyrillic or Greek letters, or pass `path` to a PNG or JPEG image of it instead of `text`",
+                        c.escape_debug(),
+                        u32::from(c)
+                    )));
+                }
                 let h = if kind == "initials" { 24.0 } else { 32.0 };
                 let shape = pdfcraft_engine::typed_signature_shape(at, t, h, i64::from(info.rotation))
                     .ok_or_else(|| ToolError::InvalidArgs("text has nothing to draw".into()))?;

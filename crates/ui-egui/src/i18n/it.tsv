@@ -2144,6 +2144,8 @@
 	The document was closed before it could be saved.	Il documento è stato chiuso prima che potesse essere salvato.
 	The pages were extracted but not deleted, because the document changed while you were choosing a folder.	Le pagine sono state estratte ma non eliminate, perché il documento è cambiato mentre sceglievi una cartella.
 	The printer driver's own settings for this print: paper tray, paper type, finishing and more.	Le impostazioni proprie del driver della stampante per questa stampa: vassoio, tipo di carta, finitura e altro.
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Il font di questo campo non può disegnare «{c}» ({code}), quindi PdfCraft mostra ? al suo posto. Il valore è salvato e gli altri visualizzatori PDF ridisegnano il campo a partire da esso.
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	I font con cui PdfCraft scrive non possono disegnare «{c}» ({code}), quindi appare come ? in ogni visualizzatore PDF. Il testo è salvato.
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	I caratteri standard non possono disegnare “{c}” ({code}). Per ora si possono aggiungere come testo solo caratteri dell'Europa occidentale.
 	This printer offers no settings of its own.	Questa stampante non offre impostazioni proprie.
 	Today: {date}	Oggi: {date}

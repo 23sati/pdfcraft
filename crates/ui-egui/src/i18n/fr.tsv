@@ -2090,6 +2090,8 @@
 	Go to page…	Aller à la page…
 	For page sizes and margins.	Pour les tailles de page et les marges.
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Les polices standard ne peuvent pas afficher « {c} » ({code}). Pour l'instant, seuls les caractères d'Europe occidentale peuvent être ajoutés comme texte.
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	La police de ce champ ne peut pas afficher « {c} » ({code}) : PdfCraft affiche ? à sa place. La valeur est enregistrée, et les autres lecteurs PDF redessinent le champ à partir de celle-ci.
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Les polices qu'utilise PdfCraft pour écrire ne peuvent pas afficher « {c} » ({code}) : il apparaît comme ? dans tous les lecteurs PDF. Le texte est enregistré.
 	Larger pages	Pages plus grandes
 	Smaller pages	Pages plus petites
 	Reset page size	Rétablir la taille des pages

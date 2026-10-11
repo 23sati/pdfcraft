@@ -2152,6 +2152,8 @@ calendar date	December	грудня
 	Reverse closed arrow	Зворотна закрита стрілка
 	Slash	Коса риска
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Стандартні шрифти не можуть відобразити «{c}» ({code}). Поки що як текст можна додавати лише західноєвропейські символи.
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Шрифт цього поля не може відобразити «{c}» ({code}), тому PdfCraft показує на його місці ?. Значення збережено, і інші програми перегляду PDF перемалюють поле за ним.
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Шрифти, якими пише PdfCraft, не можуть відобразити «{c}» ({code}), тому в усіх програмах перегляду PDF на його місці буде ?. Текст збережено.
 	Larger pages	Більші сторінки
 	Smaller pages	Менші сторінки
 	Reset page size	Скинути розмір сторінок

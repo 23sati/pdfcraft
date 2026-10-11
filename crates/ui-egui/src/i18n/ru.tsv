@@ -2050,6 +2050,8 @@
 	Go to page…	Перейти на страницу…
 	For page sizes and margins.	Для размеров страниц и полей.
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Стандартные шрифты не могут отобразить «{c}» ({code}). Пока в виде текста можно добавлять только западноевропейские символы.
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Шрифт этого поля не может отобразить «{c}» ({code}), поэтому PdfCraft показывает на его месте ?. Значение сохранено, и другие программы просмотра PDF перерисуют поле по нему.
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Шрифты, которыми пишет PdfCraft, не могут отобразить «{c}» ({code}), поэтому во всех программах просмотра PDF на его месте будет ?. Текст сохранён.
 	Larger pages	Крупнее страницы
 	Smaller pages	Мельче страницы
 	Reset page size	Сбросить размер страниц

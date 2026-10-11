@@ -1170,6 +1170,34 @@ fn form_fixture() -> Vec<u8> {
     out
 }
 
+/// A value its field's font can't draw is kept, and the edit that drew it reports it in
+/// `edit_notices` (the interface shows it, tools return it): not a later unrelated edit, not a
+/// failed one, and not a value that can be drawn. The form (an inline AcroForm here) asks other
+/// viewers to redraw it.
+#[test]
+fn a_value_its_font_cannot_draw_is_reported_by_the_edit_that_drew_it() {
+    let mut s = Session::new().with_clock(|| 1_700_000_000);
+    let id = s.open("form.pdf", None, Arc::new(form_fixture()), None).unwrap();
+    let fill = |s: &mut Session, name: &str, v: FieldValue| s.apply(id, Edit::SetFieldValue { name: name.into(), value: v });
+    fill(&mut s, "name", FieldValue::Text("张三".into())).unwrap();
+    let d = s.get(id).unwrap();
+    assert_eq!(d.form[0].value, ["张三"]);
+    let n = &d.edit_notices;
+    assert_eq!(n.len(), 1, "{n:?}");
+    assert_eq!((n[0].field.as_deref(), n[0].page, n[0].ch, n[0].redrawn_elsewhere), (Some("name"), 0, '张', true));
+    assert!(n[0].to_string().contains("\"张\" (U+5F20)") && n[0].to_string().contains("other PDF viewers redraw"), "{}", n[0]);
+    fill(&mut s, "ok", FieldValue::Check(true)).unwrap();
+    assert!(s.get(id).unwrap().edit_notices.is_empty(), "an unrelated edit reports nothing");
+    fill(&mut s, "name", FieldValue::Text("李四".into())).unwrap();
+    assert_eq!(s.get(id).unwrap().edit_notices.len(), 1, "a new value is reported again");
+    assert!(fill(&mut s, "missing", FieldValue::Text("x".into())).is_err());
+    assert!(s.get(id).unwrap().edit_notices.is_empty(), "no stale notice after a failed edit");
+    fill(&mut s, "name", FieldValue::Text("Ada".into())).unwrap();
+    assert!(s.get(id).unwrap().edit_notices.is_empty());
+    let saved = pdfcraft_cos::Document::open(s.save_bytes(id).unwrap()).unwrap();
+    assert!(pdfcraft_forms::need_appearances(&saved));
+}
+
 #[test]
 fn filling_a_form_shows_saves_and_undoes() {
     let mut s = Session::new().with_clock(|| 1_700_000_000);
@@ -3360,4 +3388,104 @@ fn enhance_camera_page_refuses_bad_corners_and_pages() {
     assert!(s.enhance_camera_page(id, 5, ok).unwrap_err().to_string().contains("no page 6"));
     assert!(matches!(s.enhance_camera_page(DocId(999), 0, ok), Err(EditError::NoDocument)));
     assert_eq!(s.get(id).unwrap().can_undo(), None, "nothing changed");
+}
+
+/// A content-only edit must not disturb the inspection results: pages, annotations, fields,
+/// links and marks are unchanged, only the working bytes, the added-content list and the
+/// display copy move.
+#[test]
+fn content_edit_keeps_pages_annotations_fields_and_links() {
+    let (mut session, id) = session_with(2);
+    let before = session.get(id).unwrap();
+    let pages = format!("{:?}", before.info.pages);
+    let annotations = format!("{:?}", before.info.annotations);
+    let links = format!("{:?}", before.links);
+    let form = before.form.clone();
+    let marks = before.marks.clone();
+    let bytes = before.bytes.clone();
+    let text = AddedText {
+        rect: [20.0, 20.0, 200.0, 60.0],
+        text: "hello".into(),
+        family: FontFamily::Helvetica,
+        bold: false,
+        italic: false,
+        size: 12.0,
+        color: [0.0, 0.0, 0.0],
+        align: TextAlign::Left,
+    };
+    session.apply(id, Edit::AddText { page: 1, text }).unwrap();
+    let after = session.get(id).unwrap();
+    assert_eq!(format!("{:?}", after.info.pages), pages, "page geometry is untouched");
+    assert_eq!(format!("{:?}", after.info.annotations), annotations);
+    assert_eq!(format!("{:?}", after.links), links);
+    assert_eq!(after.form, form, "no field was touched");
+    assert_eq!(after.marks, marks, "no mark was touched");
+    assert!(after.added.iter().any(|a| a.page == 1), "the added text is listed");
+    assert_ne!(after.bytes, bytes, "the working file carries the edit");
+    assert_ne!(after.display, bytes, "the display copy carries the edit too");
+    // The display bytes still open and render the edited page.
+    let mut renderer = pdfcraft_render::PageRenderer::new(after.display.clone(), after.config.clone());
+    let rendered = renderer.render(pdfcraft_render::RenderRequest { page: 1, scale: 1.0, ..Default::default() });
+    assert!(rendered.error.is_none(), "{:?}", rendered.error);
+    // Undo goes through the same narrow refresh without the edit at hand.
+    session.undo(id).unwrap();
+    let undone = session.get(id).unwrap();
+    assert!(undone.added.is_empty(), "undo drops the added text");
+    assert_eq!(format!("{:?}", undone.info.pages), pages);
+}
+
+/// `refresh_content` re-reads only the derived lists the edit can change (undo/redo, with no
+/// edit at hand, re-read both).
+#[test]
+fn content_refresh_lists_match_the_storages_an_edit_touches() {
+    let target = |kind| ObjectTarget { kind, index: 0 };
+    let added = [
+        Edit::AddText {
+            page: 0,
+            text: AddedText {
+                rect: [0.0, 0.0, 10.0, 10.0],
+                text: String::new(),
+                family: FontFamily::Helvetica,
+                bold: false,
+                italic: false,
+                size: 12.0,
+                color: [0.0, 0.0, 0.0],
+                align: TextAlign::Left,
+            },
+        },
+        Edit::MoveObjects { page: 0, objects: vec![target(crate::ObjectKind::Added)], offset: [1.0, 0.0] },
+    ];
+    for edit in &added {
+        assert_eq!(Session::content_refresh_lists(Some(edit)), (true, false), "{}", edit.label());
+    }
+    let plain = [
+        Edit::MoveObjects { page: 0, objects: vec![target(crate::ObjectKind::Text)], offset: [1.0, 0.0] },
+        Edit::EditTextBlock { page: 0, block: 0, text: String::new(), style: pdfcraft_edit::BlockStyle::default() },
+    ];
+    for edit in &plain {
+        assert_eq!(Session::content_refresh_lists(Some(edit)), (false, false), "{}", edit.label());
+    }
+    let marks = [Edit::AddWatermark { pages: vec![0], settings: Watermark::default(), replace: false, file: None }];
+    for edit in &marks {
+        assert_eq!(Session::content_refresh_lists(Some(edit)), (false, true), "{}", edit.label());
+    }
+    assert_eq!(Session::content_refresh_lists(None), (true, true), "undo/redo re-read both");
+}
+
+/// A content edit can add a font (Add text in Times); the narrow refresh leaves the font list
+/// as it was, and `refresh_fonts` reads it again before Properties ▸ Fonts or `doc_info` show it.
+#[test]
+fn fonts_added_by_a_content_edit_show_after_refresh_fonts() {
+    let (mut session, id) = session_with(1);
+    let has_times = |s: &Session| s.get(id).unwrap().info.fonts.iter().any(|f| f.name.contains("Times"));
+    assert!(!has_times(&session));
+    let text = AddedText { text: "serif".into(), rect: [20.0, 20.0, 200.0, 60.0], family: FontFamily::Times, ..Default::default() };
+    session.apply(id, Edit::AddText { page: 0, text }).unwrap();
+    assert!(!has_times(&session), "the narrow refresh doesn't re-inspect");
+    session.refresh_fonts(id);
+    assert!(has_times(&session), "{:?}", session.get(id).unwrap().info.fonts);
+    // Nothing changed since: a second call is a no-op.
+    let fonts = format!("{:?}", session.get(id).unwrap().info.fonts);
+    session.refresh_fonts(id);
+    assert_eq!(format!("{:?}", session.get(id).unwrap().info.fonts), fonts);
 }
