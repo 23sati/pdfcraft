@@ -3138,16 +3138,17 @@ fn selection_actions(ui: &mut egui::Ui, viewport: Rect, view: &mut DocView, info
     egui::Area::new(egui::Id::new(("text-selection-actions", view.id.0))).order(egui::Order::Foreground).fixed_pos(pos2(x, y)).show(ui.ctx(), |ui| {
         egui::Frame::popup(ui.style()).show(ui, |ui| {
             ui.horizontal(|ui| {
-                let mut button = |label: &str, action| {
-                    if ui.add_enabled(can_comment, egui::Button::new(tl!(label))).clicked() {
+                for (label, action) in [
+                    (tl!("Add comment"), SelectionAction::Note),
+                    (tl!("Highlight"), SelectionAction::Markup(comments::CommentTool::Highlight)),
+                    (tl!("Underline"), SelectionAction::Markup(comments::CommentTool::Underline)),
+                    (tl!("Strikethrough"), SelectionAction::Markup(comments::CommentTool::StrikeOut)),
+                    (tl!("Replace text"), SelectionAction::Replace),
+                ] {
+                    if ui.add_enabled(can_comment, egui::Button::new(label)).clicked() {
                         chosen = Some(action);
                     }
-                };
-                button("Add comment", SelectionAction::Note);
-                button("Highlight", SelectionAction::Markup(comments::CommentTool::Highlight));
-                button("Underline", SelectionAction::Markup(comments::CommentTool::Underline));
-                button("Strikethrough", SelectionAction::Markup(comments::CommentTool::StrikeOut));
-                button("Replace text", SelectionAction::Replace);
+                }
                 if ui.button(tl!("Copy")).clicked() {
                     chosen = Some(SelectionAction::Copy);
                 }
@@ -3177,15 +3178,18 @@ fn selection_actions(ui: &mut egui::Ui, viewport: Rect, view: &mut DocView, info
             });
         }
         SelectionAction::Markup(tool) => {
+            // Every markup button carries a markup tool; anything else adds nothing.
+            let Some(kind) = tool.markup() else { return };
             view.pending_edit = Some(Edit::AddAnnotation(pdfcraft_engine::NewAnnotation {
                 page,
-                shape: pdfcraft_engine::Shape::TextMarkup { kind: tool.markup().unwrap(), quads },
+                shape: pdfcraft_engine::Shape::TextMarkup { kind, quads },
                 style: prefs.style(tool),
                 contents: String::new(),
                 author: prefs.author.clone(),
             }));
         }
-        SelectionAction::Copy => unreachable!(),
+        // Copied above.
+        SelectionAction::Copy => {}
     }
 }
 
