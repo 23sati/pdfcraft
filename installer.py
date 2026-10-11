@@ -510,7 +510,9 @@ namespace LinkcoSetup
             string fullDllPath = Path.GetFullPath(dllPath);
             string dllDir = Path.GetDirectoryName(fullDllPath) ?? "";
             string cliPath = Path.Combine(dllDir, "pdfcraft-cli.exe");
-            string codeBase = new Uri(fullDllPath).AbsoluteUri;
+            // regasm form, not Uri.AbsoluteUri: the CLR does not percent-decode CodeBase ("Program%20Files").
+            string codeBase = fullDllPath.Replace('\\', '/');
+            codeBase = codeBase.StartsWith("//", StringComparison.Ordinal) ? "file:" + codeBase : "file:///" + codeBase;
             string asmName = AssemblyName.GetAssemblyName(fullDllPath).FullName;
 
             using (RegistryKey appId = root.CreateSubKey(@"Software\Classes\AppID\" + LinkcoAppId))

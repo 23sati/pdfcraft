@@ -41,8 +41,11 @@ function Get-RegisteredDll {
     $key = "$hive\Software\Classes\CLSID\$clsid\InprocServer32"
     $codeBase = (Get-ItemProperty -LiteralPath $key -Name CodeBase -ErrorAction SilentlyContinue).CodeBase
     if ($codeBase) {
-      $path = $codeBase -replace '^file:///', '' -replace '/', '\'
-      return [pscustomobject]@{ Hive = $hive.TrimEnd(':'); Path = [Uri]::UnescapeDataString($path) }
+      # .NET loads CodeBase without percent-decoding it, so "Program%20Files" (written before 1.0.0's
+      # fix) points at a folder that does not exist and every preview fails with 0x80070002.
+      $path = $codeBase -replace '^file:///', '' -replace '^file:', '' -replace '/', '\'
+      $escaped = $codeBase -match '%[0-9A-Fa-f]{2}'
+      return [pscustomobject]@{ Hive = $hive.TrimEnd(':'); Path = $path; Escaped = $escaped; Decoded = [Uri]::UnescapeDataString($path) }
     }
   }
   return $null
@@ -61,6 +64,8 @@ if (-not $Dll -and $Repair) {
 if (-not $Dll) {
   if ($registered -and (Test-Path -LiteralPath $registered.Path)) {
     $Dll = $registered.Path
+  } elseif ($registered -and $registered.Escaped -and (Test-Path -LiteralPath $registered.Decoded)) {
+    $Dll = $registered.Decoded
   } else {
     foreach ($candidate in $installed) {
       if (Test-Path -LiteralPath $candidate) { $Dll = $candidate; break }
@@ -70,7 +75,9 @@ if (-not $Dll) {
 
 Write-Output "Windows:          $([Environment]::OSVersion.VersionString) ($((Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -ErrorAction SilentlyContinue).DisplayVersion))"
 if ($registered) {
-  $state = if (Test-Path -LiteralPath $registered.Path) { 'exists' } else { 'MISSING - Explorer cannot load the preview handler' }
+  $state = if (Test-Path -LiteralPath $registered.Path) { 'exists' }
+    elseif ($registered.Escaped) { 'BROKEN - percent-escaped CodeBase, .NET cannot find the DLL; run this script with -Repair, or start Linkco PDF Editor once' }
+    else { 'MISSING - Explorer cannot load the preview handler' }
   Write-Output "Registered DLL:   $($registered.Hive) -> $($registered.Path) ($state)"
 } else {
   Write-Output "Registered DLL:   (the preview handler is not registered - start Linkco PDF Editor once, or reinstall)"

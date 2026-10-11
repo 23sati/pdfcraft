@@ -1444,7 +1444,7 @@ namespace LinkcoPdfPreview
         /// Bumped whenever the registry layout changes, so LinkcoPDFEditor.exe re-registers (repairs)
         /// existing installs on its next start. Keep in sync with apps/pdfcraft/src/windows_preview.rs.
         /// </summary>
-        public const int RegistrationSchema = 5;
+        public const int RegistrationSchema = 6;
 
         /// <summary>ProgIDs owned by Linkco PDF Editor (or its upstream PdfCraft).</summary>
         private static readonly string[] OwnProgIds = new string[]
@@ -2291,6 +2291,8 @@ namespace LinkcoPdfPreview
                         string path = CodeBaseToPath(codeBase);
                         if (path == null)
                             return label + ", CodeBase missing or unreadable (" + (codeBase ?? "null") + ")  [BROKEN: re-register]";
+                        if (IsEscapedCodeBase(codeBase) && !File.Exists(path))
+                            return label + ", CodeBase " + codeBase + "  [BROKEN: percent-escaped CodeBase, .NET cannot find the DLL (0x80070002); start Linkco PDF Editor 1.0.0 once or reinstall]";
                         if (!File.Exists(path))
                             return label + ", " + path + "  [BROKEN: the DLL does not exist; start Linkco PDF Editor once or reinstall]";
                         string version = "?";
@@ -2308,7 +2310,23 @@ namespace LinkcoPdfPreview
             return "(not registered)";
         }
 
-        private static string CodeBaseToPath(string codeBase)
+        /// <summary>
+        /// The InprocServer32 <c>CodeBase</c> for <paramref name="fullDllPath"/>, in the form regasm writes
+        /// (<c>file:///C:/Program Files/...</c>). The CLR's COM activation hands this string to the assembly
+        /// binder as-is and does NOT percent-decode it, so <c>Uri.AbsoluteUri</c>'s <c>Program%20Files</c>
+        /// names a folder that does not exist: every activation (prevhost, Explorer) then fails with
+        /// 0x80070002 and Explorer reports "an error in the Linkco PDF Preview Handler".
+        /// </summary>
+        internal static string ComCodeBase(string fullDllPath)
+        {
+            string p = fullDllPath.Replace('\\', '/');
+            if (p.StartsWith("//", StringComparison.Ordinal))
+                return "file:" + p; // UNC: file://server/share/...
+            return "file:///" + p;
+        }
+
+        /// <summary>The file the CLR loads for a CodeBase: like the binder, no percent-decoding.</summary>
+        internal static string CodeBaseToPath(string codeBase)
         {
             if (string.IsNullOrEmpty(codeBase))
                 return null;
@@ -2316,10 +2334,13 @@ namespace LinkcoPdfPreview
             {
                 if (codeBase.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
                 {
-                    string p = codeBase.Substring(5).TrimStart('/');
-                    if (p.Length >= 2 && p[1] == ':')
-                        return Uri.UnescapeDataString(p).Replace('/', '\\');
-                    return new Uri(codeBase).LocalPath;
+                    string p = codeBase.Substring(5);
+                    string drive = p.TrimStart('/');
+                    if (drive.Length >= 2 && drive[1] == ':')
+                        return drive.Replace('/', '\\');
+                    if (p.StartsWith("//", StringComparison.Ordinal))
+                        return "\\\\" + p.TrimStart('/').Replace('/', '\\');
+                    return null;
                 }
                 return codeBase;
             }
@@ -2329,12 +2350,84 @@ namespace LinkcoPdfPreview
             }
         }
 
+        /// <summary>True for a CodeBase that the CLR cannot load because it is percent-escaped.</summary>
+        internal static bool IsEscapedCodeBase(string codeBase)
+        {
+            if (string.IsNullOrEmpty(codeBase))
+                return false;
+            for (int i = 0; i + 2 < codeBase.Length; i++)
+            {
+                if (codeBase[i] == '%' && Uri.IsHexDigit(codeBase[i + 1]) && Uri.IsHexDigit(codeBase[i + 2]))
+                    return true;
+            }
+            return false;
+        }
+
         /// <summary>
         /// Creates the handler through COM, as Explorer's preview host does, so a registration or
         /// assembly-load problem shows up as a concrete error instead of Explorer's generic
         /// "This file can't be previewed because of an error in the Linkco PDF Preview Handler".
         /// </summary>
+        /// <summary>
+        /// Creates the handler the way prevhost.exe does: in a fresh native process (64-bit cscript), so the
+        /// CLR must find and load the DLL from the registration. An in-process test from PowerShell reuses
+        /// the copy of this DLL that is already loaded and passes even when Explorer cannot load it.
+        /// </summary>
         internal static string ActivationTest(string clsid)
+        {
+            string vbs = null;
+            try
+            {
+                string windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+                string system = Environment.Is64BitOperatingSystem && !Environment.Is64BitProcess ? "Sysnative" : "System32";
+                string cscript = Path.Combine(Path.Combine(windows, system), "cscript.exe");
+                if (!File.Exists(cscript))
+                    return InProcessActivationTest(clsid) + " (in this process; cscript.exe not found)";
+                vbs = Path.Combine(Path.GetTempPath(), "linkco-activation-" + Guid.NewGuid().ToString("N") + ".vbs");
+                File.WriteAllText(vbs,
+                    "On Error Resume Next\r\n" +
+                    "Set o = GetObject(\"new:" + new Guid(clsid).ToString("B") + "\")\r\n" +
+                    "If Err.Number <> 0 Then\r\n" +
+                    "  WScript.Echo \"FAILED (0x\" & Hex(Err.Number) & \" \" & Err.Description & \")\"\r\n" +
+                    "Else\r\n" +
+                    "  WScript.Echo \"OK\"\r\n" +
+                    "End If\r\n", Encoding.ASCII);
+                ProcessStartInfo psi = new ProcessStartInfo(cscript, "//nologo //E:vbscript \"" + vbs + "\"");
+                psi.UseShellExecute = false;
+                psi.CreateNoWindow = true;
+                psi.RedirectStandardOutput = true;
+                psi.RedirectStandardError = true;
+                using (Process p = Process.Start(psi))
+                {
+                    if (p == null)
+                        return "FAILED (could not start cscript.exe)";
+                    if (!p.WaitForExit(20000))
+                    {
+                        try { p.Kill(); } catch { }
+                        return "FAILED (creating the handler did not finish in 20 s)";
+                    }
+                    string output = (p.StandardOutput.ReadToEnd() + " " + p.StandardError.ReadToEnd()).Trim();
+                    if (output.StartsWith("OK", StringComparison.Ordinal))
+                        return "OK (fresh process, as prevhost.exe)";
+                    if (output.IndexOf("80070002", StringComparison.Ordinal) >= 0)
+                        output += "  [.NET cannot find the DLL the registration names: check CodeBase above; run diagnose-preview.ps1 -Repair]";
+                    return output.Length > 0 ? output : "FAILED (cscript exit code " + p.ExitCode.ToString(CultureInfo.InvariantCulture) + ")";
+                }
+            }
+            catch (Exception ex)
+            {
+                return InProcessActivationTest(clsid) + " (in this process; " + ex.Message + ")";
+            }
+            finally
+            {
+                if (vbs != null)
+                {
+                    try { File.Delete(vbs); } catch { }
+                }
+            }
+        }
+
+        private static string InProcessActivationTest(string clsid)
         {
             object instance = null;
             try
@@ -2921,7 +3014,7 @@ namespace LinkcoPdfPreview
         {
             try
             {
-                string expectedCodeBase = new Uri(fullDllPath).AbsoluteUri;
+                string expectedCodeBase = ComCodeBase(fullDllPath);
                 string expectedAssembly = typeof(LinkcoPdfPreviewHandler).Assembly.FullName;
                 using (RegistryKey hkcu = PreviewEnvironment.OpenHive(RegistryHive.CurrentUser))
                 using (RegistryKey cfg = hkcu.OpenSubKey(LinkcoConfigKey, false))
@@ -2952,7 +3045,7 @@ namespace LinkcoPdfPreview
         {
             string dllDir = Path.GetDirectoryName(fullDllPath) ?? "";
             string cliPath = Path.Combine(dllDir, "pdfcraft-cli.exe");
-            string codeBase = new Uri(fullDllPath).AbsoluteUri;
+            string codeBase = ComCodeBase(fullDllPath);
 
             using (RegistryKey appId = root.CreateSubKey(@"Software\Classes\AppID\" + LinkcoAppId))
             {

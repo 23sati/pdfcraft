@@ -174,38 +174,7 @@ $Elevated = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIde
 Say "Test process elevated: $Elevated; $((whoami /groups | Select-String 'Mandatory Label') -replace '\s{2,}', ' ')"
 Say "Windows $([Environment]::OSVersion.Version) $((Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').DisplayVersion), .NET $([Environment]::Version), engine: $(if ($Cli) { 'pdfcraft-cli.exe' } else { 'none' })"
 
-# Which CodeBase forms the CLR's COM activation accepts (in process, fresh process each time).
-Say ""
-Say "=== CodeBase experiments (in-process activation from a fresh process) ==="
-function Try-CodeBase([string] $label, [string] $codeBase, [switch] $DropVersionKey) {
-  $k = "HKCU:\Software\Classes\CLSID\$Clsid\InprocServer32"
-  Set-ItemProperty $k -Name CodeBase -Value $codeBase
-  Get-ChildItem $k | ForEach-Object {
-    if ($DropVersionKey) { Remove-Item $_.PSPath -Recurse -Force } else { Set-ItemProperty $_.PSPath -Name CodeBase -Value $codeBase }
-  }
-  $ErrorActionPreference = 'Continue'
-  $o = (& $HostExe $Clsid $Pdf 'inproc' 1 2>&1 | ForEach-Object { "$_" } | Select-String 'CoCreateInstance:' | Select-Object -First 1)
-  $ErrorActionPreference = 'Stop'
-  Say ("  {0,-48} {1}  -> {2}" -f $label, $codeBase, ("$o".Trim()))
-}
-Clear-Registration
-$type::RegisterPreviewHandler($Dll, $false)
-Say "  registered values:"
-& reg.exe query "HKCU\Software\Classes\CLSID\$Clsid" /s | ForEach-Object { if ("$_".Trim()) { Say "    $_" } }
-$uri = (New-Object Uri($Dll)).AbsoluteUri
-Try-CodeBase '1 escaped URI (Uri.AbsoluteUri, as registered)' $uri
-Try-CodeBase '2 unescaped URI (regasm style)' ('file:///' + ($Dll -replace '\\', '/'))
-Try-CodeBase '3 plain path' $Dll
-$NoSpace = 'C:\LinkcoNoSpaceTest'
-New-Item -ItemType Directory -Force -Path $NoSpace | Out-Null
-Copy-Item $Dll $NoSpace -Force
-Try-CodeBase '4 folder without spaces' (New-Object Uri((Join-Path $NoSpace 'LinkcoPdfPreviewHandler.dll'))).AbsoluteUri
-Try-CodeBase '5 escaped URI, no version subkey' $uri -DropVersionKey
-Remove-Item $NoSpace -Recurse -Force -ErrorAction SilentlyContinue
-
 # A native COM client (as prevhost.exe is): VBScript CreateObject through IDispatch, 64-bit cscript.
-Say ""
-Say "=== Native client (64-bit cscript CreateObject) ==="
 Say "  prevhost.exe present: $(Test-Path (Join-Path $env:WINDIR 'System32\prevhost.exe'))"
 $vbs = Join-Path $Work 'create.vbs'
 Set-Content -LiteralPath $vbs -Encoding ASCII -Value @(
@@ -218,6 +187,29 @@ function Try-Native([string] $label) {
   $ErrorActionPreference = 'Stop'
   Say ("  {0,-44} {1}" -f $label, ($o -join ' '))
 }
+# Which CodeBase forms the CLR's COM activation accepts, from a native client (as prevhost.exe is).
+Say ""
+Say "=== CodeBase forms (native 64-bit cscript CreateObject, in process) ==="
+function Try-CodeBase([string] $label, [string] $codeBase) {
+  $k = "HKCU:\Software\Classes\CLSID\$Clsid\InprocServer32"
+  Set-ItemProperty $k -Name CodeBase -Value $codeBase
+  Get-ChildItem $k | ForEach-Object { Set-ItemProperty $_.PSPath -Name CodeBase -Value $codeBase }
+  $ErrorActionPreference = 'Continue'
+  $o = & (Join-Path $env:WINDIR 'System32\cscript.exe') //nologo $vbs 2>&1 | ForEach-Object { "$_" }
+  $ErrorActionPreference = 'Stop'
+  Say ("  {0,-34} {1}" -f $label, $codeBase)
+  Say ("  {0,-34} -> {1}" -f '', ($o -join ' '))
+}
+Clear-Registration
+$type::RegisterPreviewHandler($Dll, $false)
+$registeredCodeBase = (Get-ItemProperty "HKCU:\Software\Classes\CLSID\$Clsid\InprocServer32").CodeBase
+Try-CodeBase 'as registered by this build' $registeredCodeBase
+Try-CodeBase 'escaped (Uri.AbsoluteUri, old)' (New-Object Uri($Dll)).AbsoluteUri
+Try-CodeBase 'file:/// + backslashes (NSIS/WiX)' ('file:///' + $Dll)
+Try-CodeBase 'plain path' $Dll
+
+Say ""
+Say "=== Native client (64-bit cscript CreateObject) ==="
 Clear-Registration
 $type::RegisterPreviewHandler($Dll, $false)
 Try-Native 'our per-user registration:'
