@@ -2230,6 +2230,10 @@ impl eframe::App for PdfCraftApp {
     }
 
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        #[cfg(target_arch = "wasm32")]
+        if !craft_bridge::restore(|bytes| self.craft_restore(bytes)) {
+            return;
+        }
         self.ctx = Some(ctx.clone());
         self.dialog_epoch();
         // Notices raised outside `ui` (opened files, OS events, the control channel) translate too.
@@ -2447,6 +2451,8 @@ impl eframe::App for PdfCraftApp {
 
 impl PdfCraftApp {
     fn finish_render_frame(&mut self, ctx: &egui::Context) {
+        #[cfg(target_arch = "wasm32")]
+        self.craft_save(ctx);
         // The Combine grid's thumbnails, whichever tab shows (renders under way still finish).
         self.combine_thumbs_frame(ctx);
         // Retire hidden documents before admitting the visible document's textures, so the
@@ -2465,3 +2471,7 @@ impl PdfCraftApp {
         }
     }
 }
+
+#[cfg(target_arch = "wasm32")]
+mod craft_bridge;
+mod craft_session;

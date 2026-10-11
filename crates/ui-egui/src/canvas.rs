@@ -70,7 +70,7 @@ pub(crate) fn thumbnail_rows(top: f32, bottom: f32, row_height: f32, rows: usize
     first.saturating_sub(1).min(rows)..end.saturating_add(1).min(rows)
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Fit {
     Width,
     Page,
@@ -80,7 +80,7 @@ pub enum Fit {
 
 /// The base page display: one page across, or a two-page spread. Whether it scrolls continuously
 /// is a separate flag (`continuous`), as in Acrobat, so every combination is reachable (#752).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum PageLayout {
     Single,
     TwoUp,
@@ -288,6 +288,8 @@ pub struct RasterMemory {
 
 pub struct DocView {
     pub id: DocId,
+    pub(crate) craft_scroll: [f32; 2],
+    pub(crate) craft_restore_scroll: bool,
     pub zoom: f32,
     pub fit: Fit,
     pub layout: PageLayout,
@@ -551,6 +553,8 @@ impl DocView {
         Self {
             id,
             zoom: defaults.zoom,
+            craft_scroll: [0.0, 0.0],
+            craft_restore_scroll: false,
             fit: defaults.fit,
             layout: defaults.layout,
             continuous: defaults.continuous,
@@ -2156,6 +2160,9 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         let r = rects[page];
         scroll = scroll.vertical_scroll_offset((r.top() - y_shift - GAP + frac * r.height()).max(0.0));
     }
+    if std::mem::take(&mut view.craft_restore_scroll) {
+        scroll = scroll.scroll_offset(vec2(view.craft_scroll[0], view.craft_scroll[1]));
+    }
     let ppp = ui.ctx().pixels_per_point();
     let scale = view.render_scale(ppp);
     let tag = scale_tag(scale);
@@ -2889,6 +2896,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         });
         (wanted, visible_now)
     });
+    view.craft_scroll = [out.state.offset.x, out.state.offset.y];
     view.single_edges = visible_pages.first().copied().filter(|_| !view.continuous).map(|page| {
         // At the top once the page's top edge shows where going to a page puts it (a gap
         // below the window's top). Within a point, as for wheel paging, so layout rounding
@@ -3731,17 +3739,6 @@ fn organize_toolbar(view: &mut DocView, info: &DocInfo, editable: bool, dirty: b
                 i.consume_key(Modifiers::NONE, Key::Escape),
             )
         });
-        // ⌘C / ⌘X / ⌘V copy, cut and paste pages (egui delivers them as clipboard events).
-        let (copy, cut, paste) = ui.input(|i| {
-            let any = |f: &dyn Fn(&egui::Event) -> bool| i.events.iter().any(f);
-            (any(&|e| matches!(e, egui::Event::Copy)), any(&|e| matches!(e, egui::Event::Cut)), any(&|e| matches!(e, egui::Event::Paste(_))))
-        });
-        if copy || cut {
-            view.pending_action = Some(ViewAction::CopyPages { cut });
-        }
-        if paste {
-            view.pending_action = Some(ViewAction::PastePages);
-        }
         if del && targets.len() < n {
             view.pending_edit = Some(Edit::DeletePages { pages: targets });
         }

@@ -147,7 +147,7 @@ pub struct DocId(pub u64);
 const MAX_UNDO: usize = 100;
 
 /// The passwords that go with one state of a document (protection can change them).
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 struct Keys {
     /// What the renderer and inspector open the working file with (the user password).
     render: Option<String>,
@@ -156,7 +156,7 @@ struct Keys {
 }
 
 /// What an edit can change, and so what the view data must be rebuilt from.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 enum Scope {
     /// Anything: re-inspect the whole document.
     Full,
@@ -3871,3 +3871,6 @@ pub fn filter_pages(info: &pdfcraft_render::DocInfo, pages: &[usize], parity: Pa
         })
         .collect()
 }
+
+mod craft_codec;
+mod craft_session;
