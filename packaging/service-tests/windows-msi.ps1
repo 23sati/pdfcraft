@@ -87,7 +87,7 @@ try {
   $installedMsi = $upgrade
   $service = Get-CimInstance Win32_Service -Filter "Name='PdfCraftHotFolder'"
   if ($service.State -ne 'Running' -or $service.StartMode -ne 'Auto' -or $service.StartName -ne 'NT AUTHORITY\NetworkService') {
-    throw 'Upgrade did not preserve the optional automatic service and its account'
+    throw "Upgrade did not preserve the optional automatic service and its account: state=$($service.State), startup=$($service.StartMode), account=$($service.StartName)"
   }
   if (-not (Test-Path -LiteralPath "$data/keep-user-tasks.txt")) { throw 'Upgrade deleted task data' }
   if ((Get-FileHash -LiteralPath "$env:ProgramFiles/PdfCraft/pdfcraft-hot-folder.exe" -Algorithm SHA256).Hash -ne $upgradeHash) {
