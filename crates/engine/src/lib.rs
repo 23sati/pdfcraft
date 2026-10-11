@@ -1449,6 +1449,7 @@ impl std::fmt::Display for Label {
 /// [`BATCH_LABELS`]).
 pub const EDIT_LABELS: &[&str] = &[
     "Rotate page",
+    "Change tag properties",
     "Rotate pages",
     "Delete page",
     "Delete pages",
