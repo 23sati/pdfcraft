@@ -1714,7 +1714,12 @@
 	watermark	водяной знак
 	background	фон
 	This document isn't password-protected	Этот документ не защищён паролем
-	Only the document's owner can change its security (open it with the permissions password)	Только владелец документа может изменить его безопасность (откройте его с паролем разрешений)
+	Enter permissions password…	Ввести пароль разрешений…
+	Permissions password	Пароль разрешений
+	“{name}” has security restrictions. Enter its permissions password to lift them.	У «{name}» есть ограничения безопасности. Введите пароль разрешений, чтобы снять их.
+	Restrictions lifted	Ограничения сняты
+	Couldn't unlock {name}: {e}	Не удалось разблокировать «{name}»: {e}
+	This document has no restrictions to lift	У этого документа нет ограничений, которые можно снять
 	The document's security settings don't allow this change	Настройки безопасности документа не разрешают это изменение
 	The document's security settings don't allow copying text and images	Настройки безопасности документа не разрешают копировать текст и изображения
 	Open a document first	Сначала откройте документ
