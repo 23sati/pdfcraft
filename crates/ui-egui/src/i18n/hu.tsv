@@ -675,7 +675,7 @@
 	Centre	Középre
 	Align right	Jobbra igazítás
 	Justify	Sorkizárás
-	Standard fonts; text outside Windows-1252 isn't supported yet.	Szabványos betűtípusok; a Windows-1252-n kívüli szöveg még nem támogatott.
+	Thai and Arabic use regular fallback fonts when available.	A thai és az arab szöveg normál stílusú helyettesítő betűtípusokat használ, ha rendelkezésre állnak.
 	Edit image	Kép szerkesztése
 	Rotate counterclockwise	Forgatás az óramutató járásával ellentétesen
 	Rotate clockwise	Forgatás az óramutató járásával megegyezően
@@ -2127,6 +2127,7 @@ action wizard	Start	Indítás
 	Reverse open arrow	Fordított nyitott nyíl
 	Reverse closed arrow	Fordított zárt nyíl
 	Slash	Perjel
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	A PDF szövegének betűtípusai nem tudják megjeleníteni ezt: „{c}” ({code}). Válasszon támogatott szöveget.
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	A szabványos betűtípusok nem tudják megjeleníteni ezt: „{c}” ({code}). Egyelőre csak nyugat-európai karakterek adhatók hozzá szövegként.
 	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	A mező betűtípusa nem tudja megjeleníteni ezt: „{c}” ({code}), ezért a PdfCraft ? jelet mutat a helyén. Az érték mentve van, és a többi PDF-megjelenítő ebből rajzolja újra a mezőt.
 	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	A PdfCraft által íráshoz használt betűtípusok nem tudják megjeleníteni ezt: „{c}” ({code}), ezért minden PDF-megjelenítőben ? látszik a helyén. A szöveg mentve van.

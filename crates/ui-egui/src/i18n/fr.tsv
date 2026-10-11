@@ -678,7 +678,7 @@
 	Centre	Centrer
 	Align right	Aligner à droite
 	Justify	Justifier
-	Standard fonts; text outside Windows-1252 isn't supported yet.	Polices standard ; le texte hors Windows-1252 n'est pas encore pris en charge.
+	Thai and Arabic use regular fallback fonts when available.	Le thaï et l’arabe utilisent des polices de remplacement de style normal lorsqu’elles sont disponibles.
 	Edit image	Modifier l'image
 	Rotate counterclockwise	Pivoter vers la gauche
 	Rotate clockwise	Pivoter vers la droite
@@ -2089,6 +2089,7 @@
 	No recent files	Aucun fichier récent
 	Go to page…	Aller à la page…
 	For page sizes and margins.	Pour les tailles de page et les marges.
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	Les polices de texte PDF ne peuvent pas afficher « {c} » ({code}). Choisissez un texte pris en charge.
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Les polices standard ne peuvent pas afficher « {c} » ({code}). Pour l'instant, seuls les caractères d'Europe occidentale peuvent être ajoutés comme texte.
 	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	La police de ce champ ne peut pas afficher « {c} » ({code}) : PdfCraft affiche ? à sa place. La valeur est enregistrée, et les autres lecteurs PDF redessinent le champ à partir de celle-ci.
 	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Les polices qu'utilise PdfCraft pour écrire ne peuvent pas afficher « {c} » ({code}) : il apparaît comme ? dans tous les lecteurs PDF. Le texte est enregistré.

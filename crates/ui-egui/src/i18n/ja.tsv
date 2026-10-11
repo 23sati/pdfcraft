@@ -705,7 +705,7 @@
 	Centre	中央揃え
 	Align right	右揃え
 	Justify	両端揃え
-	Standard fonts; text outside Windows-1252 isn't supported yet.	標準フォントを使用します。Windows-1252 に含まれない文字にはまだ対応していません。
+	Thai and Arabic use regular fallback fonts when available.	タイ語とアラビア語には、利用可能な場合、標準スタイルの代替フォントを使用します。
 	Edit image	画像を編集
 	Rotate counterclockwise	反時計回りに回転
 	Rotate clockwise	時計回りに回転
@@ -2019,6 +2019,7 @@
 	Go to page…	ページへ移動…
 	For page sizes and margins.	ページサイズと余白に使います。
 	Reopen the files that were open when PdfCraft last closed	前回 PdfCraft を閉じたときに開いていたファイルを再度開く
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	PDF テキスト用フォントでは「{c}」（{code}）を表示できません。対応している文字を使用してください。
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	標準フォントでは「{c}」（{code}）を表示できません。現在、テキストとして追加できるのは西ヨーロッパの文字のみです。
 	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	このフィールドのフォントでは「{c}」（{code}）を表示できないため、PdfCraft では ? と表示されます。値は保存され、他の PDF ビューアーではこの値からフィールドが再描画されます。
 	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	PdfCraft が書き込みに使うフォントでは「{c}」（{code}）を表示できないため、どの PDF ビューアーでも ? と表示されます。テキストは保存されています。

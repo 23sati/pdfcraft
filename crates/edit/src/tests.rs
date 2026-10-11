@@ -2246,6 +2246,37 @@ fn hostile_form_xobjects_are_read_once() {
 }
 
 #[test]
+fn added_thai_text_wraps_clusters_and_survives_reopen() {
+    let mut doc = fixture();
+    let t = AddedText {
+        rect: [20.0, 100.0, 250.0, 300.0], text: "สวัสดี น้ำ ผู้ใช้ ปู่ ๑๒๓ Hello 123".into(), size: 16.0, ..AddedText::default()
+    };
+    if pdfcraft_fonts::document_thai_font().is_none() {
+        assert_eq!(first_undrawable(&t), Some('ส'));
+        let before = list_added(&doc);
+        let err = add_content(&mut doc, 0, &Content::Text(t)).unwrap_err().to_string();
+        assert!(err.contains("Thai") && err.contains("CRAFT_FONTS_DIR"), "{err}");
+        assert_eq!(list_added(&doc), before);
+        return;
+    }
+    assert_eq!(first_undrawable(&t), None);
+    add_content(&mut doc, 0, &Content::Text(t.clone())).unwrap();
+    let reopened = reopen(&doc);
+    assert_eq!(list_added(&reopened)[0].content, Content::Text(AddedText { rect: super::added::text_rect(&t), ..t.clone() }));
+    let narrow = AddedText { rect: [0.0, 0.0, 16.0, 200.0], text: "กิ่กิ่กิ่".into(), ..t.clone() };
+    assert_eq!(super::added::lines(&narrow), ["กิ่", "กิ่", "กิ่"]);
+    update_content(&mut doc, 0, 0, &Content::Text(AddedText { text: "แก้ไข น้ำ".into(), ..t.clone() })).unwrap();
+    assert!(!own(&doc, 0).is_empty());
+    let bad = Content::Text(AddedText { text: "ไทย 日".into(), ..t });
+    let before = list_added(&doc);
+    assert!(update_content(&mut doc, 0, 0, &bad).is_err());
+    assert_eq!(list_added(&doc), before);
+    delete_content(&mut doc, 0, 0).unwrap();
+    assert!(list_added(&doc).is_empty());
+    assert!(arabic_font_names(&doc, 0).is_empty());
+}
+
+#[test]
 fn group_moves_preserve_glyph_bytes_and_unselected_text_state() {
     for content in [
         "BT /F1 12 Tf 1.3 Tc 2 Tw 80 Tz 14 TL 1 0.2 -0.1 1 50 600 Tm (A\\101) Tj 1 0 0 rg (Neighbour) Tj T* (Next) Tj ET",

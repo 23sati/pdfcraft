@@ -1437,7 +1437,7 @@
 	Couldn't import the signature image: {e}	Δεν ήταν δυνατή η εισαγωγή της εικόνας υπογραφής: {e}
 	Go to page…	Μετάβαση στη σελίδα…
 	Reopen the files that were open when PdfCraft last closed	Εκ νέου άνοιγμα των αρχείων που ήταν ανοιχτά κατά τον τελευταίο τερματισμό του PdfCraft
-	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Οι τυπικές γραμματοσειρές δεν μπορούν να εμφανίσουν τον χαρακτήρα «{c}» ({code}). Προς το παρόν μπορούν να προστεθούν ως κείμενο μόνο δυτικοευρωπαϊκοί χαρακτήρες.
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	Οι γραμματοσειρές κειμένου PDF δεν μπορούν να εμφανίσουν τον χαρακτήρα «{c}» ({code}). Επιλέξτε κείμενο που υποστηρίζεται.
 	Open arrow	Ανοιχτή αιχμή βέλους
 	Closed arrow	Κλειστή αιχμή βέλους
 	Butt	Επίπεδο άκρο
@@ -1984,7 +1984,7 @@
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Ονόματα πεδίων με + - * / και παρενθέσεις· προσθέστε \\ πριν από τα κενά των ονομάτων.
 	Format text	Μορφοποίηση κειμένου
 	Centre	Κεντράρισμα
-	Standard fonts; text outside Windows-1252 isn't supported yet.	Τυπικές γραμματοσειρές· κείμενο εκτός της κωδικοποίησης Windows-1252 δεν υποστηρίζεται ακόμη.
+	Thai and Arabic use regular fallback fonts when available.	Τα ταϊλανδικά και τα αραβικά χρησιμοποιούν κανονικές εναλλακτικές γραμματοσειρές, όταν είναι διαθέσιμες.
 	Crop (% trimmed from each side)	Περικοπή (% αφαίρεσης από κάθε πλευρά)
 	Click on the page to add text; each click starts a new box, and ✓ finishes. Drag items to move them, drag a corner to resize, double-click text to edit it.	Κάντε κλικ στη σελίδα για να προσθέσετε κείμενο· κάθε κλικ δημιουργεί νέο πλαίσιο και το ✓ ολοκληρώνει την εισαγωγή. Σύρετε τα στοιχεία για μετακίνηση, μια γωνία για αλλαγή μεγέθους ή κάντε διπλό κλικ στο κείμενο για επεξεργασία.
 	Choose an image	Επιλογή εικόνας

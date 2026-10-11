@@ -678,7 +678,7 @@
 	Centre	Zentriert
 	Align right	Rechtsbündig
 	Justify	Blocksatz
-	Standard fonts; text outside Windows-1252 isn't supported yet.	Standardschriften; Text außerhalb von Windows-1252 wird noch nicht unterstützt.
+	Thai and Arabic use regular fallback fonts when available.	Thai und Arabisch verwenden, falls verfügbar, Ersatzschriften im normalen Schriftschnitt.
 	Edit image	Bild bearbeiten
 	Rotate counterclockwise	Gegen den Uhrzeigersinn drehen
 	Rotate clockwise	Im Uhrzeigersinn drehen
@@ -2135,6 +2135,7 @@ action wizard	Start	Starten
 	Clear Recent Files	Liste „Zuletzt geöffnet“ leeren
 	Remove from Recent	Aus „Zuletzt geöffnet“ entfernen
 	Remove {name} from Recent	{name} aus „Zuletzt geöffnet“ entfernen
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	Die PDF-Textschriften können „{c}“ ({code}) nicht darstellen. Wählen Sie unterstützten Text.
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Die Standardschriften können „{c}“ ({code}) nicht darstellen. Derzeit lassen sich nur westeuropäische Zeichen als Text hinzufügen.
 	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Die Schrift dieses Felds kann „{c}“ ({code}) nicht darstellen, daher zeigt PdfCraft an dieser Stelle ? an. Der Wert ist gespeichert, und andere PDF-Viewer zeichnen das Feld anhand des Werts neu.
 	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Die Schriften, mit denen PdfCraft schreibt, können „{c}“ ({code}) nicht darstellen, daher erscheint es in jedem PDF-Viewer als ?. Der Text ist gespeichert.

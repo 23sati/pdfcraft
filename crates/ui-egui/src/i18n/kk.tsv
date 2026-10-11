@@ -665,7 +665,7 @@
 	Centre	Ортаға туралау
 	Align right	Оңға туралау
 	Justify	Екі жаққа туралау
-	Standard fonts; text outside Windows-1252 isn't supported yet.	Стандартты қаріптер; Windows-1252-ден тыс мәтін әзірге қолдау таппайды.
+	Thai and Arabic use regular fallback fonts when available.	Тай және араб тілдері қолжетімді болса, қалыпты қосалқы қаріптерді пайдаланады.
 	Edit image	Суретті түзету
 	Rotate counterclockwise	Сағат тілінің бағытына қарсы бұру
 	Rotate clockwise	Сағат тілінің бағытымен бұру
@@ -2071,7 +2071,7 @@ calendar date	December	Желтоқсан
 	H / Space (hold)	H / Space (ұстап тұру)
 	Rotation:	Бұру:
 	Line ending	Сызық ұшы
-	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Стандартты қаріптер «{c}» таңбасын ({code}) сала алмайды. Әзірге мәтін ретінде тек Батыс Еуропа таңбаларын қосуға болады.
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	PDF мәтін қаріптері «{c}» таңбасын ({code}) сала алмайды. Қолдау көрсетілетін мәтінді таңдаңыз.
 	Larger pages	Үлкенірек беттер
 	Smaller pages	Кішірек беттер
 	Reset page size	Бет өлшемін қалпына келтіру

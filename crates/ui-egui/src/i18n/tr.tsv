@@ -663,7 +663,7 @@
 	Centre	Ortala
 	Align right	Sağa hizala
 	Justify	İki yana yasla
-	Standard fonts; text outside Windows-1252 isn't supported yet.	Standart yazı tipleri; Windows-1252 dışındaki metinler henüz desteklenmiyor.
+	Thai and Arabic use regular fallback fonts when available.	Tayca ve Arapça, mevcut olduğunda normal yedek yazı tiplerini kullanır.
 	Edit image	Resmi düzenle
 	Rotate counterclockwise	Saat yönünün tersine döndür
 	Rotate clockwise	Saat yönünde döndür
@@ -2094,7 +2094,7 @@ action wizard	Start	Başlat
 	Clear Recent Files	Son kullanılan dosyaları temizle
 	Remove from Recent	Son kullanılanlardan kaldır
 	Remove {name} from Recent	{name} öğesini son kullanılanlardan kaldır
-	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Standart yazı tipleri “{c}” ({code}) karakterini çizemez. Şimdilik metin olarak yalnızca Batı Avrupa karakterleri eklenebilir.
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	PDF metin yazı tipleri “{c}” ({code}) karakterini çizemez. Desteklenen bir metin seçin.
 	Larger pages	Daha büyük sayfalar
 	Smaller pages	Daha küçük sayfalar
 	Reset page size	Sayfa boyutunu sıfırla

@@ -1685,7 +1685,7 @@
 	Stamp palette	Paleta žigov
 	Stamps	Žigi
 	Standard Business	Standardno poslovno
-	Standard fonts; text outside Windows-1252 isn't supported yet.	Standardne pisave; besedilo zunaj nabora Windows-1252 še ni podprto.
+	Thai and Arabic use regular fallback fonts when available.	Tajščina in arabščina uporabljata običajne nadomestne pisave, kadar so na voljo.
 	Standards	Standardi
 	Star	Zvezda
 	Start	Začetek
@@ -2134,7 +2134,7 @@ signature pad	Type	Vtipkaj
 	The field {name} no longer exists.	Polje {name} ne obstaja več.
 	The printer driver's own settings for this print: paper tray, paper type, finishing and more.	Lastne nastavitve gonilnika tiskalnika za to tiskanje: pladenj za papir, vrsta papirja, dodelava in drugo.
 	The selected fields could not be found. Select them again.	Izbranih polj ni bilo mogoče najti. Izberite jih znova.
-	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Standardne pisave ne morejo izrisati znaka „{c}“ ({code}). Zaenkrat je kot besedilo mogoče dodati samo zahodnoevropske znake.
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	Pisave za besedilo PDF ne morejo izrisati znaka „{c}“ ({code}). Izberite podprto besedilo.
 	This printer offers no settings of its own.	Ta tiskalnik nima lastnih nastavitev.
 	To change locked fields, also set Locked to No.	Za spremembo zaklenjenih polj nastavite tudi Zaklenjeno na Ne.
 	Today: {date}	Danes: {date}
