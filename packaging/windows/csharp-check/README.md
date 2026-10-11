@@ -24,7 +24,7 @@ of `check.cjs`), compiles them with `tests/FakeRegistry.cs` — an in-memory `Re
 the real API's rules — and runs `tests/RegistryCleanupTests.cs`: cleanup of another user's
 profile from split `NTUSER.DAT`/`UsrClass.dat` hives and from a single hive, restoring per-user and
 machine-wide previous handlers, leaving unrelated entries and users who never ran the app
-byte-for-byte unchanged, no leaked handles (a mounted hive must unload), and idempotence. If a
+byte-for-byte unchanged, no leaked handles (a mounted hive must unload), and idempotence. It also covers the network-share helpers behind `DiagnoseFile` / `AllowNetworkPreview`: the server of UNC, `\\?\UNC\` and WebDAV paths, and the per-user Local intranet entries they write and remove under `ZoneMap` (dotted names, single-label names, IP ranges), leaving the user's own entries alone. If a
 method is renamed the check says so instead of silently testing less. Needs Node.js 20+,
 `npm`, `git`, and Python 3 (to extract the Setup EXE source from `installer.py`).
 

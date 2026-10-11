@@ -58,8 +58,8 @@ using Microsoft.Win32;
 [assembly: AssemblyCompany("Al Rawabet Commercial Services & Contracting Company W.L.L.")]
 [assembly: AssemblyProduct("Linkco PDF Editor")]
 [assembly: AssemblyCopyright("\u00A9 Al Rawabet Commercial Services & Contracting Company W.L.L.")]
-[assembly: AssemblyVersion("0.6.0.0")]
-[assembly: AssemblyFileVersion("0.6.0.0")]
+[assembly: AssemblyVersion("1.0.0.0")]
+[assembly: AssemblyFileVersion("1.0.0.0")]
 [assembly: ComVisible(true)]
 
 namespace LinkcoPdfPreview
@@ -194,6 +194,30 @@ namespace LinkcoPdfPreview
         int GetThumbnail(uint cx, out IntPtr phbmp, out uint pdwAlpha);
     }
 
+    /// <summary>
+    /// URL Security Zones (urlmon): which zone File Explorer puts a file in. Used only to report why the
+    /// preview pane is blank for a file (see <c>LinkcoPdfPreviewHandler.DiagnoseFile</c>).
+    /// </summary>
+    [ComImport]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    [Guid("79eac9ee-baf9-11ce-8c82-00aa004ba90b")]
+    internal interface IInternetSecurityManager
+    {
+        [PreserveSig]
+        int SetSecuritySite(IntPtr pSite);
+        [PreserveSig]
+        int GetSecuritySite(out IntPtr ppSite);
+        [PreserveSig]
+        int MapUrlToZone([MarshalAs(UnmanagedType.LPWStr)] string pwszUrl, out int pdwZone, int dwFlags);
+    }
+
+    /// <summary>CLSID_InternetSecurityManager.</summary>
+    [ComImport]
+    [Guid("7b8a2d94-0ac9-11d1-896c-00c04fb6bfc4")]
+    internal class InternetSecurityManager
+    {
+    }
+
     internal static class NativeMethods
     {
         [DllImport("user32.dll", SetLastError = true)]
@@ -230,6 +254,24 @@ namespace LinkcoPdfPreview
 
         [DllImport("shlwapi.dll", CharSet = CharSet.Unicode)]
         private static extern int AssocQueryString(uint flags, int str, string pszAssoc, string pszExtra, StringBuilder pszOut, ref uint pcchOut);
+
+        [DllImport("mpr.dll", CharSet = CharSet.Unicode, EntryPoint = "WNetGetConnectionW")]
+        private static extern int WNetGetConnection(string lpLocalName, StringBuilder lpRemoteName, ref int lpnLength);
+
+        /// <summary>The share a mapped network drive ("Z:") points at (\\server\share), or null.</summary>
+        public static string MappedDriveTarget(string drive)
+        {
+            try
+            {
+                int length = 1024;
+                StringBuilder remote = new StringBuilder(length);
+                return WNetGetConnection(drive, remote, ref length) == 0 && remote.Length > 0 ? remote.ToString() : null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
 
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -409,6 +451,7 @@ namespace LinkcoPdfPreview
                         string name = Path.GetFileName(f);
                         if (!(name.StartsWith("stream-", StringComparison.Ordinal) ||
                               name.StartsWith("page-", StringComparison.Ordinal) ||
+                              name.StartsWith("thumb-", StringComparison.Ordinal) ||
                               name.StartsWith(".probe-", StringComparison.Ordinal)))
                             continue;
                         try
@@ -1515,6 +1558,410 @@ namespace LinkcoPdfPreview
                 }
             }
             return sb.ToString();
+        }
+
+        // ---- Files on network shares: Explorer's preview pane and the Windows security zones ----
+        //
+        // Since the October 2025 Windows update (KB5066835) File Explorer shows no preview for a file in
+        // the Internet or Restricted sites zone. Explorer decides that before it loads any preview
+        // handler, so this handler can neither show a message there nor work around it. A share
+        // reached by a plain server name (\\fileserver\share) is in the Local intranet zone and previews
+        // normally; one reached by a dotted name (\\files.corp.example.com\share) or an IP address
+        // (\\10.0.0.5\share) is in the Internet zone unless that server is listed as an intranet site;
+        // and a downloaded file (Mark of the Web) is in the zone it came from, wherever it is stored.
+        // DiagnoseFile reports which applies to a file. AllowNetworkPreview lists one server as a Local
+        // intranet site for the current user only (what Internet Options > Security > Local intranet >
+        // Sites > Advanced does) and DisallowNetworkPreview takes it out again. Nothing here runs
+        // unless the user calls it; no zone setting is ever changed for every server or every user.
+
+        internal const string ZoneMapKey = @"Software\Microsoft\Windows\CurrentVersion\Internet Settings\ZoneMap";
+        private const string ZonePolicyKey = @"Software\Policies\Microsoft\Windows\CurrentVersion\Internet Settings";
+        private const int MUTZ_ISFILE = 0x2;
+        private const int MUTZ_REQUIRESAVEDFILECHECK = 0x400;
+
+        /// <summary>
+        /// The server of a network path: \\server\share\a.pdf, \\?\UNC\server\share\a.pdf and the WebDAV
+        /// form \\server@SSL@443\DavWWWRoot\a.pdf all give "server". Null for a local path.
+        /// </summary>
+        internal static string UncServer(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return null;
+            string p = path.Trim().Replace('/', '\\');
+            if (p.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase))
+                p = @"\\" + p.Substring(8);
+            else if (p.StartsWith(@"\\?\", StringComparison.Ordinal) || p.StartsWith(@"\\.\", StringComparison.Ordinal))
+                return null;
+            if (!p.StartsWith(@"\\", StringComparison.Ordinal))
+                return null;
+            string host = p.Substring(2);
+            int end = host.IndexOf('\\');
+            if (end >= 0)
+                host = host.Substring(0, end);
+            int at = host.IndexOf('@');
+            if (at >= 0)
+                host = host.Substring(0, at);
+            host = host.Trim().TrimEnd('.');
+            return host.Length == 0 ? null : host;
+        }
+
+        /// <summary>True for a dotted IPv4 address such as 10.0.0.5.</summary>
+        internal static bool IsIPv4Literal(string host)
+        {
+            if (string.IsNullOrEmpty(host))
+                return false;
+            string[] parts = host.Split('.');
+            if (parts.Length != 4)
+                return false;
+            foreach (string part in parts)
+            {
+                int n;
+                if (part.Length == 0 || part.Length > 3 || !int.TryParse(part, NumberStyles.None, CultureInfo.InvariantCulture, out n) || n > 255)
+                    return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// The key under ZoneMap that lists <paramref name="host"/> as a site, in the layout Internet
+        /// Options uses: "fileserver" -> Domains\fileserver, "corp.local" -> Domains\corp.local,
+        /// "files.corp.example.com" -> Domains\example.com\files.corp, and an IP address -> a Ranges
+        /// entry of our own (Ranges\Linkco_10.0.0.5). Null when <paramref name="host"/> is no server name.
+        /// </summary>
+        internal static string ZoneMapSiteKey(string host)
+        {
+            if (string.IsNullOrEmpty(host))
+                return null;
+            string h = host.Trim().TrimEnd('.').ToLowerInvariant();
+            if (h.Length == 0 || h.IndexOfAny(new char[] { '\\', '/', '*', ':', ' ', '@', '%' }) >= 0)
+                return null;
+            if (IsIPv4Literal(h))
+                return @"Ranges\Linkco_" + h;
+            string[] labels = h.Split('.');
+            foreach (string label in labels)
+            {
+                if (label.Length == 0)
+                    return null;
+            }
+            if (labels.Length <= 2)
+                return @"Domains\" + h;
+            int n = labels.Length;
+            return @"Domains\" + labels[n - 2] + "." + labels[n - 1] + @"\" + string.Join(".", labels, 0, n - 2);
+        }
+
+        /// <summary>
+        /// Lists <paramref name="host"/> as a Local intranet site for files (file: = zone 1) in
+        /// <paramref name="hkcu"/>. Returns the ZoneMap subkey written, or null for no server name.
+        /// </summary>
+        internal static string AddIntranetSite(RegistryKey hkcu, string host)
+        {
+            string site = ZoneMapSiteKey(host);
+            if (site == null)
+                return null;
+            using (RegistryKey k = hkcu.CreateSubKey(ZoneMapKey + @"\" + site))
+            {
+                if (k == null)
+                    return null;
+                if (site.StartsWith(@"Ranges\", StringComparison.Ordinal))
+                    k.SetValue(":Range", host.Trim().TrimEnd('.'), RegistryValueKind.String);
+                k.SetValue("file", 1, RegistryValueKind.DWord);
+            }
+            return site;
+        }
+
+        /// <summary>
+        /// Takes <paramref name="host"/> off the sites list for files again: removes its file: entry,
+        /// then its key and an emptied parent domain key (never Domains or Ranges themselves, and never
+        /// a key that still holds other entries, such as http: ones the user added). True when an entry
+        /// was removed.
+        /// </summary>
+        internal static bool RemoveIntranetSite(RegistryKey hkcu, string host)
+        {
+            string site = ZoneMapSiteKey(host);
+            if (site == null)
+                return false;
+            bool removed = false;
+            using (RegistryKey k = hkcu.OpenSubKey(ZoneMapKey + @"\" + site, true))
+            {
+                if (k == null)
+                    return false;
+                if (k.GetValue("file") != null)
+                {
+                    k.DeleteValue("file", false);
+                    removed = true;
+                }
+                if (site.StartsWith(@"Ranges\", StringComparison.Ordinal) && k.ValueCount == 1 && k.GetValue(":Range") != null)
+                    k.DeleteValue(":Range", false);
+            }
+            string[] parts = site.Split('\\');
+            for (int depth = parts.Length; depth >= 2; depth--)
+            {
+                string path = ZoneMapKey + @"\" + string.Join(@"\", parts, 0, depth);
+                bool empty;
+                using (RegistryKey k = hkcu.OpenSubKey(path, false))
+                {
+                    if (k == null)
+                        continue;
+                    empty = k.SubKeyCount == 0 && k.ValueCount == 0;
+                }
+                if (!empty)
+                    break;
+                hkcu.DeleteSubKey(path, false);
+            }
+            return removed;
+        }
+
+        /// <summary>A zone number as Internet Options names it.</summary>
+        private static string ZoneName(int zone)
+        {
+            switch (zone)
+            {
+                case 0: return "Local computer (0)";
+                case 1: return "Local intranet (1)";
+                case 2: return "Trusted sites (2)";
+                case 3: return "Internet (3)";
+                case 4: return "Restricted sites (4)";
+                default: return zone < 0 ? "(unknown)" : "Custom zone (" + zone.ToString(CultureInfo.InvariantCulture) + ")";
+            }
+        }
+
+        /// <summary>The zone Windows puts <paramref name="path"/> in; with the file check, a Mark of the Web counts too. -1 when unknown.</summary>
+        private static int QueryZone(string path, bool includeFileMark)
+        {
+            object manager = null;
+            try
+            {
+                manager = new InternetSecurityManager();
+                int zone;
+                int flags = MUTZ_ISFILE | (includeFileMark ? MUTZ_REQUIRESAVEDFILECHECK : 0);
+                return ((IInternetSecurityManager)manager).MapUrlToZone(path, out zone, flags) == 0 ? zone : -1;
+            }
+            catch
+            {
+                return -1;
+            }
+            finally
+            {
+                if (manager != null)
+                {
+                    try
+                    {
+                        Marshal.ReleaseComObject(manager);
+                    }
+                    catch { }
+                }
+            }
+        }
+
+        /// <summary>A full path with a mapped network drive (Z:\a.pdf) replaced by its share (\\server\share\a.pdf).</summary>
+        private static string ResolveMappedDrive(string fullPath, out string drive)
+        {
+            drive = null;
+            if (fullPath.Length >= 2 && fullPath[1] == ':' && char.IsLetter(fullPath[0]))
+            {
+                string remote = NativeMethods.MappedDriveTarget(fullPath.Substring(0, 2));
+                if (!string.IsNullOrEmpty(remote) && remote.StartsWith(@"\\", StringComparison.Ordinal))
+                {
+                    drive = fullPath.Substring(0, 2).ToUpperInvariant();
+                    return remote.TrimEnd('\\') + fullPath.Substring(2);
+                }
+            }
+            return fullPath;
+        }
+
+        /// <summary>
+        /// The server an argument names: a path to a file or folder on a share or mapped drive, or a
+        /// bare server name ("files.corp.example.com", "10.0.0.5"). Null when it is a local path.
+        /// </summary>
+        private static string ServerFromArgument(string pathOrServer, out string resolved, out string drive)
+        {
+            resolved = null;
+            drive = null;
+            if (string.IsNullOrEmpty(pathOrServer))
+                return null;
+            string arg = pathOrServer.Trim().Trim('"');
+            if (arg.IndexOfAny(new char[] { '\\', '/', ':' }) < 0)
+                return ZoneMapSiteKey(arg) == null ? null : arg.TrimEnd('.');
+            try
+            {
+                resolved = ResolveMappedDrive(Path.GetFullPath(arg), out drive);
+            }
+            catch
+            {
+                resolved = arg;
+            }
+            return UncServer(resolved);
+        }
+
+        /// <summary>True when policy makes the zone settings machine-wide, so per-user sites are ignored.</summary>
+        private static bool ZonesAreMachineWideByPolicy()
+        {
+            try
+            {
+                using (RegistryKey hklm = PreviewEnvironment.OpenHive(RegistryHive.LocalMachine))
+                using (RegistryKey k = hklm.OpenSubKey(ZonePolicyKey, false))
+                {
+                    object v = k == null ? null : k.GetValue("Security_HKLM_only");
+                    return v is int && (int)v == 1;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>True when an administrator set a Site to Zone Assignment List (Group Policy).</summary>
+        private static bool SiteListSetByPolicy()
+        {
+            foreach (RegistryHive hive in new RegistryHive[] { RegistryHive.LocalMachine, RegistryHive.CurrentUser })
+            {
+                try
+                {
+                    using (RegistryKey root = PreviewEnvironment.OpenHive(hive))
+                    using (RegistryKey k = root.OpenSubKey(ZonePolicyKey + @"\ZoneMapKey", false))
+                    {
+                        if (k != null && k.ValueCount > 0)
+                            return true;
+                    }
+                }
+                catch { }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Why a PDF does or doesn't preview in File Explorer: where it is stored (local disk, network
+        /// share, mapped drive, OneDrive/cloud), the security zone Windows puts it in, whether it carries
+        /// a Mark of the Web, and what to do when Explorer blocks its preview. Changes nothing.
+        /// </summary>
+        public static string DiagnoseFile(string path)
+        {
+            StringBuilder sb = new StringBuilder();
+            string full;
+            try
+            {
+                full = Path.GetFullPath((path ?? "").Trim().Trim('"'));
+            }
+            catch (Exception ex)
+            {
+                return "Not a usable path: " + (path ?? "(null)") + " (" + ex.Message + ")" + Environment.NewLine;
+            }
+            string drive;
+            string resolved = ResolveMappedDrive(full, out drive);
+            string server = UncServer(resolved);
+            sb.AppendLine(HandlerName + ": preview check for " + full);
+            sb.AppendLine("  File exists:           " + (File.Exists(full) ? "yes" : "NO (or not reachable)"));
+
+            string location;
+            if (server != null)
+            {
+                location = "network share on " + server + (drive != null ? " (mapped drive " + drive + " = " + resolved + ")" : "");
+                if (IsIPv4Literal(server))
+                    location += ", reached by IP address";
+                else if (server.IndexOf('.') >= 0)
+                    location += ", reached by a dotted (fully qualified) name";
+            }
+            else
+            {
+                location = "this computer";
+                string[] cloudRoots = { Environment.GetEnvironmentVariable("OneDrive"), Environment.GetEnvironmentVariable("OneDriveCommercial"), Environment.GetEnvironmentVariable("OneDriveConsumer") };
+                foreach (string root in cloudRoots)
+                {
+                    if (!string.IsNullOrEmpty(root) && full.StartsWith(root.TrimEnd('\\') + @"\", StringComparison.OrdinalIgnoreCase))
+                    {
+                        location = "OneDrive folder (" + root + ")";
+                        break;
+                    }
+                }
+                try
+                {
+                    // FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS / RECALL_ON_OPEN / OFFLINE: an online-only cloud file.
+                    int attrs = (int)File.GetAttributes(full);
+                    if ((attrs & (0x400000 | 0x40000 | 0x1000)) != 0)
+                        location += ", online-only: Windows downloads it when Explorer previews it";
+                }
+                catch { }
+            }
+            sb.AppendLine("  Location:              " + location);
+
+            int zoneOfPlace = QueryZone(resolved, false);
+            int zone = QueryZone(resolved, true);
+            bool marked = zone > zoneOfPlace && zoneOfPlace >= 0;
+            sb.AppendLine("  Security zone:         " + ZoneName(zone) + (marked ? " (raised by the file's Mark of the Web; its location is " + ZoneName(zoneOfPlace) + ")" : ""));
+            sb.AppendLine("  Downloaded file (MOTW): " + (zone < 0 ? "(unknown)" : marked ? "yes" : "no"));
+            bool blocked = zone == 3 || zone == 4;
+            sb.AppendLine("  Explorer preview pane: " + (zone < 0 ? "(unknown)" : blocked ? "BLOCKED by Windows for this zone (since the October 2025 update), before any preview handler runs" : "allowed"));
+            sb.AppendLine("  Linkco preview handler: " + (IsEffectiveHandler() ? "registered for .pdf" : "NOT the .pdf preview handler (run RegisterPreviewHandler)"));
+            if (ZonesAreMachineWideByPolicy())
+                sb.AppendLine("  Policy:                zone settings are machine-wide (Security_HKLM_only): ask your IT administrator");
+            else if (SiteListSetByPolicy())
+                sb.AppendLine("  Policy:                your organisation sets a Site to Zone Assignment List: ask IT to add the server");
+            if (blocked)
+            {
+                if (marked)
+                    sb.AppendLine("  Fix:                   if you trust the file: Unblock-File -LiteralPath '" + full.Replace("'", "''") + "' (or Properties > Unblock)");
+                if (server != null && zoneOfPlace >= 3)
+                    sb.AppendLine("  Fix:                   if you trust the server: [LinkcoPdfPreview.LinkcoPdfPreviewHandler]::AllowNetworkPreview('" + server + "') lists " + server + " as a Local intranet site for you; or ask IT to add it to the Local intranet zone");
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Lets File Explorer preview PDFs (and other files) from the server of
+        /// <paramref name="pathOrServer"/> by listing that server as a Local intranet site for the
+        /// current user, as Internet Options does. Only for servers you trust: files from an intranet
+        /// site also open with fewer warnings. Returns a report of what was done.
+        /// </summary>
+        public static string AllowNetworkPreview(string pathOrServer)
+        {
+            string resolved, drive;
+            string server = ServerFromArgument(pathOrServer, out resolved, out drive);
+            if (server == null)
+                return "Not on a network share: " + pathOrServer + ". For a downloaded file use Unblock-File (or Properties > Unblock) instead." + Environment.NewLine;
+            if (ZonesAreMachineWideByPolicy())
+                return "Not changed: on this PC the security zones are set by your organisation for all users (Security_HKLM_only). Ask your IT administrator to add " + server + " to the Local intranet zone." + Environment.NewLine;
+            try
+            {
+                string site;
+                using (RegistryKey hkcu = PreviewEnvironment.OpenHive(RegistryHive.CurrentUser))
+                    site = AddIntranetSite(hkcu, server);
+                if (site == null)
+                    return "Not a server name: " + server + Environment.NewLine;
+                PreviewLog.Write("Listed " + server + " as a Local intranet site (HKCU\\" + ZoneMapKey + "\\" + site + ").");
+                string report = server + " is now a Local intranet site for you (HKCU\\" + ZoneMapKey + "\\" + site + ", file = 1). Close and reopen File Explorer to preview its PDFs." + Environment.NewLine;
+                if (SiteListSetByPolicy())
+                    report += "Note: your organisation sets a Site to Zone Assignment List, which may override this; if previews stay blank, ask IT to add " + server + "." + Environment.NewLine;
+                return report;
+            }
+            catch (Exception ex)
+            {
+                PreviewLog.Error("AllowNetworkPreview(" + server + ")", ex);
+                return "Could not list " + server + " as a Local intranet site: " + ex.Message + Environment.NewLine;
+            }
+        }
+
+        /// <summary>Undoes <see cref="AllowNetworkPreview"/> for the server of <paramref name="pathOrServer"/>.</summary>
+        public static string DisallowNetworkPreview(string pathOrServer)
+        {
+            string resolved, drive;
+            string server = ServerFromArgument(pathOrServer, out resolved, out drive);
+            if (server == null)
+                return "Not on a network share: " + pathOrServer + Environment.NewLine;
+            try
+            {
+                bool removed;
+                using (RegistryKey hkcu = PreviewEnvironment.OpenHive(RegistryHive.CurrentUser))
+                    removed = RemoveIntranetSite(hkcu, server);
+                if (removed)
+                    PreviewLog.Write("Removed " + server + " from the Local intranet sites.");
+                return (removed ? server + " is no longer a Local intranet site for you." : server + " was not listed as a Local intranet site for you; nothing changed.") + Environment.NewLine;
+            }
+            catch (Exception ex)
+            {
+                PreviewLog.Error("DisallowNetworkPreview(" + server + ")", ex);
+                return "Could not change the sites list: " + ex.Message + Environment.NewLine;
+            }
         }
 
         private static bool IsElevated()

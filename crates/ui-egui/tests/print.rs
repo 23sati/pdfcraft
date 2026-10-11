@@ -272,3 +272,54 @@ fn printers_listed_in_the_background_preselect_the_default_unless_one_was_picked
     settle(&mut h);
     assert_eq!(h.state().print_draft.printer.as_deref(), Some("Office"), "an online printer before an offline one");
 }
+
+/// Under the Printer list the dialog says what the chosen printer is (network printer, port,
+/// driver) and, translated, when it can't print; an empty list says what to do instead of nothing.
+#[test]
+fn printer_row_describes_network_printers_and_an_empty_list() {
+    use pdfcraft_engine::print::spool::{PrinterDetail, PrinterStatus};
+    use std::sync::{Arc, Mutex};
+    fn settle(h: &mut Harness<'static, PdfCraftApp>) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while h.state().print_draft.printers_loading && std::time::Instant::now() < deadline {
+            h.run_steps(1);
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert!(!h.state().print_draft.printers_loading);
+        h.run_steps(2);
+    }
+    let mut h = harness();
+    let shared = PrinterDetail {
+        name: r"\\print01\Floor2".into(),
+        default: true,
+        status: PrinterStatus::Ready,
+        port: "IP_10.10.20.15".into(),
+        driver: "Ricoh PCL6 UniversalDriver".into(),
+        network: true,
+    };
+    let answer = Arc::new(Mutex::new(vec![shared]));
+    let source = answer.clone();
+    h.state_mut().printer_source = Some(Arc::new(move || source.lock().map(|l| l.clone()).unwrap_or_default()));
+    assert!(h.state_mut().execute("print.dialog"));
+    settle(&mut h);
+    assert_eq!(h.state().print_draft.printer.as_deref(), Some(r"\\print01\Floor2"));
+    h.get_by_label_contains("Network printer  ·  Port: IP_10.10.20.15  ·  Driver: Ricoh PCL6 UniversalDriver");
+    assert!(h.query_by_label_contains("Printer status:").is_none(), "no warning for a ready printer");
+
+    h.state_mut().print_draft.printer_details[0].status = PrinterStatus::Offline;
+    h.run_steps(2);
+    h.get_by_label_contains("Printer status: Offline. Check the printer's connection before printing.");
+
+    // Nothing found: Save as PDF, and a hint instead of an empty list.
+    if let Ok(mut l) = answer.lock() {
+        l.clear();
+    }
+    h.state_mut().print_draft.printer = None;
+    h.state_mut().print_draft.recheck_printers = true;
+    h.run_steps(2);
+    settle(&mut h);
+    assert!(h.state().print_draft.printers.is_empty());
+    assert_eq!(h.state().print_draft.printer, None);
+    h.get_by_label_contains("No printers were found.");
+    assert!(h.query_by_label_contains("Network printer").is_none());
+}

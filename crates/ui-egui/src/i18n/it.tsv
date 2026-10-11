@@ -2207,3 +2207,15 @@ key	Space	Spazio
 	Panels	Pannelli
 	Resize panels	Ridimensiona pannelli
 	Resize panel window	Ridimensiona finestra pannello
+
+# Linkco: print screen (printer status, network printers, empty list) and the About developer credit.
+	Paused	In pausa
+	Offline	Non in linea
+	Error	Errore
+	Network	Rete
+	Network printer	Stampante di rete
+	Port: {port}	Porta: {port}
+	Driver: {driver}	Driver: {driver}
+	Printer status: {status}. Check the printer's connection before printing.	Stato della stampante: {status}. Controlla il collegamento della stampante prima di stampare.
+	No printers were found. Turn the printer on and connect it, then select Check again. You can still save as PDF.	Nessuna stampante trovata. Accendi la stampante e collegala, poi seleziona «Controlla di nuovo». Puoi comunque salvare come PDF.
+	Developer: {name}	Sviluppatore: {name}

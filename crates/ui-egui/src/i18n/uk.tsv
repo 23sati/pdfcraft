@@ -2221,3 +2221,15 @@ key	Space	Пробіл
 	Panels	Панелі
 	Resize panels	Змінити розмір панелей
 	Resize panel window	Змінити розмір вікна панелі
+
+# Linkco: print screen (printer status, network printers, empty list) and the About developer credit.
+	Paused	Призупинено
+	Offline	Не в мережі
+	Error	Помилка
+	Network	Мережа
+	Network printer	Мережевий принтер
+	Port: {port}	Порт: {port}
+	Driver: {driver}	Драйвер: {driver}
+	Printer status: {status}. Check the printer's connection before printing.	Стан принтера: {status}. Перед друком перевірте підключення принтера.
+	No printers were found. Turn the printer on and connect it, then select Check again. You can still save as PDF.	Принтерів не знайдено. Увімкніть принтер і під’єднайте його, потім виберіть «Перевірити ще раз». Ви все одно можете зберегти як PDF.
+	Developer: {name}	Розробник: {name}

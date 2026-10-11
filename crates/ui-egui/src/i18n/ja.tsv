@@ -2200,3 +2200,15 @@ key	Space	スペース
 	Resize panel window	パネルウィンドウのサイズを変更
 	Tools	ツール
 	Inspector	インスペクター
+
+# Linkco: print screen (printer status, network printers, empty list) and the About developer credit.
+	Paused	一時停止中
+	Offline	オフライン
+	Error	エラー
+	Network	ネットワーク
+	Network printer	ネットワーク プリンター
+	Port: {port}	ポート: {port}
+	Driver: {driver}	ドライバー: {driver}
+	Printer status: {status}. Check the printer's connection before printing.	プリンターの状態: {status}。印刷する前にプリンターの接続を確認してください。
+	No printers were found. Turn the printer on and connect it, then select Check again. You can still save as PDF.	プリンターが見つかりませんでした。プリンターの電源を入れて接続し、[再チェック] を選択してください。PDF として保存することもできます。
+	Developer: {name}	開発者: {name}

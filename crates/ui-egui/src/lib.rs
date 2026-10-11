@@ -22,6 +22,9 @@ macro_rules! tl_ctx {
     };
 }
 
+/// Linkco PDF Editor's developer, credited in Help ▸ About.
+pub const DEVELOPER: &str = "Muhammad Bilal (Linkco)";
+
 mod a11y_ui;
 mod actions_ui;
 pub mod canvas;

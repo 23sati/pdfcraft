@@ -2086,3 +2086,15 @@ key	Space	空格
 	Resize panel window	調整面板視窗大小
 	Tools	工具
 	Inspector	檢查器
+
+# Linkco: print screen (printer status, network printers, empty list) and the About developer credit.
+	Paused	已暫停
+	Offline	離線
+	Error	錯誤
+	Network	網路
+	Network printer	網路列印機
+	Port: {port}	連接埠：{port}
+	Driver: {driver}	驅動程式：{driver}
+	Printer status: {status}. Check the printer's connection before printing.	列印機狀態：{status}。列印前請檢查列印機的連線。
+	No printers were found. Turn the printer on and connect it, then select Check again. You can still save as PDF.	找不到列印機。請開啟列印機並連接，然後選擇「重新檢驗」。您仍可另存為 PDF。
+	Developer: {name}	開發者：{name}

@@ -1,9 +1,56 @@
-# Linkco PDF Editor v0.6.0 — Release Notes
+# Linkco PDF Editor v1.0.0 — Release Notes
 
 **Product:** Linkco PDF Editor  
-**Version:** `0.6.0`  
+**Version:** `1.0.0`  
 **Publisher:** Al Rawabet Commercial Services & Contracting Company W.L.L. (Linkco)  
+**Developer:** Muhammad Bilal (Linkco)  
 **Location:** Building 159, Street 220, Zone 24, P.O. Box 32282, Doha – State of Qatar (`www.linkco.com.qa`)
+
+---
+
+## What's new in v1.0.0
+
+v1.0.0 is the first final release of Linkco PDF Editor. It contains everything from v0.6.0 below, plus the following changes.
+
+### 1. Network printers on the Print screen
+- **Network printers are recognised however they are connected:**
+  - shared printers (`\\server\printer`);
+  - Standard TCP/IP ports, whether named `IP_10.0.0.5` or (as current Windows names them) after the address or host, e.g. `10.0.0.5`, `10.0.0.5_1`, `printer.corp.local:9100`;
+  - WSD, IPP/`http(s)://` and LPR ports;
+  - any printer Windows itself reports as a network printer (`Win32_Printer.Network`).
+  
+  Before, only `IP_…` and `WSD…` ports and `\\server` names were recognised.
+- **Printer list:** network printers are marked "· Network". A printer that can't print now shows its status in the interface language (Paused, Offline, Error).
+- **Selected printer:** a line under the list shows "Network printer · Port: … · Driver: …", with the full text on hover.
+- **Printer status warning:** this warning is now translated.
+- **No printers found:** the dialog says so and suggests what to do: turn the printer on, connect it, then *Check again*, or save as PDF.
+
+### 2. File Explorer preview for PDFs on network shares, mapped drives and OneDrive
+- **Where previews already work:** the preview pane and thumbnails work for PDFs on network shares reached by server name (`\\fileserver\share`), on mapped drives that point at them, in OneDrive/cloud folders (Windows downloads online-only files for the preview) and on local disks.
+- **Where Windows blocks them:** since the October 2025 Windows update (KB5066835), File Explorer blocks the preview pane for files in the *Internet* or *Restricted sites* security zone. Explorer does this before it loads any preview handler. Two kinds of file are affected:
+  - files on shares reached by a dotted name (`\\files.corp.example.com\share`) or an IP address (`\\10.0.0.5\share`);
+  - downloaded files that carry the Mark of the Web.
+  
+  This is a Windows security decision. Linkco PDF Editor does not switch it off for every file. Instead it helps you check and fix it per file or per server (PowerShell, no administrator rights):
+  ```powershell
+  $dll = "$env:ProgramFiles\Linkco\Linkco PDF Editor\LinkcoPdfPreviewHandler.dll"   # per-user install: $env:LOCALAPPDATA\Programs\Linkco\Linkco PDF Editor\…
+  $t = [Reflection.Assembly]::Load([IO.File]::ReadAllBytes($dll)).GetType('LinkcoPdfPreview.LinkcoPdfPreviewHandler')
+  $t::DiagnoseFile('\\files.corp.example.com\share\drawing.pdf')   # location, security zone, Mark of the Web, and the fix
+  $t::AllowNetworkPreview('files.corp.example.com')                 # list a server you trust as a Local intranet site (current user)
+  $t::DisallowNetworkPreview('files.corp.example.com')              # undo
+  Unblock-File -LiteralPath 'C:\Users\me\Downloads\drawing.pdf'     # a downloaded file you trust
+  ```
+- **`AllowNetworkPreview`** writes the same per-user entry as *Internet Options ▸ Security ▸ Local intranet ▸ Sites ▸ Advanced*, under `HKCU\…\Internet Settings\ZoneMap`. It accepts a server name, a `\\server\share` path or a mapped-drive path. Where the organisation sets the zones by policy, it changes nothing and tells you to ask IT.
+- **Thumbnail temp files:** temporary thumbnail images left behind when Windows stops a slow thumbnail are now cleaned up like the preview's own.
+
+### 3. About and version
+- **Help ▸ About** now credits the developer: "Developer: Muhammad Bilal (Linkco)", in all interface languages.
+- **Version 1.0.0** is used everywhere: the app, CLI, preview handler (assembly `1.0.0.0`, matching the NSIS and MSI registrations), Setup EXE, MSI and portable ZIP.
+
+### 4. Downloads
+- `dist/release/LinkcoPDFEditorSetup.exe`
+- `dist/release/LinkcoPDFEditorSetup-1.0.0-windows-x64.msi`
+- `dist/release/LinkcoPDFEditor-1.0.0-windows-x64-portable.zip`
 
 ---
 

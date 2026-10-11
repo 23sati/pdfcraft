@@ -1118,6 +1118,7 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                         ui.label(tl!("Professional PDF document tools by Linkco."));
                         ui.add_space(4.0);
                         ui.label(crate::i18n::fmt(tl!("Version {v}"), &[("v", env!("CARGO_PKG_VERSION"))]));
+                        ui.label(crate::i18n::fmt(tl!("Developer: {name}"), &[("name", crate::DEVELOPER)]));
                         ui.add_space(8.0);
                         ui.separator();
                         ui.add_space(6.0);

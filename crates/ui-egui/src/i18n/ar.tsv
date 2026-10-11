@@ -2220,3 +2220,15 @@ key	Space	مسافة
 	Panels	اللوحات
 	Resize panels	تغيير حجم اللوحات
 	Resize panel window	تغيير حجم نافذة اللوحة
+
+# Linkco: print screen (printer status, network printers, empty list) and the About developer credit.
+	Paused	متوقفة مؤقتًا
+	Offline	غير متصلة
+	Error	خطأ
+	Network	شبكة
+	Network printer	طابعة شبكة
+	Port: {port}	المنفذ: {port}
+	Driver: {driver}	برنامج التشغيل: {driver}
+	Printer status: {status}. Check the printer's connection before printing.	حالة الطابعة: {status}. تحقق من اتصال الطابعة قبل الطباعة.
+	No printers were found. Turn the printer on and connect it, then select Check again. You can still save as PDF.	لم يتم العثور على أي طابعة. شغّل الطابعة ووصّلها، ثم اختر «إعادة الفحص». لا يزال بإمكانك الحفظ بصيغة PDF.
+	Developer: {name}	المطوّر: {name}

@@ -2198,3 +2198,15 @@ key	Space	Szóköz
 	Resize panel window	Panelablak átméretezése
 	Tools	Eszközök
 	Inspector	Tulajdonságvizsgáló
+
+# Linkco: print screen (printer status, network printers, empty list) and the About developer credit.
+	Paused	Szüneteltetve
+	Offline	Offline
+	Error	Hiba
+	Network	Hálózat
+	Network printer	Hálózati nyomtató
+	Port: {port}	Port: {port}
+	Driver: {driver}	Illesztőprogram: {driver}
+	Printer status: {status}. Check the printer's connection before printing.	Nyomtató állapota: {status}. Nyomtatás előtt ellenőrizze a nyomtató kapcsolatát.
+	No printers were found. Turn the printer on and connect it, then select Check again. You can still save as PDF.	Nem található nyomtató. Kapcsolja be és csatlakoztassa a nyomtatót, majd válassza az „Újraellenőrzés” lehetőséget. PDF-ként továbbra is mentheti.
+	Developer: {name}	Fejlesztő: {name}

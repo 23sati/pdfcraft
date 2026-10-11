@@ -89,9 +89,9 @@ function ensureToolchain() {
 const TESTED_METHODS = ['UnregisterFromRoot', 'RestoreOrRemoveShellEx', 'RestoreOrRemove', 'DeleteIfEmpty', 'ClsidExists',
   'ReadUserChoiceProgId', 'ProgIdsPointingAtUs', 'HasPerUserRegistration', 'CleanUserHive', 'CleanUserRoot',
   'PreviouslyTouchedProgIds', 'AddUnique', 'UnregisterThumbnailProvider', 'ProgIdShellExPath', 'ReadClassesRootDefault',
-  'BackupAndSetShellEx', 'DllPathKey'];
+  'BackupAndSetShellEx', 'DllPathKey', 'UncServer', 'IsIPv4Literal', 'ZoneMapSiteKey', 'AddIntranetSite', 'RemoveIntranetSite'];
 const TESTED_FIELDS = ['ClsidBraced', 'PreviewHandlerCategoryGuid', 'LinkcoConfigKey', 'HandlerProgId', 'EdgePreviewHandlerClsid',
-  'OwnProgIds', 'KnownPdfProgIds', 'KnownSharedProgIds', 'SysPdfThumbnailPath'];
+  'OwnProgIds', 'KnownPdfProgIds', 'KnownSharedProgIds', 'SysPdfThumbnailPath', 'ZoneMapKey'];
 const TESTED_THUMBNAIL_CONSTS = ['ClsidBraced', 'ThumbnailCategoryGuid', 'ProgIdName'];
 
 /** The text from `start` through the brace that closes the first `{` after it. */

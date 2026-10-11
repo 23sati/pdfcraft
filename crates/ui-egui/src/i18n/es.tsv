@@ -2116,3 +2116,15 @@ key	Space	Espacio
 	Resize panel window	Cambiar tamaño de la ventana del panel
 	Tools	Herramientas
 	Inspector	Inspector
+
+# Linkco: print screen (printer status, network printers, empty list) and the About developer credit.
+	Paused	En pausa
+	Offline	Sin conexión
+	Error	Error
+	Network	Red
+	Network printer	Impresora de red
+	Port: {port}	Puerto: {port}
+	Driver: {driver}	Controlador: {driver}
+	Printer status: {status}. Check the printer's connection before printing.	Estado de la impresora: {status}. Compruebe la conexión de la impresora antes de imprimir.
+	No printers were found. Turn the printer on and connect it, then select Check again. You can still save as PDF.	No se encontró ninguna impresora. Encienda la impresora y conéctela; luego seleccione «Comprobar de nuevo». Puede seguir guardando como PDF.
+	Developer: {name}	Desarrollador: {name}

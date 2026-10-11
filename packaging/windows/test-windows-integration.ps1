@@ -51,14 +51,14 @@ try {
   }
   Write-Output "  [PASS] LinkcoPdfThumbnailProvider present with IThumbnailProvider/IInitializeWithStream/IInitializeWithFile."
 
-  foreach ($api in @('RegisterPreviewHandler', 'UnregisterPreviewHandler', 'QueryEffectiveHandler', 'IsEffectiveHandler', 'Diagnose')) {
+  foreach ($api in @('RegisterPreviewHandler', 'UnregisterPreviewHandler', 'QueryEffectiveHandler', 'IsEffectiveHandler', 'Diagnose', 'DiagnoseFile', 'AllowNetworkPreview', 'DisallowNetworkPreview')) {
     if ($null -eq ($handlerType.GetMethods() | Where-Object { $_.Name -eq $api -and $_.IsStatic -and $_.IsPublic })) {
       throw "LinkcoPdfPreviewHandler is missing the public static method $api"
     }
   }
   $comVisible = $handlerType.GetCustomAttributes([System.Runtime.InteropServices.ComVisibleAttribute], $false)
   if ($comVisible.Count -ne 1 -or -not $comVisible[0].Value) { throw "LinkcoPdfPreviewHandler must be [ComVisible(true)]" }
-  Write-Output "  [PASS] Registration API present (Register/Unregister/QueryEffectiveHandler/IsEffectiveHandler/Diagnose)."
+  Write-Output "  [PASS] Registration API present (Register/Unregister/QueryEffectiveHandler/IsEffectiveHandler/Diagnose/DiagnoseFile/AllowNetworkPreview/DisallowNetworkPreview)."
   if ($null -eq ($handlerType.GetMethods() | Where-Object { $_.Name -eq 'UnregisterPreviewHandlerForAllUsers' -and $_.IsStatic -and $_.IsPublic })) {
     throw "LinkcoPdfPreviewHandler is missing UnregisterPreviewHandlerForAllUsers"
   }
@@ -107,6 +107,19 @@ try {
 
   Write-Output "  Current File Explorer preview registration on this machine (read-only):"
   ($handlerType.GetMethod('Diagnose').Invoke($null, $null) -split "`r?`n") | ForEach-Object { Write-Output "    $_" }
+
+  # Read-only zone report for a local file: on this computer, so the preview pane must be allowed.
+  $zoneProbe = Join-Path ([System.IO.Path]::GetTempPath()) ('linkco-zone-probe-' + [Guid]::NewGuid().ToString('N') + '.pdf')
+  try {
+    [System.IO.File]::WriteAllText($zoneProbe, '%PDF-1.4')
+    $zoneReport = $handlerType.GetMethod('DiagnoseFile').Invoke($null, @($zoneProbe))
+    ($zoneReport -split "`r?`n") | ForEach-Object { Write-Output "    $_" }
+    if ($zoneReport -notmatch 'Location:\s+this computer') { throw 'DiagnoseFile did not recognise a local file' }
+    if ($zoneReport -match 'BLOCKED') { throw 'DiagnoseFile reports a local, never-downloaded file as blocked' }
+    Write-Output "  [PASS] DiagnoseFile: local file is on this computer and its preview is allowed."
+  } finally {
+    Remove-Item -LiteralPath $zoneProbe -Force -ErrorAction SilentlyContinue
+  }
 
   Write-Output "=== 2. Testing Windows Installed Printer Enumeration & Default Printer Detection ==="
   $cimPrinters = @(Get-CimInstance -ClassName Win32_Printer -ErrorAction SilentlyContinue)

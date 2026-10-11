@@ -2200,3 +2200,15 @@ key	Space	Leertaste
 	Resize panel window	Größe des Bereichsfensters ändern
 	Tools	Werkzeuge
 	Inspector	Inspektor
+
+# Linkco: print screen (printer status, network printers, empty list) and the About developer credit.
+	Paused	Angehalten
+	Offline	Offline
+	Error	Fehler
+	Network	Netzwerk
+	Network printer	Netzwerkdrucker
+	Port: {port}	Anschluss: {port}
+	Driver: {driver}	Treiber: {driver}
+	Printer status: {status}. Check the printer's connection before printing.	Druckerstatus: {status}. Prüfen Sie vor dem Drucken die Verbindung zum Drucker.
+	No printers were found. Turn the printer on and connect it, then select Check again. You can still save as PDF.	Es wurden keine Drucker gefunden. Schalten Sie den Drucker ein, schließen Sie ihn an und wählen Sie dann „Erneut prüfen“. Sie können weiterhin als PDF speichern.
+	Developer: {name}	Entwickler: {name}

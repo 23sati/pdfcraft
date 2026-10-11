@@ -612,6 +612,46 @@ pub(crate) fn preview_rasters(
     out.into_iter().map(|(page, scale, _)| (page, scale)).collect()
 }
 
+/// A printer status as the dialog shows it, in the interface language.
+fn status_label(status: spool::PrinterStatus) -> &'static str {
+    match status {
+        spool::PrinterStatus::Ready => tl!("Ready"),
+        spool::PrinterStatus::Printing => tl!("Printing"),
+        spool::PrinterStatus::Paused => tl!("Paused"),
+        spool::PrinterStatus::Offline => tl!("Offline"),
+        spool::PrinterStatus::Error => tl!("Error"),
+    }
+}
+
+/// A printer in the Printer list: its name, "(default)", "· Network" for a network printer and its
+/// status when it can't print now ("[Offline]").
+fn printer_label(p: &spool::Printer, detail: Option<&spool::PrinterDetail>) -> String {
+    let mut label = if p.default { crate::i18n::fmt(tl!("{name} (default)"), &[("name", &p.name)]) } else { p.name.clone() };
+    if detail.is_some_and(|det| det.network) {
+        label = format!("{label} · {}", tl!("Network"));
+    }
+    if let Some(det) = detail.filter(|det| !det.status.is_available()) {
+        label = format!("{label} [{}]", status_label(det.status));
+    }
+    label
+}
+
+/// The line under the Printer list about the chosen printer: "Network printer · Port: … · Driver: …"
+/// (each part only when known; empty when nothing is).
+fn printer_about(det: &spool::PrinterDetail) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    if det.network {
+        parts.push(tl!("Network printer").to_string());
+    }
+    if !det.port.is_empty() {
+        parts.push(crate::i18n::fmt(tl!("Port: {port}"), &[("port", &det.port)]));
+    }
+    if !det.driver.is_empty() {
+        parts.push(crate::i18n::fmt(tl!("Driver: {driver}"), &[("driver", &det.driver)]));
+    }
+    parts.join("  ·  ")
+}
+
 /// Properties… on CUPS: the driver's options for this print, grouped as the driver groups them.
 /// Only choices away from the printer's defaults are kept, and sent with the job.
 fn driver_options_panel(ui: &mut egui::Ui, d: &mut PrintDraft, t: &Tokens) {
@@ -708,20 +748,8 @@ pub(crate) fn body(
                                 ui.add_enabled(false, egui::Label::new(tl!("Looking for printers…")));
                             }
                             for p in &d.printers {
-                                let status_suffix = d
-                                    .printer_details
-                                    .iter()
-                                    .find(|det| det.name == p.name)
-                                    .and_then(|det| (!det.status.is_available()).then_some(det.status.label()));
-                                let base_label = if p.default {
-                                    crate::i18n::fmt(tl!("{name} (default)"), &[("name", &p.name)])
-                                } else {
-                                    p.name.clone()
-                                };
-                                let label = match status_suffix {
-                                    Some(st) => format!("{base_label} [{st}]"),
-                                    None => base_label,
-                                };
+                                let detail = d.printer_details.iter().find(|det| det.name == p.name);
+                                let label = printer_label(p, detail);
                                 ui.selectable_value(&mut d.printer, Some(p.name.clone()), label);
                             }
                             ui.selectable_value(&mut d.printer, None, tl!("Save as PDF"));
@@ -757,14 +785,37 @@ pub(crate) fn body(
                     ui.end_row();
                     if let Some(selected_name) = &d.printer
                         && let Some(det) = d.printer_details.iter().find(|det| &det.name == selected_name)
-                        && !det.status.is_available()
                     {
-                        ui.label("");
-                        ui.label(
-                            egui::RichText::new(format!("Printer status: {} — check connection before printing", det.status.label()))
+                        // What kind of printer this is: network or local, its port and its driver.
+                        let about = printer_about(det);
+                        if !about.is_empty() {
+                            ui.label("");
+                            // A long WSD port name is cut short; the whole line shows on hover.
+                            ui.add(egui::Label::new(egui::RichText::new(about.as_str()).small().color(t.text_muted)).truncate()).on_hover_text(about);
+                            ui.end_row();
+                        }
+                        if !det.status.is_available() {
+                            ui.label("");
+                            ui.label(
+                                egui::RichText::new(crate::i18n::fmt(
+                                    tl!("Printer status: {status}. Check the printer's connection before printing."),
+                                    &[("status", status_label(det.status))],
+                                ))
                                 .small()
                                 .color(Color32::from_rgb(0xD9, 0x77, 0x06)),
-                        );
+                            );
+                            ui.end_row();
+                        }
+                    } else if !cfg!(target_arch = "wasm32") && d.printer.is_none() && !d.printers_loading && d.printers.is_empty() {
+                        // Nothing found: say so, and what to do (Save as PDF still works). A browser
+                        // lists no printers at all, so it gets no hint.
+                        let hint =
+                            tl!("No printers were found. Turn the printer on and connect it, then select Check again. You can still save as PDF.");
+                        ui.label("");
+                        ui.scope(|ui| {
+                            ui.set_max_width(360.0);
+                            ui.add(egui::Label::new(egui::RichText::new(hint).small().color(t.text_muted)).wrap());
+                        });
                         ui.end_row();
                     }
                     ui.label(tl!("Copies:"));

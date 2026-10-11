@@ -2195,3 +2195,15 @@ key	Space	Spacja
 	Professional PDF tools for everyday document work.	Profesjonalne narzędzia PDF do codziennej pracy z dokumentami.
 	Professional PDF document tools by Linkco.	Profesjonalne narzędzia do dokumentów PDF od Linkco.
 	View all tools →	Pokaż wszystkie narzędzia →
+
+# Linkco: print screen (printer status, network printers, empty list) and the About developer credit.
+	Paused	Wstrzymana
+	Offline	Offline
+	Error	Błąd
+	Network	Sieć
+	Network printer	Drukarka sieciowa
+	Port: {port}	Port: {port}
+	Driver: {driver}	Sterownik: {driver}
+	Printer status: {status}. Check the printer's connection before printing.	Stan drukarki: {status}. Przed drukowaniem sprawdź połączenie z drukarką.
+	No printers were found. Turn the printer on and connect it, then select Check again. You can still save as PDF.	Nie znaleziono żadnej drukarki. Włącz drukarkę i podłącz ją, a następnie wybierz „Sprawdź ponownie”. Nadal możesz zapisać jako PDF.
+	Developer: {name}	Programista: {name}

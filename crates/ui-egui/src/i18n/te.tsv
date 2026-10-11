@@ -2130,3 +2130,15 @@ key	Space	స్పేస్
 	Resize panel window	ప్యానెల్ విండో పరిమాణం మార్చు
 	Tools	సాధనాలు
 	Inspector	పరిశీలకుడు
+
+# Linkco: print screen (printer status, network printers, empty list) and the About developer credit.
+	Paused	పాజ్ చేయబడింది
+	Offline	ఆఫ్‌లైన్
+	Error	లోపం
+	Network	నెట్‌వర్క్
+	Network printer	నెట్‌వర్క్ ప్రింటర్
+	Port: {port}	పోర్ట్: {port}
+	Driver: {driver}	డ్రైవర్: {driver}
+	Printer status: {status}. Check the printer's connection before printing.	ప్రింటర్ స్థితి: {status}. ముద్రించే ముందు ప్రింటర్ కనెక్షన్‌ను తనిఖీ చేయండి.
+	No printers were found. Turn the printer on and connect it, then select Check again. You can still save as PDF.	ప్రింటర్లు ఏవీ కనుగొనబడలేదు. ప్రింటర్‌ను ఆన్ చేసి కనెక్ట్ చేయండి, ఆపై "మళ్లీ తనిఖీ చేయి" ఎంచుకోండి. మీరు ఇప్పటికీ PDFగా సేవ్ చేయవచ్చు.
+	Developer: {name}	డెవలపర్: {name}

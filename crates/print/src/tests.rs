@@ -240,6 +240,31 @@ Brother_Label\tFalse\tFalse\t3\t9\tUSB002\tBrother Driver
     assert_eq!(list[4].name, "Brother_Label");
     assert_eq!(list[4].status, PrinterStatus::Error);
 
+    assert!(list[3].network, "a WSD port is a network printer");
+
+    // Network printers the port names alone show: Standard TCP/IP ports named after the address or
+    // host (Windows' default naming), IPP and LPR; and Win32_Printer's own Network flag (8th column).
+    let tsv = "\
+Office_TCP\tFalse\tFalse\t3\t0\t192.168.1.20\tHP Universal\tFalse
+Office_TCP_Second\tFalse\tFalse\t3\t0\t192.168.1.20_1\tHP Universal\tFalse
+Plotter_Host\tFalse\tFalse\t3\t0\tplotter.linkco.local:9100\tHP DesignJet\tFalse
+Cloud_IPP\tFalse\tFalse\t3\t0\thttp://print.linkco.local:631/ipp/print\tMicrosoft IPP Class Driver\tFalse
+Server_Queue\tFalse\tFalse\t3\t0\tNe03:\tKyocera\tTrue
+Desk_USB\tFalse\tFalse\t3\t0\tUSB001\tEpson\tFalse
+To_File\tFalse\tFalse\t3\t0\tC:\\out\\print.prn\tGeneric\tFalse
+";
+    let network: Vec<(String, bool)> = parse_windows_printers_tsv(tsv).into_iter().map(|p| (p.name, p.network)).collect();
+    let expect = [
+        ("Office_TCP", true),
+        ("Office_TCP_Second", true),
+        ("Plotter_Host", true),
+        ("Cloud_IPP", true),
+        ("Server_Queue", true),
+        ("Desk_USB", false),
+        ("To_File", false),
+    ];
+    assert_eq!(network, expect.map(|(n, b)| (n.to_string(), b)));
+
     // Registry fallback parsing (HKCU\Software\Microsoft\Windows NT\CurrentVersion\Devices).
     let reg_devices = "\
 HKEY_CURRENT_USER\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Devices
@@ -561,4 +586,44 @@ fn a_scaled_appearance_is_not_scaled_twice() {
     let m = appearance_matrix(&doc, &form, [10.0, 10.0, 50.0, 50.0]).unwrap();
     assert!(close(m.0[0], 2.0) && close(m.0[3], 2.0), "{:?}", m.0);
     assert!(close(m.0[4], 10.0) && close(m.0[5], 10.0), "{:?}", m.0);
+}
+
+#[test]
+fn network_printer_ports_are_told_from_local_ones() {
+    use crate::spool::is_network_port;
+    for port in [
+        r"\\print01\Floor2",
+        "IP_10.10.20.15",
+        "10.10.20.15",
+        "10.10.20.15_2",
+        "10.10.20.15:9100",
+        "printer.corp.local",
+        "printer-2.corp.local_1",
+        "WSD-6a1f0e3c-1d2b-4c5d-9e8f-0a1b2c3d4e5f",
+        "http://print.corp.local:631/ipp/print",
+        "https://print.corp.local/ipp",
+        "IPP_print.corp.local",
+        "LPR:10.0.0.9:queue",
+    ] {
+        assert!(is_network_port(port), "{port} is a network port");
+    }
+    for port in [
+        "",
+        "USB001",
+        "LPT1:",
+        "COM3:",
+        "FILE:",
+        "PORTPROMPT:",
+        "nul:",
+        "XPSPort:",
+        "SHRFAX:",
+        "Ne01:",
+        r"C:\out\print.prn",
+        "print.prn",
+        "out.pdf",
+        "10.0.0",
+        "_1",
+    ] {
+        assert!(!is_network_port(port), "{port:?} is a local port");
+    }
 }

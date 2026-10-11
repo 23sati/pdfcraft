@@ -182,9 +182,40 @@ pub fn parse_lpstat(out: &str) -> Vec<Printer> {
     parse_lpstat_detailed(out).into_iter().map(|p| p.to_printer()).collect()
 }
 
+/// Whether a Windows printer port reaches the printer over the network: a shared printer
+/// (`\\server\printer`), a Standard TCP/IP port (named `IP_10.0.0.5`, or after the address or host
+/// name as Windows names them now, with `_1`, `_2`… for a second port to the same printer, or
+/// `host:9100`), Web Services for Devices (`WSD-…`), Internet Printing (`http://…/ipp`, `IPP_…`) and
+/// LPR. Local ports (`USB001`, `LPT1:`, `COM1:`, `FILE:`, `PORTPROMPT:`, `nul:`, a file path) are not.
+pub fn is_network_port(port: &str) -> bool {
+    let port = port.trim();
+    let upper = port.to_ascii_uppercase();
+    if port.starts_with(r"\\") || ["IP_", "WSD", "IPP", "HTTP://", "HTTPS://", "LPR", "TCPIP", "TCP_"].iter().any(|p| upper.starts_with(p)) {
+        return true;
+    }
+    // `10.0.0.5`, `10.0.0.5_1`, `10.0.0.5:9100`, `printer.corp.local`, `printer.corp.local_2`.
+    let host = port.split(':').next().unwrap_or_default();
+    let host = match host.rsplit_once('_') {
+        Some((h, n)) if !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()) => h,
+        _ => host,
+    };
+    if host.parse::<std::net::Ipv4Addr>().is_ok() {
+        return true;
+    }
+    // A dotted host name (letters, digits, `-`), not a local file such as `C:\out.prn` or `out.prn`.
+    let labels: Vec<&str> = host.split('.').collect();
+    let is_label = |l: &&str| !l.is_empty() && l.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-');
+    // The last label is a domain (letters), not a file extension such as `.prn`.
+    let is_domain = |tld: &&str| {
+        tld.bytes().any(|b| b.is_ascii_alphabetic()) && !matches!(tld.to_ascii_lowercase().as_str(), "prn" | "pdf" | "xps" | "txt" | "ps")
+    };
+    labels.len() >= 2 && labels.iter().all(is_label) && labels.last().is_some_and(is_domain)
+}
+
 /// Parse tab-separated Windows printer lines produced by PowerShell (`Win32_Printer` or `.NET`
 /// `PrinterSettings::InstalledPrinters`):
-/// `Name\tDefault\tWorkOffline\tPrinterStatus\tExtendedPrinterStatus\tPortName\tDriverName`
+/// `Name\tDefault\tWorkOffline\tPrinterStatus\tExtendedPrinterStatus\tPortName\tDriverName[\tNetwork]`
+/// (`Network` is `Win32_Printer.Network`: a printer connected from a print server).
 pub fn parse_windows_printers_tsv(out: &str) -> Vec<PrinterDetail> {
     let mut list: Vec<PrinterDetail> = Vec::new();
     for raw_line in out.lines() {
@@ -206,6 +237,7 @@ pub fn parse_windows_printers_tsv(out: &str) -> Vec<PrinterDetail> {
         let ext_status: u32 = cols.get(4).and_then(|v| v.trim().parse().ok()).unwrap_or(0);
         let port = cols.get(5).copied().unwrap_or("").trim().to_string();
         let driver = cols.get(6).copied().unwrap_or("").trim().to_string();
+        let wmi_network = cols.get(7).is_some_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "true" | "1" | "yes"));
 
         // Win32_Printer status codes:
         // PrinterStatus: 1=Other, 2=Unknown, 3=Idle, 4=Printing, 5=Warmup, 6=Stopped Printing, 7=Offline
@@ -221,7 +253,7 @@ pub fn parse_windows_printers_tsv(out: &str) -> Vec<PrinterDetail> {
         } else {
             PrinterStatus::Ready
         };
-        let network = name.starts_with(r"\\") || port.to_ascii_uppercase().starts_with("IP_") || port.to_ascii_uppercase().starts_with("WSD");
+        let network = wmi_network || name.starts_with(r"\\") || is_network_port(&port);
         list.push(PrinterDetail { name: name.to_string(), default: is_default, status, port, driver, network });
     }
     list
@@ -249,7 +281,7 @@ pub fn parse_windows_reg_printers(devices_out: &str, default_out: &str) -> Vec<P
         let driver = parts.next().unwrap_or("").trim().to_string();
         let port = parts.next().unwrap_or("").trim().to_string();
         let is_default = default_name.as_deref().is_some_and(|d| d.eq_ignore_ascii_case(name));
-        let network = name.starts_with(r"\\") || port.to_ascii_uppercase().starts_with("IP_");
+        let network = name.starts_with(r"\\") || is_network_port(&port);
         list.push(PrinterDetail { name: name.to_string(), default: is_default, status: PrinterStatus::Ready, port, driver, network });
     }
     list
@@ -522,7 +554,8 @@ try {
         $e = [int]$p.ExtendedPrinterStatus
         $port = [string]$p.PortName
         $drv = [string]$p.DriverName
-        Write-Output "$n`t$d`t$w`t$s`t$e`t$port`t$drv"
+        $net = [bool]$p.Network
+        Write-Output "$n`t$d`t$w`t$s`t$e`t$port`t$drv`t$net"
     }
 } catch {}
 if (-not $found) {

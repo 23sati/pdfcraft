@@ -2124,3 +2124,15 @@ key	Space	Пробел
 	Resize panel window	Изменить размер окна панели
 	Tools	Инструменты
 	Inspector	Инспектор
+
+# Linkco: print screen (printer status, network printers, empty list) and the About developer credit.
+	Paused	Приостановлен
+	Offline	Не в сети
+	Error	Ошибка
+	Network	Сеть
+	Network printer	Сетевой принтер
+	Port: {port}	Порт: {port}
+	Driver: {driver}	Драйвер: {driver}
+	Printer status: {status}. Check the printer's connection before printing.	Состояние принтера: {status}. Перед печатью проверьте подключение принтера.
+	No printers were found. Turn the printer on and connect it, then select Check again. You can still save as PDF.	Принтеры не найдены. Включите принтер и подключите его, затем нажмите «Проверить снова». Сохранить как PDF по-прежнему можно.
+	Developer: {name}	Разработчик: {name}

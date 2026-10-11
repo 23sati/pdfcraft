@@ -116,6 +116,42 @@ public static class Program {
         Check(LinkcoPdfPreviewHandler.DllPathKey("D:\\100% Tools\\\u00dcn\u00efcode \U0001F600\\x.dll") ==
             "D:\\100%0025 TOOLS\\%00DCN%00EFCODE %D83D%DE00\\X.DLL", "'%', Latin-1 and a surrogate pair");
 
+        // 5. Network shares: the server of a path and where Internet Options lists it as a site.
+        Check(LinkcoPdfPreviewHandler.UncServer(@"\\fileserver\Scans\a.pdf") == "fileserver", "UNC: server name");
+        Check(LinkcoPdfPreviewHandler.UncServer(@"\\?\UNC\files.corp.example.com\share\a.pdf") == "files.corp.example.com", "\\\\?\\UNC\\ long path");
+        Check(LinkcoPdfPreviewHandler.UncServer(@"\\docs.example.com@SSL@443\DavWWWRoot\a.pdf") == "docs.example.com", "WebDAV: @SSL@port dropped");
+        Check(LinkcoPdfPreviewHandler.UncServer("//10.0.0.5/share") == "10.0.0.5", "forward slashes");
+        Check(LinkcoPdfPreviewHandler.UncServer(@"C:\Users\a.pdf") == null && LinkcoPdfPreviewHandler.UncServer(@"\\?\C:\a.pdf") == null &&
+            LinkcoPdfPreviewHandler.UncServer(@"\\.\pipe\x") == null && LinkcoPdfPreviewHandler.UncServer(@"\\") == null && LinkcoPdfPreviewHandler.UncServer(null) == null,
+            "local, device and empty paths: no server");
+        Check(LinkcoPdfPreviewHandler.IsIPv4Literal("10.0.0.5") && !LinkcoPdfPreviewHandler.IsIPv4Literal("10.0.0") && !LinkcoPdfPreviewHandler.IsIPv4Literal("10.0.0.256") &&
+            !LinkcoPdfPreviewHandler.IsIPv4Literal("a.b.c.d") && !LinkcoPdfPreviewHandler.IsIPv4Literal("+1.0.0.5"), "IPv4 literals");
+        Check(LinkcoPdfPreviewHandler.ZoneMapSiteKey("FileServer") == @"Domains\fileserver", "site key: single-label name");
+        Check(LinkcoPdfPreviewHandler.ZoneMapSiteKey("corp.local") == @"Domains\corp.local", "site key: two labels");
+        Check(LinkcoPdfPreviewHandler.ZoneMapSiteKey("files.corp.example.com.") == @"Domains\example.com\files.corp", "site key: domain + host part");
+        Check(LinkcoPdfPreviewHandler.ZoneMapSiteKey("10.0.0.5") == @"Ranges\Linkco_10.0.0.5", "site key: IP address range entry");
+        Check(LinkcoPdfPreviewHandler.ZoneMapSiteKey("") == null && LinkcoPdfPreviewHandler.ZoneMapSiteKey("*.example.com") == null &&
+            LinkcoPdfPreviewHandler.ZoneMapSiteKey(@"a\b") == null && LinkcoPdfPreviewHandler.ZoneMapSiteKey("a..b") == null, "site key: not a server name");
+
+        var user = RegistryKey.NewRoot("HKEY_CURRENT_USER");
+        string zm = LinkcoPdfPreviewHandler.ZoneMapKey + "\\";
+        Set(user, zm + "Domains\\example.com", "http", "2");                          // the user's own entry: must survive
+        int handles = RegistryKey.OpenHandles;
+        Check(LinkcoPdfPreviewHandler.AddIntranetSite(user, "files.corp.example.com") == @"Domains\example.com\files.corp", "allow: dotted name written");
+        Check(LinkcoPdfPreviewHandler.AddIntranetSite(user, "10.0.0.5") == @"Ranges\Linkco_10.0.0.5", "allow: IP written");
+        using (var k = user.OpenSubKey(zm + "Domains\\example.com\\files.corp"))
+            Check(k != null && k.GetValue("file") is int && (int)k.GetValue("file") == 1 && k.ValueCount == 1, "allow: file = 1 (Local intranet), nothing else");
+        using (var k = user.OpenSubKey(zm + "Ranges\\Linkco_10.0.0.5"))
+            Check(k != null && (k.GetValue(":Range") as string) == "10.0.0.5" && (int)k.GetValue("file") == 1, "allow: range entry :Range + file");
+        Check(LinkcoPdfPreviewHandler.AddIntranetSite(user, "files.corp.example.com") != null, "allow: idempotent");
+        Check(LinkcoPdfPreviewHandler.RemoveIntranetSite(user, "files.corp.example.com"), "disallow: dotted name removed");
+        Check(!Has(user, zm + "Domains\\example.com\\files.corp") && Has(user, zm + "Domains\\example.com"), "disallow: host key gone, domain key with the user's entry kept");
+        Check(LinkcoPdfPreviewHandler.RemoveIntranetSite(user, "10.0.0.5") && !Has(user, zm + "Ranges\\Linkco_10.0.0.5") && Has(user, zm + "Ranges"), "disallow: IP range entry gone, Ranges kept");
+        Check(!LinkcoPdfPreviewHandler.RemoveIntranetSite(user, "10.0.0.5") && !LinkcoPdfPreviewHandler.RemoveIntranetSite(user, "never-listed"), "disallow: nothing listed -> false");
+        LinkcoPdfPreviewHandler.AddIntranetSite(user, "fileserver");
+        Check(LinkcoPdfPreviewHandler.RemoveIntranetSite(user, "fileserver") && !Has(user, zm + "Domains\\fileserver") && Has(user, zm + "Domains"), "disallow: single-label key gone, Domains kept");
+        Check(RegistryKey.OpenHandles == handles, "zone sites: no registry handles leaked");
+
         Console.WriteLine(fails == 0 ? "ALL PASS" : ("FAILURES: " + fails));
     }
 }

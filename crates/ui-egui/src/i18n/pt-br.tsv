@@ -2201,3 +2201,15 @@ key	Space	Espaço
 	Resize panel window	Redimensionar janela do painel
 	Tools	Ferramentas
 	Inspector	Inspetor
+
+# Linkco: print screen (printer status, network printers, empty list) and the About developer credit.
+	Paused	Pausada
+	Offline	Off-line
+	Error	Erro
+	Network	Rede
+	Network printer	Impressora de rede
+	Port: {port}	Porta: {port}
+	Driver: {driver}	Driver: {driver}
+	Printer status: {status}. Check the printer's connection before printing.	Status da impressora: {status}. Verifique a conexão da impressora antes de imprimir.
+	No printers were found. Turn the printer on and connect it, then select Check again. You can still save as PDF.	Nenhuma impressora foi encontrada. Ligue a impressora e conecte-a; depois selecione "Verificar novamente". Você ainda pode salvar como PDF.
+	Developer: {name}	Desenvolvedor: {name}

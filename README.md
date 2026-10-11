@@ -116,6 +116,14 @@ The Windows packaging pipeline lives in `packaging/windows/` and embeds full Lin
   - Start Menu: `Linkco PDF Editor`
   - Desktop: `Linkco PDF Editor`
 - **Windows File Explorer Preview Pane (`IPreviewHandler`):** Installs and registers `LinkcoPdfPreviewHandler.dll` (`CLSID {D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}`) for `.pdf` files, backing up any previously registered preview handler and restoring it cleanly on uninstall.
+- **Network shares and downloaded files in the Preview Pane:** PDFs on `\\fileserver\share` shares, mapped drives, OneDrive and local disks preview normally. Since the October 2025 Windows update, File Explorer itself blocks the preview pane (before any preview handler runs) for files in the *Internet* zone: shares reached by a dotted name or IP address, and downloaded files with the Mark of the Web. To see why a file shows no preview, and to list a trusted server as a Local intranet site for your account only, run in PowerShell:
+  ```powershell
+  $dll = "$env:ProgramFiles\Linkco\Linkco PDF Editor\LinkcoPdfPreviewHandler.dll"   # per-user install: $env:LOCALAPPDATA\Programs\Linkco\Linkco PDF Editor\…
+  $t = [Reflection.Assembly]::Load([IO.File]::ReadAllBytes($dll)).GetType('LinkcoPdfPreview.LinkcoPdfPreviewHandler')
+  $t::DiagnoseFile('\\files.corp.example.com\share\drawing.pdf')
+  $t::AllowNetworkPreview('files.corp.example.com')      # undo: $t::DisallowNetworkPreview('files.corp.example.com')
+  ```
+  For a downloaded file you trust, use `Unblock-File -LiteralPath <file>` (or *Properties ▸ Unblock*).
 - **Image Context Menu Integration:** Adds `Create PDF with Linkco PDF Editor…` to `.png`, `.jpg`, `.jpeg`, `.tif`, `.tiff`, `.gif`, `.bmp`, `.jp2`, `.j2k`, and `.jpx` context menus without altering default image file associations.
 - **Installed Apps Registration:** Registers **Linkco PDF Editor** in Windows *Installed Apps / Add or Remove Programs* with version, icon, publisher, and clean uninstaller support, and registers `.pdf` under *Open With* without overriding the user's default PDF handler.
 
@@ -342,4 +350,5 @@ Dual-licensed under either of:
 at your option. Third-party font and icon attributions are cataloged in [`ATTRIBUTION.md`](ATTRIBUTION.md).
 
 Copyright © Al Rawabet Commercial Services & Contracting Company W.L.L. (Linkco)  
+Developed by **Muhammad Bilal** (Linkco)  
 Building 159, Street 220, Zone 24, P.O. Box 32282, Doha – Qatar · Phone: +974 4437 2511 · Email: `info@linkco.com.qa` · Web: `www.linkco.com.qa`
