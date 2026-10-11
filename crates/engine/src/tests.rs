@@ -461,9 +461,9 @@ fn combine_extract_split_and_insert_from_file() {
 /// A one-page PDF whose form holds one text field named `name` (a widget that is its own field).
 fn form_with_field(name: &str) -> Vec<u8> {
     let objs: Vec<String> = vec![
-        format!("<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] >> >>"), // 1
-        "<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 300 400] >>".into(),   // 2
-        "<< /Type /Page /Parent 2 0 R /Annots [4 0 R] >>".into(),                     // 3
+        "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] >> >>".into(), // 1
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 300 400] >>".into(), // 2
+        "<< /Type /Page /Parent 2 0 R /Annots [4 0 R] >>".into(),                   // 3
         format!("<< /Type /Annot /Subtype /Widget /FT /Tx /T ({name}) /V (x) /Rect [60 60 200 80] /P 3 0 R >>"), // 4
     ];
     let mut bytes = b"%PDF-1.7\n".to_vec();
@@ -507,7 +507,6 @@ fn insert_from_file_renames_colliding_fields_and_notes_it() {
         "the note names the rename and the scripts caveat: {:?}",
         doc.repair_log()
     );
-    drop(doc);
     let label = s.undo(id).unwrap();
     assert_eq!(label, "Insert pages from b.pdf — 1 field renamed");
     let doc = s.get(id).unwrap();
@@ -528,7 +527,6 @@ fn combine_reports_renamed_fields_and_can_merge() {
     let doc = s.get(cid).unwrap();
     let names: Vec<&str> = doc.form.iter().map(|f| f.name.as_str()).collect();
     assert_eq!(names, ["Text1", "Text1-1"]);
-    drop(doc);
     let merged = s.combine_unlocked_reporting(&sources, &[], pdfcraft_organize::FieldConflicts::Merge).unwrap();
     assert!(merged.renamed_fields.is_empty(), "merge renames nothing");
 }

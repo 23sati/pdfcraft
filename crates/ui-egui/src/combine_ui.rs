@@ -262,15 +262,28 @@ pub struct ConflictPreview {
 
 impl ConflictPreview {
     /// Bring the preview in step with `files`, opening them through the engine when the list
-    /// changed. A file that cannot be opened previews as nothing (its row says why).
+    /// changed. A file split into parts is combined as one file, once — each group's first
+    /// entry stands for it, as the combine does — and every part shows the file's preview.
+    /// A file that cannot be opened previews as nothing (its row says why).
     fn refresh(&mut self, session: &pdfcraft_engine::Session, files: &[CombineFile]) {
         let key = (files.iter().map(|f| f.id).collect(), files.iter().map(|f| f.password.is_some()).collect());
         if self.key == key && self.per_file.len() == files.len() {
             return;
         }
-        let sources: Vec<pdfcraft_engine::CombineSource> = files.iter().map(|f| (f.name.clone(), f.bytes.clone(), None)).collect();
-        let passwords: Vec<Option<&str>> = files.iter().map(|f| f.password.as_ref().map(|p| p.0.as_str())).collect();
-        self.per_file = session.combine_field_conflicts(&sources, &passwords);
+        let mut groups: Vec<u64> = Vec::new();
+        let mut sources: Vec<pdfcraft_engine::CombineSource> = Vec::new();
+        let mut passwords: Vec<Option<&str>> = Vec::new();
+        for f in files {
+            if groups.contains(&f.group) {
+                continue;
+            }
+            groups.push(f.group);
+            sources.push((f.name.clone(), f.bytes.clone(), None));
+            passwords.push(f.password.as_ref().map(|p| p.0.as_str()));
+        }
+        let per_group = session.combine_field_conflicts(&sources, &passwords);
+        self.per_file =
+            files.iter().map(|f| groups.iter().position(|g| *g == f.group).and_then(|at| per_group.get(at)).cloned().unwrap_or_default()).collect();
         self.key = key;
     }
 }

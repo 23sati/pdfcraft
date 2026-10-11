@@ -503,8 +503,7 @@ fn resolve_field_conflicts(dst: &mut Document, fields: &[ObjRef]) -> Result<Vec<
     let planned = plan_renames(dst, fields, &mut taken);
     let mut renamed = Vec::new();
     for (node, new_t, old, new) in planned {
-        let text = String::from_utf8_lossy(&new_t).into_owned();
-        dst.update_dict(node, |d| d.set(b"T".to_vec(), Object::String(pdfcraft_cos::PdfString::text(&text))))?;
+        dst.update_dict(node, |d| d.set(b"T".to_vec(), Object::String(pdfcraft_cos::PdfString::text(&new_t))))?;
         renamed.push((old, new));
     }
     Ok(renamed)
@@ -538,13 +537,14 @@ pub fn combine_field_conflicts(sources: &[&Document]) -> Vec<Vec<(String, String
 /// Walk field trees `roots` in `doc` and plan the renames that would keep every name separate
 /// from `taken`: each node's fully-qualified name joins `taken` (so a later field of the same
 /// import collides with an earlier one), and a node already taken is renamed to the first free
-/// variant of its own `/T`. Read-only: returns (node, new `/T`, old name, new name). Cycle- and
-/// depth-safe.
-fn plan_renames(doc: &Document, roots: &[ObjRef], taken: &mut std::collections::HashSet<Vec<u8>>) -> Vec<(ObjRef, Vec<u8>, String, String)> {
+/// variant of its own `/T`. Names are compared and renamed as decoded text, not as stored
+/// bytes, so one name written in two encodings (PDFDocEncoding, UTF-16BE) is one name.
+/// Read-only: returns (node, new `/T`, old name, new name). Cycle- and depth-safe.
+fn plan_renames(doc: &Document, roots: &[ObjRef], taken: &mut std::collections::HashSet<String>) -> Vec<(ObjRef, String, String, String)> {
     let mut planned = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for &root in roots {
-        plan_renames_under(doc, root, b"", taken, &mut seen, 0, &mut planned);
+        plan_renames_under(doc, root, "", taken, &mut seen, 0, &mut planned);
     }
     planned
 }
@@ -553,30 +553,30 @@ fn plan_renames(doc: &Document, roots: &[ObjRef], taken: &mut std::collections::
 fn plan_renames_under(
     doc: &Document,
     node: ObjRef,
-    prefix: &[u8],
-    taken: &mut std::collections::HashSet<Vec<u8>>,
+    prefix: &str,
+    taken: &mut std::collections::HashSet<String>,
     seen: &mut std::collections::HashSet<ObjRef>,
     depth: u8,
-    planned: &mut Vec<(ObjRef, Vec<u8>, String, String)>,
+    planned: &mut Vec<(ObjRef, String, String, String)>,
 ) {
     if depth > 32 || !seen.insert(node) {
         return;
     }
     let Some(d) = doc.get(node).as_dict().cloned() else { return };
-    let mut name = d.get(b"T").and_then(|t| doc.resolve(t).as_string().map(|s| s.bytes.clone())).unwrap_or_default();
+    let mut name = d.get(b"T").and_then(|t| doc.resolve(t).as_string().map(|s| s.to_text())).unwrap_or_default();
     if !name.is_empty() {
         let fqn = qualified(prefix, &name);
         if taken.contains(&fqn) {
             let mut n = 1u32;
             let mut variant;
             while {
-                variant = [name.as_slice(), format!("-{n}").as_bytes()].concat();
+                variant = format!("{name}-{n}");
                 taken.contains(&qualified(prefix, &variant))
             } {
                 n += 1;
             }
             let new_fqn = qualified(prefix, &variant);
-            planned.push((node, variant.clone(), String::from_utf8_lossy(&fqn).into_owned(), String::from_utf8_lossy(&new_fqn).into_owned()));
+            planned.push((node, variant.clone(), fqn, new_fqn.clone()));
             taken.insert(new_fqn);
             name = variant;
         } else {
@@ -592,11 +592,11 @@ fn plan_renames_under(
 
 /// The field names in use in `dst`: every name in its form, and every name hanging only off a
 /// page's widgets — a field the form never lists still owns its name.
-fn taken_field_names(dst: &Document) -> Result<std::collections::HashSet<Vec<u8>>, OrganizeError> {
+fn taken_field_names(dst: &Document) -> Result<std::collections::HashSet<String>, OrganizeError> {
     let mut taken = std::collections::HashSet::new();
     let mut seen = std::collections::HashSet::new();
     for root in field_roots(dst)? {
-        collect_names(dst, root, b"", &mut seen, 0, &mut taken);
+        collect_names(dst, root, "", &mut seen, 0, &mut taken);
     }
     Ok(taken)
 }
@@ -645,16 +645,16 @@ fn field_roots(doc: &Document) -> Result<Vec<ObjRef>, OrganizeError> {
 fn collect_names(
     dst: &Document,
     node: ObjRef,
-    prefix: &[u8],
+    prefix: &str,
     seen: &mut std::collections::HashSet<ObjRef>,
     depth: u8,
-    out: &mut std::collections::HashSet<Vec<u8>>,
+    out: &mut std::collections::HashSet<String>,
 ) {
     if depth > 32 || !seen.insert(node) {
         return;
     }
     let Some(d) = dst.get(node).as_dict().cloned() else { return };
-    let name = d.get(b"T").and_then(|t| dst.resolve(t).as_string().map(|s| s.bytes.clone())).unwrap_or_default();
+    let name = d.get(b"T").and_then(|t| dst.resolve(t).as_string().map(|s| s.to_text())).unwrap_or_default();
     let prefix = qualified_optional(prefix, &name);
     if !name.is_empty() {
         out.insert(prefix.clone());
@@ -666,13 +666,13 @@ fn collect_names(
 }
 
 /// `prefix.name`, or `name` at the top level.
-fn qualified(prefix: &[u8], name: &[u8]) -> Vec<u8> {
-    if prefix.is_empty() { name.to_vec() } else { [prefix, b".", name].concat() }
+fn qualified(prefix: &str, name: &str) -> String {
+    if prefix.is_empty() { name.to_string() } else { format!("{prefix}.{name}") }
 }
 
 /// The prefix a node's children hang under: its own name, when it has one.
-fn qualified_optional(prefix: &[u8], name: &[u8]) -> Vec<u8> {
-    if name.is_empty() { prefix.to_vec() } else { qualified(prefix, name) }
+fn qualified_optional(prefix: &str, name: &str) -> String {
+    if name.is_empty() { prefix.to_string() } else { qualified(prefix, name) }
 }
 
 /// Add top-level fields to the destination's `/AcroForm /Fields` (creating the form if needed).

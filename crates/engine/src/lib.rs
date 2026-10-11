@@ -2993,28 +2993,7 @@ impl Session {
     /// [`Self::combine_ranges`] with the password each encrypted source is opened with, by
     /// position (missing or `None`: no password). The result is not encrypted.
     pub fn combine_unlocked(&self, sources: &[CombineSource], passwords: &[Option<&str>]) -> Result<Arc<Vec<u8>>, EditError> {
-        let docs = sources
-            .iter()
-            .enumerate()
-            .map(|(i, (n, b, _))| open_source_with(n, b, passwords.get(i).copied().flatten()))
-            .collect::<Result<Vec<_>, _>>()?;
-        let mut pages = Vec::with_capacity(docs.len());
-        for ((name, _, range), d) in sources.iter().zip(&docs) {
-            let range = range.as_deref().map(str::trim).filter(|r| !r.is_empty());
-            pages.push(match range {
-                Some(r) => {
-                    let n = pdfcraft_organize::page_count(d)?;
-                    let p = pdfcraft_print::select_pages(n, Some(r), &[], pdfcraft_print::Subset::All, false)
-                        .map_err(|e| EditError::Print(format!("{name}: {e}")))?;
-                    Some(p)
-                }
-                None => None,
-            });
-        }
-        let named: Vec<(&str, &pdfcraft_cos::Document, Option<&[usize]>)> =
-            sources.iter().zip(docs.iter()).zip(&pages).map(|(((n, _, _), d), p)| (n.as_str(), d, p.as_deref())).collect();
-        let out = pdfcraft_organize::combine_selected(&named)?;
-        self.write_new(&out)
+        Ok(self.combine_unlocked_reporting(sources, passwords, pdfcraft_organize::FieldConflicts::Rename)?.bytes)
     }
 
     /// The pre-flight over byte sources: what combining them, in order, would rename in each one
@@ -3026,9 +3005,7 @@ impl Session {
         let refs: Vec<&pdfcraft_cos::Document> = docs.iter().filter_map(|d| d.as_ref()).collect();
         let mut opened = pdfcraft_organize::combine_field_conflicts(&refs).into_iter();
         // One preview per source, in step with it: a file that cannot be opened has none.
-        docs.iter()
-            .map(|d| if d.is_some() { opened.next().unwrap_or_default() } else { Default::default() })
-            .collect()
+        docs.iter().map(|d| if d.is_some() { opened.next().unwrap_or_default() } else { Default::default() }).collect()
     }
 
     /// [`Self::combine_unlocked`] reporting what the conflict resolution renamed.
@@ -3069,42 +3046,7 @@ impl Session {
     /// `pdfcraft_organize::combine_grouped`). A group's later sources use its first source's bytes
     /// and password; a source without a key is a file of its own.
     pub fn combine_grouped(&self, sources: &[CombineSource], groups: &[u64], passwords: &[Option<&str>]) -> Result<Arc<Vec<u8>>, EditError> {
-        // Each file opened once: `file[i]` is source i's place in `docs`.
-        let (mut keys, mut docs, mut file): (Vec<Option<u64>>, Vec<pdfcraft_cos::Document>, Vec<usize>) = (Vec::new(), Vec::new(), Vec::new());
-        for (i, (name, bytes, _)) in sources.iter().enumerate() {
-            let key = groups.get(i).copied();
-            let known = key.and_then(|k| keys.iter().position(|g| *g == Some(k)));
-            let at = match known {
-                Some(at) => at,
-                None => {
-                    docs.push(open_source_with(name, bytes, passwords.get(i).copied().flatten())?);
-                    keys.push(key);
-                    docs.len() - 1
-                }
-            };
-            file.push(at);
-        }
-        let mut pages = Vec::with_capacity(sources.len());
-        for ((name, _, range), at) in sources.iter().zip(&file) {
-            let range = range.as_deref().map(str::trim).filter(|r| !r.is_empty());
-            let Some(d) = docs.get(*at) else { return Err(EditError::Write(format!("{name}: not opened"))) };
-            pages.push(match range {
-                Some(r) => {
-                    let n = pdfcraft_organize::page_count(d)?;
-                    let p = pdfcraft_print::select_pages(n, Some(r), &[], pdfcraft_print::Subset::All, false)
-                        .map_err(|e| EditError::Print(format!("{name}: {e}")))?;
-                    Some(p)
-                }
-                None => None,
-            });
-        }
-        let mut runs: Vec<pdfcraft_organize::Run<'_>> = Vec::with_capacity(sources.len());
-        for (((name, _, _), at), p) in sources.iter().zip(&file).zip(&pages) {
-            let Some(d) = docs.get(*at) else { return Err(EditError::Write(format!("{name}: not opened"))) };
-            runs.push((*at, name.as_str(), d, p.as_deref()));
-        }
-        let out = pdfcraft_organize::combine_grouped(&runs)?;
-        self.write_new(&out)
+        Ok(self.combine_grouped_reporting(sources, groups, passwords, pdfcraft_organize::FieldConflicts::Rename)?.bytes)
     }
 
     /// [`Self::combine_grouped`] reporting what the conflict resolution renamed.

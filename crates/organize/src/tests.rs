@@ -1762,6 +1762,65 @@ fn import_renames_to_the_first_free_variant() {
     assert_eq!(form_field_names(&dst), ["Text1", "Text1-1", "Text1-2"]);
 }
 
+/// A one-page document whose form holds one text field whose `/T` is a UTF-16BE hex string —
+/// the standard encoding for non-ASCII names — decoding to `name`.
+fn doc_with_field_utf16(name: &str) -> Document {
+    let t: String = std::iter::once(0xFEFFu16).chain(name.encode_utf16()).map(|u| format!("{u:04X}")).collect();
+    let b: Vec<String> = vec![
+        "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] >> >>".into(), // 1
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 300 400] >>".into(), // 2
+        "<< /Type /Page /Parent 2 0 R /Annots [5 0 R] >>".into(),                   // 3
+        "<< /Title (form) >>".into(),                                               // 4
+        format!("<< /Type /Annot /Subtype /Widget /FT /Tx /T <{t}> /V (x) /Rect [60 60 200 80] /P 3 0 R >>"), // 5
+    ];
+    open(build(&b, "/Root 1 0 R /Info 4 0 R"))
+}
+
+/// The decoded `/T` names of a document's /AcroForm /Fields, in order (whatever encoding each
+/// was written in).
+fn decoded_form_field_names(doc: &Document) -> Vec<String> {
+    let Some(form) = catalog(doc).get(b"AcroForm").map(|f| doc.resolve(f)).and_then(|f| f.as_dict().cloned()) else {
+        return Vec::new();
+    };
+    form.get(b"Fields")
+        .map(|f| doc.resolve(f))
+        .and_then(|f| f.as_array().cloned())
+        .unwrap_or_default()
+        .iter()
+        .map(|f| {
+            doc.resolve(f)
+                .as_dict()
+                .and_then(|d| d.get(b"T").cloned())
+                .map(|t| doc.resolve(&t))
+                .and_then(|t| t.as_string().map(|s| s.to_text()))
+                .unwrap_or_default()
+        })
+        .collect()
+}
+
+/// A field's name is its text, not the bytes it was written in: a destination field named in
+/// PDFDocEncoding and an incoming UTF-16BE field that decode to the same name are one name,
+/// so the incoming field is renamed out of the way (not silently blurred into the other).
+#[test]
+fn import_renames_by_decoded_name_whatever_its_encoding() {
+    let mut dst = doc_with_field("Text1");
+    let src = doc_with_field_utf16("Text1");
+    let out = import_pages_with(&mut dst, &src, &[0], 1, FieldConflicts::Rename).unwrap();
+    assert_eq!(out.renamed_fields, [("Text1".to_string(), "Text1-1".to_string())]);
+    assert_eq!(decoded_form_field_names(&dst), ["Text1", "Text1-1"]);
+}
+
+/// Renaming a non-ASCII name keeps it readable: the new `/T` stores the new name as text
+/// (UTF-16BE again), never as mojibake of the old bytes.
+#[test]
+fn a_renamed_non_ascii_name_stays_readable() {
+    let mut dst = doc_with_field_utf16("Förm");
+    let src = doc_with_field_utf16("Förm");
+    let out = import_pages_with(&mut dst, &src, &[0], 1, FieldConflicts::Rename).unwrap();
+    assert_eq!(out.renamed_fields, [("Förm".to_string(), "Förm-1".to_string())]);
+    assert_eq!(decoded_form_field_names(&dst), ["Förm", "Förm-1"]);
+}
+
 /// A one-page document whose form holds one field tree: a root field `root` with one child
 /// field `kid` (a merged field-and-widget, as page tools make them).
 fn doc_with_tree(root: &str, kid: &str) -> Document {

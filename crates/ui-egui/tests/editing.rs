@@ -781,12 +781,21 @@ fn edit_menu_names_the_step_to_undo() {
 
 /// A one-page PDF whose form holds one text field named `name`.
 fn form_pdf(name: &str) -> Vec<u8> {
-    let objs: Vec<String> = vec![
+    form_pdf_pages(name, 1)
+}
+
+/// A PDF of `pages` pages whose form holds one text field named `name` (on the first page).
+fn form_pdf_pages(name: &str, pages: usize) -> Vec<u8> {
+    let kids: Vec<String> = (0..pages).map(|i| format!("{} 0 R", 3 + i)).collect();
+    let mut objs: Vec<String> = vec![
         "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] >> >>".into(),
-        "<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 300 400] >>".into(),
+        format!("<< /Type /Pages /Kids [{}] /Count {pages} /MediaBox [0 0 300 400] >>", kids.join(" ")),
         "<< /Type /Page /Parent 2 0 R /Annots [4 0 R] >>".into(),
         format!("<< /Type /Annot /Subtype /Widget /FT /Tx /T ({name}) /V (x) /Rect [60 60 200 80] /P 3 0 R >>"),
     ];
+    for _ in 1..pages {
+        objs.push("<< /Type /Page /Parent 2 0 R >>".to_string()); // objects after the field's number
+    }
     let mut out = b"%PDF-1.7\n".to_vec();
     let mut offsets = Vec::new();
     for (i, o) in objs.iter().enumerate() {
@@ -813,6 +822,25 @@ fn combine_list_warns_that_colliding_field_names_will_be_renamed() {
     h.run_steps(3);
     h.get_by_label_contains("will be renamed");
     h.get_by_label_contains("Text1 → Text1-1");
+}
+
+/// A file split into parts (its pages moved among other files') is combined as one file, once —
+/// so the preview must not warn that its field names collide with their own.
+#[test]
+fn combine_list_does_not_warn_that_a_split_file_collides_with_itself() {
+    let mut h = harness(1, |app| {
+        app.set_option("combine-view", "list").unwrap();
+        app.use_files(pdfcraft_ui_egui::FilePurpose::Combine, vec![("one.pdf".into(), form_pdf_pages("Text1", 2))]);
+    });
+    h.run_steps(3);
+    // one.pdf in two parts — pages 1 and 2, sharing a group, as moving its pages apart leaves it.
+    let mut part = h.state().combine_draft[0].clone();
+    part.id += 1000;
+    h.state_mut().combine_draft[0].range = "1".into();
+    part.range = "2".into();
+    h.state_mut().combine_draft.push(part);
+    h.run_steps(3);
+    assert!(h.query_by_label_contains("will be renamed").is_none(), "one file, however many parts, cannot collide with itself");
 }
 
 fn texts_of(app: &PdfCraftApp, tab: usize) -> Vec<String> {
