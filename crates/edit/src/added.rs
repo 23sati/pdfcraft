@@ -4,10 +4,11 @@
 //! parameters (text, font, size, colour, alignment, box; or image and box) kept in the stream
 //! dictionary under `/PCAdded`. That keeps the item editable later (move, resize, retype,
 //! reformat, delete) without content-stream surgery, while every viewer sees ordinary page
-//! content. Boxes are in display space (origin at the bottom-left of the page as shown, after
-//! `/Rotate`), so items stay upright on rotated pages.
+//! content. Boxes are in display space (points, origin at the bottom-left of the page as shown,
+//! after `/UserUnit` and `/Rotate`), so items stay upright on rotated pages; an item records the
+//! `/UserUnit` it was written for.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use pdfcraft_cos::{Dict, Document, ObjRef, Object, PdfString, Stream};
 use pdfcraft_fonts::{GlyphError, GlyphOutline, ShapedCluster, arabic_glyph, helvetica_width, literal, shape_arabic, win_ansi};
@@ -170,6 +171,15 @@ impl Content {
         }
     }
 
+    /// The same item with its box and text size scaled by `factor`.
+    fn scaled(self, factor: f64) -> Content {
+        match self {
+            _ if factor == 1.0 => self,
+            Content::Text(t) => Content::Text(AddedText { rect: t.rect.map(|v| v * factor), size: t.size * factor, ..t }),
+            Content::Image(i) => Content::Image(AddedImage { rect: i.rect.map(|v| v * factor), ..i }),
+        }
+    }
+
     /// The same item moved/resized to `rect` (text keeps its computed height).
     pub fn with_rect(&self, rect: [f64; 4]) -> Content {
         match self {
@@ -237,6 +247,34 @@ fn wrapped(t: &AddedText) -> Vec<(String, bool)> {
 /// craft-fonts Arabic face.
 fn is_arabic(c: char) -> bool {
     matches!(u32::from(c), 0x0600..=0x06FF | 0x0750..=0x077F | 0x0870..=0x08FF | 0xFB50..=0xFDFF | 0xFE70..=0xFEFC)
+}
+
+/// The first character of `t` that would be drawn as `?`: outside WinAnsiEncoding and not drawn
+/// with the craft-fonts Arabic face (#125), or Arabic that the face can't draw (or that has no
+/// face to draw it). Page-content tools refuse such text; the Add-text editor keeps it open.
+pub fn first_undrawable(t: &AddedText) -> Option<char> {
+    // Arabic that nothing can draw: there's no face, or the face lacks it.
+    if let Some(c) = t.text.chars().find(|c| shaped_arabic(*c) && !pdfcraft_fonts::arabic_has(*c)) {
+        return Some(c);
+    }
+    if pdfcraft_fonts::document_arabic_font().is_none() || !t.text.chars().any(is_arabic) {
+        // Drawn line by line in the item's standard font (`\n` splits lines). Without the face
+        // that is also how `draw` redraws an existing item, so it's checked that way.
+        return t.text.split('\n').find_map(pdfcraft_fonts::first_non_win_ansi);
+    }
+    // What `arabic_layout` leaves to the standard font, exactly as `draw_arabic` splits it.
+    wrapped(t).into_iter().find_map(|(line, rtl)| {
+        let (pieces, _) = arabic_layout(t, &line, rtl).ok()?;
+        pieces.iter().find_map(|p| match p {
+            Piece::Latin(s) => pdfcraft_fonts::first_non_win_ansi(s),
+            Piece::Arabic(_) => None,
+        })
+    })
+}
+
+/// An Arabic character the face shapes and draws (U+061C, a direction mark, is dropped).
+fn shaped_arabic(c: char) -> bool {
+    is_arabic(c) && !is_bidi_control(c)
 }
 
 /// Direction marks, embeddings, overrides and isolates: they steer the order and are not drawn.
@@ -342,24 +380,43 @@ fn font_name(base: &str) -> String {
     format!("PCF{}", base.replace('-', ""))
 }
 
-/// Most glyphs in one Type 3 font: its codes are single bytes, 1–240.
+/// Most glyphs in one Type 3 font: its codes are single bytes, 1–240. An item gets one such font
+/// per 240 distinct glyphs it needs.
 const GLYPHS_PER_FONT: usize = 240;
-/// Most Type 3 fonts one item may use, which bounds the objects it adds (ordinary text needs one
-/// or two).
-const MAX_ARABIC_FONTS: usize = 16;
+
+/// A line of an Arabic item after layout: its text, whether its paragraph runs right to left, its
+/// pieces in drawing order and its width at the item's size.
+type LaidLine = (String, bool, Vec<Piece>, f64);
 
 /// Draw a text item that has Arabic in it. Each line is laid out in display order; Arabic glyphs
 /// come from Type 3 fonts drawn from the craft-fonts face's outlines (no font file is embedded),
-/// with a ToUnicode map for copy and search. Other text uses the item's standard font `latin`.
-fn draw_arabic(doc: &mut Document, t: &AddedText, latin: &str, taken: &Dict, fonts: &mut Dict, out: &mut Vec<u8>) -> Result<(), EditError> {
+/// with a ToUnicode map for copy and search. Other text uses the item's standard font.
+fn draw_arabic(doc: &mut Document, t: &AddedText, taken: &Dict, fonts: &mut Dict, out: &mut Vec<u8>) -> Result<(), EditError> {
+    let laid = wrapped(t)
+        .into_iter()
+        .map(|(line, rtl)| arabic_layout(t, &line, rtl).map(|(pieces, w)| (line, rtl, pieces, w)))
+        .collect::<Result<Vec<_>, _>>()?;
+    draw_laid_arabic(doc, t, &laid, taken, fonts, out, arabic_glyph)
+}
+
+/// [`draw_arabic`] for lines that are already laid out. `outline` is the source of glyph outlines
+/// (the craft-fonts face, or a stand-in in tests).
+fn draw_laid_arabic(
+    doc: &mut Document,
+    t: &AddedText,
+    laid: &[LaidLine],
+    taken: &Dict,
+    fonts: &mut Dict,
+    out: &mut Vec<u8>,
+    outline: impl Fn(u32) -> Result<GlyphOutline, GlyphError>,
+) -> Result<(), EditError> {
     let r = text_rect(t);
-    let lines = wrapped(t);
-    let laid = lines.iter().map(|(line, rtl)| arabic_layout(t, line, *rtl)).collect::<Result<Vec<_>, _>>()?;
+    let latin = font_name(t.family.base_font(t.bold, t.italic));
     // Every distinct cluster (a letter with its dots and the text it stands for) is one glyph of
     // one of the fonts, so copy and search get each character exactly once.
     let mut keys: Vec<&ShapedCluster> = Vec::new();
     let mut index: HashMap<ClusterKey, usize> = HashMap::new();
-    for c in laid.iter().flat_map(|(pieces, _)| pieces).flat_map(|p| match p {
+    for c in laid.iter().flat_map(|(_, _, pieces, _)| pieces).flat_map(|p| match p {
         Piece::Arabic(clusters) => clusters.as_slice(),
         Piece::Latin(_) => &[],
     }) {
@@ -368,18 +425,17 @@ fn draw_arabic(doc: &mut Document, t: &AddedText, latin: &str, taken: &Dict, fon
             keys.len() - 1
         });
     }
-    if keys.len() > GLYPHS_PER_FONT * MAX_ARABIC_FONTS {
-        return Err(EditError::Invalid("the text uses too many different Arabic glyphs; split it into several boxes".into()));
-    }
     // Every outline is read before anything is written, so a failure leaves the document as it was.
     let mut outlines = HashMap::new();
     for c in &keys {
         for (id, _) in &c.glyphs {
             if !outlines.contains_key(id) {
-                outlines.insert(*id, arabic_glyph(*id).map_err(|e| arabic_error(e, &c.text))?);
+                outlines.insert(*id, outline(*id).map_err(|e| arabic_error(e, &c.text))?);
             }
         }
     }
+    // The names the page and this item already use: a new font never takes one of them.
+    let mut taken_names: HashSet<Vec<u8>> = taken.iter().chain(fonts.iter()).map(|(name, _)| name.clone()).collect();
     let mut names = Vec::new();
     for chunk in keys.chunks(GLYPHS_PER_FONT) {
         let font = type3_arabic(doc, chunk, &outlines);
@@ -387,19 +443,20 @@ fn draw_arabic(doc: &mut Document, t: &AddedText, latin: &str, taken: &Dict, fon
         // numbers alone don't do: a full save renumbers objects but keeps resource names).
         let mut name = format!("PCAr{}", font.num);
         let mut suffix = 0usize;
-        while taken.contains(name.as_bytes()) || fonts.contains(name.as_bytes()) {
+        while taken_names.contains(name.as_bytes()) {
             suffix = suffix.saturating_add(1);
             name = format!("PCAr{}_{suffix}", font.num);
         }
+        taken_names.insert(name.clone().into_bytes());
         fonts.set(name.clone().into_bytes(), Object::Ref(font));
         names.push(name);
     }
     let [cr, cg, cb] = t.color.map(|v| v.clamp(0.0, 1.0));
     out.extend(format!("BT {} {} {} rg\n", n(cr), n(cg), n(cb)).bytes());
-    for (i, ((line, rtl), (pieces, w))) in lines.iter().zip(&laid).enumerate() {
+    for (i, (line, rtl, pieces, w)) in laid.iter().enumerate() {
         let spaces = line.matches(' ').count();
         // Justified: the spaces of every line but the last stretch to fill the box.
-        let tw = if t.align == Align::Justify && i + 1 < lines.len() && spaces > 0 { ((r[2] - r[0]) - w).max(0.0) / spaces as f64 } else { 0.0 };
+        let tw = if t.align == Align::Justify && i + 1 < laid.len() && spaces > 0 { ((r[2] - r[0]) - w).max(0.0) / spaces as f64 } else { 0.0 };
         let x = match t.align {
             // A right-to-left paragraph's unstretched last line ends at the right edge.
             Align::Justify if *rtl => r[2] - w - tw * spaces as f64,
@@ -416,7 +473,7 @@ fn draw_arabic(doc: &mut Document, t: &AddedText, latin: &str, taken: &Dict, fon
                     out.extend(format!("/{latin} {} Tf {} Tw 1 0 0 1 {} {} Tm ", n(t.size), n(tw), n(pen), n(y)).bytes());
                     out.extend(literal(&win_ansi(s)));
                     out.extend_from_slice(b" Tj\n");
-                    current = Some(latin);
+                    current = Some(latin.as_str());
                     pen += t.family.width(s, t.size, t.bold) + tw * s.matches(' ').count() as f64;
                 }
                 Piece::Arabic(clusters) => {
@@ -548,7 +605,7 @@ fn draw(doc: &mut Document, c: &Content, view: [f64; 6], taken: &Dict, existing:
             let mut fonts = Dict::new();
             fonts.set(name.clone().into_bytes(), Object::Dict(font));
             if t.text.chars().any(is_arabic) && (pdfcraft_fonts::document_arabic_font().is_some() || !existing) {
-                draw_arabic(doc, t, &name, taken, &mut fonts, &mut out)?;
+                draw_arabic(doc, t, taken, &mut fonts, &mut out)?;
                 res.set(b"Font".to_vec(), Object::Dict(fonts));
                 out.extend_from_slice(b"Q\n");
                 return Ok((out, res));
@@ -706,6 +763,17 @@ fn validate(c: &Content) -> Result<(), EditError> {
             if (r[2] - r[0]).abs() < 1.0 {
                 return Err(EditError::Invalid("the text box is too narrow".into()));
             }
+            // Without the Arabic face, `draw` decides for the Arabic letters themselves (#403): a new
+            // item is refused with what's missing, and one that already holds Arabic stays movable.
+            // Everything else in it is drawn in the standard font, so it still has to fit.
+            let undrawable = if t.text.chars().any(shaped_arabic) && pdfcraft_fonts::document_arabic_font().is_none() {
+                t.text.split('\n').find_map(|line| line.chars().find(|c| !shaped_arabic(*c) && !pdfcraft_fonts::win_ansi_encodable(*c)))
+            } else {
+                first_undrawable(t)
+            };
+            if let Some(c) = undrawable {
+                return Err(crate::undrawable(c));
+            }
         }
         Content::Image(_) => {
             if (r[2] - r[0]).abs() < 1.0 || (r[3] - r[1]).abs() < 1.0 {
@@ -723,6 +791,7 @@ fn write(doc: &mut Document, page: usize, c: &Content, obj: Option<ObjRef>) -> R
     check(&[page], all.len())?;
     let p = &all[page];
     let view = p.view_matrix(doc);
+    let user_unit = p.user_unit(doc);
     // The page gets its own copy of its resources with the item's fonts and images added, and
     // without the Arabic fonts of the version it replaces.
     let mut pres = p.dict.get(b"Resources").map(|r| doc.resolve(r)).and_then(|r| r.as_dict().cloned()).unwrap_or_default();
@@ -741,7 +810,11 @@ fn write(doc: &mut Document, page: usize, c: &Content, obj: Option<ObjRef>) -> R
     doc.update_dict(p.obj, |d| d.set(b"Resources".to_vec(), Object::Dict(pres)))?;
     let mut sd = Dict::new();
     sd.set(b"PCMark".to_vec(), Object::name(TAG));
-    sd.set(b"PCAdded".to_vec(), Object::Dict(params(c)));
+    let mut added = params(c);
+    if user_unit != 1.0 {
+        added.set(b"UserUnit".to_vec(), Object::Real(user_unit));
+    }
+    sd.set(b"PCAdded".to_vec(), Object::Dict(added));
     let stream = Stream::flate(sd, &content);
     match obj {
         Some(r) => {
@@ -778,8 +851,17 @@ pub fn list_added(doc: &Document) -> Vec<Added> {
             if d.name(b"PCMark") != Some(TAG.as_bytes()) {
                 continue;
             }
-            if let Some(c) = d.get(b"PCAdded").and_then(|p| doc.resolve(p).as_dict().cloned()).and_then(|p| parse(doc, &p)) {
-                out.push(Added { page: pi, obj: r, content: c });
+            let Some(params) = d.get(b"PCAdded").and_then(|o| doc.resolve(o).as_dict().cloned()) else { continue };
+            if let Some(c) = parse(doc, &params) {
+                // Display points depend on the page's /UserUnit. An item records the one it was
+                // written for; none means 1, as for items written before display space followed
+                // /UserUnit.
+                let written = params
+                    .get(b"UserUnit")
+                    .and_then(Object::as_f64)
+                    .filter(|u| u.is_finite() && *u >= 1.0)
+                    .map_or(1.0, |u| u.min(pdfcraft_model::MAX_USER_UNIT));
+                out.push(Added { page: pi, obj: r, content: c.scaled(p.user_unit(doc) / written) });
             }
         }
     }
@@ -852,3 +934,6 @@ fn drop_fonts(doc: &Document, res: &mut Dict, names: &[Vec<u8>]) {
     }
     res.set(b"Font".to_vec(), Object::Dict(fonts));
 }
+
+#[cfg(test)]
+mod arabic_tests;
