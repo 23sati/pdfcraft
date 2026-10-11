@@ -2655,6 +2655,9 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     });
 
     view.auto_scroll.paint(ui, avail);
+    if unobstructed && matches!(tool, QuickTool::Select | QuickTool::ColumnSelect) {
+        selection_actions(ui, avail, view, info, prefs, allowed && !comments_hidden);
+    }
 
     // Collect all main-page demand, including cached surfaces, for byte admission later.
     let (mut wanted, visible_now) = out.inner;
@@ -2858,6 +2861,88 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         run_button(app, index, &name, action);
     }
     quick_bar(app, avail, ui);
+}
+
+#[derive(Clone, Copy)]
+enum SelectionAction {
+    Note,
+    Markup(comments::CommentTool),
+    Replace,
+    Copy,
+}
+
+/// Actions on an existing text selection, next to the selected words.
+fn selection_actions(ui: &mut egui::Ui, viewport: Rect, view: &mut DocView, info: &DocInfo, prefs: &comments::CommentPrefs, can_comment: bool) {
+    if ui.input(|input| input.pointer.is_decidedly_dragging()) {
+        return;
+    }
+    let Some(selection) = view.selection else { return };
+    let Some(text) = view.texts.get(&selection.page) else { return };
+    let Some(xf) = view.page_xform(selection.page) else { return };
+    let Some(last) = selection.rects(text).last().copied() else { return };
+    let selected = selection.text(text);
+    if selected.is_empty() {
+        return;
+    }
+    let rect = xf.view_rect(last);
+    if !viewport.intersects(rect) {
+        return;
+    }
+    let x = rect.left().clamp(viewport.left() + 8.0, (viewport.right() - 520.0).max(viewport.left() + 8.0));
+    let y = if rect.bottom() + 48.0 < viewport.bottom() { rect.bottom() + 6.0 } else { (rect.top() - 44.0).max(viewport.top() + 6.0) };
+    let mut chosen = None;
+    egui::Area::new(egui::Id::new(("text-selection-actions", view.id.0))).order(egui::Order::Foreground).fixed_pos(pos2(x, y)).show(ui.ctx(), |ui| {
+        egui::Frame::popup(ui.style()).show(ui, |ui| {
+            ui.horizontal(|ui| {
+                let mut button = |label: &str, action| {
+                    if ui.add_enabled(can_comment, egui::Button::new(tl!(label))).clicked() {
+                        chosen = Some(action);
+                    }
+                };
+                button("Add comment", SelectionAction::Note);
+                button("Highlight", SelectionAction::Markup(comments::CommentTool::Highlight));
+                button("Underline", SelectionAction::Markup(comments::CommentTool::Underline));
+                button("Strikethrough", SelectionAction::Markup(comments::CommentTool::StrikeOut));
+                button("Replace text", SelectionAction::Replace);
+                if ui.button(tl!("Copy")).clicked() {
+                    chosen = Some(SelectionAction::Copy);
+                }
+            });
+        });
+    });
+    let Some(action) = chosen else { return };
+    if let SelectionAction::Copy = action {
+        ui.ctx().copy_text(selected);
+        return;
+    }
+    let Some((page, quads)) = view.selection_quads(info) else { return };
+    let last = quads.last().copied().unwrap_or_default();
+    let at = [last[2].max(last[6]), last[1].max(last[3])];
+    view.clear_selection();
+    match action {
+        SelectionAction::Note | SelectionAction::Replace => {
+            if matches!(action, SelectionAction::Replace) {
+                view.comments.replace = Some(quads);
+            }
+            view.comments.composer = Some(comments::Composer {
+                page,
+                at,
+                kind: if matches!(action, SelectionAction::Replace) { comments::ComposerKind::Replace } else { comments::ComposerKind::Note },
+                text: String::new(),
+                focus: true,
+            });
+        }
+        SelectionAction::Markup(tool) => {
+            view.pending_edit = Some(Edit::AddAnnotation(pdfcraft_engine::NewAnnotation {
+                page,
+                shape: pdfcraft_engine::Shape::TextMarkup { kind: tool.markup().unwrap(), quads },
+                style: prefs.style(tool),
+                contents: String::new(),
+                author: prefs.author.clone(),
+            }));
+        }
+        SelectionAction::Copy => unreachable!(),
+    }
 }
 
 /// Run a push button's action (the ones that need no JavaScript engine).
