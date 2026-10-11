@@ -2,7 +2,7 @@
 
 **Stage: alpha** · next: beta, ~26% (ready for real work 49% → 75%) and ~400–700 h away
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-10 · **Change:** minor (localized shortcut labels, #496; readiness table with hours per audience; full number as weighted sum 49%; earlier: second look: ready 40% → 47%, mainstream 55% added; core-workflow gate applied → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (additional OCR languages and system-language default; localized shortcut labels, #496; readiness table with hours per audience; full number as weighted sum 49%; earlier: second look: ready 40% → 47%, mainstream 55% added; core-workflow gate applied → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
 PdfCraft's one-page summary: how close it is to Adobe Acrobat Pro's offline feature set, and what
 comes next. Adobe's cloud services (Document Cloud, Acrobat Sign requests, shared review, the AI
@@ -132,6 +132,17 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 | 8 | 1.0 polish: performance, right-to-left, missing languages, keyboard-only (M14) | 55–95 |
 
 ## Progress log
+
+- 2026-10-11 — M13: Hot Folder server hardening: isolated bounded task processes, Windows job memory limits, automatic transient retries, durable bounded active journals, crash-safe grouped receipts and deterministic OCR replay. Stable service SID grants preserve custom SCM accounts through repair/upgrade. Added manual real-MSI local/SMB acceptance for Server 2022/2025 and opt-in disposable Server 2019; no untested server certification is claimed.
+
+- 2026-10-11 — M13: optional standalone Hot Folder with durable local/network/FTP/Outlook/open-project processing, calendar schedules, safe source policies, OCR/scan preprocessing, analysis reports, grouped PDF/Office/image/EPUB outputs, headless tools and seven UI languages. Restricted-account boot services and optional Windows/macOS/Linux installers have lifecycle coverage; proprietary ABBYY formats remain incompatible; see [the scope inventory](docs/hot-folder.md).
+
+- **2026-10-11 (M10, OCR languages and defaults):** Fold Dutch, Danish, Norwegian Bokmål, Swedish, Finnish and Portuguese into the scan/OCR work, with save/reopen regressions for accented words. The UI selects the primary system/browser language, independently of UI translations, with English fallback; manual selection remains available. Icelandic stays unclaimed. Overall percentage unchanged.
+
+- **2026-10-11 (M10, Italian OCR):** Added Italiano (it) to recognition in the UI, CLI and MCP. Both OCR schemas use the engine language list. A real-model regression checks all six Italian accented vowels after save/reopen and unchanged scan pixels; UI and single/batch automation cover selection. Overall percentage unchanged.
+
+- **2026-10-11 (M10, paper-edge crop):** Enhance scanned file crops black/white scanner borders at clear paper edges with adjustable safety padding, preserving blank notebook margins and colored covers. Detection runs before rotation/deskew/OCR; original image streams survive and all changes undo together. Engine, automation and UI tests cover rotated/off-origin pages, padding, save/reopen and OCR geometry. Indistinguishable white-on-white borders stay unchanged. Overall percentage unchanged.
+- **2026-10-11 (M10, scan correction):** Offline OCR adds German, French, Spanish and horizontal Japanese with Unicode search/copy, confidence-gated quarter-turn correction, and deskew up to 12 degrees. Correction can run without OCR through the UI and automation; original image streams survive, changes undo together, and stale results are refused. Deskew on annotated pages, vertical Japanese, dewarping and editable-text output remain open. Overall percentage unchanged.
 
 Newest first: the date, what moved, and the new overall estimate.
 
@@ -317,6 +328,8 @@ Newest first: the date, what moved, and the new overall estimate.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Additional Latin OCR languages and system-language default with English fallback; estimates unchanged |
+| 2026-10-11 | minor | Italian OCR selection and accented-text save/reopen coverage; estimates unchanged |
 | 2026-10-10 | minor | Readiness table with hours per audience; full number restated as the additive weighted sum over dimensions (47% → 49%; method aligned with the standard, no new evidence) |
 | 2026-10-10 | minor | Essentials-user score added (≈ 66%) |
 | 2026-10-10 | minor | Gate consistency check: convert and share re-judged partial, not blocking; stage pre-alpha → alpha |
