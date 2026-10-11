@@ -48,7 +48,7 @@ pub(crate) fn standard(doc: &Document, role_map: &Dict, s: &[u8]) -> Vec<u8> {
 }
 
 /// Indirect structure elements in document order, with their page.
-fn elements(doc: &Document) -> Vec<(ObjRef, Dict, Option<ObjRef>)> {
+pub(crate) fn elements(doc: &Document) -> Vec<(ObjRef, Dict, Option<ObjRef>)> {
     let Some(root) = tree_root(doc) else { return Vec::new() };
     let mut out = Vec::new();
     let mut seen = HashSet::new();

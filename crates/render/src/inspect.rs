@@ -14,7 +14,9 @@ use hayro::hayro_syntax::DecryptionError;
 use hayro::hayro_syntax::LoadPdfError;
 use hayro::hayro_syntax::Pdf;
 use lopdf::{Dictionary, Document, LoadOptions, Object, ObjectId};
-use pdfcraft_cos::page_labels::{MAX_LABEL_BYTES, MAX_LABEL_TOTAL_BYTES, MAX_LABEL_TREE_DEPTH, MAX_LABEL_TREE_WORK, MAX_PREFIX_BYTES, alpha, roman};
+use pdfcraft_cos::page_labels::{
+    MAX_LABEL_BYTES, MAX_LABEL_TOTAL_BYTES, MAX_LABEL_TREE_DEPTH, MAX_LABEL_TREE_WORK, MAX_PREFIX_BYTES, MAX_PREFIX_TOTAL_BYTES, alpha, roman,
+};
 
 use crate::OpenError;
 use crate::structure::{LazyStructure, Structure};
@@ -346,6 +348,32 @@ pub struct FontInfo {
     pub encoding: Option<String>,
 }
 
+/// Check that `bytes` still open as the same document: the parser reads them and the page
+/// count matches. Content-only edits skip the full [`inspect`] (seconds on very large files)
+/// but must still catch an edit that produced something the viewer cannot display, so the
+/// caller can roll it back. Never panics: parser crashes are caught and reported.
+pub fn check_pages(bytes: Arc<Vec<u8>>, password: Option<&str>, expected: usize) -> Result<(), OpenError> {
+    let pdf = catch_unwind(AssertUnwindSafe(|| Pdf::new_with_password(bytes, password.unwrap_or(""))))
+        .map_err(|p| OpenError::Invalid(format!("the parser crashed: {}", crate::raster::panic_message(&p))))?
+        .map_err(|e| match e {
+            LoadPdfError::Decryption(DecryptionError::PasswordProtected) => {
+                if password.is_some() {
+                    OpenError::WrongPassword
+                } else {
+                    OpenError::NeedsPassword
+                }
+            }
+            LoadPdfError::Decryption(other) => OpenError::Unsupported(format!("encryption not supported: {other:?}")),
+            LoadPdfError::Invalid => OpenError::Invalid("no readable page tree or cross-reference data was found".into()),
+        })?;
+    let pages = catch_unwind(AssertUnwindSafe(|| pdf.pages().len()))
+        .map_err(|p| OpenError::Invalid(format!("the page tree could not be read: {}", crate::raster::panic_message(&p))))?;
+    if pages != expected {
+        return Err(OpenError::Invalid(format!("the edit changed the page count from {expected} to {pages}")));
+    }
+    Ok(())
+}
+
 /// Inspect a document. Fails only if the renderer itself cannot open the file (or needs a
 /// password). Never panics: parser crashes are caught and reported.
 pub fn inspect(bytes: Arc<Vec<u8>>, password: Option<&str>) -> Result<DocInfo, OpenError> {
@@ -440,6 +468,7 @@ fn inspect_structure(info: &mut DocInfo, fill: impl FnOnce(&mut DocInfo) -> Resu
 
 struct Inspector<'a> {
     doc: &'a dyn Structure,
+    page_ids: Vec<ObjectId>,
     page_index: HashMap<ObjectId, usize>,
     /// Named destinations (`/Names /Dests` tree), keyed by raw string bytes, built once.
     /// Looking each name up by walking the tree was O(links × names): minutes on manuals.
@@ -448,8 +477,9 @@ struct Inspector<'a> {
 
 impl<'a> Inspector<'a> {
     fn new(doc: &'a dyn Structure) -> Self {
-        let page_index = doc.get_pages().into_iter().map(|(n, id)| (id, n as usize - 1)).collect();
-        let mut me = Self { doc, page_index, named: HashMap::new() };
+        let page_ids = doc.page_ids();
+        let page_index = page_ids.iter().copied().enumerate().map(|(index, id)| (id, index)).collect();
+        let mut me = Self { doc, page_ids, page_index, named: HashMap::new() };
         let mut named = HashMap::new();
         if let Some(tree) =
             doc.catalog().ok().and_then(|c| c.get(b"Names").ok()).and_then(|o| me.dict(o)).and_then(|n| n.get(b"Dests").ok()).and_then(|o| me.dict(o))
@@ -497,9 +527,7 @@ impl<'a> Inspector<'a> {
         }
         // Widgets no `/Fields` entry reaches are fields too (Acrobat and the browsers fill them);
         // each is adopted through its topmost unlisted `/Parent`, so a split field stays one.
-        let mut pages: Vec<_> = self.page_index.iter().collect();
-        pages.sort_by_key(|(_, i)| **i);
-        for (&pid, _) in pages {
+        for &pid in &self.page_ids {
             let Ok(page_dict) = self.doc.get_dictionary(pid) else { continue };
             let Ok(Object::Array(annots)) = page_dict.get(b"Annots").map(|o| self.resolve(o)) else { continue };
             for a in annots {
@@ -788,6 +816,7 @@ impl<'a> Inspector<'a> {
         }
         // Decode each bounded prefix once, rather than once for every page in its range.
         let mut specs = BTreeMap::new();
+        let mut prefix_total = 0usize;
         for (start, d) in ranges {
             let first = d.get(b"St").ok().and_then(|o| self.resolve(o).as_i64().ok()).unwrap_or(1).max(1) as u64;
             let prefix = match d.get(b"P").ok().map(|o| self.resolve(o)) {
@@ -801,6 +830,11 @@ impl<'a> Inspector<'a> {
             };
             if prefix.len() > MAX_LABEL_BYTES {
                 return Err("a decoded prefix exceeds 1024 UTF-8 bytes");
+            }
+            // A prefix object shared by many ranges is decoded once per range: count every copy.
+            prefix_total = prefix_total.saturating_add(prefix.len());
+            if prefix_total > MAX_PREFIX_TOTAL_BYTES {
+                return Err("decoded prefixes exceed 4 MiB in total");
             }
             let style = d.get(b"S").ok().and_then(|o| self.resolve(o).as_name().ok());
             specs.insert(start, (first, prefix, style));
@@ -921,7 +955,9 @@ impl<'a> Inspector<'a> {
                     page,
                     subtype,
                     author: self.text(d, b"T"),
-                    contents: self.text(d, b"Contents"),
+                    // Acrobat ends lines with CR, which the interface would draw as nothing (keep
+                    // in step with `pdfcraft_annot::summaries`).
+                    contents: self.text(d, b"Contents").map(|s| s.replace("\r\n", "\n").replace('\r', "\n")),
                     modified: self.text(d, b"M").map(|m| pretty_date(&m)),
                     name: self.text(d, b"NM"),
                     in_reply_to,
@@ -1157,9 +1193,7 @@ impl<'a> Inspector<'a> {
 
     fn fonts(&self, out: &mut Vec<FontInfo>) {
         let mut seen = HashSet::new();
-        let mut pages: Vec<_> = self.page_index.iter().collect();
-        pages.sort_by_key(|(_, i)| **i);
-        for (&pid, _) in pages {
+        for &pid in &self.page_ids {
             let Ok(fonts) = self.doc.get_page_fonts(pid) else { continue };
             for (_, f) in fonts {
                 let base = f
@@ -1745,6 +1779,36 @@ mod tests {
     }
 
     #[test]
+    fn page_label_limits_bound_the_total_of_decoded_prefixes() {
+        // `ranges` ranges naming one shared prefix object of `prefix` bytes, without a style.
+        let shared = |ranges: i64, prefix: usize| {
+            let mut doc = Document::with_version("1.7");
+            doc.objects.insert((7, 0), Object::String(vec![b'x'; prefix], lopdf::StringFormat::Literal));
+            let mut spec = Dictionary::new();
+            spec.set("P", Object::Reference((7, 0)));
+            doc.objects.insert((8, 0), Object::Dictionary(spec));
+            let mut tree = Dictionary::new();
+            tree.set("Nums", (0..ranges).flat_map(|i| [Object::Integer(i), Object::Reference((8, 0))]).collect::<Vec<_>>());
+            let mut catalog = Dictionary::new();
+            catalog.set("PageLabels", Object::Dictionary(tree));
+            (doc, catalog)
+        };
+        let mut pages: Vec<_> =
+            (1..=3).map(|n| PageInfo { width: 200.0, height: 300.0, crop: [0.0, 0.0, 200.0, 300.0], rotation: 0, label: n.to_string() }).collect();
+        // Each range decodes its prefix, so a small file sharing one prefix object asks for a
+        // copy per range: 5,000 ranges and a 1,000-byte prefix make 5 MB, past the 4 MiB total.
+        // Three pages make three labels, far below the label total: the prefixes alone refuse it.
+        let (doc, catalog) = shared(5000, 1000);
+        let err = Inspector::new(&doc).page_labels(&catalog, &mut pages).unwrap_err();
+        assert!(err.contains("prefixes exceed 4 MiB"), "{err}");
+        assert!(pages.iter().enumerate().all(|(i, p)| p.label == (i + 1).to_string()));
+        // Exactly 4 MiB of prefixes is still read.
+        let (doc, catalog) = shared((MAX_PREFIX_TOTAL_BYTES / MAX_LABEL_BYTES) as i64, MAX_LABEL_BYTES);
+        Inspector::new(&doc).page_labels(&catalog, &mut pages).unwrap();
+        assert!(pages.iter().all(|p| p.label.len() == MAX_LABEL_BYTES));
+    }
+
+    #[test]
     fn page_label_limits_handle_prefix_only_and_reference_cycles() {
         let info = label_info(vec![Object::Integer(0), label_spec("", b"prefix".to_vec(), i64::MAX)], Vec::new());
         assert!(info.warnings.is_empty());
@@ -2231,6 +2295,35 @@ trailer << /Root 1 0 R >>
         assert_eq!(info.annotations.len(), 1);
         assert_eq!(info.annotations[0].modified.as_deref(), Some(date));
         assert!(info.warnings.is_empty(), "{:?}", info.warnings);
+    }
+
+    #[test]
+    fn carriage_returns_in_comment_text_become_line_breaks() {
+        use lopdf::dictionary;
+
+        let mut doc = Document::with_version("1.7");
+        let pages_id = doc.new_object_id();
+        let annot_id = doc.add_object(dictionary! {
+            "Type" => "Annot",
+            "Subtype" => "Text",
+            "Rect" => vec![10.into(), 10.into(), 30.into(), 30.into()],
+            // Acrobat ends lines in /Contents with CR; the interface only breaks lines at LF.
+            "Contents" => Object::string_literal("one\r\rtwo\r\nthree"),
+        });
+        let page_id = doc.add_object(dictionary! {
+            "Type" => "Page",
+            "Parent" => pages_id,
+            "MediaBox" => vec![0.into(), 0.into(), 200.into(), 300.into()],
+            "Annots" => vec![annot_id.into()],
+        });
+        doc.objects.insert(pages_id, dictionary! { "Type" => "Pages", "Kids" => vec![page_id.into()], "Count" => 1 }.into());
+        let catalog_id = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages_id });
+        doc.trailer.set("Root", catalog_id);
+        let mut bytes = Vec::new();
+        doc.save_to(&mut bytes).expect("write synthetic fixture");
+
+        let info = inspect(Arc::new(bytes), None).expect("opens");
+        assert_eq!(info.annotations[0].contents.as_deref(), Some("one\n\ntwo\nthree"));
     }
 
     #[test]
