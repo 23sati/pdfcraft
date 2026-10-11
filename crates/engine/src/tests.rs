@@ -1283,6 +1283,10 @@ fn open_populates_marks_and_added_from_the_combined_marker_scan() {
     let reference = pdfcraft_cos::Document::open(bytes.clone()).unwrap();
     let expected_marks = pdfcraft_edit::marks_present(&reference);
     let expected_added = pdfcraft_edit::list_added(&reference);
+    source.mark_saved(source_id, bytes.clone(), None).unwrap();
+    let refreshed = source.get(source_id).unwrap();
+    assert_eq!(refreshed.marks, expected_marks);
+    assert_eq!(refreshed.added, expected_added);
     let mut reopened = Session::new();
     let reopened_id = reopened.open("marked.pdf", None, bytes, None).unwrap();
     let opened = reopened.get(reopened_id).unwrap();
