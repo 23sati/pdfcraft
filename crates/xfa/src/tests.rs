@@ -191,6 +191,25 @@ fn rendering_into_the_pdf_replaces_the_placeholder_page_and_adds_fields() {
     assert!(!is_dynamic(&doc));
 }
 
+/// A dynamic form's own text that the standard fonts can't draw is laid out anyway and reported
+/// once, never written as `?` silently.
+#[test]
+fn form_text_the_standard_fonts_cannot_draw_is_reported() {
+    let xdp = r##"<?xml version="1.0" encoding="UTF-8"?>
+<xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/"><template xmlns="http://www.xfa.org/schema/xfa-template/3.3/"><subform name="form" layout="tb">
+<draw w="3in" h="0.3in"><value><text>申请表</text></value></draw><draw w="3in" h="0.3in"><value><text>签名</text></value></draw><draw w="3in" h="0.3in"><value><text>Name</text></value></draw>
+</subform></template></xdp:xdp>"##;
+    let mut doc = Document::open(Arc::new(shell(xdp))).unwrap();
+    let report = render_into(&mut doc).unwrap();
+    let hits: Vec<&String> = report.warnings.iter().filter(|w| w.contains("standard fonts can't draw")).collect();
+    assert_eq!(hits.len(), 1, "reported once: {:?}", report.warnings);
+    assert!(hits[0].contains("\"申\" (U+7533)"), "{hits:?}");
+    // Latin text alone reports nothing.
+    let latin = xdp.replace("申请表", "Application").replace("签名", "Signature");
+    let mut doc = Document::open(Arc::new(shell(&latin))).unwrap();
+    assert!(!render_into(&mut doc).unwrap().warnings.iter().any(|w| w.contains("standard fonts")));
+}
+
 #[test]
 fn documents_without_xfa_are_not_touched() {
     let mut doc = Document::new_empty();

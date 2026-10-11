@@ -178,7 +178,16 @@ pub(crate) fn bounded_outline(font: &FontRef, gid: GlyphId, width: f64) -> Resul
     Ok(GlyphOutline { contours: pen.contours, width, bbox })
 }
 
-/// The outlines of `text` in the script font (characters it lacks are skipped).
+/// The first character of `text` (other than white space) the script font of typed signatures
+/// has no glyph for: [`script_outline`] would leave it out. `None` when it can draw all of them.
+pub fn script_missing(text: &str) -> Option<char> {
+    let font = FontRef::new(FONT).ok()?;
+    let charmap = font.charmap();
+    text.chars().find(|c| !c.is_whitespace() && charmap.map(*c).is_none())
+}
+
+/// The outlines of `text` in the script font (characters it lacks are skipped; check
+/// [`script_missing`] first where nobody sees a preview).
 /// Over-limit input returns an empty outline instead of a silently truncated signature.
 pub fn script_outline(text: &str) -> ScriptOutline {
     if text.chars().take(MAX_SIGNATURE_CHARS + 1).count() > MAX_SIGNATURE_CHARS {
@@ -222,6 +231,14 @@ mod tests {
         assert!(max_x > o.width - 0.5, "ink reaches the last letter: {max_x} / {}", o.width);
         assert!(!super::script_outline(&"W".repeat(super::MAX_SIGNATURE_CHARS)).contours.is_empty());
         assert!(super::script_outline(&"W".repeat(super::MAX_SIGNATURE_CHARS + 1)).contours.is_empty());
+    }
+
+    #[test]
+    fn missing_script_glyphs_are_named() {
+        assert_eq!(super::script_missing("Ada Lovelace-King"), None);
+        assert_eq!(super::script_missing("Zoë Ñúñez"), None);
+        assert_eq!(super::script_missing("Ada 张三"), Some('张'));
+        assert_eq!(super::script_missing(" \t"), None);
     }
 
     #[test]

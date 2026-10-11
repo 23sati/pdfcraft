@@ -584,6 +584,18 @@ impl Emitter<'_> {
                     );
                 }
                 Item::Text(s) => {
+                    // The form's own text, set in the standard fonts: what they can't draw is
+                    // shown as `?` and reported once (the layout goes on), never silently.
+                    if let Some(c) = pdfcraft_fonts::first_undrawable(&s.text) {
+                        const PREFIX: &str = "some of the form's text has characters the standard fonts can't draw";
+                        if !self.warnings.iter().any(|w| w.starts_with(PREFIX)) {
+                            self.warnings.push(format!(
+                                "{PREFIX} (the first is \"{}\" (U+{:04X})); they are shown as ? until PdfCraft can embed fonts for them",
+                                c.escape_debug(),
+                                u32::from(c)
+                            ));
+                        }
+                    }
                     let name = s.face.resource_name();
                     fonts.insert(name, s.face.family.base_font(s.face.bold, s.face.italic));
                     content.extend(

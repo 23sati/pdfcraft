@@ -2845,6 +2845,56 @@ fn comment_checkmarks_locks_hiding_and_summaries_through_tools() {
     assert!(matches!(a.call("comments_summarize", &json!({ "doc": doc, "sort": "colour" })), Err(ToolError::InvalidArgs(_))));
 }
 
+/// Text the standard fonts can't draw is never written as `?` silently, through the tools. A form
+/// value, a button caption, a text box and Fill & Sign text are kept as typed (as Acrobat keeps
+/// them) and the result's `warnings` names the character; a form also asks other viewers to
+/// redraw it. Where the `?` would be permanent the tool refuses: a typed signature, a redaction's
+/// overlay text, a new document from text, and flattening what PdfCraft drew with `?`. A comment
+/// summary that quotes such text writes it as [U+XXXX].
+#[test]
+fn text_the_standard_fonts_cannot_draw_is_never_silent_through_tools() {
+    let dir = workdir("undrawable");
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    let refused = |a: &mut Automation, tool: &str, args: Value, ch: &str| match a.call(tool, &args) {
+        Err(ToolError::Failed(e) | ToolError::InvalidArgs(e)) => assert!(e.contains(ch), "{tool}: {e}"),
+        other => panic!("{tool}: expected a refusal, got {other:?}"),
+    };
+    let warned = |out: &Value, parts: &[&str]| {
+        let w = out["warnings"].as_array().unwrap_or_else(|| panic!("no warnings: {out}"));
+        assert!(w.iter().filter_map(Value::as_str).any(|m| parts.iter().all(|p| m.contains(p))), "{parts:?} not in {w:?}");
+    };
+    // Forms: a value is kept and the form asks other viewers to redraw it; a button caption too.
+    ok(&mut a, "form_add_field", json!({ "doc": doc, "page": 1, "type": "text", "rect": [20, 20, 180, 42], "name": "who" }));
+    let out = ok(&mut a, "form_fill", json!({ "doc": doc, "values": { "who": "Ada" } }));
+    assert!(out.get("warnings").is_none(), "{out}");
+    let out = ok(&mut a, "form_fill", json!({ "doc": doc, "values": { "who": "张三" } }));
+    warned(&out, &["form field \"who\"", "\"张\" (U+5F20)", "other PDF viewers redraw the field"]);
+    let fields = ok(&mut a, "form_fields", json!({ "doc": doc }));
+    assert_eq!(fields["fields"][0]["value"], "张三", "{fields}");
+    let out = ok(&mut a, "form_add_field", json!({ "doc": doc, "page": 1, "type": "button", "rect": [20, 60, 120, 82], "caption": "提交" }));
+    warned(&out, &["\"提\" (U+63D0)"]);
+    // Comments and Fill & Sign text: kept, and said.
+    let out = ok(&mut a, "comment_add", json!({ "doc": doc, "page": 1, "type": "textbox", "rect": [10, 200, 190, 240], "contents": "欢迎" }));
+    warned(&out, &["a comment on page 1", "\"欢\" (U+6B22)", "every viewer"]);
+    let out = ok(&mut a, "fill_sign_add", json!({ "doc": doc, "page": 1, "type": "text", "at": [20, 300], "text": "签名" }));
+    warned(&out, &["U+7B7E"]);
+    // A sticky note draws an icon, not its text: nothing to say.
+    let out = ok(&mut a, "comment_add", json!({ "doc": doc, "page": 1, "type": "note", "at": [40, 40], "contents": "签名 OK", "author": "Ada" }));
+    assert!(out.get("warnings").is_none(), "{out}");
+    // Permanent `?`: refused.
+    refused(&mut a, "fill_sign_add", json!({ "doc": doc, "page": 1, "type": "signature", "at": [20, 340], "text": "张三" }), "pass `path`");
+    refused(&mut a, "redact_mark", json!({ "doc": doc, "page": 1, "rect": [10, 400, 190, 420], "overlay": "机密" }), "\"机\" (U+673A)");
+    refused(&mut a, "doc_flatten", json!({ "doc": doc }), "nothing was flattened");
+    refused(&mut a, "doc_create", json!({ "from": "text", "text": "Notes\n第二行" }), "(line 2)");
+    // A summary quotes the note: escaped, not refused, not `?`.
+    ok(&mut a, "comments_summarize", json!({ "doc": doc, "out": "summary.pdf" }));
+    let summary = ok(&mut a, "doc_open", json!({ "path": "summary.pdf" }))["doc"].as_u64().unwrap();
+    let text = page_text(&mut a, summary).join("\n");
+    assert!(text.contains("[U+7B7E][U+540D] OK") && text.contains("[U+XXXX]"), "{text}");
+    assert!(!text.contains("?? OK"), "{text}");
+}
+
 #[test]
 fn line_endings_through_the_tool() {
     let dir = workdir("endings");

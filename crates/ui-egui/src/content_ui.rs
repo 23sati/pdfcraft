@@ -42,6 +42,19 @@ pub(crate) fn undrawable_message(c: char) -> String {
     )
 }
 
+/// The warning after an edit that saved text its font can't draw: PdfCraft drew `?` for it (a form
+/// field, which other viewers redraw from its value, or a comment, where the `?` shows everywhere).
+pub(crate) fn undrawn_message(n: &pdfcraft_engine::TextNotice) -> String {
+    let template = if n.redrawn_elsewhere {
+        tl!(
+            "This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it."
+        )
+    } else {
+        tl!("The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.")
+    };
+    crate::i18n::fmt(template, &[("c", &n.ch.to_string()), ("code", &format!("U+{:04X}", u32::from(n.ch)))])
+}
+
 const SELECT_BLUE: Color32 = Color32::from_rgb(0x14, 0x73, 0xE6);
 
 /// The text being typed or retyped in place.

@@ -37,7 +37,7 @@ pub use pdfcraft_organize::LabelStyle;
 pub use pdfcraft_organize::view::{InitialView, Layout as InitialLayout, Magnification, Navigation};
 
 pub use pdfcraft_cos::Algorithm;
-pub use pdfcraft_create::{CONVERTIBLE, ImageResolution, SourceKind, decode_text, source_kind};
+pub use pdfcraft_create::{CONVERTIBLE, CreateError, ImageResolution, SourceKind, decode_text, source_kind};
 pub use pdfcraft_edit::{
     Added, AddedImage, AddedText, Align as TextAlign, Background, Content as AddedContent, Family as FontFamily, HeaderFooter, MarkKind, Watermark,
 };
@@ -48,7 +48,7 @@ pub use pdfcraft_forms::{
 };
 
 pub use pdfcraft_a11y as a11y;
-pub use pdfcraft_edit::{BlockStyle, PageImage, TextBlock, TextLine, first_undrawable, first_undrawable_plain, undrawable_message};
+pub use pdfcraft_edit::{BlockStyle, PageImage, TextBlock, TextLine, first_undrawable};
 pub use pdfcraft_measure as measure;
 pub use pdfcraft_xfa::Report as XfaLayout;
 
@@ -71,7 +71,7 @@ pub enum ImageEdit {
     },
     Delete,
 }
-pub use pdfcraft_fonts::{MAX_SIGNATURE_CHARS, ScriptOutline, script_outline};
+pub use pdfcraft_fonts::{MAX_SIGNATURE_CHARS, ScriptOutline, script_missing, script_outline};
 
 /// Fill & Sign: `text` in the script font as a typed signature, its left edge at `at` (user
 /// space, vertically centred) and `height` points tall. `None` for text with no outlines.
@@ -257,6 +257,81 @@ pub struct Document {
     /// XFA forms: what was approximated, rewritten or could not be written to the XFA data
     /// (also in `info.warnings`, kept there when the document is re-read).
     pub xfa_warnings: Vec<String>,
+    /// What the last successful [`Session::apply`] wrote that its fonts can't draw: kept as typed,
+    /// drawn with `?` in its place (see [`TextNotice`]). The interface shows it; tools return it.
+    pub edit_notices: Vec<TextNotice>,
+}
+
+/// Text an edit stored as typed but drew with `?` in place of `ch`, because the font it is drawn
+/// with (a form field's, or the standard fonts for comments) can't draw that character. Acrobat
+/// keeps such text too, drawing it with fonts PdfCraft can't embed yet.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TextNotice {
+    /// The form field's full name, or `None` for a comment.
+    pub field: Option<String>,
+    /// The page (0-based) of the comment or of the field's widget.
+    pub page: usize,
+    pub ch: char,
+    /// Other PDF viewers redraw it from the stored text (a form field, with `/NeedAppearances`
+    /// set); otherwise the `?` shows in every viewer.
+    pub redrawn_elsewhere: bool,
+}
+
+impl std::fmt::Display for TextNotice {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ch = format!("\"{}\" (U+{:04X})", self.ch.escape_debug(), u32::from(self.ch));
+        let page = self.page + 1;
+        match (&self.field, self.redrawn_elsewhere) {
+            (Some(name), true) => write!(
+                f,
+                "form field {name:?} (page {page}) holds {ch}, which its font can't draw: the value is saved, PdfCraft shows ? in its place, and other PDF viewers redraw the field from the value"
+            ),
+            (Some(name), false) => write!(
+                f,
+                "form field {name:?} (page {page}) holds {ch}, which its font can't draw: the value is saved, but this PDF/A document can't ask other viewers to redraw it, so ? shows in its place everywhere"
+            ),
+            (None, _) => write!(
+                f,
+                "a comment on page {page} has {ch}, which the standard fonts can't draw: its text is saved, but its appearance shows ? in its place in every viewer"
+            ),
+        }
+    }
+}
+
+/// What `next` drew with `?` that `prev` didn't (a new or redrawn appearance carrying
+/// `pdfcraft_fonts::UNDRAWN_MARK`), one notice per field or comment, in page order.
+fn undrawn_notices(prev: &pdfcraft_cos::Document, next: &pdfcraft_cos::Document) -> Vec<TextNotice> {
+    let Ok(pages) = pdfcraft_annot::page_refs(next) else { return Vec::new() };
+    let redrawn_elsewhere = pdfcraft_forms::need_appearances(next);
+    let mut names: Option<std::collections::HashMap<pdfcraft_cos::ObjRef, String>> = None;
+    let mut out: Vec<TextNotice> = Vec::new();
+    for (page, p) in pages.iter().enumerate() {
+        let annots = next.get(*p).as_dict().and_then(|d| d.get(b"Annots").cloned()).map(|a| next.resolve(&a));
+        for r in annots.as_deref().and_then(pdfcraft_cos::Object::as_array).into_iter().flatten().filter_map(pdfcraft_cos::Object::as_ref) {
+            let now = next.get(r);
+            let Some(d) = now.as_dict() else { continue };
+            let Some(ch) = pdfcraft_fonts::undrawn_mark(d) else { continue };
+            // Only what this edit drew: a new annotation, or a new appearance.
+            let was = prev.get(r);
+            if was.as_dict().is_some_and(|w| w.get(b"AP") == d.get(b"AP") && pdfcraft_fonts::undrawn_mark(w) == Some(ch)) {
+                continue;
+            }
+            let field = (d.name(b"Subtype") == Some(b"Widget")).then(|| {
+                let names = names.get_or_insert_with(|| {
+                    pdfcraft_forms::fields(next)
+                        .into_iter()
+                        .flat_map(|f| f.widgets.iter().map(|w| (w.obj, f.name.clone())).collect::<Vec<_>>())
+                        .collect()
+                });
+                names.get(&r).cloned().unwrap_or_default()
+            });
+            if field.is_some() && out.iter().any(|n| n.field == field) {
+                continue;
+            }
+            out.push(TextNotice { redrawn_elsewhere: redrawn_elsewhere && field.is_some(), field, page, ch });
+        }
+    }
+    out
 }
 
 impl Document {
@@ -2052,8 +2127,10 @@ pub struct Session {
 
 /// Lay a dynamic XFA form out (pages and fields) and give its widgets appearances.
 fn xfa_layout(doc: &mut pdfcraft_cos::Document) -> Result<XfaLayout, String> {
-    let report = pdfcraft_xfa::render_into(doc).map_err(|e| e.to_string())?;
+    let mut report = pdfcraft_xfa::render_into(doc).map_err(|e| e.to_string())?;
     xfa_redraw(doc)?;
+    // The form's own values: one its field's font can't draw is drawn with `?` and reported.
+    report.warnings.extend(undrawn_field_warnings(doc));
     Ok(report)
 }
 
@@ -2067,6 +2144,17 @@ pub(crate) fn xfa_redraw(doc: &mut pdfcraft_cos::Document) -> Result<(), String>
         pdfcraft_forms::redraw_field(doc, &f.name).map_err(|e| format!("{}: {e}", f.name))?;
     }
     Ok(())
+}
+
+/// A warning for each field whose appearance PdfCraft drew with `?` for a character its font
+/// can't draw (laying out an XFA form's own values).
+fn undrawn_field_warnings(doc: &pdfcraft_cos::Document) -> Vec<String> {
+    pdfcraft_forms::undrawn_fields(doc)
+        .into_iter()
+        .map(|(name, c)| {
+            format!("form field {name:?} holds \"{}\" (U+{:04X}), which its font can't draw: it shows ? in its place", c.escape_debug(), u32::from(c))
+        })
+        .collect()
 }
 
 /// The form's fields as the XFA data layer wants them.
@@ -2444,6 +2532,7 @@ impl Session {
             xfa,
             xfa_template: None,
             xfa_warnings: Vec::new(),
+            edit_notices: Vec::new(),
         });
         Ok(id)
     }
@@ -2458,6 +2547,7 @@ impl Session {
         let today = self.today();
         let js_off = self.js_off;
         let doc = self.doc_mut(id)?;
+        doc.edit_notices.clear();
         let name = doc.name.clone();
         let is_xfa = doc.info.xfa.is_some();
         let mut cx = EditCtx::new(now, doc.generation ^ (id.0 << 48));
@@ -2532,6 +2622,13 @@ impl Session {
         if signed && rewrites(&next) && !rewrites(&editor.cos) {
             return Err(EditError::SignedRewrite(edit.label()));
         }
+        // What this edit drew with `?` (a value or comment text its font can't draw, stored as
+        // typed): reported, never silent (AGENTS.md §4).
+        let notices = if matches!(scope_of(&edit), Scope::Form | Scope::Comments | Scope::Full) {
+            guard(|| undrawn_notices(&editor.cos, &next)).unwrap_or_default()
+        } else {
+            Vec::new()
+        };
         let previous = std::mem::replace(&mut editor.cos, next);
         let keys = keys_after(&edit).unwrap_or_else(|| editor.keys.clone());
         let previous_keys = std::mem::replace(&mut editor.keys, keys);
@@ -2557,6 +2654,7 @@ impl Session {
         }
         doc.dirty = true;
         doc.generation += 1;
+        doc.edit_notices = notices;
         note_warnings(&mut doc.xfa_warnings, &xfa_notes);
         let notes = doc.xfa_warnings.clone();
         note_warnings(&mut doc.info.warnings, &notes);
@@ -2573,6 +2671,7 @@ impl Session {
 
     pub fn undo(&mut self, id: DocId) -> Result<String, EditError> {
         let doc = self.doc_mut(id)?;
+        doc.edit_notices.clear();
         let editor = doc.editor.as_mut().ok_or(EditError::NothingToUndo)?;
         let (label, prev, keys, scope) = editor.undo.pop().ok_or(EditError::NothingToUndo)?;
         let current = std::mem::replace(&mut editor.cos, prev);
@@ -2587,6 +2686,7 @@ impl Session {
 
     pub fn redo(&mut self, id: DocId) -> Result<String, EditError> {
         let doc = self.doc_mut(id)?;
+        doc.edit_notices.clear();
         let editor = doc.editor.as_mut().ok_or(EditError::NothingToRedo)?;
         let (label, next, keys, scope) = editor.redo.pop().ok_or(EditError::NothingToRedo)?;
         let current = std::mem::replace(&mut editor.cos, next);
@@ -2795,9 +2895,18 @@ impl Session {
         self.write_new(&pdfcraft_create::from_images_with_resolution(images, resolution)?)
     }
 
-    /// A new document from plain text (US Letter, 11 pt Helvetica).
+    /// A new document from plain text (US Letter, 11 pt Helvetica). Text Helvetica can't draw is
+    /// refused, naming the line and the character (never set as `?`).
     pub fn create_from_text(&self, title: &str, text: &str) -> Result<Arc<Vec<u8>>, EditError> {
         self.write_new(&pdfcraft_create::from_text(title, text, pdfcraft_create::LETTER, 11.0)?)
+    }
+
+    /// [`Self::create_from_text`] for a report PdfCraft writes from documents (comment summaries,
+    /// compare reports), which can quote any language: characters Helvetica can't draw are written
+    /// as `[U+XXXX]`, and the report's first line says so, rather than the report being refused.
+    fn create_report(&self, title: &str, text: &str) -> Result<Arc<Vec<u8>>, EditError> {
+        let (doc, _escaped) = pdfcraft_create::from_text_escaped(title, text, pdfcraft_create::LETTER, 11.0)?;
+        self.write_new(&doc)
     }
 
     /// Convert a file Create understands (an image or plain text) to PDF bytes; a PDF is checked
@@ -3179,7 +3288,7 @@ impl Session {
     pub fn summarize_comments(&self, id: DocId, sort: SummarySort) -> Result<Arc<Vec<u8>>, EditError> {
         let doc = self.get(id).ok_or(EditError::NoDocument)?;
         let text = comment_summary(&doc.name, &doc.info.annotations, sort);
-        self.create_from_text(&format!("Summary of Comments on {}", doc.name), &text)
+        self.create_report(&format!("Summary of Comments on {}", doc.name), &text)
     }
 
     /// The certificates trusted for signing.

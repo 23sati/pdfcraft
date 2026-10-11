@@ -9,7 +9,13 @@ Today it holds what generated appearances need without a font program:
   enough for line breaking and alignment, not for typesetting.
 - `wrap`: greedy line breaking with that measure (paragraphs on newlines, long words split).
 - `win_ansi`: Unicode → WinAnsiEncoding bytes (`?` for characters it can't represent), and
-  `literal` to write bytes as a PDF literal string.
+  `literal` to write bytes as a PDF literal string. Nothing writes that `?` silently. Callers
+  check `first_undrawable` (or `UnicodeCMap::first_unencodable`, for a character beyond U+FFFF in
+  UCS-2), then either refuse with `undrawable_message` (one wording that names the character and
+  what can be written instead) where the `?` would be permanent page content, or, for a form
+  value or a comment's text, which is stored as typed, draw the `?` and mark the annotation with
+  `set_undrawn_mark` (`UNDRAWN_MARK`, read back by `undrawn_mark`) so the edit is reported and
+  flattening refuses. `script_missing` names what the typed-signature script font lacks.
 
 It also holds the fonts of the optional [craft-fonts](https://github.com/storytold/craft-fonts)
 build input. `build.rs` embeds them as `CRAFT_FONTS` when the build sets

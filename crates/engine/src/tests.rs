@@ -1061,6 +1061,34 @@ fn form_fixture() -> Vec<u8> {
     out
 }
 
+/// A value its field's font can't draw is kept, and the edit that drew it reports it in
+/// `edit_notices` (the interface shows it, tools return it): not a later unrelated edit, not a
+/// failed one, and not a value that can be drawn. The form (an inline AcroForm here) asks other
+/// viewers to redraw it.
+#[test]
+fn a_value_its_font_cannot_draw_is_reported_by_the_edit_that_drew_it() {
+    let mut s = Session::new().with_clock(|| 1_700_000_000);
+    let id = s.open("form.pdf", None, Arc::new(form_fixture()), None).unwrap();
+    let fill = |s: &mut Session, name: &str, v: FieldValue| s.apply(id, Edit::SetFieldValue { name: name.into(), value: v });
+    fill(&mut s, "name", FieldValue::Text("张三".into())).unwrap();
+    let d = s.get(id).unwrap();
+    assert_eq!(d.form[0].value, ["张三"]);
+    let n = &d.edit_notices;
+    assert_eq!(n.len(), 1, "{n:?}");
+    assert_eq!((n[0].field.as_deref(), n[0].page, n[0].ch, n[0].redrawn_elsewhere), (Some("name"), 0, '张', true));
+    assert!(n[0].to_string().contains("\"张\" (U+5F20)") && n[0].to_string().contains("other PDF viewers redraw"), "{}", n[0]);
+    fill(&mut s, "ok", FieldValue::Check(true)).unwrap();
+    assert!(s.get(id).unwrap().edit_notices.is_empty(), "an unrelated edit reports nothing");
+    fill(&mut s, "name", FieldValue::Text("李四".into())).unwrap();
+    assert_eq!(s.get(id).unwrap().edit_notices.len(), 1, "a new value is reported again");
+    assert!(fill(&mut s, "missing", FieldValue::Text("x".into())).is_err());
+    assert!(s.get(id).unwrap().edit_notices.is_empty(), "no stale notice after a failed edit");
+    fill(&mut s, "name", FieldValue::Text("Ada".into())).unwrap();
+    assert!(s.get(id).unwrap().edit_notices.is_empty());
+    let saved = pdfcraft_cos::Document::open(s.save_bytes(id).unwrap()).unwrap();
+    assert!(pdfcraft_forms::need_appearances(&saved));
+}
+
 #[test]
 fn filling_a_form_shows_saves_and_undoes() {
     let mut s = Session::new().with_clock(|| 1_700_000_000);

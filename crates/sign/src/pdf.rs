@@ -1505,7 +1505,7 @@ fn sign_inner(
         }
     }
     // The appearance.
-    let ap = appearance(rect, &name, &id.certificate, opts);
+    let ap = appearance(rect, &name, &id.certificate, opts)?;
     let ap_ref = doc.add(Object::Stream(ap));
     let mut apd = Dict::new();
     apd.set(b"N".to_vec(), Object::Ref(ap_ref));
@@ -1627,10 +1627,30 @@ pub fn display_date(pdf: &str) -> String {
 
 /// The visible signature: the signer's name large on the left, the details on the right
 /// (Acrobat's standard layout), in Helvetica.
-fn appearance(rect: [f64; 4], name: &str, cert: &Certificate, opts: &SignOptions) -> Stream {
-    use pdfcraft_fonts::{helvetica_width, literal, win_ansi, wrap};
+/// The visible appearance, in Helvetica. An error, before anything is drawn, when a part it shows
+/// (the signer's name, the certificate's subject, the reason or the location) has a character
+/// Helvetica can't draw: signing invisibly, or leaving that part out, still works.
+fn appearance(rect: [f64; 4], name: &str, cert: &Certificate, opts: &SignOptions) -> Result<Stream, SignError> {
+    use pdfcraft_fonts::{first_undrawable, helvetica_width, literal, undrawable_message, win_ansi, wrap};
     let (w, h) = ((rect[2] - rect[0]).max(0.0), (rect[3] - rect[1]).max(0.0));
     let a = &opts.appearance;
+    let dn = cert.subject.display();
+    if w > 1.0 && h > 1.0 {
+        let shown = [
+            (a.name, "the signer's name", Some(name)),
+            (a.distinguished_name, "the certificate's subject", Some(dn.as_str())),
+            (a.reason, "the reason", opts.reason.as_deref()),
+            (a.location, "the location", opts.location.as_deref()),
+        ];
+        for (on, what, text) in shown {
+            if on && let Some(c) = text.and_then(first_undrawable) {
+                return Err(SignError::Unsupported(format!(
+                    "{}; sign without a visible appearance, or leave {what} out of it",
+                    undrawable_message(&format!("{what} of the visible signature"), c)
+                )));
+            }
+        }
+    }
     let mut lines: Vec<String> = Vec::new();
     let label = |l: &str, v: &str| if a.labels { format!("{l}{v}") } else { v.to_string() };
     if a.name {
@@ -1638,7 +1658,7 @@ fn appearance(rect: [f64; 4], name: &str, cert: &Certificate, opts: &SignOptions
         lines.push(name.to_string());
     }
     if a.distinguished_name {
-        lines.push(label("DN: ", &cert.subject.display()));
+        lines.push(label("DN: ", &dn));
     }
     if a.reason
         && let Some(r) = opts.reason.as_deref().filter(|r| !r.is_empty())
@@ -1708,7 +1728,7 @@ fn appearance(rect: [f64; 4], name: &str, cert: &Certificate, opts: &SignOptions
     let mut res = Dict::new();
     res.set(b"Font".to_vec(), Object::Dict(fonts));
     d.set(b"Resources".to_vec(), Object::Dict(res));
-    Stream::flate(d, &out)
+    Ok(Stream::flate(d, &out))
 }
 
 fn fmt(v: f64) -> String {

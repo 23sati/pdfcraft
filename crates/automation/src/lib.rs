@@ -936,7 +936,13 @@ impl Automation {
     fn apply(&mut self, a: &Args, edit: Edit) -> Result<Value> {
         let id = self.doc(a)?.id;
         self.session.apply(id, edit).map_err(failed)?;
-        Ok(summary(self.doc(a)?))
+        let doc = self.doc(a)?;
+        let mut out = summary(doc);
+        // Text the edit stored as typed but drew with `?` (its font can't draw it): said, not silent.
+        if !doc.edit_notices.is_empty() {
+            out["warnings"] = json!(doc.edit_notices.iter().map(ToString::to_string).collect::<Vec<_>>());
+        }
+        Ok(out)
     }
 
     fn marks(&mut self, tool: &str, a: &Args) -> Result<Value> {
@@ -1103,11 +1109,13 @@ impl Automation {
                     }
                     (None, None) => return Err(ToolError::InvalidArgs("text needs `text` or `path`".into())),
                 };
-                // The page font is Helvetica/WinAnsi: refuse what it would silently turn into `?`.
-                if let Some(c) = pdfcraft_engine::first_undrawable_plain(&text) {
-                    return Err(ToolError::InvalidArgs(pdfcraft_engine::undrawable_message(c)));
-                }
-                (format!("{title}.pdf"), self.session.create_from_text(&title, &text).map_err(failed)?)
+                // The page font is Helvetica/WinAnsi: text it would turn into `?` is refused (with
+                // its line) by `pdfcraft_create::from_text`, as for every other caller.
+                let bytes = self.session.create_from_text(&title, &text).map_err(|e| match e {
+                    pdfcraft_engine::EditError::Create(pdfcraft_engine::CreateError::Invalid(m)) => ToolError::InvalidArgs(m),
+                    e => failed(e),
+                })?;
+                (format!("{title}.pdf"), bytes)
             }
             other => return Err(ToolError::InvalidArgs(format!("unknown source {other:?}"))),
         };
