@@ -245,7 +245,13 @@ pub fn render_into<'a>(
         render_mode: RenderMode::OptimizeSpeed,
     };
 
-    let mut device = Renderer::new(pix_width, pix_height, vc_settings, cache);
+    let mut device = Renderer::new(
+        pix_width,
+        pix_height,
+        vc_settings,
+        cache,
+        render_settings.color_replacement,
+    );
 
     device.ctx.set_paint(render_settings.bg_color);
     device
@@ -281,6 +287,7 @@ pub fn render_pdf(
     pdf: &Pdf,
     scale: f32,
     settings: InterpreterSettings,
+    color_replacement: Option<ColorReplacement>,
     range: Option<RangeInclusive<usize>>,
 ) -> Option<Vec<Pixmap>> {
     let cache = RenderCache::new();
@@ -301,6 +308,7 @@ pub fn render_pdf(
                     x_scale: scale,
                     y_scale: scale,
                     bg_color: WHITE,
+                    color_replacement,
                     ..Default::default()
                 },
             );
@@ -386,5 +394,164 @@ mod color_replacement_tests {
         assert_eq!(r.map([0x00, 0x00, 0x00, 255], false), [0x00, 0x00, 0x00, 255]);
         // Text fills/strokes still map.
         assert_eq!(r.map([0x00, 0x00, 0x00, 255], true), [0xff, 0xff, 0xff, 255]);
+    }
+}
+
+// PdfCraft patch: end-to-end test for the reading-colours renderer hook.
+#[cfg(test)]
+mod color_replacement_render_tests {
+    use super::{ColorReplacement, InterpreterSettings, Pdf, Pixmap, render_pdf};
+
+    /// A one-page 200×100 pt PDF with a white background rect, black Helvetica text,
+    /// a solid red `rg` rect, a CMYK-filled rect and a 4×4 uncompressed `/DeviceRGB`
+    /// image. Byte-level object layout follows `fixture()` in
+    /// `crates/automation/tests/automation.rs`.
+    fn fixture() -> Vec<u8> {
+        let body = "1 1 1 rg 0 0 200 100 re f\n\
+                    0 0 0 rg BT /F1 24 Tf 20 70 Td (HI) Tj ET\n\
+                    1 0 0 rg 20 20 50 40 re f\n\
+                    1 0 0 0 k 100 20 50 40 re f\n\
+                    q 20 0 0 20 160 20 cm /Im0 Do Q";
+        // 16 opaque pure-blue pixels; blue's low luminance makes an (incorrect) mapping
+        // immediately visible as a light grey.
+        let image: Vec<u8> = (0..16).flat_map(|_| [0x00_u8, 0x00, 0xff]).collect();
+
+        let mut objs: Vec<Vec<u8>> = vec![
+            b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+            b"<< /Type /Pages /Kids [4 0 R] /Count 1 /MediaBox [0 0 200 100] >>".to_vec(),
+            b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_vec(),
+            b"<< /Type /Page /Parent 2 0 R /Contents 5 0 R /Resources << /Font << /F1 3 0 R >> \
+              /XObject << /Im0 6 0 R >> >> >>"
+                .to_vec(),
+            format!("<< /Length {} >>\nstream\n{body}\nendstream", body.len()).into_bytes(),
+        ];
+        let mut image_obj = format!(
+            "<< /Type /XObject /Subtype /Image /Width 4 /Height 4 /ColorSpace /DeviceRGB \
+             /BitsPerComponent 8 /Length {} >>\nstream\n",
+            image.len()
+        )
+        .into_bytes();
+        image_obj.extend_from_slice(&image);
+        image_obj.extend_from_slice(b"\nendstream");
+        objs.push(image_obj);
+
+        let mut out = b"%PDF-1.7\n".to_vec();
+        let mut offsets = Vec::new();
+        for (i, o) in objs.iter().enumerate() {
+            offsets.push(out.len());
+            out.extend_from_slice(format!("{} 0 obj\n", i + 1).as_bytes());
+            out.extend_from_slice(o);
+            out.extend_from_slice(b"\nendobj\n");
+        }
+        let xref = out.len();
+        out.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+        for o in offsets {
+            out.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+        }
+        out.extend_from_slice(
+            format!(
+                "trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n",
+                objs.len() + 1
+            )
+            .as_bytes(),
+        );
+        out
+    }
+
+    fn replacement(line_art: bool) -> ColorReplacement {
+        ColorReplacement {
+            text: [0xff, 0xff, 0xff],
+            background: [0x00, 0x00, 0x00],
+            only_black: false,
+            line_art,
+        }
+    }
+
+    fn render(color_replacement: Option<ColorReplacement>) -> Pixmap {
+        let pdf = Pdf::new(fixture()).unwrap();
+        render_pdf(
+            &pdf,
+            1.0,
+            InterpreterSettings::default(),
+            color_replacement,
+            None,
+        )
+        .unwrap()
+        .remove(0)
+    }
+
+    /// Samples the pixel at (x, y); all fixture content is opaque, so the premultiplied
+    /// value is the straight colour.
+    fn sample(pixmap: &Pixmap, x: u16, y: u16) -> [u8; 4] {
+        let p = pixmap.sample(x, y);
+        [p.r, p.g, p.b, p.a]
+    }
+
+    fn count_pixels(
+        pixmap: &Pixmap,
+        region: (u16, u16, u16, u16),
+        matches: impl Fn([u8; 4]) -> bool,
+    ) -> u32 {
+        let (x0, y0, x1, y1) = region;
+        let mut count = 0;
+        for y in y0..y1 {
+            for x in x0..x1 {
+                if matches(sample(pixmap, x, y)) {
+                    count += 1;
+                }
+            }
+        }
+        count
+    }
+
+    #[test]
+    fn color_replacement_maps_text_and_line_art() {
+        let is_white = |p: [u8; 4]| p == [255, 255, 255, 255];
+        let is_black = |p: [u8; 4]| p == [0, 0, 0, 255];
+
+        let control = render(None);
+        let replaced = render(Some(replacement(true)));
+
+        // Background: the full-page white rect is line art and maps to the
+        // `background` colour exactly (t = 1.0).
+        assert_eq!(sample(&control, 5, 5), [255, 255, 255, 255]);
+        assert_eq!(sample(&replaced, 5, 5), [0, 0, 0, 255]);
+
+        // Text: solid black glyph cores in the control, fully white after replacement.
+        // Region covers the "HI" glyphs (PDF baseline y=70, 24 pt → device y 10..34).
+        let text_region = (16, 10, 56, 34);
+        assert!(count_pixels(&control, text_region, is_black) >= 10);
+        assert!(count_pixels(&replaced, text_region, is_white) >= 10);
+
+        // Red rect: luminance t ≈ 0.2126 maps every channel to 255·(1−t) ≈ 201 (≈0xC9),
+        // a near-white neutral grey.
+        assert_eq!(sample(&control, 45, 60), [255, 0, 0, 255]);
+        let [r, g, b, a] = sample(&replaced, 45, 60);
+        assert!(r.abs_diff(201) <= 4, "red channel {r} not ≈ 201");
+        assert!(g.abs_diff(201) <= 4 && b.abs_diff(201) <= 4, "g/b not ≈ 201: {g}/{b}");
+        assert_eq!(a, 255);
+
+        // CMYK rect (cyan): mapped to a neutral grey that differs from the control
+        // colour, whatever exact value the CMYK→RGB transform produces.
+        let cmyk_control = sample(&control, 125, 60);
+        let cmyk_replaced = sample(&replaced, 125, 60);
+        assert_ne!(cmyk_control[..3], cmyk_replaced[..3]);
+        assert!(
+            (i32::from(cmyk_replaced[0]) - i32::from(cmyk_replaced[1])).abs() <= 2
+                && (i32::from(cmyk_replaced[1]) - i32::from(cmyk_replaced[2])).abs() <= 2,
+            "mapped CMYK not neutral: {cmyk_replaced:?}"
+        );
+        assert_eq!(cmyk_replaced[3], 255);
+
+        // Image pixels pass through untouched, identical to the control render.
+        assert_eq!(sample(&control, 170, 70), [0, 0, 255, 255]);
+        assert_eq!(sample(&replaced, 170, 70), [0, 0, 255, 255]);
+
+        // With line-art replacement off, the red rect and the background rect keep
+        // their original colours while text is still replaced.
+        let no_line_art = render(Some(replacement(false)));
+        assert_eq!(sample(&no_line_art, 45, 60), [255, 0, 0, 255]);
+        assert_eq!(sample(&no_line_art, 5, 5), [255, 255, 255, 255]);
+        assert!(count_pixels(&no_line_art, text_region, is_white) >= 10);
     }
 }
