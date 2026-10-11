@@ -103,3 +103,8 @@ sync_github_name = true   # use the name on your public GitHub profile as displa
 
 [people.Losminek]
 sync_github_name = true
+
+[people.yeniufuklar-com]
+real_name = "Ufuk Efe"
+display_name = "Ufuk Efe"
+sync_github_name = true

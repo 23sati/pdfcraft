@@ -445,7 +445,14 @@ fn figure_picture(ctx: &egui::Context, doc: &pdfcraft_engine::Document, f: &pdfc
     };
     let config = pdfcraft_render::RenderConfig { password: doc.password.as_deref().map(std::sync::Arc::from), ..Default::default() };
     let mut r = pdfcraft_render::PageRenderer::new(doc.bytes.clone(), config);
-    let out = r.render(pdfcraft_render::RenderRequest { page, kind: pdfcraft_render::RequestKind::Pixels, tile: Some(tile), scale, tag: 0 });
+    let out = r.render(pdfcraft_render::RenderRequest {
+        page,
+        kind: pdfcraft_render::RequestKind::Pixels,
+        tile: Some(tile),
+        scale,
+        tag: 0,
+        preview: false,
+    });
     if out.error.is_some() || out.width == 0 {
         return None;
     }
