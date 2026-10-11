@@ -487,13 +487,28 @@ struct Inherited {
 /// Every terminal field: the `/Fields` tree in order, then the fields reachable only through the
 /// page annotations (see [`adopt_page_fields`]).
 pub fn fields(doc: &Document) -> Vec<Field> {
-    enumerate(doc).0
+    fields_with_adopted(doc).items
 }
 
 /// How many of [`fields`] were reachable only through the page annotations: the form's `/Fields`
 /// list names none or only some of them, so the leniency that adopts them is worth recording.
 pub fn adopted_page_fields(doc: &Document) -> usize {
-    enumerate(doc).1
+    fields_with_adopted(doc).adopted_page_fields
+}
+
+/// The terminal fields and page-only fields adopted while reading a form.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Fields {
+    /// Terminal fields in tree order, followed by adopted page-only fields.
+    pub items: Vec<Field>,
+    /// How many fields were reachable only through page annotations.
+    pub adopted_page_fields: usize,
+}
+
+/// Read all terminal fields and the page-only adoption count in one enumeration.
+pub fn fields_with_adopted(doc: &Document) -> Fields {
+    let (items, adopted_page_fields) = enumerate(doc);
+    Fields { items, adopted_page_fields }
 }
 
 fn enumerate(doc: &Document) -> (Vec<Field>, usize) {
@@ -715,8 +730,8 @@ fn walk(
     if let Some(ft) = d.name(b"FT") {
         inh.ft = Some(ft.to_vec());
     }
-    if let Some(ff) = d.get(b"Ff").and_then(|o| doc.resolve(o).as_int()) {
-        inh.ff = Some(ff as u32);
+    if let Some(ff) = field_flags(doc, d) {
+        inh.ff = Some(ff);
     }
     for (k, slot) in [(&b"V"[..], &mut inh.v), (b"DV", &mut inh.dv)] {
         if let Some(v) = d.get(k) {
@@ -810,6 +825,10 @@ fn walk(
         actions,
         button,
     });
+}
+
+fn field_flags(doc: &Document, dict: &Dict) -> Option<u32> {
+    dict.get(b"Ff").and_then(|value| doc.resolve(value).as_int()).and_then(|value| u32::try_from(value).ok())
 }
 
 // ── writing ─────────────────────────────────────────────────────────────────────────────────

@@ -264,6 +264,36 @@ fn the_panel_posts_comments_and_replies() {
     h.get_by_label_contains("Agreed");
 }
 
+/// The side panel's width as egui keeps it from one frame to the next.
+fn panel_width(h: &Harness<'static, PdfCraftApp>) -> f32 {
+    h.ctx.data(|data| data.get_temp::<egui::Rect>(egui::Id::new("pdfcraft-inspector-body"))).expect("the inspector body is shown").width()
+}
+
+#[test]
+fn the_panel_keeps_its_width_with_a_reply_box_open() {
+    // The reply row reserved 48 px for "Post"; Russian's wider button overflowed it, and a
+    // resizable panel keeps the width its content used, so every repaint widened the panel.
+    let mut h = harness(|app| app.set_option("panel", "comments").unwrap());
+    field(&h, "Add a comment").click();
+    h.run_steps(2);
+    field(&h, "Add a comment").type_text("General remark");
+    h.run_steps(1);
+    h.key_press(egui::Key::Enter);
+    h.run_steps(3);
+    field(&h, "Add a reply").click(); // the new comment is selected
+    h.run_steps(2);
+    field(&h, "Add a reply").type_text("Agreed");
+    h.run_steps(1);
+    h.state_mut().set_option("language", "ru").unwrap();
+    h.run_steps(3);
+    let before = panel_width(&h);
+    h.get_by_label("Опубликовать").hover();
+    for _ in 0..30 {
+        h.run_steps(1);
+    }
+    assert_eq!(panel_width(&h), before, "the Comments panel drifted wider");
+}
+
 #[test]
 fn line_ending_properties_change_and_undo() {
     let mut h = harness(|app| app.set_option("quick", "line").unwrap());
@@ -328,6 +358,64 @@ fn comment_properties_change_appearance_and_author() {
     let p = doc.comment_props(0, 0).unwrap();
     assert_eq!((p.color, p.width, p.author.as_str()), (Some([0.0, 0.0, 1.0]), Some(5.0), "Grace"));
     assert_eq!(doc.can_undo(), Some("Change comment properties"), "one undo step");
+}
+
+/// #686: rectangles, ovals, polygons and clouds can be filled, from the quick bar for new ones
+/// and from Properties for existing ones; "No fill" takes it away again.
+#[test]
+fn shapes_take_a_fill_colour_from_the_quick_bar_and_properties() {
+    use pdfcraft_ui_egui::comments::CommentTool;
+    let mut h = harness(|app| app.set_option("quick", "square").unwrap());
+    h.run_steps(2);
+    // No fill by default; the quick bar says so.
+    h.get_by_label("Fill colour: none");
+    h.state_mut().comment_prefs.set_fill(CommentTool::Rectangle, Some([1.0, 0.5, 0.0]));
+    // Tools without an interior keep no fill.
+    h.state_mut().comment_prefs.set_fill(CommentTool::Line, Some([1.0, 0.5, 0.0]));
+    assert_eq!(h.state().comment_prefs.style(CommentTool::Line).fill, None);
+    h.run_steps(2);
+    drag_pt(&mut h, (40.0, 100.0), (140.0, 40.0));
+    let fill_of = |h: &Harness<'static, PdfCraftApp>, index: usize| {
+        let s = h.state();
+        let doc = s.session.get(s.views[0].id).unwrap();
+        let p = doc.comment_props(0, index).unwrap();
+        assert!(p.fillable);
+        p.fill
+    };
+    assert_eq!(fill_of(&h, 0), Some([1.0, 0.5, 0.0]), "the new rectangle is filled");
+    // Quick bar ▸ Fill colour ▸ No fill: the next rectangle has none.
+    h.state_mut().set_option("quick", "square").unwrap();
+    h.run_steps(2);
+    h.get_by_label("Fill colour").click();
+    h.run_steps(2);
+    h.get_by_label("No fill").click();
+    h.run_steps(2);
+    assert_eq!(h.state().comment_prefs.style(CommentTool::Rectangle).fill, None);
+    drag_pt(&mut h, (160.0, 100.0), (260.0, 40.0));
+    assert_eq!(fill_of(&h, 1), None);
+
+    // Properties ▸ Fill colour changes an existing one, as one undo step.
+    h.state_mut().open_comment_props(0, 0);
+    h.run_steps(2);
+    h.get_by_label("Rectangle Properties");
+    h.get_by_label("Fill colour");
+    assert_eq!(h.state().comment_props.as_ref().unwrap().original.fill, Some([1.0, 0.5, 0.0]));
+    h.get_by_label("No fill").click();
+    h.run_steps(2);
+    h.get_by_label("OK").click();
+    h.run_steps(3);
+    assert_eq!(fill_of(&h, 0), None);
+    let undo = h.state().session.get(h.state().views[0].id).unwrap().can_undo().map(str::to_owned);
+    assert_eq!(undo.as_deref(), Some("Change comment properties"));
+    h.state_mut().open_comment_props(0, 1);
+    h.run_steps(2);
+    h.state_mut().comment_props.as_mut().expect("open").edited.fill = Some([0.0, 0.0, 1.0]);
+    h.get_by_label("OK").click();
+    h.run_steps(3);
+    assert_eq!(fill_of(&h, 1), Some([0.0, 0.0, 1.0]));
+    // Make Current Properties Default carries the fill into the tool.
+    h.state_mut().make_comment_default(0, 1);
+    assert_eq!(h.state().comment_prefs.style(CommentTool::Rectangle).fill, Some([0.0, 0.0, 1.0]));
 }
 
 #[test]

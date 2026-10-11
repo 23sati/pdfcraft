@@ -50,15 +50,20 @@ pub fn pill_button(ui: &mut egui::Ui, label: &str, primary: bool) -> Response {
 
 /// Icon + label, transparent until hovered.
 pub fn ghost_button(ui: &mut egui::Ui, icon: &str, label: &str) -> Response {
+    ghost_button_sized(ui, icon, label, 30.0)
+}
+
+/// [`ghost_button`] at a given height (the macOS title bar is shorter than the tab strip elsewhere).
+pub fn ghost_button_sized(ui: &mut egui::Ui, icon: &str, label: &str, height: f32) -> Response {
     let t = Tokens::get(ui.ctx());
     let font = theme::medium(13.0);
     let w = ui.fonts_mut(|f| f.layout_no_wrap(label.to_owned(), font.clone(), t.text).size().x);
-    let (rect, resp) = ui.allocate_exact_size(vec2(w + 38.0, 30.0), Sense::click());
+    let (rect, resp) = ui.allocate_exact_size(vec2(w + 38.0, height), Sense::click());
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), label));
     let press = theme::Press::track(ui, &resp);
     press.wash(ui, rect, 6, false);
     let body = rect.translate(press.offset());
-    icons::paint(ui, Rect::from_min_size(body.min + vec2(6.0, 6.0), vec2(18.0, 18.0)), icon, 17.0, t.icon);
+    icons::paint(ui, Rect::from_min_size(body.min + vec2(6.0, (height - 18.0) / 2.0), vec2(18.0, 18.0)), icon, 17.0, t.icon);
     ui.painter().text(body.left_center() + vec2(30.0, 0.0), Align2::LEFT_CENTER, label, font, t.text);
     theme::hand(resp)
 }
@@ -73,7 +78,7 @@ pub fn search_box(ui: &mut egui::Ui, placeholder: &str, width: f32) -> Response 
     let edge = t.border.lerp_to_gamma(t.text_muted, press.hover * 0.35);
     ui.painter().rect(rect, CornerRadius::same(16), fill, Stroke::new(1.0, edge), egui::StrokeKind::Inside);
     icons::paint(ui, Rect::from_min_size(rect.min + vec2(10.0, 8.0), vec2(16.0, 16.0)), "search", 15.0, t.text_muted);
-    let shortcut = ui.ctx().format_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::COMMAND, egui::Key::K));
+    let shortcut = crate::commands::command_shortcut_label(ui.ctx(), "view.palette");
     let shortcut = ui.painter().layout_no_wrap(shortcut, theme::regular(11.5), t.text_faint);
     let shortcut_pos = rect.right_center() - vec2(12.0 + shortcut.size().x, shortcut.size().y * 0.5);
     // Reserve the measured shortcut width in every language; long translations are elided
@@ -329,25 +334,32 @@ mod tests {
 
     #[test]
     fn search_placeholder_never_overlaps_the_shortcut() {
-        for width in [260.0, 160.0, 90.0] {
-            let ctx = egui::Context::default();
-            ctx.set_fonts(theme::font_definitions());
-            let placeholder = "Werkzeuge und Befehle suchen";
-            let output = ctx.run_ui(egui::RawInput::default(), |ui| {
-                search_box(ui, placeholder, width);
-            });
-            let text_shapes: Vec<_> = output
-                .shapes
-                .iter()
-                .filter_map(|shape| if let egui::Shape::Text(text) = &shape.shape { Some((shape.clip_rect, text)) } else { None })
-                .collect();
-            let (clip, hint) = text_shapes.iter().find(|(_, text)| text.galley.job.text == placeholder).unwrap();
-            let (_, shortcut) = text_shapes.iter().find(|(_, text)| text.galley.job.text.contains('K')).unwrap();
-            assert!(clip.right() <= shortcut.pos.x - 9.0, "hint must leave a gap before the shortcut at width {width}");
-            assert!(hint.galley.elided, "the long original German hint must be elided at width {width}");
-            assert_eq!(hint.galley.rows.len(), 1);
-            output.drop_without_applying_deltas();
+        let previous = crate::i18n::current();
+        for (code, expected) in [("en", "Ctrl+K"), ("de", "Strg+K")] {
+            crate::i18n::set_current(crate::i18n::Lang::from_code(code).unwrap());
+            for width in [260.0, 160.0, 90.0] {
+                let ctx = egui::Context::default();
+                ctx.set_os(egui::os::OperatingSystem::Nix);
+                ctx.set_fonts(theme::font_definitions());
+                let placeholder = "Werkzeuge und Befehle suchen";
+                let output = ctx.run_ui(egui::RawInput::default(), |ui| {
+                    search_box(ui, placeholder, width);
+                });
+                let text_shapes: Vec<_> = output
+                    .shapes
+                    .iter()
+                    .filter_map(|shape| if let egui::Shape::Text(text) = &shape.shape { Some((shape.clip_rect, text)) } else { None })
+                    .collect();
+                let (clip, hint) = text_shapes.iter().find(|(_, text)| text.galley.job.text == placeholder).unwrap();
+                let (_, shortcut) = text_shapes.iter().find(|(_, text)| text.galley.job.text.contains('K')).unwrap();
+                assert_eq!(shortcut.galley.job.text, expected);
+                assert!(clip.right() <= shortcut.pos.x - 9.0, "hint must leave a gap before the shortcut at width {width}");
+                assert!(hint.galley.elided, "the long original German hint must be elided at width {width}");
+                assert_eq!(hint.galley.rows.len(), 1);
+                output.drop_without_applying_deltas();
+            }
         }
+        crate::i18n::set_current(previous);
     }
 
     fn toast_rect(app: &mut PdfCraftApp, ctx: &egui::Context, width: f32, now: &mut f64) -> Rect {

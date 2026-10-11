@@ -18,6 +18,9 @@
 	Preferences	Einstellungen
 	Preferences…	Einstellungen…
 	Interface language	Sprache der Oberfläche
+	Interface size	Größe der Oberfläche
+	Auto ({percent}%)	Automatisch ({percent} %)
+	Auto follows the system's text size. Pages always render at the display's full resolution.	Automatisch folgt der Textgröße des Systems. Seiten werden immer in der vollen Auflösung des Bildschirms dargestellt.
 	Identity	Identität
 	Name on new comments	Name für neue Kommentare
 	Open…	Öffnen…
@@ -44,6 +47,7 @@
 	Fit visible	Sichtbaren Inhalt einpassen
 	Marquee zoom	Auswahlrahmen-Zoom
 	Take a snapshot	Schnappschuss erstellen
+	Column select	Spaltenauswahl
 	Full screen mode	Vollbildmodus
 	Read mode	Lesemodus
 	Switch light / dark theme	Helles / dunkles Design umschalten
@@ -68,7 +72,7 @@
 	Double-click	Doppelklick
 	Select a word	Wort auswählen
 	Clear selection / close find	Auswahl aufheben / Suche schließen
-	Zoom in / out (also pinch or ⌘-scroll)	Vergrößern / Verkleinern (auch per Pinch-Geste oder ⌘ + Scrollen)
+	Zoom in / out (also pinch or {key}-scroll)	Vergrößern / Verkleinern (auch per Pinch-Geste oder {key} + Scrollen)
 	Rotate view	Ansicht drehen
 	First / last page	Erste / letzte Seite
 	Previous / next page	Vorherige / nächste Seite
@@ -76,16 +80,22 @@
 	Select all pages (Organize)	Alle Seiten auswählen (Organisieren)
 	Home	Start
 	Open	Öffnen
-	Open a PDF (⌘O)	PDF öffnen (⌘O)
+	Open a PDF ({key})	PDF öffnen ({key})
 	Dark gray theme	Dunkelgraues Design
 	Light theme	Helles Design
+	Appearance mode	Darstellungsmodus
+	Light	Hell
+	Dark	Dunkel
+	Active	Aktiv
+	Dark theme	Dunkles Design
+	Appearance settings…	Darstellungseinstellungen…
 	All tools	Alle Werkzeuge
 	Read	Lesen
 	Convert	Konvertieren
 	E-Sign	E-Signatur
-	Print (⌘P)	Drucken (⌘P)
-	Save (M4)	Speichern (M4)
-	Document properties (⌘D)	Dokumenteigenschaften (⌘D)
+	Print ({key})	Drucken ({key})
+	Save ({key})	Speichern ({key})
+	Document properties ({key})	Dokumenteigenschaften ({key})
 	Find tools and commands	Tools und Befehle suchen
 	Fit to height	Seitenhöhe
 	Zoom in	Vergrößern
@@ -114,9 +124,9 @@
 	Compare	Vergleichen
 	Page thumbnails	Seitenminiaturen
 	Form fields	Formularfelder
-	Zoom out (⌘−)	Verkleinern (⌘−)
-	Zoom in (⌘+)	Vergrößern (⌘+)
-	Rotate view clockwise (⇧⌘+)	Ansicht im Uhrzeigersinn drehen (⇧⌘+)
+	Zoom out ({key})	Verkleinern ({key})
+	Zoom in ({key})	Vergrößern ({key})
+	Rotate view clockwise ({key})	Ansicht im Uhrzeigersinn drehen ({key})
 	Toggle fit page / fit width	Ganze Seite / Seitenbreite umschalten
 	Next page	Nächste Seite
 	Previous page	Vorherige Seite
@@ -250,6 +260,7 @@
 	Security properties…	Sicherheitseigenschaften…
 	Organize pages	Seiten organisieren
 	New bookmark	Neues Lesezeichen
+	New bookmarks from structure	Neue Lesezeichen aus der Struktur
 	Rotate pages clockwise	Seiten im Uhrzeigersinn drehen
 	Rotate pages counterclockwise	Seiten gegen den Uhrzeigersinn drehen
 	Delete pages	Seiten löschen
@@ -753,6 +764,7 @@
 	Rotation	Drehung
 	Appear behind page	Hinter der Seite anzeigen
 	Appear on top of page	Vor der Seite anzeigen
+	Offset from centre	Abstand von der Mitte
 	From colour	Aus Farbe
 	Page Range Options	Optionen für Seitenbereich
 	Preview: page {p} of {n}	Vorschau: Seite {p} von {n}
@@ -817,6 +829,10 @@
 	The signature will be invisible.	Die Signatur wird unsichtbar sein.
 	Distinguished name	Distinguished Name
 	Labels	Beschriftungen
+	Graphic	Grafik
+	Signer's name	Name des Unterzeichners
+	Fill & Sign signature	Unterschrift aus „Ausfüllen und unterschreiben“
+	Choose image…	Bild auswählen…
 	Permitted actions after certifying	Erlaubte Aktionen nach dem Zertifizieren
 	No changes allowed	Keine Änderungen erlaubt
 	Annotations, form fill-in, and digital signatures	Anmerkungen, Ausfüllen von Formularen und digitale Signaturen
@@ -1074,11 +1090,18 @@
 	Dates	Datumsangaben
 	Text in images isn't found; recognise text (OCR) first.	Text in Bildern wird nicht gefunden; führe zuerst Text erkennen (OCR) aus.
 	No matches.	Keine Treffer.
+	Some bookmarks are not shown here: the panel lists a limited number, nested a limited depth.	Einige Lesezeichen werden hier nicht angezeigt: Das Fenster listet nur eine begrenzte Anzahl bis zu einer begrenzten Tiefe auf.
 	{n} match(es) marked for redaction.	{n} Treffer zum Schwärzen markiert.
+	Multiple words or phrases	Mehrere Wörter oder Ausdrücke
+	One word or phrase per line	Ein Wort oder Ausdruck pro Zeile
+	Import list…	Liste importieren…
+	{n} word(s) or phrase(s)	Wörter oder Ausdrücke: {n}
+	{name} is too large for a word list (at most 1 MB).	{name} ist zu groß für eine Wortliste (höchstens 1 MB).
 	Redaction Tool Properties	Eigenschaften des Schwärzungswerkzeugs
 	Redacted area fill colour:	Füllfarbe geschwärzter Bereiche:
 	Use overlay text	Überlagerungstext verwenden
 	Custom text:	Eigener Text:
+	Redaction code:	Schwärzungscode:
 	Font:	Schrift:
 	Font size:	Schriftgröße:
 	Auto-size text to fit redaction region	Textgröße automatisch an Schwärzungsbereich anpassen
@@ -1248,7 +1271,7 @@
 	Expand all bookmarks	Alle Lesezeichen erweitern
 	Expand top-level bookmarks	Lesezeichen der obersten Ebene erweitern
 	Collapse all bookmarks	Alle Lesezeichen reduzieren
-	New bookmark (⌘B)	Neues Lesezeichen (⌘B)
+	New bookmark ({key})	Neues Lesezeichen ({key})
 	This document has no bookmarks.	Dieses Dokument hat keine Lesezeichen.
 	This document has no layers.	Dieses Dokument hat keine Ebenen.
 	This document has no attachments.	Dieses Dokument hat keine Anhänge.
@@ -1262,8 +1285,8 @@
 	No matches	Keine Treffer
 	Searching… {s}/{p}	Suche läuft… {s}/{p}
 	{c} of {n}{more}	{c} von {n}{more}
-	Previous (⇧⌘G)	Vorheriger (⇧⌘G)
-	Next (⌘G)	Nächster (⌘G)
+	Previous ({key})	Vorheriger ({key})
+	Next ({key})	Nächster ({key})
 	Find options	Suchoptionen
 	Whole words only	Nur ganze Wörter
 	Case-sensitive	Groß-/Kleinschreibung beachten
@@ -1469,6 +1492,8 @@
 	Right Edge	Rechter Rand
 	Language	Sprache
 	Saved {place}: {before} → {after} ({pct}% smaller){detail}	{place} gespeichert: {before} → {after} ({pct} % kleiner){detail}
+	This file is already as small as it can be made ({size}). No copy was saved.	Diese Datei ist bereits so klein wie möglich ({size}). Es wurde keine Kopie gespeichert.
+	Saved {place}: {before} → {after} (not smaller){detail}	{place} gespeichert: {before} → {after} (nicht kleiner){detail}
 	Couldn't save the image: {e}	Das Bild konnte nicht gespeichert werden: {e}
 	Adding images arrives on the web with file pickers for images	Bilder hinzufügen kommt im Web zusammen mit der Bildauswahl
 	Replacing images on page {p} arrives on the web with image pickers ({i})	Bilder auf Seite {p} ersetzen kommt im Web zusammen mit der Bildauswahl ({i})
@@ -1541,6 +1566,8 @@
 	{file} is too large for a stamp (at most {n} MB)	{file} ist zu groß für einen Stempel (höchstens {n} MB)
 	Sent to {printer}	An {printer} gesendet
 	Sent to {printer}: {msg}	An {printer} gesendet: {msg}
+	Looking for printers…	Drucker werden gesucht…
+	Sending to {printer}…	Wird an {printer} gesendet…
 	Choose a folder for the searchable files	Wähle einen Ordner für die durchsuchbaren Dateien
 	Files are combined in this order. Leave Pages empty to take every page.	Die Dateien werden in dieser Reihenfolge kombiniert. Lass „Seiten“ leer, um alle Seiten zu übernehmen.
 	Pages of {name} to combine, e.g. 1-3, 6	Zu kombinierende Seiten von {name}, z. B. 1-3, 6
@@ -1619,6 +1646,7 @@
 	This document isn't password-protected	Dieses Dokument ist nicht passwortgeschützt
 	Only the document's owner can change its security (open it with the permissions password)	Nur der Eigentümer des Dokuments kann die Sicherheit ändern (öffne es mit dem Berechtigungspasswort)
 	The document's security settings don't allow this change	Die Sicherheitseinstellungen des Dokuments erlauben diese Änderung nicht
+	The document's security settings don't allow copying text and images	Die Sicherheitseinstellungen des Dokuments erlauben kein Kopieren von Text und Bildern
 	Open a document first	Öffne zuerst ein Dokument
 	Security will be removed when you save	Die Sicherheit wird beim Speichern entfernt
 	Click text or an image to edit it	Klicke auf Text oder ein Bild, um es zu bearbeiten
@@ -1973,18 +2001,22 @@
 	Add folder and subfolders…	Ordner mit Unterordnern hinzufügen…
 	Add folder…	Ordner hinzufügen…
 	Add open documents	Geöffnete Dokumente hinzufügen
-	Add the PDFs to combine	Füge die zu kombinierenden PDFs hinzu
+	Add the files to combine	Füge die zu kombinierenden Dateien hinzu
 	Added more than once	Mehrfach hinzugefügt
 	All open documents	Alle geöffneten Dokumente
 	Can't be read: {e}	Kann nicht gelesen werden: {e}
+	Leave out files that can't be read?	Dateien auslassen, die nicht gelesen werden können?
+	These files can't be read, so they won't be in the combined PDF:	Diese Dateien können nicht gelesen werden und sind deshalb nicht im kombinierten PDF:
+	Combine the rest	Die übrigen kombinieren
+	and {n} more	und {n} weitere
 	Check the pages of {name}: {why}	Prüfe die Seiten von {name}: {why}
 	Click to sort, drag to move the column. Drag its edge to resize it.	Klicke zum Sortieren, ziehe zum Verschieben der Spalte. Ziehe ihren Rand, um die Breite zu ändern.
 	Drag to reorder	Ziehen zum Umsortieren
-	Drop PDFs or folders here, or choose them.	Lege PDFs oder Ordner hier ab oder wähle sie aus.
+	Drop PDFs, images, text files or folders here, or choose them.	Lege PDFs, Bilder, Textdateien oder Ordner hier ab oder wähle sie aus.
 	Enter the password that opens it	Gib das Passwort zum Öffnen ein
 	Enter the permissions password to allow combining	Gib das Berechtigungspasswort ein, um das Kombinieren zu erlauben
-	Every PDF in the folder	Jedes PDF im Ordner
-	Every PDF in the folder and the folders inside it	Jedes PDF im Ordner und in seinen Unterordnern
+	Every PDF, image and text file in the folder	Jedes PDF, jedes Bild und jede Textdatei im Ordner
+	Every PDF, image and text file in the folder and the folders inside it	Jedes PDF, jedes Bild und jede Textdatei im Ordner und in seinen Unterordnern
 	File name	Dateiname
 	Files are combined from top to bottom. Leave Pages empty to take every page.	Dateien werden von oben nach unten kombiniert. Lass „Seiten“ leer, um alle Seiten zu übernehmen.
 	Hide password	Passwort ausblenden
@@ -2048,8 +2080,8 @@
 	Only continue if you trust this document. An address can carry information from the document, such as what you typed into its form.	Fahre nur fort, wenn du diesem Dokument vertraust. Eine Adresse kann Informationen aus dem Dokument übermitteln, etwa was du in sein Formular eingegeben hast.
 	Print single-sided. Keep the sheets in order, cut at the marks, then stack the piles left to right, top to bottom.	Einseitig drucken. Halte die Blätter in Reihenfolge, schneide an den Marken und lege die Stapel dann von links nach rechts, von oben nach unten aufeinander.
 	Unlocked {n} of {m} files	{n} von {m} Dateien entsperrt
-	No PDFs found in {folder}	Keine PDFs in {folder} gefunden
-	Added the first {n} PDFs in {folder}	Die ersten {n} PDFs aus {folder} hinzugefügt
+	No PDFs, images or text files found in {folder}	Keine PDFs, Bilder oder Textdateien in {folder} gefunden
+	Added the first {n} files in {folder}	Die ersten {n} Dateien aus {folder} hinzugefügt
 comment menu	Edit	Bearbeiten
 	Undo {action}	{action} rückgängig machen
 	Redo {action}	{action} wiederholen
@@ -2134,3 +2166,56 @@ action wizard	Start	Starten
 	The field {name} no longer exists.	Das Feld {name} existiert nicht mehr.
 	A selected field has no widget on any page, so the fields can't be edited together.	Ein ausgewähltes Feld hat auf keiner Seite ein Widget, daher können die Felder nicht gemeinsam bearbeitet werden.
 	 ({n} at {dpi} dpi, the largest size they can be drawn at)	 ({n} mit {dpi} dpi, der größten Auflösung, in der sie gezeichnet werden können)
+
+# Multi-object selection and movement (#844)
+@plural	{n} object selected|{n} objects selected	{n} Objekt ausgewählt|{n} Objekte ausgewählt
+	Drag the selection to move it. Esc clears the selection.	Ziehen Sie die Auswahl, um sie zu verschieben. Esc hebt die Auswahl auf.
+	Shift-click to select several objects. Drag empty space to select an area.	Mit Umschalt-Klick mehrere Objekte auswählen. Ziehen Sie in einem leeren Bereich, um einen Auswahlrahmen aufzuziehen.
+	Select at most 1000 objects at a time.	Wählen Sie höchstens 1000 Objekte gleichzeitig aus.
+	Finish or discard the text being edited before selecting several objects.	Schließen Sie die Textbearbeitung ab oder verwerfen Sie sie, bevor Sie mehrere Objekte auswählen.
+	Move object	Objekt verschieben
+	Move objects	Objekte verschieben
+	Vertical text cannot be moved with this selection.	Vertikaler Text kann mit dieser Auswahl nicht verschoben werden.
+	Text used as a clipping path cannot be moved with this selection.	Text, der als Beschneidungspfad dient, kann mit dieser Auswahl nicht verschoben werden.
+	These objects could not be moved. Select them again and try a smaller move.	Diese Objekte konnten nicht verschoben werden. Wählen Sie sie erneut aus und versuchen Sie eine kleinere Verschiebung.
+	This page contains objects that cannot be selected together.	Diese Seite enthält Objekte, die nicht gemeinsam ausgewählt werden können.
+	Fill colour	Füllfarbe
+	No fill	Keine Füllung
+	Fill colour: none	Füllfarbe: keine
+
+# Keyboard key names, distinct from command labels.
+key	Ctrl	Strg
+key	Shift	Umschalt
+key	Delete	Entf
+key	Esc	Esc
+key	Home	Pos1
+key	End	Ende
+key	Space	Leertaste
+	Grid view	Rasteransicht
+	List view	Listenansicht
+	Files are combined in the order shown. Drag them to change it.	Dateien werden in der gezeigten Reihenfolge kombiniert. Zieh sie, um sie zu ändern.
+	Preview unavailable: {e}	Keine Vorschau: {e}
+	Pages: {k} of {n}	Seiten: {k} von {n}
+	Check the pages	Prüfe die Seiten
+	Switch to List view to change the pages it takes.	Wechsle zur Listenansicht, um die übernommenen Seiten zu ändern.
+	Expand all	Alle ausklappen
+	Collapse all	Alle einklappen
+	Remove page	Seite entfernen
+	Remove {n} pages	{n} Seiten entfernen
+
+# Shared panel docking
+	Reset panel layout	Bereichsanordnung zurücksetzen
+	Float panel	Bereich frei platzieren
+	Move to group	In Gruppe verschieben
+	Panels	Bereiche
+	Resize panels	Bereichsgrößen ändern
+	Resize panel window	Größe des Bereichsfensters ändern
+	Tools	Werkzeuge
+	Inspector	Inspektor
+	Mouse wheel scroll speed	Scrollgeschwindigkeit des Mausrads
+scroll speed	Slow	Langsam
+scroll speed	Normal	Normal
+scroll speed	Fast	Schnell
+	Enhance camera image	Kamerafoto verbessern
+	Drag the corners onto the document's edges, then choose Enhance page.	Ziehen Sie die Ecken auf die Kanten des Dokuments und wählen Sie dann Seite verbessern.
+	Enhance page	Seite verbessern

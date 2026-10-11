@@ -675,6 +675,13 @@ fn finish_validation(
         }
         problems = true;
     }
+    if let Some(why) = cert.signing_problem() {
+        info.details.push(why);
+        if !problems && !revoked {
+            info.status = Status::Unknown;
+        }
+        problems = true;
+    }
     if !trusted {
         info.details.push(
             "The signer's identity is unknown because it has not been included in your list of trusted certificates and none of its parent certificates are trusted certificates."
@@ -1305,6 +1312,35 @@ pub struct SignOptions {
     /// Certify with these DocMDP permissions (1 no changes, 2 form fill and signing, 3 also comments).
     pub certify: Option<u8>,
     pub appearance: Appearance,
+    /// A drawing, typed signature or image shown where the large name would be.
+    pub graphic: Option<crate::graphic::Graphic>,
+}
+
+/// What an encrypted document's permissions (ISO 32000-2 §7.6.4.2, Table 22) allow when it was
+/// opened with the user password (the owner may do anything): signing an existing, empty
+/// signature field is filling in a form field (bit 9, or bit 6); creating a new signature
+/// field needs bits 6 and 4; certifying sets the catalog's `/Perms`, a document change (bit 4).
+/// The signature's `/Contents` stays unencrypted (`pdfcraft-cos` exempts it, §7.6.2), so the
+/// placeholder can be patched after hashing exactly as in an unencrypted file.
+fn check_signing_permissions(doc: &Document, opts: &SignOptions) -> Result<(), SignError> {
+    let Some(p) = doc.permissions() else { return Ok(()) };
+    let refuse = |what: &str| {
+        Err(SignError::Pdf(format!(
+            "the document's security settings don't allow {what}; open it with the permissions password, or sign an existing signature field"
+        )))
+    };
+    if opts.field.is_some() && !p.fill_forms() {
+        return Err(SignError::Pdf(
+            "the document's security settings don't allow filling in form fields or signing; open it with the permissions password to sign it".into(),
+        ));
+    }
+    if opts.field.is_none() && !(p.annotate() && p.modify()) {
+        return refuse("adding new signature fields");
+    }
+    if opts.certify.is_some() && !p.modify() {
+        return refuse("certifying it");
+    }
+    Ok(())
 }
 
 /// Placeholder `/ByteRange` values: fixed width, patched after writing.
@@ -1337,9 +1373,12 @@ fn sign_inner(
     opts: &SignOptions,
     tsa: Option<&dyn crate::timestamp::TimestampAuthority>,
 ) -> Result<Vec<u8>, SignError> {
-    if doc.security().is_some() || doc.output_handler().is_some() {
-        return Err(SignError::Unsupported("signing encrypted documents".into()));
+    // A pending security change would make the incremental save a full rewrite that applies
+    // or removes protection as it signs (and breaks existing signatures): save it first.
+    if doc.encryption_changed() {
+        return Err(SignError::Pdf("save the document's new security settings before signing it".into()));
     }
+    check_signing_permissions(doc, opts)?;
     let mut doc = doc.clone();
     let root = doc.root().ok_or_else(|| SignError::Pdf("the document has no catalog".into()))?;
     let alg = id.key.preferred_digest();
@@ -1468,7 +1507,7 @@ fn sign_inner(
         }
     }
     // The appearance.
-    let ap = appearance(rect, &name, &id.certificate, opts);
+    let ap = appearance(&mut doc, rect, &name, &id.certificate, opts)?;
     let ap_ref = doc.add(Object::Stream(ap));
     let mut apd = Dict::new();
     apd.set(b"N".to_vec(), Object::Ref(ap_ref));
@@ -1512,8 +1551,15 @@ fn sign_inner(
 /// whose `/Contents` is an RFC 3161 token covering the whole current file (`/ETSI.RFC3161`).
 /// The transport is the caller's; a rejected or malformed token produces no file.
 pub fn timestamp_document(doc: &Document, tsa: &dyn crate::timestamp::TimestampAuthority, date: &str) -> Result<Vec<u8>, SignError> {
-    if doc.security().is_some() || doc.output_handler().is_some() {
-        return Err(SignError::Unsupported("timestamping encrypted documents".into()));
+    // A pending security change would make the incremental save a full rewrite that applies
+    // or removes protection as it signs (and breaks existing signatures): save it first.
+    if doc.encryption_changed() {
+        return Err(SignError::Pdf("save the document's new security settings before signing it".into()));
+    }
+    if doc.permissions().is_some_and(|p| !p.fill_forms()) {
+        return Err(SignError::Pdf(
+            "the document's security settings don't allow signing; open it with the permissions password to timestamp it".into(),
+        ));
     }
     let mut doc = doc.clone();
     let mut v = Dict::new();
@@ -1581,9 +1627,10 @@ pub fn display_date(pdf: &str) -> String {
     format!("{}.{}.{} {}:{}:{}{tz}", g(0..4), g(4..6), g(6..8), g(8..10), g(10..12), g(12..14))
 }
 
-/// The visible signature: the signer's name large on the left, the details on the right
-/// (Acrobat's standard layout), in Helvetica.
-fn appearance(rect: [f64; 4], name: &str, cert: &Certificate, opts: &SignOptions) -> Stream {
+/// The visible signature: the signer's name large on the left, or the graphic in its place, and
+/// the details on the right (Acrobat's standard layout), in Helvetica. A graphic with no details
+/// beside it fills the box.
+fn appearance(doc: &mut Document, rect: [f64; 4], name: &str, cert: &Certificate, opts: &SignOptions) -> Result<Stream, SignError> {
     use pdfcraft_fonts::{helvetica_width, literal, win_ansi, wrap};
     let (w, h) = ((rect[2] - rect[0]).max(0.0), (rect[3] - rect[1]).max(0.0));
     let a = &opts.appearance;
@@ -1611,12 +1658,22 @@ fn appearance(rect: [f64; 4], name: &str, cert: &Certificate, opts: &SignOptions
     }
     lines.retain(|l| !l.is_empty());
     let mut out = Vec::new();
+    let mut image = None;
     if w > 1.0 && h > 1.0 {
         let pad = (h * 0.06).clamp(1.0, 6.0);
-        let (left_w, right_x) = if a.name { (w * 0.5, w * 0.5 + pad) } else { (0.0, pad) };
+        let (left_w, right_x) = match (&opts.graphic, a.name) {
+            (Some(_), _) if lines.is_empty() => (w, pad),
+            (Some(_), _) | (None, true) => (w * 0.5, w * 0.5 + pad),
+            (None, false) => (0.0, pad),
+        };
         let right_w = (w - right_x - pad).max(1.0);
+        if let Some(g) = &opts.graphic {
+            let (ops, im) = g.draw(doc, [pad, pad, (left_w - 2.0 * pad).max(0.0), (h - 2.0 * pad).max(0.0)])?;
+            out.extend(ops.bytes());
+            image = im;
+        }
         out.extend_from_slice(b"BT\n0 g\n");
-        if a.name {
+        if a.name && opts.graphic.is_none() {
             // The name fills the left half.
             let mut size = (h * 0.4).min(36.0);
             let fit = (left_w - 2.0 * pad).max(1.0);
@@ -1663,11 +1720,16 @@ fn appearance(rect: [f64; 4], name: &str, cert: &Certificate, opts: &SignOptions
     fonts.set(b"Helv".to_vec(), Object::Dict(font));
     let mut res = Dict::new();
     res.set(b"Font".to_vec(), Object::Dict(fonts));
+    if let Some(im) = image {
+        let mut xobjects = Dict::new();
+        xobjects.set(b"Im1".to_vec(), Object::Ref(im));
+        res.set(b"XObject".to_vec(), Object::Dict(xobjects));
+    }
     d.set(b"Resources".to_vec(), Object::Dict(res));
-    Stream::flate(d, &out)
+    Ok(Stream::flate(d, &out))
 }
 
-fn fmt(v: f64) -> String {
+pub(crate) fn fmt(v: f64) -> String {
     let s = format!("{v:.2}");
     s.trim_end_matches('0').trim_end_matches('.').to_string()
 }
