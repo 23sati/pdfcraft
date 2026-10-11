@@ -40,9 +40,13 @@ jobs:
       - name: Host the preview handler like File Explorer
         shell: powershell
         run: |
-          $cli = if ('${{ matrix.engine }}' -eq 'pdfcraft-cli') { 'target\release\pdfcraft-cli.exe' } else { '' }
-          powershell -NoProfile -ExecutionPolicy Bypass -File packaging\windows\test-preview-host.ps1 -Cli $cli -Report preview-host-report.txt
-          if (-not (Test-Path preview-host-report.txt)) { 'test-preview-host.ps1 wrote no report' | Set-Content preview-host-report.txt }
+          $testArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', 'packaging\windows\test-preview-host.ps1', '-Report', 'preview-host-report.txt')
+          if ('${{ matrix.engine }}' -eq 'pdfcraft-cli') { $testArgs += @('-Cli', 'target\release\pdfcraft-cli.exe') }
+          $ErrorActionPreference = 'Continue'
+          & powershell @testArgs *>&1 | ForEach-Object { "$_" } | Tee-Object -FilePath host-output.txt
+          $code = $LASTEXITCODE
+          if (-not (Test-Path preview-host-report.txt)) { Copy-Item host-output.txt preview-host-report.txt }
+          exit $code
 
       # Annotations are readable through the API; at most 10 per type and step, so split the report.
       - name: Report (1)
