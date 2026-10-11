@@ -59,8 +59,24 @@ jobs:
             echo "merged=false" >>"$GITHUB_OUTPUT"
             exit 0
           fi
-          if ! git merge --no-edit -m "Merge storytold/pdfcraft main into the fork" upstream/main; then
-            files="$(git diff --name-only --diff-filter=U)"
+          merged_ok=true
+          git merge --no-edit -m "Merge storytold/pdfcraft main into the fork" upstream/main || merged_ok=false
+          files="$(git diff --name-only --diff-filter=U)"
+          # The fork's extra translations change the catalogs' hashes in ATTRIBUTION.toml, so that
+          # file conflicts whenever upstream edits a catalog: take upstream's and re-hash the catalogs.
+          if [ "$merged_ok" = false ] && [ "$files" = "ATTRIBUTION.toml" ]; then
+            git checkout --theirs ATTRIBUTION.toml
+            .github/fork/rehash-catalogs.sh
+            git add ATTRIBUTION.toml
+            git -c core.editor=true commit --no-edit
+            merged_ok=true
+          elif [ "$merged_ok" = true ]; then
+            .github/fork/rehash-catalogs.sh
+            if ! git diff --quiet ATTRIBUTION.toml; then
+              git commit -m "Fork: refresh the translation catalogs' hashes" ATTRIBUTION.toml
+            fi
+          fi
+          if [ "$merged_ok" = false ]; then
             git merge --abort
             title="Fork sync: merge conflict with storytold/pdfcraft"
             body="$(printf 'Upstream main (%s) could not be merged automatically. These files conflict:\n\n%s\n\nResolve it locally:\n\n    git remote add upstream %s   # once\n    git fetch upstream\n    git merge upstream/main\n    # fix the files, then commit and push to main\n\nThe next scheduled sync continues from there. See docs/fork.md.' \
