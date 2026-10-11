@@ -62,7 +62,14 @@ fn all_tools(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens) {
         }
         ui.add_space(4.0);
         let more = if app.all_tools_expanded { "View less" } else { "View more" };
-        if ui.add(egui::Label::new(egui::RichText::new(tl!(more)).color(t.accent_text).font(theme::medium(13.0))).sense(Sense::click())).clicked() {
+        if ui
+            .add(
+                egui::Label::new(egui::RichText::new(tl!(more)).color(t.accent_text).font(theme::medium(13.0)))
+                    .selectable(false)
+                    .sense(Sense::click()),
+            )
+            .clicked()
+        {
             app.all_tools_expanded = !app.all_tools_expanded;
         }
     });
