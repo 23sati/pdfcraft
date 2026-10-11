@@ -2174,6 +2174,10 @@ key	Space	Интервал
 	Resize panel window	Преоразмери прозореца на панела
 	Tools	Инструменти
 	Inspector	Инспектор
+	Reload documents when their files change on disk	Презареждай документите, когато файловете им се променят на диска
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Този файл е променен на диска. Презаредете го, за да видите новата версия; незаписаните ви промени ще бъдат загубени.
+	Reload	Презареди
+	Couldn't reload {name}: {e}	Неуспешно презареждане на {name}: {e}
 	Select page {label}	Избиране на страница {label}
 	Rotate page {label} counterclockwise	Завъртане на страница {label} обратно на часовниковата стрелка
 	Rotate page {label} clockwise	Завъртане на страница {label} по часовниковата стрелка

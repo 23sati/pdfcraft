@@ -468,10 +468,13 @@ fn windows_jobs_turn_mixed_sheets_to_one_shape() {
 /// Run a PowerShell script for the Windows-only tests: its stdout, or everything it said when
 /// it failed — the tests print that as the skip reason. Any error stops the script and fails
 /// it: `-Command` otherwise exits 0 after a failed command, such as a parameter the cmdlet
-/// doesn't have.
+/// doesn't have. Started by its full path (#1106): given a bare name, Rust looks in the test
+/// binary's own folder before System32.
 #[cfg(windows)]
 fn windows_powershell(script: &str) -> Result<String, String> {
-    let mut c = std::process::Command::new("powershell");
+    let root = std::env::var_os("SystemRoot").unwrap_or_else(|| "C:\\Windows".into());
+    let exe = std::path::Path::new(&root).join("System32").join("WindowsPowerShell").join("v1.0").join("powershell.exe");
+    let mut c = std::process::Command::new(exe);
     c.args(["-NoProfile", "-NonInteractive", "-Command", &format!("$ErrorActionPreference = 'Stop'; {script}")]);
     match c.output() {
         Ok(o) if o.status.success() => Ok(String::from_utf8_lossy(&o.stdout).into_owned()),

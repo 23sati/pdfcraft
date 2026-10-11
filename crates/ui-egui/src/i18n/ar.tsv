@@ -2232,6 +2232,10 @@ key	Space	مسافة
 	Panels	اللوحات
 	Resize panels	تغيير حجم اللوحات
 	Resize panel window	تغيير حجم نافذة اللوحة
+	Reload documents when their files change on disk	إعادة تحميل المستندات عند تغيّر ملفاتها على القرص
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	تغيّر هذا الملف على القرص. أعد تحميله لعرض النسخة الجديدة؛ ستفقد تغييراتك غير المحفوظة.
+	Reload	إعادة تحميل
+	Couldn't reload {name}: {e}	تعذّرت إعادة تحميل {name}: {e}
 	Select page {label}	تحديد الصفحة {label}
 	Rotate page {label} counterclockwise	تدوير الصفحة {label} عكس اتجاه عقارب الساعة
 	Rotate page {label} clockwise	تدوير الصفحة {label} باتجاه عقارب الساعة

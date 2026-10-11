@@ -2233,6 +2233,10 @@ key	Space	Пробіл
 	Panels	Панелі
 	Resize panels	Змінити розмір панелей
 	Resize panel window	Змінити розмір вікна панелі
+	Reload documents when their files change on disk	Перезавантажувати документи, коли їхні файли змінюються на диску
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Цей файл змінено на диску. Перезавантажте його, щоб побачити нову версію; незбережені зміни буде втрачено.
+	Reload	Перезавантажити
+	Couldn't reload {name}: {e}	Не вдалося перезавантажити {name}: {e}
 	Select page {label}	Вибрати сторінку {label}
 	Rotate page {label} counterclockwise	Повернути сторінку {label} проти годинникової стрілки
 	Rotate page {label} clockwise	Повернути сторінку {label} за годинниковою стрілкою

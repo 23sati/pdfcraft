@@ -2212,6 +2212,10 @@ key	Space	スペース
 	Resize panel window	パネルウィンドウのサイズを変更
 	Tools	ツール
 	Inspector	インスペクター
+	Reload documents when their files change on disk	ディスク上のファイルが変更されたら文書を再読み込みする
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	このファイルはディスク上で変更されました。再読み込みすると新しいバージョンが表示されますが、未保存の変更は失われます。
+	Reload	再読み込み
+	Couldn't reload {name}: {e}	{name} を再読み込みできませんでした: {e}
 	Select page {label}	ページ {label} を選択
 	Rotate page {label} counterclockwise	ページ {label} を反時計回りに回転
 	Rotate page {label} clockwise	ページ {label} を時計回りに回転

@@ -2213,6 +2213,10 @@ key	Space	Espaço
 	Resize panel window	Redimensionar janela do painel
 	Tools	Ferramentas
 	Inspector	Inspetor
+	Reload documents when their files change on disk	Recarregar documentos quando os arquivos mudarem no disco
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Este arquivo foi alterado no disco. Recarregue-o para ver a nova versão; suas alterações não salvas serão perdidas.
+	Reload	Recarregar
+	Couldn't reload {name}: {e}	Não foi possível recarregar {name}: {e}
 	Select page {label}	Selecionar página {label}
 	Rotate page {label} counterclockwise	Girar página {label} no sentido anti-horário
 	Rotate page {label} clockwise	Girar página {label} no sentido horário
