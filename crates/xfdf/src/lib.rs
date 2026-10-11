@@ -668,7 +668,27 @@ fn annot_from_xml(node: roxmltree::Node, subtype: &str, page_ref: ObjRef) -> Opt
 
 /// Put an annotation dictionary on a page, replacing one with the same `/NM`. Returns its
 /// reference.
-fn place(doc: &mut Document, page_ref: ObjRef, d: Dict) -> Result<ObjRef, DataError> {
+/// `/F` bits an imported file may not set on a redaction mark: Invisible, Hidden, NoView — so a
+/// mark it brings in is always drawn for the user to review before content is removed.
+const REDACT_UNSEEN: i64 = 1 | 2 | 32;
+/// `/F` Locked (ISO 32000-2 Table 167): the user protected this annotation from change.
+const LOCKED: i64 = 128;
+
+/// An existing annotation an import must never replace, move or unlock: one the user locked, or a
+/// redaction mark (replacing it would drop the region the user marked to remove).
+fn import_protected(x: &Dict) -> bool {
+    x.int(b"F").unwrap_or(0) & LOCKED != 0 || x.name(b"Subtype") == Some(b"Redact".as_slice())
+}
+
+fn place(doc: &mut Document, page_ref: ObjRef, mut d: Dict) -> Result<ObjRef, DataError> {
+    // A redaction mark the import carries is always made visible: clear any Invisible/Hidden/NoView
+    // flag so it cannot remove content the user never sees.
+    if d.name(b"Subtype") == Some(b"Redact".as_slice()) {
+        let f = d.int(b"F").unwrap_or(0);
+        if f & REDACT_UNSEEN != 0 {
+            d.set(b"F".to_vec(), Object::Int(f & !REDACT_UNSEEN));
+        }
+    }
     let nm = d.get(b"NM").and_then(|n| n.as_string().map(|s| s.to_text()));
     let annots: Vec<Object> = doc
         .get(page_ref)
@@ -679,14 +699,23 @@ fn place(doc: &mut Document, page_ref: ObjRef, d: Dict) -> Result<ObjRef, DataEr
         .unwrap_or_default();
     let mut kept = Vec::new();
     let mut removed: Vec<ObjRef> = Vec::new();
+    // Never let a same-name import replace a locked comment or a redaction mark: keep it, and add
+    // the imported dict beside it under no name of its own.
+    let mut clash = false;
     for a in annots {
-        let same = nm.is_some()
-            && a.as_ref().and_then(|r| doc.get(r).as_dict().and_then(|x| x.get(b"NM").and_then(|n| n.as_string().map(|s| s.to_text())))) == nm;
-        if same {
+        let existing = a.as_ref().and_then(|r| doc.get(r).as_dict().cloned());
+        let same = nm.is_some() && existing.as_ref().and_then(|x| x.get(b"NM").and_then(|n| n.as_string().map(|s| s.to_text()))) == nm;
+        if same && existing.as_ref().is_some_and(import_protected) {
+            clash = true;
+            kept.push(a);
+        } else if same {
             removed.extend(a.as_ref());
         } else {
             kept.push(a);
         }
+    }
+    if clash {
+        d.remove(b"NM");
     }
     // The replaced note's pop-up goes with it; otherwise it stays on the page pointing at a note that is no longer there.
     kept.retain(|a| {
@@ -701,7 +730,72 @@ fn place(doc: &mut Document, page_ref: ObjRef, d: Dict) -> Result<ObjRef, DataEr
     Ok(r)
 }
 
+/// Deepest element nesting the XML readers accept. roxmltree parses recursively (a few stack
+/// frames per level) and has no depth option, so a file nested a few thousand levels deep would
+/// overflow the stack, which aborts the whole process (no `catch_unwind` can stop it), before any
+/// of our code sees the tree. Real XFDF and form data nest a dozen levels or so.
+const MAX_XML_DEPTH: usize = 256;
+
+/// The index of `pat` in `b` at or after `from`.
+fn find_from(b: &[u8], from: usize, pat: &[u8]) -> Option<usize> {
+    b.get(from..)?.windows(pat.len()).position(|w| w == pat).map(|p| from + p)
+}
+
+/// Refuse XML nested deeper than [`MAX_XML_DEPTH`], found by one pass over the text without
+/// recursion, before it reaches roxmltree. Comments, CDATA, declarations and processing
+/// instructions are skipped whole, and quoted attribute values may contain `>`.
+fn check_xml_depth(text: &str) -> Result<(), DataError> {
+    let too_deep = || DataError::Malformed(format!("the XML is nested more than {MAX_XML_DEPTH} levels deep"));
+    let b = text.as_bytes();
+    let mut depth = 0usize;
+    let mut i = 0usize;
+    while let Some(lt) = find_from(b, i, b"<") {
+        i = lt + 1;
+        match b.get(i) {
+            Some(b'/') => depth = depth.saturating_sub(1),
+            Some(b'?') => i = find_from(b, i, b"?>").map_or(b.len(), |e| e + 2),
+            Some(b'!') => {
+                let end: &[u8] = if b.get(i..i + 3) == Some(b"!--") {
+                    b"-->"
+                } else if b.get(i..i + 8) == Some(b"![CDATA[") {
+                    b"]]>"
+                } else {
+                    b">"
+                };
+                i = find_from(b, i, end).map_or(b.len(), |e| e + end.len());
+            }
+            Some(_) => {
+                // A start tag: find its `>` outside quoted attribute values; `/>` closes it.
+                let mut quote: Option<u8> = None;
+                let mut self_closing = false;
+                while let Some(&c) = b.get(i) {
+                    match quote {
+                        Some(q) if c == q => quote = None,
+                        Some(_) => {}
+                        None if c == b'"' || c == b'\'' => quote = Some(c),
+                        None if c == b'>' => {
+                            self_closing = i.checked_sub(1).and_then(|p| b.get(p)) == Some(&b'/');
+                            break;
+                        }
+                        None => {}
+                    }
+                    i += 1;
+                }
+                if !self_closing {
+                    depth += 1;
+                    if depth > MAX_XML_DEPTH {
+                        return Err(too_deep());
+                    }
+                }
+            }
+            None => break,
+        }
+    }
+    Ok(())
+}
+
 fn import_xfdf(doc: &mut Document, text: &str) -> Result<Report, DataError> {
+    check_xml_depth(text)?;
     let xml = roxmltree::Document::parse(text).map_err(|e| DataError::Malformed(e.to_string()))?;
     let root = xml.root_element();
     if root.tag_name().name() != "xfdf" {
@@ -857,6 +951,7 @@ pub fn data_values(bytes: &[u8]) -> Result<Vec<(String, Vec<String>)>, DataError
     }
     let text = String::from_utf8_lossy(bytes);
     let t = text.trim_start_matches('\u{feff}').trim_start();
+    check_xml_depth(t)?;
     let xml = roxmltree::Document::parse(t).map_err(|_| DataError::UnknownFormat)?;
     let root = xml.root_element();
     if root.tag_name().name() != "xfdf" {
@@ -944,6 +1039,7 @@ fn import_table(doc: &mut Document, text: &str) -> Result<Report, DataError> {
     let mut report = Report::default();
     let t = text.trim_start_matches('\u{feff}');
     let values: Vec<(String, Vec<String>)> = if t.trim_start().starts_with('<') {
+        check_xml_depth(t)?;
         let xml = roxmltree::Document::parse(t).map_err(|e| DataError::Malformed(e.to_string()))?;
         xml.root_element()
             .children()
