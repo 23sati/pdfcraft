@@ -1,7 +1,7 @@
 //! Embeds the fonts of the optional craft-fonts build input (`CRAFT_FONTS_DIR`) as `CRAFT_FONTS`.
 //! The recipe is craft-fonts' `docs/integration.md`; unset, `CRAFT_FONTS` is empty. It only reads
 //! the local checkout (no network). On wasm32 it embeds only the UI faces (BIZ UDPGothic Regular
-//! and any `Arab` or `Telu` face), to keep the web build within hosting limits (Cloudflare Pages:
+//! and the faces for the other supported interface scripts), to keep the web build within hosting limits (Cloudflare Pages:
 //! 25 MiB per file).
 
 use std::fmt::Write as _;
@@ -49,11 +49,10 @@ fn craft_fonts(dir: &std::path::Path) -> Result<String, String> {
             println!("cargo::warning=craft-fonts: not embedding {family} {style} (AGENTS.md §1.1)");
             continue;
         }
-        // Arabic interface faces are small, so the web build keeps them too.
-        let arabic = scripts.split(',').any(|s| s.trim() == "Arab");
-        // Telugu faces too, for the Telugu interface.
-        let telugu = scripts.split(',').any(|s| s.trim() == "Telu");
-        let web_face = (*family == "BIZ UDPGothic" && *style == "Regular") || arabic || telugu;
+        // Every shipped writing system needs a bundled fallback in the web/mobile UI too.
+        // Keep its regular face; optional document-only faces and extra Japanese weights stay native.
+        let interface_script = scripts.split(',').any(|s| matches!(s.trim(), "Arab" | "Telu" | "Deva" | "Beng" | "Hang" | "Kore"));
+        let web_face = *style == "Regular" && (*family == "BIZ UDPGothic" || interface_script);
         if wasm && !web_face {
             continue;
         }

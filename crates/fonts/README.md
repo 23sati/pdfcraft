@@ -25,6 +25,8 @@ set). Without that variable `CRAFT_FONTS` is empty and everything below copes:
   titles), in manifest order.
 - `ui_telugu_fonts`: the `Telu` faces for Telugu interface text (the Telugu catalog, file names,
   document titles), in manifest order.
+- `ui_script_fonts`: all Arabic/Urdu, Telugu, Devanagari, Bengali and Korean UI fallbacks,
+  in manifest order. The same Regular faces are retained for web/mobile builds.
 - `document_japanese_font` / `japanese_glyph`: the face (Shippori Mincho, then BIZ UDMincho) whose
   outlines become the Type 3 fallback font for Japanese text written into PDFs. Without it,
   `japanese_glyph` returns `GlyphError::NoFont` and the editor reports a clear error.
@@ -50,7 +52,8 @@ The descriptor does not change glyph programs or replace the Type 3 `FontBBox` m
 only Gothic Regular, so it cannot preserve bold. No new font assets or changes to that input are
 needed.
 
-wasm32 builds embed only BIZ UDPGothic Regular and any `Arab` or `Telu` face, to keep the web build small: the web build
+wasm32 builds embed BIZ UDPGothic Regular and the Regular `Arab`, `Telu`, `Deva`, `Beng`,
+`Hang`/`Kore` interface faces, to keep the web build small: the web build
 currently has no Chinese face, so Chinese there still shows the replacement glyph.
 Font files are never
 committed here (`AGENTS.md` §1.4; team members: [craftrules `standards/fonts.md`](https://github.com/storytold/craftrules/blob/main/standards/fonts.md), internal).

@@ -29,14 +29,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # The optional craft-fonts build input (Japanese fonts), so the Japanese font tests run on
+      # The craft-fonts build input (Japanese, Arabic/Urdu, Indic and Korean), so script tests run on
       # Linux; Windows tests the build without it. See craftrules standards/fonts.md.
       - name: Check out craft-fonts (Linux)
         if: runner.os == 'Linux'
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           repository: storytold/craft-fonts
-          ref: 8dcdacd5153e64560d109541a47d806f26f048c0
+          ref: 3ed348d5faf558cf77e4f978d927cf07d0c9acb3
           path: craft-fonts
 
       - name: Install Linux system dependencies (egui/winit/rfd)
@@ -53,7 +53,9 @@ jobs:
 
       - name: Require Windows executable resources
         if: runner.os == 'Windows'
-        run: Add-Content -Path $env:GITHUB_ENV -Value 'PDFCRAFT_REQUIRE_WINRES=1'
+        run: |
+          Add-Content -Path $env:GITHUB_ENV -Value 'PDFCRAFT_REQUIRE_WINRES=1'
+          Add-Content -Path $env:GITHUB_ENV -Value 'PDFCRAFT_REQUIRE_SYMLINK_TESTS=1'
         shell: pwsh
 
       - uses: Swatinem/rust-cache@v2

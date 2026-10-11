@@ -133,6 +133,9 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 ## Progress log
 
+- **2026-10-11 (M14, interface languages):** Added complete Hindi, Bengali, Indonesian, Urdu and Korean catalogs while preserving every existing catalog; Auto now uses only the primary native/browser language, with English fallback and persistent manual overrides. Pinned the separately attributed Devanagari/Bengali/Korean font contribution; embedded-only glyph and egui shaping checks cover the new scripts. RTL wrapping/input/mirroring and native-speaker review remain open. Turkish and Chinese improvements remain separate existing PRs. Overall readiness is not re-estimated.
+
+
 Newest first: the date, what moved, and the new overall estimate.
 
 - **2026-10-10 (M14, interface size):** Preferences ▸ Interface size scales the whole interface (50–250 %, setting `ui_scale`, control option `ui-scale`); 50 % brings an interface the system draws at 200 % back to 100 % (#456). Auto, the default, follows the desktop's text scaling: on Linux and the BSDs the desktop app reads GNOME's `text-scaling-factor` once at launch, so with Large Text (1.25) on a 1× display the interface no longer draws 13 px labels that show their pixels next to the system's text. The size is egui's zoom factor, so `pixels_per_point` grows with it and page rasters stay one texel per screen pixel; egui's own ⌘+/⌘− interface zoom is turned off so those keys stay page zoom. Still missing: KDE's font DPI and Windows' "Make text bigger" aren't read (both scale only text there), and egui's text is still greyscale-antialiased without the system's gamma, so small text looks rougher than GTK's at 100 %.

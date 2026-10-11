@@ -124,6 +124,33 @@ fn telugu_ui_text_uses_craft_fonts() {
     }
 }
 
+/// Conjunct formation and Urdu joining must work through the actual egui shaper,
+/// independently of whether a font merely contains each Unicode character.
+#[test]
+fn indic_conjuncts_and_urdu_joining_use_embedded_shaping() {
+    for (script, joined, separated) in
+        [("Deva", "क्ष", "क्\u{200c}ष"), ("Beng", "ক্ষ", "ক্\u{200c}ষ"), ("Arab", "پاکستان", "پ\u{200c}ا\u{200c}ک\u{200c}س\u{200c}ت\u{200c}ا\u{200c}ن")]
+    {
+        if !pdfcraft_fonts::CRAFT_FONTS.iter().any(|font| font.covers(script)) {
+            assert!(pdfcraft_fonts::CRAFT_FONTS.is_empty(), "the documented craft-fonts input must contain {script}");
+            eprintln!("skipping {script} shaping: build without craft-fonts");
+            continue;
+        }
+        let defs = theme::font_definitions();
+        assert!(!defs.font_data.contains_key(theme::SYSTEM_FALLBACK));
+        let mut fonts = Fonts::new(TextOptions::default(), defs);
+        for id in families() {
+            assert!(fonts.has_glyphs(&id, joined), "{script}, {id:?}: missing glyph");
+        }
+        let joined_widths = layout_widths(&mut fonts, joined);
+        let separated_widths = layout_widths(&mut fonts, separated);
+        for (joined_width, separated_width) in joined_widths.iter().zip(&separated_widths) {
+            assert!(joined_width.is_finite() && *joined_width > 0.0);
+            assert!(joined_width < separated_width, "{script}: contextual shaping must join {joined:?}: {joined_width} vs {separated_width}");
+        }
+    }
+}
+
 /// On a machine with a suitable installed font, the installed definitions end every family
 /// with it and Arabic text has glyphs; the embedded-only definitions never name it.
 #[test]
@@ -180,6 +207,7 @@ fn primary_ui_fonts_cover_latin_and_cyrillic_catalogs() {
         ("hu", include_str!("../src/i18n/hu.tsv")),
         ("uk", include_str!("../src/i18n/uk.tsv")),
         ("it", include_str!("../src/i18n/it.tsv")),
+        ("id", include_str!("../src/i18n/id.tsv")),
     ] {
         let mut text = String::from("áčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽãõçâêôàÃÕÇÂÊÔÀñÑüÜäÄöÖőűß„“¿¡«»…ґҐєЄіІїЇ");
         for line in catalog.lines().filter(|l| !l.starts_with('#')) {

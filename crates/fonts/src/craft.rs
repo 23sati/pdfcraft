@@ -66,6 +66,12 @@ pub fn ui_telugu_fonts() -> Vec<&'static CraftFont> {
     CRAFT_FONTS.iter().filter(|f| f.covers("Telu")).collect()
 }
 
+/// Interface fallback faces for supported non-CJK scripts. Keeping this selection shared
+/// prevents a new language from working only in the document renderer or only on desktop.
+pub fn ui_script_fonts() -> Vec<&'static CraftFont> {
+    CRAFT_FONTS.iter().filter(|font| ["Arab", "Telu", "Deva", "Beng", "Hang", "Kore"].iter().any(|script| font.covers(script))).collect()
+}
+
 /// Interface CJK faces in fallback order for the UI language: Simplified Chinese first when
 /// `prefer_hans`, otherwise Japanese first (the historical default).
 ///
