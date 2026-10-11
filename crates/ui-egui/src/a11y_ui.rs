@@ -5,6 +5,7 @@
 use std::collections::BTreeSet;
 
 use egui::{Align, Layout};
+use pdfcraft_cos::ObjRef;
 use pdfcraft_engine::DocId;
 use pdfcraft_engine::a11y::{Category, Options, Report, Rule, Status};
 
@@ -60,6 +61,7 @@ pub(crate) enum PanelAction {
     ShowReport,
     Options,
     GoTo(usize),
+    GoToTag(ObjRef, Option<usize>),
 }
 
 /// Rules with an automatic (or guided) fix.
@@ -291,7 +293,11 @@ pub(crate) fn panel(ui: &mut egui::Ui, t: &Tokens, state: &mut A11yState, doc: D
                         // the sentence is said in the panel's language with those words still in it.
                         let said = f.said(&crate::i18n::words);
                         let l = ui.add(egui::Label::new(egui::RichText::new(said).small().color(t.text_muted)).sense(egui::Sense::click()));
-                        if let Some(p) = f.page
+                        if let Some(object) = f.object {
+                            if l.on_hover_text(tl!("Tags")).clicked() {
+                                action = Some(PanelAction::GoToTag(object, f.page));
+                            }
+                        } else if let Some(p) = f.page
                             && l.on_hover_text(tl!("Go to the page")).clicked()
                         {
                             action = Some(PanelAction::GoTo(p));
@@ -373,6 +379,24 @@ impl PdfCraftApp {
             PanelAction::Options => self.dialog = Some(Dialog::AccessibilityOptions),
             PanelAction::ShowReport => self.show_accessibility_report(),
             PanelAction::GoTo(p) => self.views[index].go_to_page(p),
+            PanelAction::GoToTag(object, page) => {
+                let Some((_, id)) = self.active_ids() else { return };
+                let Some(tags) = self.session.get(id).map(|doc| doc.tags()) else { return };
+                if !tags.iter().any(|tag| tag.object == object) {
+                    if let Some(page) = page {
+                        self.views[index].go_to_page(page);
+                    }
+                    return;
+                }
+                if self.tags_state.select(id, &tags, object) {
+                    self.right = Some(RightPanel::Tags);
+                    if let Some(page) = page {
+                        self.views[index].go_to_page(page);
+                    }
+                } else {
+                    self.notify_tr("Save or revert changes before selecting another tag.");
+                }
+            }
             PanelAction::Skip(rule) => {
                 self.a11y_skipped.insert(rule);
                 if let Some((_, r)) = self.a11y.report.as_mut()

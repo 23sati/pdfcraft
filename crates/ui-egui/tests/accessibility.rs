@@ -175,3 +175,32 @@ fn tags_panel_edits_a_tag_property_and_undoes_it() {
     h.get_by_label("Photo · 8");
     assert!(h.query_by_label("First figure · 7").is_none());
 }
+
+#[test]
+fn checker_finding_opens_its_structure_tag() {
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("figures.pdf", None, FIGURES.to_vec()).unwrap();
+        app
+    });
+    h.run_steps(4);
+    h.state_mut().run_accessibility_check();
+    h.state_mut().a11y.expanded.insert(Rule::FiguresAltText);
+    h.run_steps(3);
+    let finding = h.state().a11y.report.as_ref().unwrap().1.result(Rule::FiguresAltText).unwrap().findings[0].clone();
+    assert_eq!(finding.object.map(|o| o.num), Some(7));
+    h.get_by_label(&finding.message).click();
+    h.run_steps(3);
+    assert_eq!(h.state().right, Some(RightPanel::Tags));
+    h.get_by_label("7 0 R");
+    let title = h.get_by_role_and_label(Role::TextInput, "Title");
+    title.focus();
+    title.type_text("Unsaved title");
+    h.run_steps(1);
+    h.state_mut().right = Some(RightPanel::Accessibility);
+    h.run_steps(2);
+    h.get_by_label(&finding.message).click();
+    h.run_steps(2);
+    assert_eq!(h.state().right, Some(RightPanel::Accessibility), "an unfinished tag edit is preserved");
+}

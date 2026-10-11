@@ -59,6 +59,30 @@ impl Draft {
     }
 }
 
+impl State {
+    /// Select a checker finding's tag without discarding an unfinished edit.
+    pub(crate) fn select(&mut self, doc: DocId, tags: &[TagInfo], object: ObjRef) -> bool {
+        let Some(tag) = tags.iter().find(|tag| tag.object == object) else { return false };
+        if self.doc == Some(doc)
+            && self
+                .selected
+                .and_then(|selected| tags.iter().find(|tag| tag.object == selected))
+                .is_some_and(|current| self.draft.edit(current).is_some())
+        {
+            return false;
+        }
+        if self.doc != Some(doc) {
+            self.collapsed.clear();
+        }
+        self.doc = Some(doc);
+        self.selected = Some(object);
+        self.draft = Draft::from_tag(tag);
+        self.query.clear();
+        self.collapsed.clear();
+        true
+    }
+}
+
 /// The chosen page and an edit to apply after the panel releases its document borrow.
 pub(crate) fn panel(ui: &mut Ui, t: &Tokens, doc: DocId, tags: &[TagInfo], state: &mut State, can_edit: bool) -> (Option<usize>, Option<Edit>) {
     if state.doc != Some(doc) {
