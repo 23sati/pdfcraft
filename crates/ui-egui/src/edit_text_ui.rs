@@ -956,7 +956,10 @@ pub(crate) fn overlay(ctx: &egui::Context, view: &mut DocView, info: &DocInfo) -
                 ui.painter().rect_filled(ed.rect.expand(1.0), CornerRadius::ZERO, fill);
             }
             egui::Frame::NONE.fill(fill).show(ui, |ui| {
-                ui.visuals_mut().text_cursor.stroke.color = if luminance(text_color) < 0.5 { Color32::BLACK } else { Color32::WHITE };
+                // A textless PDF preview keeps its real page background through the transparent editor.
+                // The temporary opaque cover uses the shared caret-contrast rule.
+                ui.visuals_mut().text_cursor.stroke.color =
+                    if background_ready { if luminance(text_color) < 0.5 { Color32::BLACK } else { Color32::WHITE } } else { caret_color_on(fill) };
                 let rows = 1;
                 let snapshot = ed.clone();
                 let mut layouter =
@@ -1008,6 +1011,12 @@ pub(crate) fn overlay(ctx: &egui::Context, view: &mut DocView, info: &DocInfo) -
         }
         None => None,
     }
+}
+
+/// Caret colour that stays visible on a field filled with `fill`: black on light fills, white on dark ones.
+pub(crate) fn caret_color_on(fill: Color32) -> Color32 {
+    let luma = 299 * u32::from(fill.r()) + 587 * u32::from(fill.g()) + 114 * u32::from(fill.b());
+    if luma > 127_500 { Color32::BLACK } else { Color32::WHITE }
 }
 
 #[cfg(test)]
@@ -1076,5 +1085,13 @@ mod tests {
         for dark in [Color32::BLACK, Color32::from_rgb(0x1F, 0x2A, 0x6B), Color32::from_rgb(0xC0, 0x00, 0x00), Color32::from_gray(0x60)] {
             assert_eq!(editor_fill(dark), Color32::WHITE, "{dark:?}");
         }
+    }
+
+    #[test]
+    fn caret_contrasts_with_its_fill() {
+        assert_eq!(caret_color_on(Color32::WHITE), Color32::BLACK);
+        assert_eq!(caret_color_on(Color32::from_rgb(0xFF, 0xFF, 0xF4)), Color32::BLACK);
+        assert_eq!(caret_color_on(Color32::BLACK), Color32::WHITE);
+        assert_eq!(caret_color_on(DARK_EDITOR_FILL), Color32::WHITE);
     }
 }
