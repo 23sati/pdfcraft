@@ -2242,3 +2242,16 @@ scroll speed	Slow	Lambat
 	Fill & Sign signature	Tanda tangan Isi & Tanda Tangan
 	Choose image…	Pilih gambar…
 	The document's security settings don't allow copying text and images	Pengaturan keamanan dokumen tidak mengizinkan penyalinan teks dan gambar
+	Black and white	Hitam putih
+	Clean-up	Pembersihan
+	Couldn't reload {name}: {e}	Tidak dapat memuat ulang {name}: {e}
+	Drawing scale changes. Use Actual size for full-scale plans.	Skala gambar berubah. Gunakan Ukuran sebenarnya untuk denah berskala penuh.
+	Greyscale	Skala abu-abu
+	Match page at 100%	Cocokkan halaman pada 100%
+	Original	Asli
+	PDF page: {w} × {h} in	Halaman PDF: {w} × {h} inci
+	PDF scale: {scale}%	Skala PDF: {scale}%
+	Printer paper and scaling may differ. Check driver settings.	Kertas dan skala printer mungkin berbeda. Periksa pengaturan driver.
+	Reload	Muat ulang
+	Reload documents when their files change on disk	Muat ulang dokumen ketika berkasnya berubah di disk
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Berkas ini berubah di disk. Muat ulang untuk melihat versi terbaru; perubahan yang belum disimpan akan hilang.

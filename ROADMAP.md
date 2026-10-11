@@ -2,6 +2,7 @@
 
 **Stage: alpha** · next: beta, ~26% (ready for real work 49% → 75%) and ~400–700 h away
 
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (architectural paper controls from #599; localized shortcut labels, #496; readiness table with hours per audience; full number as weighted sum 49%; earlier: second look: ready 40% → 47%, mainstream 55% added; core-workflow gate applied → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** M14 #307 Plan 3 uses one marker traversal on open and full refresh, and the combined scanner borrows metadata instead of cloning scan-only containers; includes a behavior-preserving `organize` binding for the workspace Clippy gate · earlier: minor (localized shortcut labels, #496; readiness table with hours per audience; full number as weighted sum 49%; second look: ready 40% → 47%, mainstream 55% added; core-workflow gate applied → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (closed issues synced: #774, #756 and the #799–#821 batch; earlier: localized shortcut labels, #496; readiness table with hours per audience; full number as weighted sum 49%; earlier: second look: ready 40% → 47%, mainstream 55% added; core-workflow gate applied → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
@@ -134,8 +135,8 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 ## Progress log
 
-- **2026-10-11 (M14, interface languages):** Added complete Hindi, Bengali, Indonesian, Urdu and Korean catalogs while preserving every existing catalog; Auto now uses only the primary native/browser language, with English fallback and persistent manual overrides. Pinned the separately attributed Devanagari/Bengali/Korean font contribution; embedded-only glyph and egui shaping checks cover the new scripts. RTL wrapping/input/mirroring and native-speaker review remain open. Turkish and Chinese improvements remain separate existing PRs. Overall readiness is not re-estimated.
-
+- **2026-10-11 (M14, interface languages):** Added complete Hindi, Bengali, Indonesian, Urdu and Korean catalogs while preserving every existing catalog; each now includes all 2,251 keys after the upstream print, reload and camera additions. Auto uses only the primary native/browser language, with English fallback and persistent manual overrides. Pinned the separately attributed Devanagari/Bengali/Korean font contribution; embedded-only glyph and egui shaping checks cover the new scripts. RTL wrapping/input/mirroring and native-speaker review remain open. Turkish and Chinese improvements remain separate existing PRs. Overall readiness is not re-estimated.
+- **2026-10-11 (M10.5, focused follow-up to #599):** Carry the architectural/ANSI/large ISO paper presets, current-page matching at 100%, and previewed PDF scale into the current print dialog and `doc_print`. Retains the #847/#1007 spooler and background discovery. Driver substitution, physical calibration, vector Windows printing and managed-endpoint restrictions remain separate gaps. Overall estimates unchanged.
 
 Newest first: the date, what moved, and the new overall estimate.
 

@@ -2246,3 +2246,16 @@ scroll speed	Slow	ধীর
 	Fill & Sign signature	পূরণ ও স্বাক্ষরের স্বাক্ষর
 	Choose image…	ছবি বেছে নিন…
 	The document's security settings don't allow copying text and images	নথির নিরাপত্তা সেটিংস লেখা ও ছবি কপি করার অনুমতি দেয় না
+	Black and white	সাদাকালো
+	Clean-up	পরিষ্কার
+	Couldn't reload {name}: {e}	{name} পুনরায় লোড করা যায়নি: {e}
+	Drawing scale changes. Use Actual size for full-scale plans.	অঙ্কনের স্কেল পরিবর্তিত হয়। পূর্ণ মাপের নকশার জন্য প্রকৃত আকার ব্যবহার করুন।
+	Greyscale	ধূসর রং
+	Match page at 100%	পৃষ্ঠা 100%-এ মিলিয়ে নিন
+	Original	মূল
+	PDF page: {w} × {h} in	PDF পৃষ্ঠা: {w} × {h} ইঞ্চি
+	PDF scale: {scale}%	PDF স্কেল: {scale}%
+	Printer paper and scaling may differ. Check driver settings.	প্রিন্টারের কাগজ ও স্কেল ভিন্ন হতে পারে। ড্রাইভারের সেটিংস পরীক্ষা করুন।
+	Reload	পুনরায় লোড করুন
+	Reload documents when their files change on disk	ডিস্কে ফাইল বদলালে নথি পুনরায় লোড করুন
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	এই ফাইলটি ডিস্কে বদলেছে। নতুন সংস্করণ দেখতে এটি পুনরায় লোড করুন; সংরক্ষণ না করা পরিবর্তনগুলি হারিয়ে যাবে।

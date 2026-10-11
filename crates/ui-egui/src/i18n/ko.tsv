@@ -2242,3 +2242,16 @@ scroll speed	Slow	느리게
 	Fill & Sign signature	채우기 및 서명의 서명
 	Choose image…	이미지 선택…
 	The document's security settings don't allow copying text and images	문서의 보안 설정에서 텍스트 및 이미지 복사를 허용하지 않습니다
+	Black and white	흑백
+	Clean-up	정리
+	Couldn't reload {name}: {e}	{name}을(를) 다시 불러올 수 없습니다: {e}
+	Drawing scale changes. Use Actual size for full-scale plans.	도면 배율이 변경됩니다. 원래 축척의 도면에는 실제 크기를 사용하세요.
+	Greyscale	회색조
+	Match page at 100%	페이지에 100%로 맞추기
+	Original	원본
+	PDF page: {w} × {h} in	PDF 페이지: {w} × {h}인치
+	PDF scale: {scale}%	PDF 배율: {scale}%
+	Printer paper and scaling may differ. Check driver settings.	프린터 용지와 배율이 다를 수 있습니다. 드라이버 설정을 확인하세요.
+	Reload	다시 불러오기
+	Reload documents when their files change on disk	디스크의 파일이 변경되면 문서 다시 불러오기
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	이 파일이 디스크에서 변경되었습니다. 새 버전을 보려면 다시 불러오세요. 저장하지 않은 변경 내용은 사라집니다.

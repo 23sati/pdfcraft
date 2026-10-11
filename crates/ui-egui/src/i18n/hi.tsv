@@ -2246,3 +2246,16 @@ scroll speed	Slow	धीमा
 	Fill & Sign signature	भरें और हस्ताक्षर करें का हस्ताक्षर
 	Choose image…	चित्र चुनें…
 	The document's security settings don't allow copying text and images	दस्तावेज़ की सुरक्षा सेटिंग पाठ और चित्र कॉपी करने की अनुमति नहीं देतीं
+	Black and white	श्वेत-श्याम
+	Clean-up	सफ़ाई
+	Couldn't reload {name}: {e}	{name} दोबारा लोड नहीं हो सका: {e}
+	Drawing scale changes. Use Actual size for full-scale plans.	चित्र का पैमाना बदलता है। पूर्ण पैमाने वाले नक्शों के लिए वास्तविक आकार चुनें।
+	Greyscale	धूसर-श्रेणी
+	Match page at 100%	पृष्ठ को 100% पर मिलाएँ
+	Original	मूल
+	PDF page: {w} × {h} in	PDF पृष्ठ: {w} × {h} इंच
+	PDF scale: {scale}%	PDF का पैमाना: {scale}%
+	Printer paper and scaling may differ. Check driver settings.	प्रिंटर का काग़ज़ और पैमाना अलग हो सकते हैं। ड्राइवर की सेटिंग जाँचें।
+	Reload	दोबारा लोड करें
+	Reload documents when their files change on disk	डिस्क पर फ़ाइलें बदलने पर दस्तावेज़ दोबारा लोड करें
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	यह फ़ाइल डिस्क पर बदल गई है। नया संस्करण देखने के लिए इसे दोबारा लोड करें; आपके बिना सहेजे बदलाव खो जाएँगे।

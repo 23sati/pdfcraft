@@ -2246,3 +2246,16 @@ scroll speed	Slow	آہستہ
 	Fill & Sign signature	پُر کریں اور دستخط کریں کے دستخط
 	Choose image…	تصویر منتخب کریں…
 	The document's security settings don't allow copying text and images	دستاویز کی حفاظتی ترتیبات متن اور تصاویر نقل کرنے کی اجازت نہیں دیتیں
+	Black and white	سیاہ و سفید
+	Clean-up	صفائی
+	Couldn't reload {name}: {e}	{name} دوبارہ لوڈ نہیں ہو سکا: {e}
+	Drawing scale changes. Use Actual size for full-scale plans.	نقشے کا پیمانہ بدل جاتا ہے۔ مکمل پیمانے کے نقشوں کے لیے اصل سائز استعمال کریں۔
+	Greyscale	سرمئی درجات
+	Match page at 100%	صفحے کو 100% پر ملائیں
+	Original	اصل
+	PDF page: {w} × {h} in	PDF صفحہ: {w} × {h} انچ
+	PDF scale: {scale}%	PDF پیمانہ: {scale}%
+	Printer paper and scaling may differ. Check driver settings.	پرنٹر کا کاغذ اور پیمانہ مختلف ہو سکتے ہیں۔ ڈرائیور کی ترتیبات دیکھیں۔
+	Reload	دوبارہ لوڈ کریں
+	Reload documents when their files change on disk	ڈسک پر فائلیں بدلنے پر دستاویزات دوبارہ لوڈ کریں
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	یہ فائل ڈسک پر بدل گئی ہے۔ نیا نسخہ دیکھنے کے لیے اسے دوبارہ لوڈ کریں؛ آپ کی غیر محفوظ تبدیلیاں ضائع ہو جائیں گی۔
