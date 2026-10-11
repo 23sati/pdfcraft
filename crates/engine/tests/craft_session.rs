@@ -24,3 +24,19 @@ fn craft_session_keeps_pdf_tabs_and_both_history_stacks() {
     assert!(r.craft_restore(&bytes[..20]).is_err());
     assert_eq!(r.docs().len(), 2);
 }
+
+#[test]
+fn recovery_keeps_localizable_history_label_and_document_value() {
+    let mut session = Session::new();
+    let bytes = session.create_blank(100., 100., 1).unwrap();
+    let id = session.open("labels.pdf", None, bytes, None).unwrap();
+    session.apply(id, Edit::SetInfo { key: "Custom {field}".into(), value: "value".into() }).unwrap();
+    let checkpoint = session.craft_capture(json!({})).unwrap();
+    let mut restored = Session::new();
+    restored.craft_restore(&checkpoint).unwrap();
+    let label = restored.undo(id).unwrap();
+    assert_eq!(label.wording, "Change {key}");
+    assert_eq!(label.value.as_deref(), Some("Custom {field}"));
+    assert_eq!(label.said("Changed {key}"), "Changed Custom {field}");
+    assert_eq!(restored.redo(id).unwrap(), label);
+}

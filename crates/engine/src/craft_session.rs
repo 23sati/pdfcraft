@@ -15,7 +15,7 @@ impl Session {
                     s.iter()
                         .map(|(label, cos, keys, scope)| {
                             let i = codec::push(&mut blobs, write_incremental(cos, &SaveOptions::default()).map_err(|e| e.to_string())?)?;
-                            Ok(json!([label, i, keys, scope]))
+                            Ok(json!([{ "wording": label.wording, "value": label.value }, i, keys, scope]))
                         })
                         .collect()
                 };
@@ -60,7 +60,7 @@ impl Session {
                                 keys.reopen.as_deref(),
                             )
                             .map_err(|e| e.to_string())?;
-                            Ok((codec::decode(&h[0])?, cos, keys, codec::decode(&h[3])?))
+                            Ok((restore_label(&h[0])?, cos, keys, codec::decode(&h[3])?))
                         })
                         .collect()
                 };
@@ -98,4 +98,18 @@ impl Session {
         let (v, _) = crate::craft_codec::unpack(bytes)?;
         Ok(v["ui"].clone())
     }
+}
+
+fn restore_label(value: &Value) -> Result<Label, String> {
+    if let Some(text) = value.as_str() {
+        // Legacy checkpoints stored the complete English label.
+        return Ok(Label::with("{batch}", text));
+    }
+    let wording = value["wording"].as_str().ok_or("Missing history label")?;
+    let wording = EDIT_LABELS.iter().copied().chain(std::iter::once("{batch}")).find(|known| *known == wording).ok_or("Unknown history label")?;
+    let supplied: Option<String> = codec::decode(&value["value"])?;
+    Ok(match supplied {
+        Some(v) => Label::with(wording, v),
+        None => Label::of(wording),
+    })
 }
