@@ -1,15 +1,19 @@
 //! A visual editor for properties of reachable indirect structure tags.
 
+use std::collections::{BTreeSet, HashMap, HashSet};
+
 use egui::Ui;
+use pdfcraft_cos::ObjRef;
 use pdfcraft_engine::a11y::{TagInfo, TagProperty};
 use pdfcraft_engine::{DocId, Edit};
 
-use crate::{theme::Tokens, widgets};
+use crate::{icons, theme::Tokens, widgets};
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct State {
     doc: Option<DocId>,
-    selected: Option<pdfcraft_cos::ObjRef>,
+    selected: Option<ObjRef>,
+    collapsed: BTreeSet<ObjRef>,
     query: String,
     draft: Draft,
 }
@@ -62,6 +66,7 @@ pub(crate) fn panel(ui: &mut Ui, t: &Tokens, doc: DocId, tags: &[TagInfo], state
         state.selected = None;
         state.draft = Draft::default();
         state.query.clear();
+        state.collapsed.clear();
     }
     if tags.is_empty() {
         ui.label(tl!("This document has no editable structure tags."));
@@ -71,30 +76,50 @@ pub(crate) fn panel(ui: &mut Ui, t: &Tokens, doc: DocId, tags: &[TagInfo], state
         state.selected = Some(tags[0].object);
         state.draft = Draft::from_tag(&tags[0]);
     }
-    ui.add(egui::TextEdit::singleline(&mut state.query).hint_text(tl!("Find a tag")));
+    let search_label = ui.label(tl!("Find a tag"));
+    ui.add(egui::TextEdit::singleline(&mut state.query).hint_text(tl!("Find a tag"))).labelled_by(search_label.id);
     ui.add_space(4.0);
     let query = state.query.to_lowercase();
-    let matching: Vec<&TagInfo> = tags
-        .iter()
-        .filter(|tag| {
-            query.is_empty() || tag.kind.to_lowercase().contains(&query) || tag.title.as_ref().is_some_and(|v| v.to_lowercase().contains(&query))
-        })
-        .collect();
+    let matching = visible_tags(tags, &query, &state.collapsed);
+    let parents: HashSet<ObjRef> = tags.iter().filter_map(|tag| tag.parent).collect();
     let dirty = state.selected.and_then(|r| tags.iter().find(|t| t.object == r)).is_some_and(|tag| state.draft.edit(tag).is_some());
     ui.label(egui::RichText::new(crate::i18n::fmt(tl!("{n} tags"), &[("n", &matching.len().to_string())])).small().color(t.text_muted));
     let mut page = None;
-    egui::ScrollArea::vertical().max_height(120.0).show_rows(ui, 26.0, matching.len(), |ui, range| {
+    egui::ScrollArea::vertical().max_height(100.0).show_rows(ui, 26.0, matching.len(), |ui, range| {
         for tag in &matching[range] {
             let title = tag.title.as_deref().filter(|s| !s.is_empty()).unwrap_or(&tag.kind);
             let label = format!("{title} · {}", tag.object.num);
-            if ui
-                .add_enabled(!dirty || state.selected == Some(tag.object), egui::Button::selectable(state.selected == Some(tag.object), label))
-                .clicked()
-            {
-                state.selected = Some(tag.object);
-                state.draft = Draft::from_tag(tag);
-                page = tag.page;
-            }
+            ui.horizontal(|ui| {
+                ui.add_space((tag.depth.min(8) as f32) * 12.0);
+                if parents.contains(&tag.object) && query.is_empty() {
+                    let closed = state.collapsed.contains(&tag.object);
+                    if icons::button(
+                        ui,
+                        if closed { "chevron-right" } else { "chevron-down" },
+                        18.0,
+                        false,
+                        if closed { tl!("Expand tag") } else { tl!("Collapse tag") },
+                    )
+                    .clicked()
+                    {
+                        if closed {
+                            state.collapsed.remove(&tag.object);
+                        } else {
+                            state.collapsed.insert(tag.object);
+                        }
+                    }
+                } else {
+                    ui.add_space(18.0);
+                }
+                if ui
+                    .add_enabled(!dirty || state.selected == Some(tag.object), egui::Button::selectable(state.selected == Some(tag.object), label))
+                    .clicked()
+                {
+                    state.selected = Some(tag.object);
+                    state.draft = Draft::from_tag(tag);
+                    page = tag.page;
+                }
+            });
         }
     });
     ui.separator();
@@ -121,6 +146,34 @@ pub(crate) fn panel(ui: &mut Ui, t: &Tokens, doc: DocId, tags: &[TagInfo], state
         }
     });
     (page, if save { edit } else { None })
+}
+
+fn visible_tags<'a>(tags: &'a [TagInfo], query: &str, collapsed: &BTreeSet<ObjRef>) -> Vec<&'a TagInfo> {
+    if query.is_empty() {
+        let mut hidden_after: Option<usize> = None;
+        return tags
+            .iter()
+            .filter(|tag| {
+                if hidden_after.is_some_and(|level| tag.depth > level) {
+                    return false;
+                }
+                hidden_after = collapsed.contains(&tag.object).then_some(tag.depth);
+                true
+            })
+            .collect();
+    }
+    let by_object: HashMap<ObjRef, &TagInfo> = tags.iter().map(|tag| (tag.object, tag)).collect();
+    let mut show = HashSet::new();
+    for tag in
+        tags.iter().filter(|tag| tag.kind.to_lowercase().contains(query) || tag.title.as_ref().is_some_and(|v| v.to_lowercase().contains(query)))
+    {
+        let mut next = Some(tag.object);
+        for _ in 0..=256 {
+            let Some(object) = next.filter(|o| show.insert(*o)) else { break };
+            next = by_object.get(&object).and_then(|t| t.parent);
+        }
+    }
+    tags.iter().filter(|tag| show.contains(&tag.object)).collect()
 }
 
 fn field(ui: &mut Ui, label: &str, value: &mut String, multiline: bool) {

@@ -8831,7 +8831,7 @@ status = "partial"
 commands = ["a11y.tags"]
 tools = ["accessibility_tags"]
 evidence = ["crates/ui-egui/tests/accessibility.rs::tags_panel_edits_a_tag_property_and_undoes_it"]
-notes = "The right-side Tags panel lists reachable indirect tags, filters by type or title, navigates to their page and edits properties. Hierarchy, inline tags, adding/deleting tags, artifact marking and finding content remain planned in #982."
+notes = "The right-side Tags panel lists reachable indirect tags as a collapsible hierarchy, filters by type or title with ancestors, navigates to their page and edits properties. Inline tags, adding/deleting tags, artifact marking and finding content remain planned in #982."
 
 [[feature]]
 id = "a11y.tag-properties"

@@ -150,6 +150,11 @@ fn tags_panel_edits_a_tag_property_and_undoes_it() {
     assert!(h.state_mut().execute("a11y.tags"));
     h.run_steps(2);
     assert_eq!(h.state().right, Some(RightPanel::Tags));
+    h.get_by_label("Collapse tag").click();
+    h.run_steps(2);
+    assert!(h.query_by_label("Figure · 7").is_none());
+    h.get_by_label("Expand tag").click();
+    h.run_steps(2);
     h.get_by_label("Figure · 7").click();
     h.run_steps(2);
     let title = h.get_by_role_and_label(Role::TextInput, "Title");
@@ -162,4 +167,11 @@ fn tags_panel_edits_a_tag_property_and_undoes_it() {
     let doc = s.session.get(s.views[0].id).unwrap();
     assert_eq!(doc.tags()[1].title.as_deref(), Some("First figure"));
     assert_eq!(doc.can_undo(), Some("Change tag properties"));
+    let search = h.get_by_role_and_label(Role::TextInput, "Find a tag");
+    search.focus();
+    search.type_text("Photo");
+    h.run_steps(2);
+    h.get_by_label("Document · 6");
+    h.get_by_label("Photo · 8");
+    assert!(h.query_by_label("First figure · 7").is_none());
 }
