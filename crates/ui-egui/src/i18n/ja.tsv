@@ -110,12 +110,18 @@
 	Open a PDF ({key})	PDF を開く（{key}）
 	Dark gray theme	ダークグレーのテーマ
 	Light theme	ライトテーマ
+	Appearance mode	外観モード
+	Light	ライト
+	Dark	ダーク
+	Active	使用中
+	Dark theme	ダークテーマ
+	Appearance settings…	外観の設定…
 	All tools	すべてのツール
 	Read	閲覧
 	Convert	変換
 	E-Sign	電子署名
 	Print ({key})	印刷（{key}）
-	Save (M4)	保存（M4）
+	Save ({key})	保存（{key}）
 	Document properties ({key})	文書のプロパティ（{key}）
 	Find tools and commands	ツールとコマンドを検索
 	Fit to height	高さに合わせる
@@ -850,6 +856,10 @@
 	The signature will be invisible.	署名は非表示になります。
 	Distinguished name	識別名
 	Labels	ラベル
+	Graphic	グラフィック
+	Signer's name	署名者名
+	Fill & Sign signature	入力と署名の署名
+	Choose image…	画像を選択…
 	Permitted actions after certifying	証明後に許可する操作
 	No changes allowed	変更を許可しない
 	Annotations, form fill-in, and digital signatures	注釈、フォーム入力、デジタル署名
@@ -1716,6 +1726,7 @@
 	This document isn't password-protected	この文書はパスワード保護されていません
 	Only the document's owner can change its security (open it with the permissions password)	文書の所有者のみセキュリティを変更できます（権限パスワードで開いてください）
 	The document's security settings don't allow this change	文書のセキュリティ設定により、この変更は許可されていません
+	The document's security settings don't allow copying text and images	文書のセキュリティ設定により、テキストと画像のコピーは許可されていません
 	Open a document first	先に文書を開いてください
 	Security will be removed when you save	セキュリティは保存時に解除されます
 	Click text or an image to edit it	テキストまたは画像をクリックして編集
@@ -2208,3 +2219,14 @@ key	Space	スペース
 	PDF scale: {scale}%	PDFの倍率: {scale}%
 	Printer paper and scaling may differ. Check driver settings.	プリンターの用紙や倍率は異なる場合があります。ドライバーの設定を確認してください。
 	Drawing scale changes. Use Actual size for full-scale plans.	図面の縮尺が変わります。原寸で印刷するには「実際のサイズ」を使用してください。
+	Select page {label}	ページ {label} を選択
+	Rotate page {label} counterclockwise	ページ {label} を反時計回りに回転
+	Rotate page {label} clockwise	ページ {label} を時計回りに回転
+	Delete page {label}	ページ {label} を削除
+	Mouse wheel scroll speed	マウスホイールのスクロール速度
+scroll speed	Slow	遅い
+scroll speed	Normal	標準
+scroll speed	Fast	速い
+	Enhance camera image	カメラ画像を補正
+	Drag the corners onto the document's edges, then choose Enhance page.	四隅を文書の端までドラッグしてから、「ページを補正」を選択します。
+	Enhance page	ページを補正
