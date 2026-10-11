@@ -2258,3 +2258,16 @@ certificate	Subject	Subjekt
 	CRL Signing	Podepisování CRL
 	Encipher Only	Pouze šifrování
 	Decipher Only	Pouze dešifrování
+
+# Form action, print, panel layout, rendering, text tooltips and OCR language messages.
+	Done adding text	Dokončit přidávání textu
+	Discard this text (Esc)	Zahodit tento text (Esc)
+	Enter a page number	Zadejte číslo stránky
+	Enter a URL	Zadejte adresu URL
+	Enter the field names	Zadejte názvy polí
+	Cut and stack needs Two-sided: Off. Print single-sided sheets.	Rozřezat a stohovat vyžaduje nastavení Oboustranně: Vypnuto. Tiskněte jednostranné listy.
+	Panel layout could not be restored: {error}	Rozložení panelů nelze obnovit: {error}
+	Panel move was not applied: {error}	Přesun panelu se neprovedl: {error}
+	Rendering…	Vykreslování…
+	Still rendering — this page is unusually complex…	Stále se vykresluje – tato stránka je neobvykle složitá…
+	English	Angličtina
