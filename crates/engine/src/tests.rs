@@ -578,6 +578,21 @@ fn files_that_cannot_be_converted_are_refused_clearly() {
     assert_eq!(err, EditError::Source("locked.pdf: it is password-protected".into()));
 }
 
+/// Combine files (#569): images and text become PDFs; PDFs pass through unread, even protected
+/// ones (Combine asks for their password) and ones named .pdf without a header.
+#[test]
+fn files_for_combine_are_made_into_pdfs_and_pdfs_pass_through() {
+    let s = Session::new();
+    let locked = protected("pw", "o", -1);
+    assert!(Arc::ptr_eq(&s.as_pdf("locked.pdf", &locked).unwrap(), &locked));
+    let headless = Arc::new(b"1 0 obj << >> endobj".to_vec());
+    assert!(Arc::ptr_eq(&s.as_pdf("old.PDF", &headless).unwrap(), &headless));
+    assert!(s.as_pdf("scan.jpg", &Arc::new(jpeg_bytes())).unwrap().starts_with(b"%PDF-"));
+    assert!(s.as_pdf("notes.txt", &Arc::new(b"hello".to_vec())).unwrap().starts_with(b"%PDF-"));
+    let err = s.as_pdf("report.docx", &Arc::new(b"PK\x03\x04".to_vec())).unwrap_err();
+    assert!(matches!(err, EditError::Source(m) if m.starts_with("report.docx: this file type can't be converted")));
+}
+
 fn protected(user: &str, owner: &str, permissions: i32) -> Arc<Vec<u8>> {
     let mut doc = pdfcraft_cos::Document::open(Arc::new(fixture(2))).unwrap();
     doc.set_encryption(&pdfcraft_cos::NewEncryption {
