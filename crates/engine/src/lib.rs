@@ -2803,6 +2803,18 @@ impl Session {
         Ok((kind, created?))
     }
 
+    /// A file for Combine as PDF bytes: an image or text file is converted; a PDF is returned as
+    /// it is, unchecked (Combine reads it itself, with its password), as is a file named .pdf
+    /// without a `%PDF-` header, which the reader may still open.
+    pub fn as_pdf(&self, name: &str, bytes: &Arc<Vec<u8>>) -> Result<Arc<Vec<u8>>, EditError> {
+        let pdf = match source_kind(name, bytes) {
+            Some(SourceKind::Pdf) => true,
+            Some(SourceKind::Image | SourceKind::Text) => false,
+            None => name.to_ascii_lowercase().ends_with(".pdf"),
+        };
+        if pdf { Ok(bytes.clone()) } else { self.convert_to_pdf(name, bytes).map(|(_, pdf)| pdf) }
+    }
+
     /// Reduce File Size: Acrobat's defaults (images above 225 ppi to 150 ppi, JPEG medium
     /// quality; thumbnails dropped), identical resources merged, unused objects dropped, objects
     /// packed into compressed object streams. Returns the bytes and how many objects were
