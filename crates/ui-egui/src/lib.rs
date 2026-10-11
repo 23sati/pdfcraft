@@ -458,6 +458,8 @@ pub struct PdfCraftApp {
     /// Resolved colours, including the current OS theme when following the system.
     pub theme: ThemeKind,
     pub theme_preference: ThemePreference,
+    /// Darken PDF page paints in the page view only; the document and rendered exports stay as saved.
+    pub dark_page: bool,
     /// The Linux portal is enabled only by the native host, and starts on the first System choice.
     #[cfg(target_os = "linux")]
     desktop_theme: Option<pdfcraft_platform::desktop_theme::DesktopTheme>,
@@ -781,6 +783,7 @@ impl PdfCraftApp {
             comment_prefs: Default::default(),
             theme: ThemeKind::Light,
             theme_preference: ThemePreference::Light,
+            dark_page: false,
             #[cfg(target_os = "linux")]
             desktop_theme: None,
             #[cfg(target_os = "linux")]
@@ -1440,6 +1443,20 @@ impl PdfCraftApp {
         self.desktop_theme_enabled = true;
     }
 
+    /// Toggle the screen-only page appearance and discard rasters from the previous mode.
+    pub fn set_dark_page(&mut self, dark_page: bool) {
+        if self.dark_page == dark_page {
+            return;
+        }
+        self.dark_page = dark_page;
+        for view in &mut self.views {
+            view.set_dark_page(dark_page);
+        }
+        if let Some(ctx) = &self.ctx {
+            ctx.request_repaint();
+        }
+    }
+
     /// Draw the running job's progress card and pass a Cancel click on to the job.
     fn show_progress(&mut self, ctx: &egui::Context) {
         if widgets::progress_notice(self, ctx) {
@@ -1620,6 +1637,7 @@ impl PdfCraftApp {
             "reload_changed_files": self.reload_changed_files,
             "pinned_folders": self.pinned.folders,
             "theme": self.theme_preference,
+            "dark_page": self.dark_page,
             "scroll_speed": self.scroll_speed,
             "default_mode": self.default_mode,
             "default_layout": canvas::display_token(self.view_defaults.layout, self.view_defaults.continuous),
@@ -1702,6 +1720,9 @@ impl PdfCraftApp {
         self.pinned.restore(&v["pinned_folders"]);
         if let Ok(preference) = serde_json::from_value::<ThemePreference>(v["theme"].clone()) {
             self.set_theme_preference(preference);
+        }
+        if let Some(dark_page) = v["dark_page"].as_bool() {
+            self.set_dark_page(dark_page);
         }
         if let Ok(speed) = serde_json::from_value::<scroll_speed::ScrollSpeed>(v["scroll_speed"].clone()) {
             self.scroll_speed = speed;
@@ -1828,6 +1849,14 @@ impl PdfCraftApp {
                     _ => return Err("theme must be light, dark, or system".into()),
                 };
                 self.set_theme_preference(preference);
+            }
+            ("dark-page", _) => {
+                let dark_page = match value {
+                    "on" => true,
+                    "off" => false,
+                    _ => return Err("dark-page must be on or off".into()),
+                };
+                self.set_dark_page(dark_page);
             }
             ("scroll_speed", _) => {
                 self.scroll_speed = scroll_speed::ScrollSpeed::parse(value).ok_or("scroll_speed must be slow, normal, or fast")?;

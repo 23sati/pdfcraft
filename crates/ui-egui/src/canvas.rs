@@ -288,6 +288,8 @@ pub struct RasterMemory {
 
 pub struct DocView {
     pub id: DocId,
+    /// Screen-only dark page appearance. Print previews and independent renderers stay original.
+    pub(crate) dark_page: bool,
     pub zoom: f32,
     pub fit: Fit,
     pub layout: PageLayout,
@@ -518,6 +520,25 @@ impl DocView {
         }
     }
 
+    /// Change page appearance and drop rasters from the old mode. Request equality also rejects
+    /// old in-flight results after `last_queue` is cleared.
+    pub(crate) fn set_dark_page(&mut self, dark_page: bool) -> bool {
+        if self.dark_page == dark_page {
+            return false;
+        }
+        self.dark_page = dark_page;
+        self.pages.clear();
+        self.tiles.clear();
+        self.thumbs.clear();
+        self.grid_pages.clear();
+        self.stale_thumbs.clear();
+        self.waiting_since.clear();
+        self.frame_queue.clear();
+        self.last_queue.clear();
+        self.signature_drag = Default::default();
+        true
+    }
+
     /// Where `page` is drawn on screen this frame (`None` when it is not on screen).
     pub fn page_screen_rect(&self, page: usize) -> Option<Rect> {
         self.screen_xforms.iter().find(|(p, _)| *p == page).map(|(_, xf)| xf.rect)
@@ -550,6 +571,7 @@ impl DocView {
     pub fn new(id: DocId, info: &DocInfo, defaults: ViewDefaults) -> Self {
         Self {
             id,
+            dark_page: false,
             zoom: defaults.zoom,
             fit: defaults.fit,
             layout: defaults.layout,
@@ -1316,7 +1338,14 @@ impl DocView {
             .filter_map(|(page, _)| {
                 let p = info.pages.get(page)?;
                 let scale = thumbnail_scale(p.width, p.height, density);
-                Some(RenderRequest { page, kind: RequestKind::Pixels, tile: None, scale, tag: THUMB_TAG | u64::from(scale.to_bits()) })
+                Some(RenderRequest {
+                    page,
+                    kind: RequestKind::Pixels,
+                    tile: None,
+                    scale,
+                    tag: THUMB_TAG | u64::from(scale.to_bits()),
+                    dark_page: self.dark_page,
+                })
             })
             .collect()
     }
@@ -1670,7 +1699,7 @@ impl DocView {
             let tag = scale_tag(scale) | PRINT_TAG;
             let fresh = self.print_pages.get(&page).is_some_and(|(have, _)| *have == tag);
             if !fresh {
-                self.frame_queue.push(RenderRequest { page, kind: RequestKind::Pixels, tile: None, scale, tag });
+                self.frame_queue.push(RenderRequest { page, kind: RequestKind::Pixels, tile: None, scale, tag, dark_page: false });
             }
         }
     }
@@ -1934,6 +1963,8 @@ const KEY_SCROLL_LINE: f32 = 40.0;
 
 pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
+    let dark_page = app.dark_page;
+    app.views[index].set_dark_page(dark_page);
     // Keyboard scrolling applies to this frame's page view only, never later.
     let key_scroll = std::mem::take(&mut app.views[index].key_scroll);
     // The Search panel closed: its search moves to the find bar.
@@ -2565,7 +2596,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
 
             let preview_target =
                 (matches!(tool, QuickTool::Select | QuickTool::Fill(_)) && !comments_hidden).then_some(view.comments.selected).flatten();
-            view.signature_drag.prepare(ui.ctx(), doc, preview_target, scale);
+            view.signature_drag.prepare(ui.ctx(), doc, preview_target, scale, view.dark_page);
             view.signature_drag.paint(painter, &pcx, &view.comments, view.pending_edit.as_ref());
 
             // Text layer: find matches, selection, I-beam and drag-to-select.
@@ -2916,8 +2947,10 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
             view.tiles.remove(&k);
         }
     }
-    let mut queue: Vec<RenderRequest> =
-        wanted.iter().map(|&(page, scale, tag, tile)| RenderRequest { page, kind: RequestKind::Pixels, tile, scale, tag }).collect();
+    let mut queue: Vec<RenderRequest> = wanted
+        .iter()
+        .map(|&(page, scale, tag, tile)| RenderRequest { page, kind: RequestKind::Pixels, tile, scale, tag, dark_page: view.dark_page })
+        .collect();
     // Text layers: visible pages for selection, every page while a search is active.
     let need_text = |p: &usize| !view.texts.contains_key(p) && !view.text_failed.contains(p);
     let mut text_pages: Vec<usize> = if hand { Vec::new() } else { visible_now.iter().copied().filter(need_text).collect() };
@@ -2926,7 +2959,14 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         let rest: Vec<usize> = (0..n).map(|k| (cur + k) % n).filter(need_text).filter(|p| !text_pages.contains(p)).collect();
         text_pages.extend(rest);
     }
-    queue.extend(text_pages.into_iter().map(|page| RenderRequest { page, kind: RequestKind::Text, tile: None, scale: 1.0, tag: TEXT_TAG }));
+    queue.extend(text_pages.into_iter().map(|page| RenderRequest {
+        page,
+        kind: RequestKind::Text,
+        tile: None,
+        scale: 1.0,
+        tag: TEXT_TAG,
+        dark_page: false,
+    }));
     view.frame_queue = queue;
     view.frame_visible = visible_now.iter().copied().collect();
 
@@ -3858,7 +3898,14 @@ fn organize_grid(view: &mut DocView, info: &DocInfo, editable: bool, dirty: bool
                 if !thumb_ok && ui.is_rect_visible(c) {
                     in_view.push((i, want));
                     if !sharp.is_some_and(|(w, _)| sharp_enough(*w, want)) && !view.errors.contains_key(&i) {
-                        sharper.push(RenderRequest { page: i, kind: RequestKind::Pixels, tile: None, scale: want / p.width.max(1.0), tag: GRID_TAG });
+                        sharper.push(RenderRequest {
+                            page: i,
+                            kind: RequestKind::Pixels,
+                            tile: None,
+                            scale: want / p.width.max(1.0),
+                            tag: GRID_TAG,
+                            dark_page: view.dark_page,
+                        });
                     }
                 }
                 if let Some(tex) = sharp.map(|(_, t)| t).or(thumb) {
@@ -4075,7 +4122,7 @@ endstream endobj
 trailer << /Root 1 0 R >>
 %%EOF";
         let mut r = pdfcraft_render::PageRenderer::new(Arc::new(pdf.to_vec()), Default::default());
-        let out = r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 1.5, tag: 0 });
+        let out = r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 1.5, tag: 0, dark_page: false });
         assert!(out.error.is_none(), "{:?}", out.error);
         let size = [out.width as usize, out.height as usize];
         let copied = egui::ColorImage::from_rgba_premultiplied(size, &out.rgba);
@@ -4512,13 +4559,13 @@ trailer << /Root 1 0 R >>
         let generation = doc.edit_generation();
         let mut v = DocView::new(id, &doc.info, ViewDefaults::default());
         v.comments.selected = Some((0, 0));
-        v.signature_drag.prepare(&ctx, doc, v.comments.selected, 1.0);
+        v.signature_drag.prepare(&ctx, doc, v.comments.selected, 1.0, false);
         assert!(v.signature_drag.contains(0, 0));
 
         v.suspend_rendering(&doc.renderer);
         assert!(!v.signature_drag.contains(0, 0), "inactive tabs release the preview pool and textures");
         assert_eq!(v.comments.selected, Some((0, 0)), "the user's selection survives suspension");
-        v.signature_drag.prepare(&ctx, doc, v.comments.selected, 1.0);
+        v.signature_drag.prepare(&ctx, doc, v.comments.selected, 1.0, false);
         assert!(v.signature_drag.contains(0, 0), "reactivating the view rebuilds the selected image's preview");
         assert!(Arc::ptr_eq(&bytes, &doc.bytes));
         assert_eq!(doc.edit_generation(), generation);
@@ -4556,6 +4603,28 @@ trailer << /Root 1 0 R >>
         assert!(view.waiting_since.is_empty(), "waiting bookkeeping is cleared");
         assert!(view.last_queue.is_empty() && !view.render_pending(), "queued demand is retired");
         assert!(view.frame_queue.is_empty() && view.frame_visible.is_empty() && view.thumb_demand.is_empty());
+    }
+
+    #[test]
+    fn dark_page_change_invalidates_screen_rasters_but_keeps_print_preview() {
+        let ctx = egui::Context::default();
+        let mut view = view(2, PageLayout::Single, true);
+        let texture = |name| ctx.load_texture(name, egui::ColorImage::filled([1, 1], Color32::WHITE), TextureOptions::LINEAR);
+        let request = RenderRequest { page: 0, scale: 1.0, tag: 1, ..Default::default() };
+        view.pages.insert(0, PageTex { tag: request.tag, tex: texture("dark-page-page") });
+        view.thumbs.insert(1, PageTex { tag: THUMB_TAG, tex: texture("dark-page-thumbnail") });
+        view.tiles.insert((0, request.tag, 0, 0), texture("dark-page-tile"));
+        view.grid_pages.insert(1, (1, texture("dark-page-grid")));
+        view.print_pages.insert(1, (PRINT_TAG, texture("dark-page-print")));
+        view.last_queue = vec![request];
+        view.frame_queue = vec![request];
+        view.waiting_since.insert(0, 1.0);
+
+        assert!(view.set_dark_page(true));
+        assert!(!view.set_dark_page(true), "setting the current mode is a no-op");
+        assert!(view.pages.is_empty() && view.thumbs.is_empty() && view.tiles.is_empty() && view.grid_pages.is_empty());
+        assert!(view.last_queue.is_empty() && view.frame_queue.is_empty() && view.waiting_since.is_empty());
+        assert_eq!(view.print_pages.len(), 1, "print preview remains in the original PDF appearance");
     }
 
     #[test]

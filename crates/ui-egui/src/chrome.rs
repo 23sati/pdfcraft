@@ -450,8 +450,13 @@ fn main_menu(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                 if let Some(id) = page_display_menu(ui, &app.views[i]) {
                     app.execute(id);
                 }
-                ui.separator();
             }
+            ui.separator();
+            let mut dark_page = app.dark_page;
+            if ui.checkbox(&mut dark_page, tl!("Dark page")).changed() {
+                app.execute("view.dark_page");
+            }
+            ui.separator();
             crate::commands::registry_menu(app, ui, "View");
             ui.menu_button(tl!("Display theme"), |ui| theme_menu(app, ui));
             ui.menu_button(tl!("Side panels"), |ui| {

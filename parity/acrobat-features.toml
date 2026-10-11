@@ -1614,6 +1614,18 @@ evidence = []
 notes = ""
 
 [[feature]]
+id = "view.dark-page"
+title = "Dark page display"
+area = "B"
+tier = "P1"
+milestone = "M3"
+status = "shipped"
+commands = ["view.dark_page"]
+tools = ["page_render"]
+evidence = ["crates/render/src/raster.rs::dark_page_recolors_vector_text_and_paper_but_keeps_images_unchanged", "crates/ui-egui/src/canvas.rs::dark_page_change_invalidates_screen_rasters_but_keeps_print_preview", "crates/ui-egui/tests/ui_group/theme.rs::dark_page_is_toggled_from_the_view_menu_without_changing_the_ui_theme", "crates/ui-egui/tests/ui_group/theme.rs::dark_page_is_saved_as_an_independent_display_preference", "crates/ui-egui/tests/commands.rs::shortcuts_run_registered_commands", "crates/automation/tests/automation.rs::dark_page_render_is_a_screen_only_preview_option"]
+notes = "The View menu preference is independent of the application theme and is saved. ⇧⌘D (Ctrl+Shift+D elsewhere) toggles it. Paper uses #333333; vector and text paints use the WordCraft-style HSL lightness mapping while embedded raster images remain unchanged. The headless page_render tool accepts dark_page=true for a non-mutating preview; export defaults remain original."
+
+[[feature]]
 id = "view.theme-light-dark"
 title = "Light and dark themes"
 area = "B"

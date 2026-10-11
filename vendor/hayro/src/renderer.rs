@@ -379,6 +379,8 @@ fn may_paint_canvas(
 
 pub(crate) struct Renderer {
     pub(crate) ctx: RenderContext,
+    /// Whether document paints should use the screen-only dark page transform.
+    pub(crate) dark_page: bool,
     pub(crate) inside_pattern: bool,
     pub(crate) soft_mask_cache: HashMap<u128, Mask>,
     pub(crate) outline_cache: Rc<std::cell::RefCell<HashMap<u128, Rc<BezPath>>>>,
@@ -402,9 +404,11 @@ impl Renderer {
         height: u16,
         settings: RenderSettings,
         cache: &RenderCache<'_>,
+        dark_page: bool,
     ) -> Self {
         Self {
             ctx: RenderContext::new_with(width, height, settings),
+            dark_page,
             inside_pattern: false,
             soft_mask_cache: HashMap::default(),
             outline_cache: cache.outline_cache.clone(),
@@ -504,6 +508,7 @@ impl Renderer {
                 outline_cache: self.outline_cache.clone(),
                 cur_mask: None,
                 in_type3_glyph: false,
+                dark_page: false,
                 scaler: self.scaler,
                 image_transparency_stack: Vec::new(),
             };
@@ -934,7 +939,10 @@ impl Renderer {
 
         let paint: PaintType = match paint.clone() {
             Paint::Color(c) => {
-                let c = c.to_rgba().to_rgba8();
+                let mut c = c.to_rgba().to_rgba8();
+                if self.dark_page {
+                    c = dark_page_color([c[0], c[1], c[2], c[3]]);
+                }
                 AlphaColor::from_rgba8(c[0], c[1], c[2], c[3]).into()
             }
             Paint::Pattern(p) => {
@@ -972,12 +980,12 @@ impl Renderer {
                         {
                             self.ctx
                                 .set_paint_transform(path_transform.inverse() * native.transform);
-                            self.ctx.set_paint(native_gradient(native));
+                            self.ctx.set_paint(native_gradient(native, self.dark_page));
                             return clip_path;
                         }
 
                         let (image, width, height, transform, may_have_transparency) =
-                            render_shading_texture(bbox, &encoded);
+                            render_shading_texture(bbox, &encoded, self.dark_page);
                         let may_have_transparency =
                             may_have_transparency || self.force_images_may_have_transparency();
                         paint_transform = path_transform.inverse() * transform;
@@ -1043,6 +1051,7 @@ impl Renderer {
                             soft_mask_cache: HashMap::default(),
                             outline_cache: self.outline_cache.clone(),
                             in_type3_glyph: false,
+                            dark_page: self.dark_page,
                             scaler: self.scaler,
                             image_transparency_stack: Vec::new(),
                         };
@@ -1242,6 +1251,11 @@ impl<'a> Device<'a> for Renderer {
                         match paint {
                             Paint::Color(c) => {
                                 let color = c.to_rgba().to_rgba8();
+                                let color = if self.dark_page {
+                                    dark_page_color([color[0], color[1], color[2], color[3]])
+                                } else {
+                                    color
+                                };
                                 let (rgb_bytes, alpha) = (
                                     stencil
                                         .data
@@ -1314,6 +1328,7 @@ impl<'a> Device<'a> for Renderer {
                                         outline_cache: self.outline_cache.clone(),
                                         cur_mask: None,
                                         in_type3_glyph: false,
+                                        dark_page: false,
                                         scaler: self.scaler,
                                         image_transparency_stack: Vec::new(),
                                     };
@@ -1512,12 +1527,65 @@ impl<'a> Device<'a> for Renderer {
     }
 }
 
+/// Map a document color's HSL lightness so black becomes white and white becomes the paper grey.
+/// The page backdrop itself is supplied separately as `#333333`; the transform is screen-only.
+fn dark_page_color(rgba: [u8; 4]) -> [u8; 4] {
+    let mapped = dark_page_color_f32([
+        f32::from(rgba[0]) / 255.0,
+        f32::from(rgba[1]) / 255.0,
+        f32::from(rgba[2]) / 255.0,
+        f32::from(rgba[3]) / 255.0,
+    ]);
+    mapped.map(|v| (v * 255.0).round().clamp(0.0, 255.0) as u8)
+}
+
+/// HSL lightness inversion with an 80% lift, retaining hue, saturation and alpha.
+fn dark_page_color_f32(rgba: [f32; 4]) -> [f32; 4] {
+    let channel = |value: f32| if value.is_finite() { value.clamp(0.0, 1.0) } else { 0.0 };
+    let (r, g, b, a) = (channel(rgba[0]), channel(rgba[1]), channel(rgba[2]), channel(rgba[3]));
+    let max = r.max(g).max(b);
+    let min = r.min(g).min(b);
+    let delta = max - min;
+    let lightness = (max + min) * 0.5;
+    let saturation = if delta == 0.0 { 0.0 } else { delta / (1.0 - (2.0 * lightness - 1.0).abs()) };
+    let hue = if delta == 0.0 {
+        0.0
+    } else if max == r {
+        60.0 * ((g - b) / delta).rem_euclid(6.0)
+    } else if max == g {
+        60.0 * ((b - r) / delta + 2.0)
+    } else {
+        60.0 * ((r - g) / delta + 4.0)
+    };
+
+    // Inverting L makes black white and white black. Lifting by 20% maps the latter to #333.
+    let lightness = 0.2 + 0.8 * (1.0 - lightness);
+    let chroma = (1.0 - (2.0 * lightness - 1.0).abs()) * saturation;
+    let sector = hue / 60.0;
+    let second = chroma * (1.0 - (sector.rem_euclid(2.0) - 1.0).abs());
+    let (r, g, b) = if sector < 1.0 {
+        (chroma, second, 0.0)
+    } else if sector < 2.0 {
+        (second, chroma, 0.0)
+    } else if sector < 3.0 {
+        (0.0, chroma, second)
+    } else if sector < 4.0 {
+        (0.0, second, chroma)
+    } else if sector < 5.0 {
+        (second, 0.0, chroma)
+    } else {
+        (chroma, 0.0, second)
+    };
+    let offset = lightness - chroma * 0.5;
+    [r + offset, g + offset, b + offset, a]
+}
+
 /// PdfCraft patch (backport of hayro 0.8): largest per-channel error allowed when approximating
 /// a shading function by gradient stops.
 const NATIVE_GRADIENT_TOLERANCE: f32 = 0.01;
 
 /// PdfCraft patch (backport of hayro 0.8): a `vello_cpu` gradient for an approximated shading.
-fn native_gradient(native: hayro_interpret::gradient::SvgGradient) -> PaintType {
+fn native_gradient(native: hayro_interpret::gradient::SvgGradient, dark_page: bool) -> PaintType {
     use hayro_interpret::gradient::SvgGradientKind;
 
     let stops = native
@@ -1525,7 +1593,11 @@ fn native_gradient(native: hayro_interpret::gradient::SvgGradient) -> PaintType 
         .iter()
         .map(|stop| ColorStop {
             offset: stop.offset,
-            color: DynamicColor::from_alpha_color(AlphaColor::<Srgb>::new(stop.color)),
+            color: DynamicColor::from_alpha_color(AlphaColor::<Srgb>::new(if dark_page {
+                dark_page_color_f32(stop.color)
+            } else {
+                stop.color
+            })),
         })
         .collect::<Vec<_>>();
 
@@ -1547,6 +1619,7 @@ fn native_gradient(native: hayro_interpret::gradient::SvgGradient) -> PaintType 
 fn render_shading_texture(
     path_bbox: Rect,
     shading_pattern: &EncodedShadingPattern,
+    dark_page: bool,
 ) -> (Vec<PremulRgba8>, u32, u32, Affine, bool) {
     let base_width = (path_bbox.width() as f32).max(1.0);
     let base_height = (path_bbox.height() as f32).max(1.0);
@@ -1567,6 +1640,11 @@ fn render_shading_texture(
 
         for pixel in row {
             let sample = shading_pattern.sample(point);
+            let sample = if dark_page {
+                dark_page_color_f32(sample)
+            } else {
+                sample
+            };
             *pixel = AlphaColor::<Srgb>::new(sample).premultiply().to_rgba8();
             may_have_transparency |= pixel.a != 255;
 
@@ -1593,6 +1671,7 @@ fn draw_soft_mask(mask: &SoftMask<'_>, settings: RenderSettings, width: u16, hei
         soft_mask_cache: HashMap::default(),
         outline_cache: Rc::new(std::cell::RefCell::new(HashMap::new())),
         in_type3_glyph: false,
+        dark_page: false,
         scaler: Scaler::new(ResamplingFunction::CatmullRom),
         image_transparency_stack: Vec::new(),
     };

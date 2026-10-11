@@ -102,6 +102,9 @@ pub struct RenderSettings {
     /// The background color. Determines the color of the base
     /// rectangle during rendering to a pixmap.
     pub bg_color: AlphaColor<Srgb>,
+    /// Apply the screen-only dark page color transform to vector and text paints. Images remain
+    /// unchanged. The caller supplies the desired page background through `bg_color`.
+    pub dark_page: bool,
     /// PdfCraft patch: top-left corner of the rendered region, in device pixels of the scaled
     /// page. Together with `width`/`height` this renders one tile of a large page.
     pub x_offset: f32,
@@ -117,6 +120,7 @@ impl Default for RenderSettings {
             width: None,
             height: None,
             bg_color: TRANSPARENT,
+            dark_page: false,
             x_offset: 0.0,
             y_offset: 0.0,
         }
@@ -194,7 +198,7 @@ pub fn render_into<'a>(
         render_mode: RenderMode::OptimizeSpeed,
     };
 
-    let mut device = Renderer::new(pix_width, pix_height, vc_settings, cache);
+    let mut device = Renderer::new(pix_width, pix_height, vc_settings, cache, render_settings.dark_page);
 
     device.ctx.set_paint(render_settings.bg_color);
     device

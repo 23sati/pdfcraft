@@ -2,7 +2,7 @@
 
 **Stage: alpha** · next: beta, ~26% (ready for real work 49% → 75%) and ~400–700 h away
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (architectural paper controls from #599; localized shortcut labels, #496; readiness table with hours per audience; full number as weighted sum 49%; earlier: second look: ready 40% → 47%, mainstream 55% added; core-workflow gate applied → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** minor (M3: dark page display; parity recalculated from the current checklist: 57.4% unweighted, ≈68% tier-weighted; estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** M14 #307 Plan 3 uses one marker traversal on open and full refresh, and the combined scanner borrows metadata instead of cloning scan-only containers; includes a behavior-preserving `organize` binding for the workspace Clippy gate · earlier: minor (localized shortcut labels, #496; readiness table with hours per audience; full number as weighted sum 49%; second look: ready 40% → 47%, mainstream 55% added; core-workflow gate applied → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (closed issues synced: #774, #756 and the #799–#821 batch; earlier: localized shortcut labels, #496; readiness table with hours per audience; full number as weighted sum 49%; earlier: second look: ready 40% → 47%, mainstream 55% added; core-workflow gate applied → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
@@ -31,8 +31,8 @@ and add a line to the [progress log](#progress-log); when a gap closes, remove i
 
 | | Value | Kind |
 |---|---|---|
-| **Feature breadth** | **≈ 67%** tier-weighted (56.9% unweighted: 423 shipped + 74 partial of 808; P0 94.2%) | measured, `parity/acrobat-features.toml` |
-| Feature breadth, mainstream practitioner | ≈ 70% tier-weighted (63.2% unweighted; P0 95.3%) | measured ([split](docs/target-app-parity.md#mainstream-practitioner-vs-full-acrobat-pro)) |
+| **Feature breadth** | **≈ 68%** tier-weighted (57.4% unweighted: 427 shipped + 80 partial of 813; P0 94.2%) | measured, `parity/acrobat-features.toml` |
+| Feature breadth, mainstream practitioner | ≈ 70% tier-weighted (63.6% unweighted; P0 95.3%) | measured ([split](docs/target-app-parity.md#mainstream-practitioner-vs-full-acrobat-pro)) |
 | **Ready for real work**, full Acrobat Pro | **≈ 49%** (45–53%) | estimated, weighted sum over [dimensions](#by-dimension) |
 | **Ready for real work**, mainstream practitioner | **≈ 55%** (50–60%) | estimated ([split](docs/target-app-parity.md#mainstream-practitioner-vs-full-acrobat-pro)) |
 | **Ready for real work**, essentials user | **≈ 66%** (60–70%) | estimated ([method](docs/target-app-parity.md#essentials-user)) |
@@ -60,7 +60,7 @@ Hours are calibrated as in [Effort and calibration](docs/target-app-parity.md#ef
 
 | Dimension | Ready | Weight | Remaining (h) | Doc |
 |---|---|---|---|---|
-| Features (14 areas) | ≈ 49% depth · 67% breadth | 40% | 610–1,100 | [target-app-parity.md](docs/target-app-parity.md#by-feature-area) |
+| Features (14 areas) | ≈ 49% depth · 68% breadth | 40% | 610–1,100 | [target-app-parity.md](docs/target-app-parity.md#by-feature-area) |
 | UI/UX fidelity | ≈ 55% | 10% | 30–60 | [ui-parity.md](docs/ui-parity.md) |
 | File formats and conversion | ≈ 40% | 12% | 120–220 (within features) | [file-format-parity.md](docs/file-format-parity.md) |
 | PDF specification and standards | ≈ 60% | 8% | 150–260 (within features) | [pdf-spec-parity.md](docs/pdf-spec-parity.md) |
@@ -77,15 +77,15 @@ Hours are calibrated as in [Effort and calibration](docs/target-app-parity.md#ef
 
 | Area | Breadth (measured) | Ready (estimated) | Remaining (h) |
 |---|---|---|---|
-| A Core model and fidelity | 76.8% | 70% | 25–45 |
-| B View and navigation | 62.5% | 55% | 110–190 |
-| C Content editing | 53.3% | 30% | 100–180 |
-| D Organize pages | 61.2% | 70% | 12–25 |
+| A Core model and fidelity | 77.2% | 70% | 25–45 |
+| B View and navigation | 63.3% | 55% | 110–190 |
+| C Content editing | 54.1% | 30% | 100–180 |
+| D Organize pages | 61.7% | 70% | 12–25 |
 | E Comments and review | 77.7% | 70% | 12–25 |
 | F Forms and JavaScript | 78.5% | 65% | 40–75 |
-| G Protect, redact, sanitize | 58.5% | 55% | 15–30 |
+| G Protect, redact, sanitize | 58.3% | 55% | 15–30 |
 | H Digital signatures | 62.2% | 45% | 40–70 |
-| I Scan and OCR | 23.1% | 15% | 40–75 |
+| I Scan and OCR | 25.0% | 15% | 40–75 |
 | J Create and export | 39.7% | 25% | 55–100 |
 | K Optimize and standards | 34.5% | 20% | 65–115 |
 | L Print | 39.7% | 35% | 30–55 |
@@ -135,6 +135,7 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 ## Progress log
 
+- **2026-10-11 (M3, dark page):** View ▸ Dark page (⇧⌘D on macOS, Ctrl+Shift+D elsewhere) shows pages on a #333333 background with lightness-adjusted vector and text colours; embedded raster images remain unchanged. The saved preference is independent of the UI theme. `page_render` exposes the same screen-only appearance as an optional headless preview, while default renders and exports remain original. Raster, UI, persistence, shortcut, control-channel and automation regressions pass. Estimates unchanged.
 - **2026-10-11 (M10.5, focused follow-up to #599):** Carry the architectural/ANSI/large ISO paper presets, current-page matching at 100%, and previewed PDF scale into the current print dialog and `doc_print`. Retains the #847/#1007 spooler and background discovery. Driver substitution, physical calibration, vector Windows printing and managed-endpoint restrictions remain separate gaps. Overall estimates unchanged.
 
 Newest first: the date, what moved, and the new overall estimate.

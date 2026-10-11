@@ -272,6 +272,12 @@ fn theme_commands_and_options_report_preference_and_effective_colours() {
     assert_eq!(state["theme"], "Light");
     assert!(call(&mut h, &c, "ui.set", json!({ "key": "theme", "value": "purple" })).is_err());
     assert_eq!(ok(&mut h, &c, "ui.state", json!({}))["theme_preference"], "System");
+    assert_eq!(ok(&mut h, &c, "ui.state", json!({}))["dark_page"], false);
+    ok(&mut h, &c, "ui.set", json!({ "key": "dark-page", "value": "on" }));
+    assert_eq!(ok(&mut h, &c, "ui.state", json!({}))["dark_page"], true);
+    ok(&mut h, &c, "ui.command", json!({ "id": "view.dark_page" }));
+    assert_eq!(ok(&mut h, &c, "ui.state", json!({}))["dark_page"], false);
+    assert!(call(&mut h, &c, "ui.set", json!({ "key": "dark-page", "value": "maybe" })).is_err());
 }
 
 /// Switching the interface language changes labels only: documents, their dirty state and the

@@ -19,17 +19,25 @@ struct Key {
     tile: Option<Tile>,
     scale: u32,
     tag: u64,
+    dark_page: bool,
 }
 
 impl From<RenderRequest> for Key {
     fn from(r: RenderRequest) -> Self {
-        Self { page: r.page, kind: r.kind, tile: r.tile, scale: r.scale.to_bits(), tag: r.tag }
+        Self { page: r.page, kind: r.kind, tile: r.tile, scale: r.scale.to_bits(), tag: r.tag, dark_page: r.dark_page }
     }
 }
 
 impl Key {
     fn request(self) -> RenderRequest {
-        RenderRequest { page: self.page, kind: self.kind, tile: self.tile, scale: f32::from_bits(self.scale), tag: self.tag }
+        RenderRequest {
+            page: self.page,
+            kind: self.kind,
+            tile: self.tile,
+            scale: f32::from_bits(self.scale),
+            tag: self.tag,
+            dark_page: self.dark_page,
+        }
     }
 }
 
@@ -354,6 +362,7 @@ mod tests {
             RenderRequest { tile: Some(Tile { x: 0, y: 0, w: 1, h: 1 }), ..base },
             RenderRequest { scale: f32::from_bits(0x7fc0_0002), ..base },
             RenderRequest { tag: 1, ..base },
+            RenderRequest { dark_page: true, ..base },
         ];
         let repeated = || requests.into_iter().flat_map(|r| [r, r]).collect();
         q.replace(repeated());
