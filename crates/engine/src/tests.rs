@@ -3026,3 +3026,95 @@ fn recovered_user_passwords_reach_the_renderer_byte_for_byte() {
     assert_eq!(crate::renderer_password(&[0x9A, b'l', 0x9A, b'k', 0xA0]), "ılık€");
     assert_eq!(crate::renderer_password(&[0xC7, b'o', b'k']), "Çok");
 }
+
+/// A synthetic phone photo, 400 × 300 px: a white sheet, tilted, on a grey table, with a black
+/// mark in the sheet's top-left corner. Returns the PNG and the sheet's corners in pixels.
+fn camera_photo() -> (Vec<u8>, [[f64; 2]; 4]) {
+    let sheet = [[60.0, 40.0], [330.0, 20.0], [350.0, 270.0], [40.0, 250.0]];
+    let inside = |x: f64, y: f64| {
+        (0..4).all(|i| {
+            let (a, b) = (sheet[i], sheet[(i + 1) % 4]);
+            (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]) >= 0.0
+        })
+    };
+    let img = image::RgbImage::from_fn(400, 300, |x, y| {
+        let (fx, fy) = (x as f64 + 0.5, y as f64 + 0.5);
+        if (75.0..95.0).contains(&fx) && (55.0..75.0).contains(&fy) {
+            image::Rgb([0, 0, 0])
+        } else if inside(fx, fy) {
+            image::Rgb([255, 255, 255])
+        } else {
+            image::Rgb([110, 110, 110])
+        }
+    });
+    let mut png = Vec::new();
+    img.write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png).unwrap();
+    (png, sheet)
+}
+
+#[test]
+fn enhance_camera_page_straightens_the_sheet() {
+    let mut s = Session::new().with_clock(|| 1_700_000_000);
+    let (png, sheet) = camera_photo();
+    // 72 dpi: one point per pixel, so the page is 400 × 300 pt and y flips to user space.
+    let bytes = s.create_from_images_with_resolution(&[("photo.png".into(), png)], ImageResolution::Dpi(72.0)).unwrap();
+    let id = s.open("photo.pdf", None, bytes, None).unwrap();
+    let corners = sheet.map(|[x, y]| [x, 300.0 - y]);
+    // Corners in any order.
+    s.enhance_camera_page(id, 0, [corners[2], corners[0], corners[3], corners[1]]).unwrap();
+
+    let doc = s.get(id).unwrap();
+    assert_eq!(doc.info.pages.len(), 1);
+    assert_eq!(doc.can_undo(), Some("Enhance camera image"));
+    // The longer of each pair of opposite sides: 310 × 250 pt at the photo's own resolution.
+    let p = &doc.info.pages[0];
+    assert!((p.width - 310.0).abs() <= 1.0 && (p.height - 250.0).abs() <= 1.0, "{} × {}", p.width, p.height);
+
+    let mut r = pdfcraft_render::PageRenderer::new(doc.bytes.clone(), doc.config.clone());
+    let shot = r.render(pdfcraft_render::RenderRequest { page: 0, scale: 1.0, ..Default::default() });
+    assert!(shot.error.is_none(), "{:?}", shot.error);
+    let at = |x: u32, y: u32| {
+        let i = ((y * shot.width + x) * 4) as usize;
+        shot.rgba[i..i + 3].to_vec()
+    };
+    // No table left in the corners: the sheet fills the page, and its mark is top left.
+    for (x, y) in [(4, 4), (shot.width - 5, 4), (shot.width - 5, shot.height - 5), (4, shot.height - 5), (shot.width / 2, shot.height / 2)] {
+        assert!(at(x, y).iter().all(|&v| v > 235), "({x}, {y}) = {:?}", at(x, y));
+    }
+    assert!(at(30, 30).iter().all(|&v| v < 40), "the mark: {:?}", at(30, 30));
+
+    s.undo(id).unwrap();
+    let p = &s.get(id).unwrap().info.pages[0];
+    assert_eq!((p.width, p.height), (400.0, 300.0));
+}
+
+#[test]
+fn detect_camera_corners_finds_the_sheet_in_user_space() {
+    let mut s = Session::new().with_clock(|| 1_700_000_000);
+    let (png, sheet) = camera_photo();
+    let bytes = s.create_from_images_with_resolution(&[("photo.png".into(), png)], ImageResolution::Dpi(72.0)).unwrap();
+    let id = s.open("photo.pdf", None, bytes, None).unwrap();
+    let found = s.detect_camera_corners(id, 0).expect("the sheet's edges");
+    // One point per pixel, y flipped: the sheet's corners in reading order.
+    for (f, p) in found.iter().zip(sheet.iter()) {
+        let want = [p[0], 300.0 - p[1]];
+        assert!((f[0] - want[0]).hypot(f[1] - want[1]) < 4.0, "{found:?} vs {sheet:?}");
+    }
+    // A page with no photo on it: nothing to find.
+    let id = s.open("doc.pdf", None, Arc::new(fixture(1)), None).unwrap();
+    assert_eq!(s.detect_camera_corners(id, 0), None);
+    assert_eq!(s.detect_camera_corners(id, 7), None);
+}
+
+#[test]
+fn enhance_camera_page_refuses_bad_corners_and_pages() {
+    let mut s = Session::new().with_clock(|| 1_700_000_000);
+    let id = s.open("doc.pdf", None, Arc::new(fixture(1)), None).unwrap();
+    let line = [[0.0, 0.0], [50.0, 50.0], [100.0, 100.0], [150.0, 150.0]];
+    let e = s.enhance_camera_page(id, 0, line).unwrap_err().to_string();
+    assert!(e.contains("corners"), "{e}");
+    let ok = [[0.0, 0.0], [200.0, 0.0], [200.0, 300.0], [0.0, 300.0]];
+    assert!(s.enhance_camera_page(id, 5, ok).unwrap_err().to_string().contains("no page 6"));
+    assert!(matches!(s.enhance_camera_page(DocId(999), 0, ok), Err(EditError::NoDocument)));
+    assert_eq!(s.get(id).unwrap().can_undo(), None, "nothing changed");
+}

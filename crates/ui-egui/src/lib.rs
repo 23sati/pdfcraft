@@ -31,6 +31,7 @@ pub use combine_grid::ThumbState as CombineThumb;
 mod combine_ui;
 pub mod docking;
 pub use combine_ui::{Columns as CombineColumns, CombineView, Lock as CombineLock, SortKey};
+mod camera_ui;
 mod commands;
 mod comment_props;
 pub mod comments;
@@ -186,6 +187,8 @@ pub enum QuickTool {
     Measure(measure_ui::Tool),
     /// Crop pages by dragging a rectangle.
     Crop,
+    /// Scan & OCR ▸ Enhance ▸ Camera image: drag four corners, then Enhance page.
+    EnhanceCamera,
     /// A Fill & Sign tool.
     Fill(fill_sign::FillTool),
     /// A Prepare a form field tool.
@@ -1787,6 +1790,7 @@ impl PdfCraftApp {
                     ),
                     "hand" => QuickTool::Hand,
                     "crop" => QuickTool::Crop,
+                    "enhance-camera" => QuickTool::EnhanceCamera,
                     "redact" => QuickTool::Redact,
                     "add-text" => QuickTool::AddText,
                     "edit-text" => QuickTool::EditText,

@@ -1033,7 +1033,7 @@
 	Dark gray theme	Tema cinza escuro
 	Light theme	Tema claro
 	Print ({key})	Imprimir ({key})
-	Save (M4)	Salvar (M4)
+	Save ({key})	Salvar ({key})
 	Document properties ({key})	Propriedades do documento ({key})
 	Action Wizard…	Assistente de ações…
 	Add Bates numbering…	Adicionar numeração Bates…
@@ -2202,3 +2202,6 @@ key	Space	Espaço
 	Resize panel window	Redimensionar janela do painel
 	Tools	Ferramentas
 	Inspector	Inspetor
+	Enhance camera image	Aprimorar foto da câmera
+	Drag the corners onto the document's edges, then choose Enhance page.	Arraste os cantos até as bordas do documento e escolha Aprimorar página.
+	Enhance page	Aprimorar página

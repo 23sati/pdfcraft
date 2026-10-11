@@ -321,7 +321,8 @@ pub fn mode_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                         if icons::button(ui, "printer", 32.0, false, &tip).clicked() {
                             app.run_command("print.dialog");
                         }
-                        if icons::button(ui, "save", 32.0, false, tl!("Save (M4)")).clicked() {
+                        let tip = crate::commands::command_tip(ui.ctx(), tl!("Save ({key})"), "file.save");
+                        if icons::button(ui, "save", 32.0, false, &tip).clicked() {
                             app.run_command("file.save");
                         }
                         let tip = crate::commands::command_tip(ui.ctx(), tl!("Document properties ({key})"), "file.properties");
