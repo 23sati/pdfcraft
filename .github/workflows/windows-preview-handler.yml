@@ -1,0 +1,59 @@
+name: Windows preview handler
+
+# Hosts the File Explorer PDF preview handler on a real Windows machine the way Explorer does
+# (packaging/windows/test-preview-host.ps1) and publishes the step-by-step report as annotations.
+
+on:
+  pull_request:
+    paths:
+      - packaging/windows/**
+      - apps/pdfcraft-cli/**
+      - .github/workflows/windows-preview-handler.yml
+  workflow_dispatch:
+
+concurrency:
+  group: preview-handler-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host:
+    name: preview handler (${{ matrix.engine }})
+    runs-on: windows-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [no engine, pdfcraft-cli]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: matrix.engine == 'pdfcraft-cli'
+
+      - uses: Swatinem/rust-cache@v2
+        if: matrix.engine == 'pdfcraft-cli'
+
+      - name: Build pdfcraft-cli
+        if: matrix.engine == 'pdfcraft-cli'
+        run: cargo build --release -p pdfcraft-cli
+
+      - name: Host the preview handler like File Explorer
+        shell: powershell
+        run: |
+          $cli = if ('${{ matrix.engine }}' -eq 'pdfcraft-cli') { 'target\release\pdfcraft-cli.exe' } else { '' }
+          powershell -NoProfile -ExecutionPolicy Bypass -File packaging\windows\test-preview-host.ps1 -Cli $cli -Report preview-host-report.txt
+          if (-not (Test-Path preview-host-report.txt)) { 'test-preview-host.ps1 wrote no report' | Set-Content preview-host-report.txt }
+
+      # Annotations are readable through the API; at most 10 per type and step, so split the report.
+      - name: Report (1)
+        if: always()
+        shell: pwsh
+        run: ./.github/scripts/annotate-report.ps1 -Path preview-host-report.txt -First 0 -Kind notice
+      - name: Report (2)
+        if: always()
+        shell: pwsh
+        run: ./.github/scripts/annotate-report.ps1 -Path preview-host-report.txt -First 10 -Kind notice
+      - name: Report (3)
+        if: always()
+        shell: pwsh
+        run: ./.github/scripts/annotate-report.ps1 -Path preview-host-report.txt -First 20 -Kind notice
