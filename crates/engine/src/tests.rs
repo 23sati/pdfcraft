@@ -1144,6 +1144,67 @@ fn protection_is_validated_undoable_and_never_logged() {
     assert_eq!(page_texts(&s, id), ["Page 1"]);
 }
 
+/// Protect a fresh document with `p` as the app does: the edit's result and, when it is
+/// accepted, how the saved file authenticates with no password, the open password and the
+/// permissions password (`None`: it doesn't open).
+fn protect_and_reopen(p: &Protection) -> (Result<(), EditError>, Option<[Option<pdfcraft_cos::Auth>; 3]>) {
+    let (mut s, id) = session_with(1);
+    let result = s.apply(id, Edit::Protect(p.clone()));
+    let reopened = result.is_ok().then(|| {
+        let saved = s.save_bytes(id).unwrap();
+        let auth = |pw: Option<&str>| pdfcraft_cos::Document::open_with_password(saved.clone(), pw).ok()?.security().map(|h| h.auth());
+        [auth(None), auth(p.open_password.as_deref()), auth(p.permissions_password.as_deref())]
+    });
+    (result, reopened)
+}
+
+#[test]
+fn passwords_that_encryption_would_make_empty_or_equal_are_refused() {
+    use pdfcraft_cos::Algorithm::{Aes128, Rc4_128};
+    use pdfcraft_cos::Auth::{Owner, User};
+    let empty = "passwords can't be empty or made only of characters that passwords ignore, such as soft hyphens";
+    let same = "the open password and the permissions password must be different (PDF readers treat these two as the same password)";
+    // AES-256 keys on the SASLprep form of a password (soft hyphens dropped, then NFKC), RC4 and
+    // AES-128 on its first 32 bytes. Written as typed, these would make a file that opens
+    // without a password, or whose open password lifts the restrictions.
+    let (a31, a32) = ("a".repeat(31), "a".repeat(32));
+    let (long1, long2) = (format!("{a32}1"), format!("{a32}2"));
+    // The 32-byte padding starts with "(": 31 characters and the same followed by "(" are one key.
+    let padded = format!("{a31}(");
+    let cases = [
+        ("soft hyphen open password", protection(Some("\u{AD}"), None), empty),
+        ("soft hyphen permissions password", protection(None, Some("\u{AD}")), empty),
+        ("soft hyphen permissions password beside an open one", protection(Some("0"), Some("\u{AD}")), empty),
+        ("fullwidth A, then A", protection(Some("\u{FF21}"), Some("A")), same),
+        ("A, then fullwidth A", protection(Some("A"), Some("\u{FF21}")), same),
+        ("fi ligature, then fi", protection(Some("\u{FB01}"), Some("fi")), same),
+        ("fi, then fi ligature", protection(Some("fi"), Some("\u{FB01}")), same),
+        ("RC4-128, same first 32 bytes", Protection { algorithm: Rc4_128, ..protection(Some(&long1), Some(&long2)) }, same),
+        ("AES-128, same first 32 bytes", Protection { algorithm: Aes128, ..protection(Some(&long1), Some(&long2)) }, same),
+        ("RC4-128, same once padded", Protection { algorithm: Rc4_128, ..protection(Some(&a31), Some(&padded)) }, same),
+        ("AES-128, same once padded", Protection { algorithm: Aes128, ..protection(Some(&a31), Some(&padded)) }, same),
+    ];
+    let got: Vec<_> = cases.iter().map(|(case, p, _)| (*case, protect_and_reopen(p))).collect();
+    let want: Vec<_> = cases.iter().map(|(case, _, message)| (*case, (Err(EditError::Protection(message.to_string())), None))).collect();
+    assert_eq!(got, want, "each is refused, so no file is written");
+    // Passwords that are empty or equal as typed keep their messages.
+    let (mut s, id) = session_with(1);
+    assert_eq!(s.apply(id, Edit::Protect(protection(Some(""), None))), Err(EditError::Protection("passwords can't be empty".into())));
+    assert_eq!(
+        s.apply(id, Edit::Protect(protection(Some("same"), Some("same")))),
+        Err(EditError::Protection("the open password and the permissions password must be different".into()))
+    );
+    // Passwords that stay different are fine: only the permissions password gives owner rights.
+    let distinct = [
+        protection(Some("A"), Some("\u{FF21}\u{FF22}")),
+        Protection { algorithm: Rc4_128, ..protection(Some(&format!("1{a32}")), Some(&format!("2{a32}"))) },
+        Protection { algorithm: Aes128, ..protection(Some(&format!("1{a32}")), Some(&format!("2{a32}"))) },
+    ];
+    for p in &distinct {
+        assert_eq!(protect_and_reopen(p), (Ok(()), Some([None, Some(User), Some(Owner)])), "{:?}", p.algorithm);
+    }
+}
+
 /// A one-page form: a text field and a check box (with appearance states).
 fn form_fixture() -> Vec<u8> {
     let objs = [

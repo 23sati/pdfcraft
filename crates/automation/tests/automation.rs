@@ -1313,6 +1313,25 @@ fn protecting_with_an_open_password_alone_restricts_nothing() {
     }
 }
 
+/// AES-256 keys on the SASLprep form of a password, which drops soft hyphens: a password made
+/// only of them is no password at all (as the permissions password, it would give everyone owner
+/// rights), so it is refused rather than written.
+#[test]
+fn protecting_with_a_password_encryption_ignores_is_refused() {
+    let dir = workdir("protect-ignored");
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    let answers: Vec<String> = ["open_password", "permissions_password"]
+        .into_iter()
+        .map(|key| match a.call("doc_protect", &json!({ "doc": doc, key: "\u{AD}" })) {
+            Err(ToolError::Failed(m)) => m,
+            other => format!("{key}: {other:?}"),
+        })
+        .collect();
+    assert!(answers.iter().all(|m| m.contains("soft hyphens")), "{answers:?}");
+    assert_eq!(ok(&mut a, "doc_info", json!({ "doc": doc }))["security"]["protected"], false, "a refused call changes nothing");
+}
+
 #[test]
 fn forms_through_tools() {
     let dir = workdir("forms");

@@ -824,6 +824,19 @@ impl Protection {
         {
             return bad("this compatibility level supports only plain ASCII passwords; use AES-256 (Acrobat X and later)");
         }
+        // Encryption keys on a password as `effective_password` gives it (AES-256: SASLprep,
+        // which drops soft hyphens and folds compatibility forms; older levels: the first 32
+        // bytes, padded). One that comes out as the empty password opens the file without asking,
+        // and an open password that comes out as the permissions password lifts the restrictions.
+        let effective = |p: &str| pdfcraft_cos::effective_password(self.algorithm, p);
+        let (open, permissions) = (self.open_password.as_deref().map(effective), self.permissions_password.as_deref().map(effective));
+        let empty = effective("");
+        if open.iter().chain(&permissions).any(|p| *p == empty) {
+            return bad("passwords can't be empty or made only of characters that passwords ignore, such as soft hyphens");
+        }
+        if open.is_some() && open == permissions {
+            return bad("the open password and the permissions password must be different (PDF readers treat these two as the same password)");
+        }
         Ok(())
     }
 }
