@@ -75,7 +75,10 @@ fetch every `kind = "model"` file in `ATTRIBUTION.toml` (verified by SHA-256) wi
 and an `ATTRIBUTION.txt`, straight into the package, so packaging needs the network. They go where
 `pdfcraft_ocr::Models::dirs_beside_exe` looks: `models\` beside `pdfcraft.exe` (MSI, portable zip),
 `PdfCraft.app/Contents/Resources/models` (macOS), and `share/pdfcraft/models` beside `bin/`
-(deb, rpm, tar.gz, AppImage, Flatpak, FreeBSD). The web build doesn't include them yet.
+(deb, rpm, tar.gz, AppImage, Flatpak, FreeBSD). The standalone macOS CLI zip and Linux CLI tarball
+also carry a `models/` folder beside `pdfcraft-cli`, including the models' licence files and
+`ATTRIBUTION.txt`. They reuse the verified models staged for the desktop package; keep the folder
+beside the executable when installing the CLI. The web build doesn't include them yet.
 
 ### macOS
 

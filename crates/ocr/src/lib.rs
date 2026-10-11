@@ -75,7 +75,7 @@ impl Models {
 
     /// Where the release packages put the models, relative to the directory holding the
     /// executable (packaging/*):
-    /// - `models/` beside it: the Windows MSI and portable zip;
+    /// - `models/` beside it: the Windows MSI/portable zip and standalone macOS/Linux CLI archives;
     /// - `../Resources/models`: the macOS app bundle (`Contents/MacOS` → `Contents/Resources`);
     /// - `../share/pdfcraft/models`: the FHS-style trees (`bin/` → `share/`) of the Linux
     ///   deb/rpm/tar.gz/AppImage/Flatpak and the FreeBSD tarball, wherever they are installed.
