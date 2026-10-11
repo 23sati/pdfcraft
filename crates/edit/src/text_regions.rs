@@ -36,7 +36,12 @@ pub(super) fn group_reading_blocks(lines: &[TextLine]) -> Vec<TextBlock> {
 }
 
 fn same_style(a: &TextLine, b: &TextLine) -> bool {
-    a.font == b.font && a.base_font == b.base_font && a.bold == b.bold && a.italic == b.italic && a.color == b.color && (a.size - b.size).abs() < 0.01
+    same_font(a, b.font.as_bytes(), b.face.as_deref())
+        && a.base_font == b.base_font
+        && a.bold == b.bold
+        && a.italic == b.italic
+        && a.color == b.color
+        && (a.size - b.size).abs() < 0.01
 }
 
 fn group_layout(lines: &[TextLine], mixed: bool) -> Vec<TextBlock> {
@@ -347,15 +352,16 @@ pub(super) fn rewrite_styled_block(
                     if fallback_names.len() >= MAX_TYPE3_GLYPHS {
                         return Err(EditError::Invalid("the replacement has too many fallback glyphs".into()));
                     }
-                    let fallback = type3_font(doc, &mut fonts, &s, family, source.bold)?;
+                    let fallback = type3_font(doc, &mut fonts, &s, family, source.bold, MAX_TYPE3_GLYPHS)?;
+                    let name = fallback.names.first().cloned().ok_or_else(no_japanese_font)?;
                     let dict = fonts
-                        .get(fallback.name.as_bytes())
+                        .get(name.as_bytes())
                         .and_then(|f| doc.resolve(f).as_dict().cloned())
                         .ok_or_else(|| EditError::Invalid("the fallback font could not be loaded".into()))?;
-                    metrics.insert(fallback.name.clone(), Metrics::from_dict(doc, &dict));
+                    metrics.insert(name.clone(), Metrics::from_dict(doc, &dict));
                     substituted = Some(fallback.family.to_string());
-                    fallback_names.insert(key, fallback.name.clone());
-                    fallback.name
+                    fallback_names.insert(key, name.clone());
+                    name
                 } else {
                     let base = family.base_font(source.bold, source.italic);
                     let name = format!("PCEd{}", base.replace('-', ""));

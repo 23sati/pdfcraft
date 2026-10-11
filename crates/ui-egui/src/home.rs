@@ -162,7 +162,7 @@ pub fn show(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                 let detail = ui.painter().text(
                     rect.right_center() - vec2(48.0, 0.0),
                     Align2::RIGHT_CENTER,
-                    format!("{} {}  ·  {}", r.pages, tl!("pages"), human_size(r.size)),
+                    format!("{}  ·  {}", crate::i18n::trn(crate::i18n::current(), r.pages as u64, "{n} page", "{n} pages"), human_size(r.size)),
                     theme::regular(12.0),
                     t.text_muted,
                 );
