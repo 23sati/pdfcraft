@@ -131,7 +131,7 @@ pub fn deny(_: &[String]) -> anyhow::Result<()> {
     run_args(&["deny", "--log-level", "error", "check"])
 }
 
-fn run_args(args: &[&str]) -> anyhow::Result<()> {
+pub(crate) fn run_args(args: &[&str]) -> anyhow::Result<()> {
     let mut c = cargo();
     c.args(args);
     run(c, &format!("cargo {}", args.join(" ")))
@@ -240,7 +240,6 @@ pub fn text_oracle(args: &[String]) -> anyhow::Result<()> {
 
 fn run_capture(cmd: &mut Command, timeout_s: u64) -> Option<String> {
     let mut child = cmd.stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::null()).spawn().ok()?;
-    let start = std::time::Instant::now();
     let mut out = String::new();
     let mut stdout = child.stdout.take()?;
     let reader = std::thread::spawn(move || {
@@ -249,10 +248,28 @@ fn run_capture(cmd: &mut Command, timeout_s: u64) -> Option<String> {
         let _ = stdout.read_to_string(&mut s);
         s
     });
+    wait_timeout(&mut child, std::time::Duration::from_secs(timeout_s))?;
+    out.push_str(&reader.join().ok()?);
+    Some(out)
+}
+
+/// Runs `cmd` with its output discarded and fails unless it exits successfully within `timeout`.
+pub(crate) fn run_status_timeout(cmd: &mut Command, timeout: std::time::Duration) -> anyhow::Result<()> {
+    let mut child = cmd.stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).spawn().context("failed to spawn")?;
+    match wait_timeout(&mut child, timeout) {
+        Some(status) if status.success() => Ok(()),
+        Some(status) => bail!("exited with {status}"),
+        None => bail!("did not finish within {} s", timeout.as_secs()),
+    }
+}
+
+/// Waits for `child`, killing it after `timeout`; `None` when it was killed or couldn't be waited for.
+fn wait_timeout(child: &mut std::process::Child, timeout: std::time::Duration) -> Option<std::process::ExitStatus> {
+    let start = std::time::Instant::now();
     loop {
         match child.try_wait() {
-            Ok(Some(_)) => break,
-            Ok(None) if start.elapsed().as_secs() > timeout_s => {
+            Ok(Some(status)) => return Some(status),
+            Ok(None) if start.elapsed() > timeout => {
                 let _ = child.kill();
                 let _ = child.wait();
                 return None;
@@ -261,8 +278,6 @@ fn run_capture(cmd: &mut Command, timeout_s: u64) -> Option<String> {
             Err(_) => return None,
         }
     }
-    out.push_str(&reader.join().ok()?);
-    Some(out)
 }
 
 fn words(s: &str) -> BTreeMap<String, usize> {

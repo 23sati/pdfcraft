@@ -1,6 +1,6 @@
 # PdfCraft architecture
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-10 · **Change:** major (first public architecture document, written from the code on main) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** patch (`xtask render-oracle` listed; earlier: first public architecture document, written from the code on main) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
 How PdfCraft is built today. The design rationale and the planned crates live in
 `plan/architecture.md` and `plan/adr/` (local-only); this file describes what is on `main`. Each
@@ -102,6 +102,7 @@ Every user-facing feature is reachable headlessly (`AGENTS.md` §3):
 `xtask assets` (asset licences and hashes), `xtask parity` (checklist claims must cite real commands,
 tools and tests) and `xtask deny` (dependency licences). Other tasks: `xtask fuzz`, `xtask corpus` and `xtask check` (robustness
 sweep over the pinned pdf.js corpus), `xtask text-oracle` (word F1 against `pdftotext`),
+`xtask render-oracle` (generated pages against Poppler and MuPDF, with per-page limits),
 `xtask demo-pdf`, `xtask screenshots`, `xtask models` (OCR models), `xtask version`. Releases are
 built by `.github/workflows/release.yml` ([releasing.md](releasing.md)).
 
@@ -109,4 +110,5 @@ built by `.github/workflows/release.yml` ([releasing.md](releasing.md)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | patch | Listed `xtask render-oracle` among the other tasks |
 | 2026-10-10 | major | Created from the code on main (crate list, `xtask/src/layers.rs`, crate READMEs, `vendor/README.md`) |
