@@ -783,18 +783,21 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 let Some(doc) = app.session.get(id) else { return };
                 let sizes: Vec<(f64, f64)> = doc.info.pages.iter().map(|p| (p.width as f64, p.height as f64)).collect();
                 let labels: Vec<String> = doc.info.pages.iter().map(|p| p.label.clone()).collect();
+                // As large as a normal window: the dialog follows the app window's size.
+                let layout = crate::print_ui::PrintLayout::for_screen(ui.ctx().content_rect().size(), ui.spacing().item_spacing.x);
                 let rasters = crate::print_ui::preview_rasters(
                     &app.print_draft,
                     &sizes,
                     &labels,
                     ui.ctx().pixels_per_point(),
                     ui.ctx().input(|i| i.max_texture_side) as f32,
+                    layout.preview_box(),
                 );
                 let view = &mut app.views[i];
                 view.queue_print_previews(&rasters);
-                let (go, cancel) = crate::print_ui::body(ui, &mut app.print_draft, &t, &sizes, &labels, &mut |p| {
+                let (go, cancel) = crate::print_ui::body(ui, &mut app.print_draft, &t, &sizes, &labels, &layout, &mut |p, want| {
                     view.need_thumbnail(p, true);
-                    view.page_preview(p)
+                    view.print_preview_texture(p, want)
                 });
                 print_go = go;
                 close = go || cancel;

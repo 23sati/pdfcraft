@@ -17,6 +17,11 @@ v0.6.0 brings in every change from the upstream PdfCraft 0.6.0 release (75 chang
 - Unchanged from v0.5.0: each sheet prints at 100% on the driver's closest paper size, with zero margins, landscape when the sheet is wide, hard-margin compensation and no console window.
 - Upstream's alternative Windows print backend (`windows_print.ps1`) was not adopted, because Linkco's backend already covers the same behaviour plus printer status and the 3-tier printer detection.
 - A scaled annotation appearance no longer prints larger than its rectangle.
+- **Print dialog sized like a normal window:** the dialog now grows with the app window (to within 24 px of its edges, up to 1600 × 1200) instead of a fixed 820 px box with a 320 × 380 preview. The preview takes all the room beside the settings, which scroll when the window is short. In a 1400 × 900 window the preview pane is about 850 × 670 instead of 320 × 380. It is never smaller than before.
+- **Sharp print preview:**
+  - Pages are rendered at exactly the size of the larger preview.
+  - Until that render arrives, the preview no longer shrinks a much larger on-screen page image into the pane. Shrinking it skipped pixels, because the renderer makes no mipmaps, so thin lines and small text broke up. The thumbnail is shown instead.
+  - The paper and pages are placed on whole screen pixels, so text isn't blurred across two pixels.
 
 ### 2. Windows PDF file icon and licence files
 - PDF files associated with Linkco PDF Editor now show a dedicated **PDF document icon** (a page with a PDF badge, in Linkco navy and crimson) instead of the app icon. It is embedded in `LinkcoPDFEditor.exe` as icon resource 2 and registered by the Setup EXE, the NSIS installer and the MSI (`DefaultIcon …,-2`).
@@ -85,7 +90,7 @@ v0.6.0 brings in every change from the upstream PdfCraft 0.6.0 release (75 chang
   3. Windows Registry `HKCU\Software\Microsoft\Windows NT\CurrentVersion\Devices` & `Windows /v Device`
 - Detects local, USB, TCP/IP, WSD, and UNC network printers (plus driverless `lpstat -e` queues on Unix/CUPS), identifies the system default printer, and reports printer availability (`Ready`, `Printing`, `Paused`, `Offline`, `Error`) with an in-dialog refresh button and offline status warning.
 - Added native printer driver `Properties…` (`rundll32 printui.dll,PrintUIEntry /e /n <printer>` on Windows; CUPS `lpoptions -l` PPD option editor on Unix).
-- Upgraded Print dialog preview sharpness (`crates/ui-egui/src/canvas.rs`, `PRINT_PREVIEW_W = 860.0`, per-page thumbnail scaling) and added high-DPI sheet rendering (`Session::render_print_sheets` at 150 / 300 / 600 DPI, default 300 DPI) for crisp Windows print output via `.NET` `PrintDocument` with `HardMarginX/Y` compensation.
+- Upgraded Print dialog preview sharpness (per-page raster scaling; reworked in v0.6.0, see "Print dialog sized like a normal window") and added high-DPI sheet rendering (`Session::render_print_sheets` at 150 / 300 / 600 DPI, default 300 DPI) for crisp Windows print output via `.NET` `PrintDocument` with `HardMarginX/Y` compensation.
 
 ### 4. Content Editing, Multilingual Typography, Digital Signatures & Forms (`v0.4.0`–`v0.5.0`)
 - **Direct Content Editing & Scripts (`crates/edit`, `crates/fonts`):** Multi-stream paragraph editing, grouped Form XObject figure selection and editing, Arabic shaping (`harfrust`) and bidirectional (`unicode-bidi`) Type 3 text rendering, Cyrillic/Greek/WinAnsi `0x80–0x9F` encoding, and Japanese CID/katakana font fallback.

@@ -720,25 +720,25 @@ impl DocView {
         (!quads.is_empty()).then_some((s.page, quads))
     }
 
-    /// A page's thumbnail texture, when rendered.
-    pub(crate) fn thumb_id(&self, page: usize) -> Option<egui::TextureId> {
-        self.thumbs.get(&page).map(|t| t.tex.id())
-    }
-
-    /// The print preview's picture of `page`: the sheet raster when it has arrived, otherwise the
-    /// sharpest available full-page or thumbnail texture.
-    pub(crate) fn page_preview(&self, page: usize) -> Option<egui::TextureId> {
+    /// The print preview's picture of `page`, drawn `want` device pixels wide: the print raster
+    /// (rendered for the pane), the thumbnail or the page's raster in the view, whichever suits
+    /// that width best (see [`pick_preview_texture`]). Until the print raster for the current
+    /// size arrives, a far larger view raster (at a high zoom) is not shrunk into the pane.
+    pub(crate) fn print_preview_texture(&self, page: usize, want: f32) -> Option<egui::TextureId> {
+        let mut have: Vec<(usize, egui::TextureId)> = Vec::with_capacity(3);
         if let Some((_, tex)) = self.print_pages.get(&page) {
-            return Some(tex.id());
+            have.push((tex.size()[0], tex.id()));
         }
         let thumb = self.thumbs.get(&page);
-        if let Some(p) = self.pages.get(&page) {
-            let tw = thumb.map_or(0, |t| t.tex.size()[0]);
-            if p.tex.size()[0] > tw && (p.tag != STALE_TAG || thumb.is_none()) {
-                return Some(p.tex.id());
-            }
+        if let Some(t) = thumb {
+            have.push((t.tex.size()[0], t.tex.id()));
         }
-        self.thumb_id(page)
+        if let Some(p) = self.pages.get(&page)
+            && (p.tag != STALE_TAG || thumb.is_none())
+        {
+            have.push((p.tex.size()[0], p.tex.id()));
+        }
+        pick_preview_texture(&have, want)
     }
 
     pub(crate) fn page_text(&self, page: usize) -> Option<Arc<PageText>> {
@@ -1483,6 +1483,26 @@ impl DocView {
             }
         }
     }
+}
+
+/// Of the textures at hand for a page (width in pixels, id; the first preferred on a tie), the one
+/// to draw it `want` device pixels wide. egui's renderer makes no mipmaps, so a texture drawn at
+/// well under half its size skips texels and its thin lines and small text break up, while one a
+/// little small is only soft: the smallest at least as wide as wanted (within 2×), else the widest
+/// within 2×, else the smallest there is.
+pub(crate) fn pick_preview_texture(have: &[(usize, egui::TextureId)], want: f32) -> Option<egui::TextureId> {
+    if !(want.is_finite() && want > 0.0) {
+        return have.iter().rev().max_by_key(|(w, _)| *w).map(|(_, id)| *id);
+    }
+    let within = |w: usize| w as f32 <= want * 2.0;
+    // Rasters are rounded up to whole pixels; one a hair narrower than `want` is the same size.
+    let wide_enough = |w: usize| w as f32 >= want * 0.98;
+    have.iter()
+        .filter(|(w, _)| within(*w) && wide_enough(*w))
+        .min_by_key(|(w, _)| *w)
+        .or_else(|| have.iter().rev().filter(|(w, _)| within(*w)).max_by_key(|(w, _)| *w))
+        .or_else(|| have.iter().min_by_key(|(w, _)| *w))
+        .map(|(_, id)| *id)
 }
 
 /// The request tag for a raster at `scale`: equal tags mean the same scale (to 1/65536).
