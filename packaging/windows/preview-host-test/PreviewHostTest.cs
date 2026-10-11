@@ -157,6 +157,49 @@ namespace LinkcoPreviewHostTest
         [DllImport("user32.dll")]
         private static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
 
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern IntPtr SendMessageTimeout(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam, uint flags, uint timeout, out IntPtr result);
+
+        /// <summary>Whether the thread that owns the handler's window answers messages (it must, to paint).</summary>
+        private static string Responsiveness(IntPtr parent)
+        {
+            IntPtr child = IntPtr.Zero;
+            EnumChildWindows(parent, delegate(IntPtr h, IntPtr l)
+            {
+                child = h;
+                return false;
+            }, IntPtr.Zero);
+            if (child == IntPtr.Zero)
+                return "(no handler window)";
+            IntPtr result;
+            Stopwatch sw = Stopwatch.StartNew();
+            IntPtr ok = SendMessageTimeout(child, 0 /* WM_NULL */, IntPtr.Zero, IntPtr.Zero, 0x2 /* SMTO_ABORTIFHUNG */, 3000, out result);
+            return ok != IntPtr.Zero
+                ? "answers messages (" + sw.ElapsedMilliseconds + " ms)"
+                : "DOES NOT ANSWER MESSAGES (error " + Marshal.GetLastWin32Error() + ", " + sw.ElapsedMilliseconds + " ms)";
+        }
+
+        /// <summary>A coarse text picture of a capture: dark to light as " .:-=+*#%@".</summary>
+        private static string Thumbnail(Bitmap bmp)
+        {
+            const string ramp = " .:-=+*#%@";
+            int cols = 48, rows = 22;
+            StringBuilder sb = new StringBuilder();
+            for (int r = 0; r < rows; r++)
+            {
+                sb.Append("    |");
+                for (int c = 0; c < cols; c++)
+                {
+                    Color px = bmp.GetPixel(Math.Min(bmp.Width - 1, c * bmp.Width / cols + bmp.Width / cols / 2),
+                        Math.Min(bmp.Height - 1, r * bmp.Height / rows + bmp.Height / rows / 2));
+                    int lum = (px.R * 3 + px.G * 6 + px.B) / 10;
+                    sb.Append(ramp[Math.Min(ramp.Length - 1, lum * ramp.Length / 256)]);
+                }
+                sb.Append("|\n");
+            }
+            return sb.ToString();
+        }
+
         private static bool _ok = true;
 
         private static void Say(string line)
@@ -240,7 +283,7 @@ namespace LinkcoPreviewHostTest
                 {
                     using (Graphics g = Graphics.FromImage(bmp))
                         g.CopyFromScreen(client.Location, Point.Empty, client.Size);
-                    return Stats(bmp, screenshot);
+                    return Stats(bmp, screenshot) + "\n" + Thumbnail(bmp).TrimEnd('\n');
                 }
             }
             catch (Exception ex)
@@ -494,6 +537,7 @@ namespace LinkcoPreviewHostTest
             }
             Say("  windows inside the preview area:");
             Console.Write(DescribeChildren(form.Handle));
+            Say("  handler window thread: " + Responsiveness(form.Handle));
             Say("  painted (screen copy): " + Measure(form, screenshot));
             Say("  painted (handler window, PrintWindow): " + MeasureHandlerWindow(form.Handle,
                 string.IsNullOrEmpty(screenshot) ? null : System.IO.Path.ChangeExtension(screenshot, ".window.png")));

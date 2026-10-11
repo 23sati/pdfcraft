@@ -95,6 +95,7 @@ function Show-FusionLog {
     $t = (Get-Content -LiteralPath $f.FullName -Raw) -replace '<[^>]+>', '' -replace '&gt;', '>' -replace '&lt;', '<' -replace '&amp;', '&'
     $failed = $t -match 'Bind result: hr = 0x8'
     $ours = $f.Name -match 'LinkcoPdfPreview'
+    if (-not ($t -match 'LinkcoPdfPreview')) { continue }
     if (-not $failed -and -not ($ours -and $f.Directory.Name -ne 'RegAsm.exe')) { continue }
     Say "  binding log $($f.Directory.Name)\$($f.Name)$(if ($failed) { '  [FAILED]' }):"
     foreach ($l in ($t -split "`r?`n" | Where-Object { $_.Trim() -and $_ -notmatch 'Native image|Using (host|machine|application) configuration|Assembly Binder Log Entry|A detailed error log' } | Select-Object -First 30)) { Say "    $($l.Trim())" }
