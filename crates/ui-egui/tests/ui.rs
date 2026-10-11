@@ -556,6 +556,30 @@ fn zoom_keeps_the_point_under_the_cursor_still() {
 }
 
 #[test]
+fn trackpad_pinch_zooms_the_pdf_under_the_pointer() {
+    let mut h = harness(|app| {
+        app.open_bytes("text.pdf", None, TEXT_FIXTURE.to_vec()).expect("opens");
+        app.set_option("left", "closed").unwrap();
+        app.set_option("panel", "none").unwrap();
+    });
+    settle(&mut h);
+    let before = h.state().views[0].glyph_screen_pos(0, 4).expect("glyph on screen");
+    let zoom = h.state().views[0].zoom;
+    h.hover_at(before);
+    h.run_steps(1);
+    h.event(egui::Event::Zoom(1.5));
+    h.run_steps(4);
+    let enlarged = &h.state().views[0];
+    assert!((enlarged.zoom - zoom * 1.5).abs() < 0.01);
+    let after = enlarged.glyph_screen_pos(0, 4).expect("glyph still on screen");
+    assert!((after - before).length() < 2.0, "moved from {before:?} to {after:?}");
+
+    h.event(egui::Event::Zoom(0.5));
+    h.run_steps(4);
+    assert!((h.state().views[0].zoom - zoom * 0.75).abs() < 0.01);
+}
+
+#[test]
 fn selection_works_in_every_view_rotation() {
     for deg in ["90", "180", "270"] {
         let mut h = harness(move |app| {

@@ -525,7 +525,8 @@ fn create_multiple_reads_each_source_only_after_the_previous_one_is_released() {
 
 #[test]
 fn create_multiple_gives_the_bytes_of_combine_ranges_and_refuses_a_bad_source() {
-    let s = Session::new();
+    // The two combines are compared byte for byte, and each stamps the clock: pin it.
+    let s = Session::new().with_clock(|| 1_700_000_000);
     let (a, b) = (Arc::new(fixture(3)), Arc::new(fixture(2)));
     let sources: Vec<CombineSource> =
         vec![("a".into(), a.clone(), Some("1-2".into())), ("b".into(), b, None), ("a".into(), a.clone(), Some("3".into()))];
@@ -1142,6 +1143,67 @@ fn protection_is_validated_undoable_and_never_logged() {
     s.redo(id).unwrap();
     assert!(s.get(id).unwrap().info.encrypted);
     assert_eq!(page_texts(&s, id), ["Page 1"]);
+}
+
+/// Protect a fresh document with `p` as the app does: the edit's result and, when it is
+/// accepted, how the saved file authenticates with no password, the open password and the
+/// permissions password (`None`: it doesn't open).
+fn protect_and_reopen(p: &Protection) -> (Result<(), EditError>, Option<[Option<pdfcraft_cos::Auth>; 3]>) {
+    let (mut s, id) = session_with(1);
+    let result = s.apply(id, Edit::Protect(p.clone()));
+    let reopened = result.is_ok().then(|| {
+        let saved = s.save_bytes(id).unwrap();
+        let auth = |pw: Option<&str>| pdfcraft_cos::Document::open_with_password(saved.clone(), pw).ok()?.security().map(|h| h.auth());
+        [auth(None), auth(p.open_password.as_deref()), auth(p.permissions_password.as_deref())]
+    });
+    (result, reopened)
+}
+
+#[test]
+fn passwords_that_encryption_would_make_empty_or_equal_are_refused() {
+    use pdfcraft_cos::Algorithm::{Aes128, Rc4_128};
+    use pdfcraft_cos::Auth::{Owner, User};
+    let empty = "passwords can't be empty or made only of characters that passwords ignore, such as soft hyphens";
+    let same = "the open password and the permissions password must be different (PDF readers treat these two as the same password)";
+    // AES-256 keys on the SASLprep form of a password (soft hyphens dropped, then NFKC), RC4 and
+    // AES-128 on its first 32 bytes. Written as typed, these would make a file that opens
+    // without a password, or whose open password lifts the restrictions.
+    let (a31, a32) = ("a".repeat(31), "a".repeat(32));
+    let (long1, long2) = (format!("{a32}1"), format!("{a32}2"));
+    // The 32-byte padding starts with "(": 31 characters and the same followed by "(" are one key.
+    let padded = format!("{a31}(");
+    let cases = [
+        ("soft hyphen open password", protection(Some("\u{AD}"), None), empty),
+        ("soft hyphen permissions password", protection(None, Some("\u{AD}")), empty),
+        ("soft hyphen permissions password beside an open one", protection(Some("0"), Some("\u{AD}")), empty),
+        ("fullwidth A, then A", protection(Some("\u{FF21}"), Some("A")), same),
+        ("A, then fullwidth A", protection(Some("A"), Some("\u{FF21}")), same),
+        ("fi ligature, then fi", protection(Some("\u{FB01}"), Some("fi")), same),
+        ("fi, then fi ligature", protection(Some("fi"), Some("\u{FB01}")), same),
+        ("RC4-128, same first 32 bytes", Protection { algorithm: Rc4_128, ..protection(Some(&long1), Some(&long2)) }, same),
+        ("AES-128, same first 32 bytes", Protection { algorithm: Aes128, ..protection(Some(&long1), Some(&long2)) }, same),
+        ("RC4-128, same once padded", Protection { algorithm: Rc4_128, ..protection(Some(&a31), Some(&padded)) }, same),
+        ("AES-128, same once padded", Protection { algorithm: Aes128, ..protection(Some(&a31), Some(&padded)) }, same),
+    ];
+    let got: Vec<_> = cases.iter().map(|(case, p, _)| (*case, protect_and_reopen(p))).collect();
+    let want: Vec<_> = cases.iter().map(|(case, _, message)| (*case, (Err(EditError::Protection(message.to_string())), None))).collect();
+    assert_eq!(got, want, "each is refused, so no file is written");
+    // Passwords that are empty or equal as typed keep their messages.
+    let (mut s, id) = session_with(1);
+    assert_eq!(s.apply(id, Edit::Protect(protection(Some(""), None))), Err(EditError::Protection("passwords can't be empty".into())));
+    assert_eq!(
+        s.apply(id, Edit::Protect(protection(Some("same"), Some("same")))),
+        Err(EditError::Protection("the open password and the permissions password must be different".into()))
+    );
+    // Passwords that stay different are fine: only the permissions password gives owner rights.
+    let distinct = [
+        protection(Some("A"), Some("\u{FF21}\u{FF22}")),
+        Protection { algorithm: Rc4_128, ..protection(Some(&format!("1{a32}")), Some(&format!("2{a32}"))) },
+        Protection { algorithm: Aes128, ..protection(Some(&format!("1{a32}")), Some(&format!("2{a32}"))) },
+    ];
+    for p in &distinct {
+        assert_eq!(protect_and_reopen(p), (Ok(()), Some([None, Some(User), Some(Owner)])), "{:?}", p.algorithm);
+    }
 }
 
 /// A one-page form: a text field and a check box (with appearance states).
@@ -2631,6 +2693,139 @@ fn xfa_choice_lists_signature_and_picture_fields_open_fill_script_and_save() {
     let taken: Vec<&String> = d3.info.warnings.iter().filter(|w| w.contains("another viewer")).collect();
     assert_eq!(taken.len(), 1, "{:?}", d3.info.warnings);
     assert!(taken[0].contains("langs") && !taken[0].contains("country"), "{}", taken[0]);
+}
+
+#[test]
+fn xfa_data_exports_imports_and_pictures_round_trip_through_the_session() {
+    use pdfcraft_xfa::som_to_path;
+    let data = "<form><page1><country>JP</country><langs>English\nSpanish</langs></page1></form>";
+    let bytes = Arc::new(pdfcraft_xfa::fixtures::shell(&pdfcraft_xfa::fixtures::fields_template(data)));
+    let mut s = Session::new().with_clock(|| 1_700_000_000);
+    let id = s.open("fields.pdf", None, bytes, None).expect("opens");
+    let field = |s: &Session, n: &str| s.get(id).unwrap().form.iter().find(|f| f.name == n).cloned().unwrap_or_else(|| panic!("no field {n}"));
+    // Export: XML is the datasets document, XDP wraps it; the fields' current values are in it.
+    s.apply(id, Edit::SetFieldValue { name: "country".into(), value: FieldValue::Choice(vec!["CA".into()]) }).unwrap();
+    let xml = String::from_utf8(s.export_data(id, DataFormat::Xml, false, true).unwrap()).unwrap();
+    assert!(xml.starts_with("<?xml") && xml.contains("<form") && xml.contains("<country>CA</country>") && !xml.contains("<xfa:datasets"), "{xml}");
+    let xdp = String::from_utf8(s.export_data(id, DataFormat::Xdp, false, true).unwrap()).unwrap();
+    assert!(xdp.contains("<xdp:xdp") && xdp.contains("<country>CA</country>") && xdp.contains("href=\"fields.pdf\""), "{xdp}");
+    // Import: the data file's values replace the form's; the calculation runs; undo brings
+    // the old values back.
+    let file = "<form><page1><country>FR</country><langs>French</langs><pin>1234</pin></page1></form>";
+    s.apply(id, Edit::ImportData { name: "data.xml".into(), bytes: Arc::new(file.as_bytes().to_vec()) }).unwrap();
+    assert_eq!(field(&s, "country").value, vec!["FR".to_string()]);
+    assert_eq!(field(&s, "langs").value, vec!["French".to_string()]);
+    assert_eq!(field(&s, "pin").value, vec!["1234".to_string()]);
+    assert_eq!(field(&s, "summary").value, vec!["Country: FR".to_string()], "{:?}", s.take_js_output(id));
+    s.undo(id).unwrap();
+    assert_eq!(field(&s, "country").value, vec!["CA".to_string()]);
+    s.redo(id).unwrap();
+    assert_eq!(field(&s, "country").value, vec!["FR".to_string()]);
+    // A file in another encoding, and one with a long comment before its root, import too.
+    let latin1: Vec<u8> =
+        "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?><form><page1><other>Société</other></page1></form>".chars().map(|c| c as u32 as u8).collect();
+    s.apply(id, Edit::ImportData { name: "l1.xml".into(), bytes: Arc::new(latin1) }).unwrap();
+    assert_eq!(field(&s, "other").value, vec!["Société".to_string()]);
+    let commented = format!("<!-- {} --><form><page1><other>after</other></page1></form>", "x".repeat(5000));
+    s.apply(id, Edit::ImportData { name: "c.xml".into(), bytes: Arc::new(commented.into_bytes()) }).unwrap();
+    assert_eq!(field(&s, "other").value, vec!["after".to_string()]);
+    let utf16: Vec<u8> = "<form><page1><other>wide</other></page1></form>".encode_utf16().flat_map(|u| u.to_le_bytes()).collect();
+    s.apply(id, Edit::ImportData { name: "w.xml".into(), bytes: Arc::new([&[0xFF, 0xFE][..], &utf16].concat()) }).unwrap();
+    assert_eq!(field(&s, "other").value, vec!["wide".to_string()]);
+    let shift_jis = b"<?xml version=\"1.0\" encoding=\"Shift_JIS\"?><form/>".to_vec();
+    assert!(s.apply(id, Edit::ImportData { name: "sj.xml".into(), bytes: Arc::new(shift_jis) }).is_err());
+    // A data file for another form is refused.
+    assert!(s.apply(id, Edit::ImportData { name: "o.xml".into(), bytes: Arc::new(b"<other><x>1</x></other>".to_vec()) }).is_err());
+    assert_eq!(field(&s, "other").value, vec!["wide".to_string()]);
+    // XFDF still goes the usual way on an XFA form.
+    let xfdf =
+        "<?xml version=\"1.0\"?><xfdf xmlns=\"http://ns.adobe.com/xfdf/\"><fields><field name=\"pin\"><value>9999</value></field></fields></xfdf>";
+    s.apply(id, Edit::ImportData { name: "d.xfdf".into(), bytes: Arc::new(xfdf.as_bytes().to_vec()) }).unwrap();
+    assert_eq!(field(&s, "pin").value, vec!["9999".to_string()]);
+    assert_eq!(field(&s, "country").value, vec!["FR".to_string()]);
+    // A picture chosen for the image field goes into the data and onto the page.
+    let png = pdfcraft_xfa::fixtures::tiny_png();
+    assert_eq!(field(&s, "photo").button, Some(pdfcraft_forms::af::ButtonAction::ImportIcon), "clicking it picks a picture");
+    s.apply(id, Edit::SetFieldImage { name: "photo".into(), image: Arc::new(pdfcraft_xfa::fixtures::TINY_GIF.to_vec()) }).unwrap();
+    let cos = pdfcraft_cos::Document::open(s.save_bytes(id).unwrap()).unwrap();
+    let d = pdfcraft_xfa::data_of(&cos).unwrap();
+    assert!(d.text_at(&som_to_path("form[0].page1[0].photo[0]")).unwrap().starts_with("R0lGODlh"));
+    assert!(pdfcraft_xfa::read_packets(&cos).unwrap().unwrap().xdp.contains("xfa:contentType=\"image/gif\""));
+    assert_eq!(s.get(id).unwrap().page_images(0).len(), 2, "the field's picture (now the GIF) and the logo");
+    // Only pictures the form can show; only image fields.
+    assert!(s.apply(id, Edit::SetFieldImage { name: "photo".into(), image: Arc::new(b"BM\0\0\0\0".to_vec()) }).is_err());
+    assert!(s.apply(id, Edit::SetFieldImage { name: "country".into(), image: Arc::new(pdfcraft_xfa::fixtures::TINY_GIF.to_vec()) }).is_err());
+    // One datasets stream per edit, however many steps it took.
+    let before = pdfcraft_cos::Document::open(s.save_bytes(id).unwrap()).unwrap().object_numbers().len();
+    s.apply(id, Edit::SetFieldImage { name: "photo".into(), image: Arc::new(pdfcraft_xfa::fixtures::TINY_GIF.to_vec()) }).unwrap();
+    s.apply(id, Edit::SetFieldValue { name: "pin".into(), value: FieldValue::Text("1".into()) }).unwrap();
+    let after = pdfcraft_cos::Document::open(s.save_bytes(id).unwrap()).unwrap();
+    let datasets = after
+        .object_numbers()
+        .into_iter()
+        .filter(|n| matches!(&*after.get(pdfcraft_cos::ObjRef { num: *n, generation: 0 }), pdfcraft_cos::Object::Stream(st) if st.decoded().is_ok_and(|b| b.starts_with(b"<xfa:datasets"))))
+        .count();
+    assert!(datasets <= 3, "{datasets} datasets streams (one per edit at most), {before} objects before");
+    s.apply(id, Edit::SetFieldImage { name: "photo".into(), image: Arc::new(png) }).unwrap();
+    let cos = pdfcraft_cos::Document::open(s.save_bytes(id).unwrap()).unwrap();
+    assert!(pdfcraft_xfa::data_of(&cos).unwrap().text_at(&som_to_path("form[0].page1[0].photo[0]")).unwrap().starts_with("iVBOR"));
+    // Reopened: the picture and the imported values are what they were.
+    let id2 = s.open("again.pdf", None, s.save_bytes(id).unwrap(), None).unwrap();
+    let d2 = s.get(id2).unwrap();
+    assert_eq!(d2.form.iter().find(|f| f.name == "country").unwrap().value, vec!["FR".to_string()]);
+    assert_eq!(d2.page_images(0).len(), 2);
+}
+
+#[test]
+fn xfa_data_import_on_a_static_form_replaces_every_value_and_pictures_reach_its_data() {
+    let original = Arc::new(pdfcraft_xfa::fixtures::static_shell("<form1><page1><name>Ada</name><agree>1</agree></page1></form1>"));
+    let mut s = Session::new().with_clock(|| 1_700_000_000);
+    let id = s.open("static.pdf", None, original, None).expect("opens");
+    let value = |s: &Session, n: &str| s.get(id).unwrap().form.iter().find(|f| f.name.ends_with(n)).map(|f| f.value.clone()).unwrap_or_default();
+    assert_eq!(value(&s, "name[0]"), vec!["Ada".to_string()]);
+    assert_eq!(value(&s, "agree[0]"), vec!["1".to_string()]);
+    // The file names only `name`: `agree` is emptied too, since the data was replaced.
+    s.apply(id, Edit::ImportData { name: "d.xml".into(), bytes: Arc::new(b"<form1><page1><name>Bob</name></page1></form1>".to_vec()) }).unwrap();
+    assert_eq!(value(&s, "name[0]"), vec!["Bob".to_string()]);
+    assert!(value(&s, "agree[0]").is_empty(), "{:?}", value(&s, "agree[0]"));
+    let cos = pdfcraft_cos::Document::open(s.save_bytes(id).unwrap()).unwrap();
+    let d = pdfcraft_xfa::data_of(&cos).unwrap();
+    assert_eq!(d.text_at(&pdfcraft_xfa::som_to_path("form1[0].page1[0].name[0]")), Some("Bob"));
+    assert!(d.text_at(&pdfcraft_xfa::som_to_path("form1[0].page1[0].agree[0]")).is_none_or(str::is_empty));
+    let xml = String::from_utf8(s.export_data(id, DataFormat::Xml, false, true).unwrap()).unwrap();
+    assert!(xml.contains("<name>Bob</name>") && !xml.contains("<agree>1</agree>"), "{xml}");
+}
+
+#[test]
+fn xfa_data_import_adds_and_removes_rows_of_a_dynamic_form() {
+    let bytes = Arc::new(pdfcraft_xfa::fixtures::shell(&pdfcraft_xfa::fixtures::scripted_template()));
+    let mut s = Session::new().with_clock(|| 1_700_000_000);
+    let id = s.open("rows.pdf", None, bytes, None).expect("opens");
+    let names = |s: &Session| s.get(id).unwrap().form.iter().map(|f| f.name.clone()).collect::<Vec<_>>();
+    let value = |s: &Session, n: &str| s.get(id).unwrap().form.iter().find(|f| f.name == n).map(|f| f.value.clone()).unwrap_or_default();
+    assert_eq!(names(&s).iter().filter(|n| n.starts_with("amount")).count(), 1);
+    let file = "<form><page1><qty>3</qty><table><row><item>a</item><amount>10</amount></row><row><item>b</item><amount>32</amount></row><row><item>c</item><amount>0.5</amount></row></table></page1></form>";
+    s.apply(id, Edit::ImportData { name: "rows.xml".into(), bytes: Arc::new(file.as_bytes().to_vec()) }).unwrap();
+    assert_eq!(names(&s).iter().filter(|n| n.starts_with("amount")).count(), 3, "{:?}", names(&s));
+    assert_eq!(value(&s, "total"), vec!["15".to_string()], "qty 3 × price 5, calculated after the import: {:?}", s.take_js_output(id));
+    assert_eq!(value(&s, "grand"), vec!["42.5".to_string()]);
+    // More rows than the layout shows: the document says so.
+    let rows: String = (0..60).map(|i| format!("<row><item>r{i}</item><amount>1</amount></row>")).collect();
+    let file = format!("<form><page1><qty>1</qty><table>{rows}</table></page1></form>");
+    s.apply(id, Edit::ImportData { name: "many.xml".into(), bytes: Arc::new(file.into_bytes()) }).unwrap();
+    let out = s.take_js_output(id);
+    assert!(out.errors.iter().chain(out.console.iter()).any(|l| l.contains("60 rows")), "{out:?}");
+    // A file with one row takes the others away.
+    let file = "<form><page1><qty>1</qty><table><row><item>only</item><amount>7</amount></row></table></page1></form>";
+    s.apply(id, Edit::ImportData { name: "one.xml".into(), bytes: Arc::new(file.as_bytes().to_vec()) }).unwrap();
+    assert_eq!(names(&s).iter().filter(|n| n.starts_with("amount")).count(), 1, "{:?}", names(&s));
+    assert_eq!(value(&s, "grand"), vec!["7".to_string()]);
+    // Not an XFA data file on an XFA form: refused with the usual message, nothing changed.
+    assert!(s.apply(id, Edit::ImportData { name: "junk.xml".into(), bytes: Arc::new(b"<a><b></a>".to_vec()) }).is_err());
+    assert_eq!(value(&s, "grand"), vec!["7".to_string()]);
+    // The automation tool's view: export then import through a file round-trips the rows.
+    let out = s.export_data(id, DataFormat::Xdp, false, true).unwrap();
+    assert!(String::from_utf8_lossy(&out).contains("<item>only</item>"));
 }
 
 #[test]
