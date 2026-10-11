@@ -1045,6 +1045,12 @@
 	Open a PDF ({key})	開啟 PDF（{key}）
 	Dark gray theme	深灰色主題
 	Light theme	淺色主題
+	Appearance mode	外觀模式
+	Light	淺色
+	Dark	深色
+	Active	使用中
+	Dark theme	深色主題
+	Appearance settings…	外觀設定…
 	Print ({key})	列印（{key}）
 	Save ({key})	儲存（{key}）
 	Document properties ({key})	文件內容（{key}）
