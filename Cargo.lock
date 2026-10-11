@@ -3815,6 +3815,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "pdfcraft-ofd"
+version = "0.6.0"
+dependencies = [
+ "crc32fast",
+ "flate2",
+ "proptest",
+ "roxmltree",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "pdfcraft-optimize"
 version = "0.6.0"
 dependencies = [
