@@ -2099,6 +2099,8 @@ namespace LinkcoPdfPreview
                 }
             }
 
+            if (IsUacDisabled())
+                sb.AppendLine("  User Account Control:  off - Windows ignores per-user COM registrations, so only the machine-wide one (installer) is used");
             sb.AppendLine("  Effective COM server:  " + DescribeEffectiveServer(ClsidBraced));
             sb.AppendLine("  Preview host process:  " + DescribeHostAppId());
             sb.AppendLine("  .NET Framework:        " + DescribeNetFramework());
@@ -2137,9 +2139,38 @@ namespace LinkcoPdfPreview
         /// The AppID (preview host process) of the registration COM uses: Linkco's own prevhost.exe,
         /// or the shared one left by an older registration.
         /// </summary>
+        /// <summary>
+        /// True when User Account Control is turned off. Explorer then runs with full administrator rights
+        /// and COM ignores per-user (HKCU) class registrations: only the machine-wide one can work.
+        /// </summary>
+        internal static bool IsUacDisabled()
+        {
+            try
+            {
+                using (RegistryKey hklm = PreviewEnvironment.OpenHive(RegistryHive.LocalMachine))
+                using (RegistryKey k = hklm.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System", false))
+                {
+                    object v = k == null ? null : k.GetValue("EnableLUA");
+                    return v is int && (int)v == 0;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>The hives COM reads class registrations from, in priority order.</summary>
+        private static RegistryHive[] ComHives()
+        {
+            return IsUacDisabled()
+                ? new RegistryHive[] { RegistryHive.LocalMachine }
+                : new RegistryHive[] { RegistryHive.CurrentUser, RegistryHive.LocalMachine };
+        }
+
         internal static string DescribeHostAppId()
         {
-            foreach (RegistryHive hive in new RegistryHive[] { RegistryHive.CurrentUser, RegistryHive.LocalMachine })
+            foreach (RegistryHive hive in ComHives())
             {
                 try
                 {
@@ -2276,7 +2307,7 @@ namespace LinkcoPdfPreview
         /// </summary>
         internal static string DescribeEffectiveServer(string clsidBraced)
         {
-            foreach (RegistryHive hive in new RegistryHive[] { RegistryHive.CurrentUser, RegistryHive.LocalMachine })
+            foreach (RegistryHive hive in ComHives())
             {
                 try
                 {
@@ -2307,7 +2338,9 @@ namespace LinkcoPdfPreview
                     return "unreadable (" + ex.Message + ")";
                 }
             }
-            return "(not registered)";
+            return IsUacDisabled()
+                ? "(not registered machine-wide)  [BROKEN: User Account Control is off, so the per-user registration is ignored; install Linkco PDF Editor for all users]"
+                : "(not registered)";
         }
 
         /// <summary>

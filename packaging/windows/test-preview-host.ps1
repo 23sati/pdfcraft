@@ -189,9 +189,11 @@ function Try-Native([string] $label) {
 }
 # Which CodeBase forms the CLR's COM activation accepts, from a native client (as prevhost.exe is).
 Say ""
-Say "=== CodeBase forms (native 64-bit cscript CreateObject, in process) ==="
+Say "=== CodeBase forms, machine-wide registration (native 64-bit cscript CreateObject, in process) ==="
+$lua = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -ErrorAction SilentlyContinue).EnableLUA
+Say "  UAC (EnableLUA): $lua$(if ("$lua" -eq '0') { '  - UAC is off: COM ignores per-user (HKCU) class registrations on this machine' })"
 function Try-CodeBase([string] $label, [string] $codeBase) {
-  $k = "HKCU:\Software\Classes\CLSID\$Clsid\InprocServer32"
+  $k = "HKLM:\Software\Classes\CLSID\$Clsid\InprocServer32"
   Set-ItemProperty $k -Name CodeBase -Value $codeBase
   Get-ChildItem $k | ForEach-Object { Set-ItemProperty $_.PSPath -Name CodeBase -Value $codeBase }
   $ErrorActionPreference = 'Continue'
@@ -201,8 +203,11 @@ function Try-CodeBase([string] $label, [string] $codeBase) {
   Say ("  {0,-34} -> {1}" -f '', ($o -join ' '))
 }
 Clear-Registration
-$type::RegisterPreviewHandler($Dll, $false)
-$registeredCodeBase = (Get-ItemProperty "HKCU:\Software\Classes\CLSID\$Clsid\InprocServer32").CodeBase
+$type::RegisterPreviewHandler($Dll, $true)
+foreach ($k in "HKCU:\Software\Classes\CLSID\$Clsid", 'HKCU:\Software\Classes\AppID\{1C0ADB7B-F017-4384-BF73-95AA5BC5D084}') {
+  if (Test-Path $k) { Remove-Item $k -Recurse -Force }
+}
+$registeredCodeBase = (Get-ItemProperty "HKLM:\Software\Classes\CLSID\$Clsid\InprocServer32").CodeBase
 Try-CodeBase 'as registered by this build' $registeredCodeBase
 Try-CodeBase 'escaped (Uri.AbsoluteUri, old)' (New-Object Uri($Dll)).AbsoluteUri
 Try-CodeBase 'file:/// + backslashes (NSIS/WiX)' ('file:///' + $Dll)
