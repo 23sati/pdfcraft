@@ -3564,6 +3564,7 @@ dependencies = [
  "serde_json",
  "uds_windows",
  "ureq",
+ "winit",
  "winresource",
  "winsafe",
 ]
