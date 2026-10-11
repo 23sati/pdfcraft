@@ -77,14 +77,20 @@ pub fn strength(pw: &str) -> (&'static str, Color32) {
 /// A radio button drawn like Acrobat's: an outlined circle, filled blue with a white dot when on.
 fn radio(ui: &mut egui::Ui, t: &Tokens, on: bool, label: &str) -> egui::Response {
     let (rect, resp) = ui.allocate_exact_size(egui::vec2(220.0, 26.0), egui::Sense::click());
-    let c = egui::pos2(rect.left() + 9.0, rect.center().y);
+    let c = crate::mirror::start_center(rect, 9.0);
     if on {
         ui.painter().circle_filled(c, 8.0, t.accent);
         ui.painter().circle_filled(c, 3.0, Color32::WHITE);
     } else {
         ui.painter().circle_stroke(c, 7.5, egui::Stroke::new(1.5, t.text_muted));
     }
-    ui.painter().text(egui::pos2(rect.left() + 26.0, rect.center().y), egui::Align2::LEFT_CENTER, tl!(label), theme::regular(14.0), t.text);
+    ui.painter().text(
+        crate::mirror::start_center(rect, 26.0),
+        crate::mirror::align(egui::Align2::LEFT_CENTER),
+        tl!(label),
+        theme::regular(14.0),
+        t.text,
+    );
     let info = tl!(label).to_string();
     resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::RadioButton, true, on, info.clone()));
     resp.on_hover_cursor(egui::CursorIcon::PointingHand)

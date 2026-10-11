@@ -26,22 +26,22 @@ The Brazilian Portuguese catalog has 2,000 entries: the ~1,826-entry gist André
 
 The Arabic catalog has 2,137 entries in Modern Standard Arabic with Western digits. Counts use the six [CLDR Arabic forms](https://www.unicode.org/cldr/charts/48/supplemental/language_plural_rules.html#ar) (`0`, `1`, `2`, `3–10`, `11–99`, the rest), and dates use the Arabic names of the Gregorian months.
 
-egui joins the letters of an Arabic word and runs them right to left, but it places the words of a line left to right in the order they are written. So catalog entries are written in logical (typing) order, and `i18n` puts each one into display order when the catalog loads (`bidi::display_rtl`): the line reads right to left, Latin words and numbers inside it read left to right, `{name}` placeholders and keyboard shortcuts stay whole, spaces at either end stay where the code concatenates, and a short caption keeps its colon on the right, beside the widget it captions. Lookups (`tl!`, `tr`, `trn`) therefore return display-order text for Arabic; `i18n::fmt` inserts values as they are. The command search matches a query of several Arabic words word by word.
+Right-to-left languages (Arabic, Hebrew) work at three levels:
 
-What Arabic does not have yet:
+- **Text layout.** The vendored epaint lays text out with the Unicode bidirectional algorithm (`vendor/epaint/src/text/bidi.rs`): each paragraph reads in the direction of its first strong character, Latin words and numbers inside right-to-left text read left to right, wrapped paragraphs break from their first words on, and text typed into a field (search, comments, form values) runs right to left as it is typed, with the caret on the correct side of each letter. Strings stay in logical (typing) order everywhere: catalogs, `tl!`, `fmt`, accessibility names, settings.
+- **Direction marks.** Each translation of a right-to-left catalog starts with an invisible right-to-left mark (`bidi::rtl_label`), so a label that begins with a placeholder, a product name or a number (`{name} נשמר`) is still a right-to-left paragraph. File names and paths start with a left-to-right mark (`bidi::visual`), so a Hebrew or Arabic name keeps its extension at the end, as the window title shows it.
+- **Mirrored layout.** The vendored egui's `Style::mirror_layout` flips every layout for a right-to-left language: rows run right to left, columns and labels hug the right edge, grids put their first column on the right, text fields align right, and horizontal scroll areas start at the right. The docking layout shows Tools on the right and the Inspector on the left (the saved layout keeps its left-to-right form, so switching language doesn't lose it), and the panel rail moves to the left. Hand-painted rows (tool lists, recent files, tabs, the search box, buttons with icons) measure from the start edge through `crate::mirror`. The document canvas is not mirrored: pages keep their own geometry.
 
-- **The layout is not mirrored.** Panels, menus, toolbars and alignment are as in the left-to-right languages, with Arabic labels in them.
-- **A wrapped paragraph breaks at the wrong end.** A label too long for its line continues on the next line with its *first* words, so wrapped descriptions and tooltips read from the last line up. Single-line labels are right.
-- **Text you type into a field** (search, comments, form values) has joined letters but its words run left to right while you edit it. What is stored is correct.
-- Labels built by joining translated pieces in code (a list such as `A · B · C`) keep the code's left-to-right order.
+What right-to-left languages do not have yet:
 
-These need bidirectional support in the text layout itself, not in the catalog.
+- Arrow keys move the caret in logical order (backwards through right-to-left text means visually to the right), and a selection across a direction change is highlighted as one stretch.
+- A few hand-painted details still follow the left-to-right geometry: the arrow inside a drop-down, vertical scroll bars (still on the right), reply indentation in the comments panel, the canvas's floating tool strip, and popups that open aligned to their button's left edge.
 
 Arabic glyphs come from the craft-fonts `Arab` face (Noto Sans Arabic, kept in the web build too). A build without craft-fonts shows Arabic as replacement boxes on the web; on desktop it falls back to one installed font (below). The craft-fonts revision pinned for CI and releases (`.github/workflows/`) has the Arabic face. That revision also holds Noto Sans CJK SC, which `crates/fonts/build.rs` never embeds: `AGENTS.md` §1.1 bars it, so Chinese still has no face of its own.
 
 ## Hebrew
 
-The Hebrew catalog has 2,192 entries (every command, All tools entry and `tl!` literal) in gender-neutral modern Hebrew: commands and buttons are verbal nouns (שמירה, פתיחה…), instructions are impersonal (יש לבחור…). Digits are Western; counts use the one/other forms; dates use the Hebrew names of the Gregorian months, with the month after a day number taking ב־ ("7 במרץ"). Hebrew is right to left and goes through the same load-time reordering as Arabic, so it shares Arabic's limits above (layout not mirrored, wrapped paragraphs, typed text).
+The Hebrew catalog has 2,192 entries (every command, All tools entry and `tl!` literal) in gender-neutral modern Hebrew: commands and buttons are verbal nouns (שמירה, פתיחה…), instructions are impersonal (יש לבחור…). Digits are Western; counts use the one/other forms; dates use the Hebrew names of the Gregorian months, with the month after a day number taking ב־ ("7 במרץ"). Hebrew is right to left, with everything described above for Arabic.
 
 Hebrew glyphs come from a craft-fonts `Hebr` face when the build input has one (kept in the web build too); the current craft-fonts revision has none. On desktop the interface then draws Hebrew with an installed font: when the general installed fallback has no Hebrew letters (Noto Sans Arabic, SF Arabic), a second one is looked up (Noto Sans Hebrew, DejaVu Sans, SF Hebrew, Arial Hebrew; Segoe UI on Windows). The web build without a `Hebr` face shows replacement boxes.
 

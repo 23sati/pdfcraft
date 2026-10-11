@@ -6,7 +6,7 @@ use pdfcraft_engine::catalog::{self, Availability, TOOL_GROUPS, ToolGroup};
 use pdfcraft_render::{DocInfo, FieldKind, OutlineItem};
 
 use crate::theme::{self, Tokens};
-use crate::{LeftPanel, PdfCraftApp, RightPanel, icons, widgets};
+use crate::{LeftPanel, PdfCraftApp, RightPanel, icons, mirror, widgets};
 
 const COLLAPSED_TOOLS: usize = 14;
 
@@ -72,22 +72,22 @@ fn tool_row(ui: &mut egui::Ui, t: &Tokens, g: &ToolGroup) -> egui::Response {
     if resp.hovered() {
         ui.painter().rect_filled(rect, CornerRadius::same(6), t.hover);
     }
-    icons::paint(ui, Rect::from_min_size(rect.min + vec2(6.0, 7.0), vec2(20.0, 20.0)), g.icon, 19.0, hue(g));
-    ui.painter().text(rect.left_center() + vec2(36.0, 0.0), Align2::LEFT_CENTER, tl!(g.label), theme::regular(13.5), t.text);
+    icons::paint(ui, mirror::rect_at(rect, vec2(6.0, 7.0), vec2(20.0, 20.0)), g.icon, 19.0, hue(g));
+    ui.painter().text(mirror::start_center(rect, 36.0), mirror::align(Align2::LEFT_CENTER), tl!(g.label), theme::regular(13.5), t.text);
     match (g.badge, g.availability) {
         (Some(b), _) => {
             let font = theme::semibold(9.5);
             let badge = tl!(b);
             let w = ui.fonts_mut(|f| f.layout_no_wrap(badge.to_string(), font.clone(), Color32::WHITE).size().x);
-            let r = Rect::from_center_size(rect.right_center() - vec2(w / 2.0 + 10.0, 0.0), vec2(w + 10.0, 16.0));
+            let r = Rect::from_center_size(mirror::end_center(rect, w / 2.0 + 10.0), vec2(w + 10.0, 16.0));
             ui.painter().rect_filled(r, CornerRadius::same(4), t.badge_new);
             ui.painter().text(r.center(), Align2::CENTER_CENTER, badge, font, Color32::WHITE);
         }
         // Planned tools: a quiet milestone hint instead of a chip, so the list stays calm.
         (None, Availability::Planned(m)) if resp.hovered() => {
             ui.painter().text(
-                rect.right_center() - vec2(10.0, 0.0),
-                Align2::RIGHT_CENTER,
+                mirror::end_center(rect, 10.0),
+                mirror::align(Align2::RIGHT_CENTER),
                 format!("{} · {m}", tl!("Planned")),
                 theme::medium(10.5),
                 t.text_faint,
@@ -178,14 +178,8 @@ fn tool_detail(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens, g: &'static
                     ui.painter().rect_filled(rect, CornerRadius::same(6), t.hover);
                 }
                 let fg = if ready { t.text } else { t.text_muted };
-                icons::paint(
-                    ui,
-                    Rect::from_min_size(rect.min + vec2(6.0, 8.0), vec2(18.0, 18.0)),
-                    item.icon,
-                    17.0,
-                    if ready { hue(g) } else { t.text_faint },
-                );
-                ui.painter().text(rect.left_center() + vec2(34.0, 0.0), Align2::LEFT_CENTER, tl!(item.label), theme::regular(13.0), fg);
+                icons::paint(ui, mirror::rect_at(rect, vec2(6.0, 8.0), vec2(18.0, 18.0)), item.icon, 17.0, if ready { hue(g) } else { t.text_faint });
+                ui.painter().text(mirror::start_center(rect, 34.0), mirror::align(Align2::LEFT_CENTER), tl!(item.label), theme::regular(13.0), fg);
                 let (chip, fill, cfg) = match item.availability {
                     Availability::Ready => (tl!("Ready"), Color32::from_rgb(0xDD, 0xF3, 0xE4), Color32::from_rgb(0x1E, 0x7B, 0x43)),
                     Availability::Planned(m) => (m, t.pressed, t.text_muted),
@@ -193,7 +187,7 @@ fn tool_detail(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens, g: &'static
                 };
                 let font = theme::semibold(9.5);
                 let w = ui.fonts_mut(|f| f.layout_no_wrap(tl!(chip).to_string(), font.clone(), cfg).size().x);
-                let r = Rect::from_center_size(rect.right_center() - vec2(w / 2.0 + 10.0, 0.0), vec2(w + 10.0, 16.0));
+                let r = Rect::from_center_size(mirror::end_center(rect, w / 2.0 + 10.0), vec2(w + 10.0, 16.0));
                 ui.painter().rect_filled(r, CornerRadius::same(4), fill);
                 ui.painter().text(r.center(), Align2::CENTER_CENTER, tl!(chip), font, cfg);
                 if resp.on_hover_text(item.command).clicked() {
@@ -569,13 +563,19 @@ pub fn right_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                             }
                             icons::paint(
                                 ui,
-                                Rect::from_min_size(rect.min + vec2(4.0, 7.0), vec2(18.0, 18.0)),
+                                mirror::rect_at(rect, vec2(4.0, 7.0), vec2(18.0, 18.0)),
                                 if l.visible { "eye" } else { "eye-off" },
                                 16.0,
                                 t.icon,
                             );
                             let fg = if l.visible { t.text } else { t.text_faint };
-                            ui.painter().text(rect.left_center() + vec2(32.0, 0.0), Align2::LEFT_CENTER, &l.name, theme::regular(13.0), fg);
+                            ui.painter().text(
+                                mirror::start_center(rect, 32.0),
+                                mirror::align(Align2::LEFT_CENTER),
+                                &l.name,
+                                theme::regular(13.0),
+                                fg,
+                            );
                             if resp.on_hover_text(if l.visible { tl!("Hide layer") } else { tl!("Show layer") }).clicked() {
                                 toggle_layer = Some((li, !l.visible));
                             }
@@ -851,20 +851,21 @@ fn outline_item(ui: &mut egui::Ui, t: &Tokens, info: &DocInfo, item: &OutlineIte
         if resp.hovered() {
             ui.painter().rect_filled(rect, CornerRadius::same(6), t.hover);
         }
-        let x0 = rect.left() + indent;
         if !item.children.is_empty() {
-            let tri = Rect::from_min_size(pos2(x0, rect.top() + 6.0), vec2(16.0, 16.0));
-            icons::paint(ui, tri, if open { "chevron-down" } else { "chevron-right" }, 14.0, t.text_muted);
+            let tri = mirror::rect_at(rect, vec2(indent, 6.0), vec2(16.0, 16.0));
+            // A closed branch points the way its children are indented.
+            let closed = if mirror::rtl() { "chevron-left" } else { "chevron-right" };
+            icons::paint(ui, tri, if open { "chevron-down" } else { closed }, 14.0, t.text_muted);
             if !cx.searching && ui.interact(tri, id.with("tri"), Sense::click()).clicked() {
                 open = !open;
                 ui.data_mut(|d| d.insert_temp(id, open));
             }
         }
-        ui.painter().galley(pos2(x0 + 20.0, rect.top() + 6.0), galley, t.text);
+        ui.painter().galley(mirror::rect_at(rect, vec2(indent + 20.0, 6.0), galley.size()).min, galley, t.text);
         if let Some(g) = label_galley {
-            // Right-aligned, vertically centred at the first line, inside the column the title
+            // At the end, vertically centred at the first line, inside the column the title
             // wrapped around.
-            let pos = pos2(rect.right() - 6.0 - g.size().x, rect.top() + 14.0 - g.size().y / 2.0);
+            let pos = mirror::rect_at(rect, vec2(rect.width() - 6.0 - g.size().x, 14.0 - g.size().y / 2.0), g.size()).min;
             ui.painter().galley(pos, g, t.text_faint);
         }
         if resp.clicked()
@@ -1170,11 +1171,11 @@ fn fields(
             if selected || resp.hovered() {
                 ui.painter().rect_filled(rect, CornerRadius::same(6), if selected { t.pressed } else { t.hover });
             }
-            icons::paint(ui, Rect::from_min_size(rect.min + vec2(8.0, 7.0), vec2(16.0, 16.0)), icon, 15.0, Color32::from_rgb(0x8E, 0x4E, 0xE6));
-            ui.painter().text(rect.left_center() + vec2(32.0, 0.0), Align2::LEFT_CENTER, &f.name, theme::regular(13.0), t.text);
+            icons::paint(ui, mirror::rect_at(rect, vec2(8.0, 7.0), vec2(16.0, 16.0)), icon, 15.0, Color32::from_rgb(0x8E, 0x4E, 0xE6));
+            ui.painter().text(mirror::start_center(rect, 32.0), mirror::align(Align2::LEFT_CENTER), &f.name, theme::regular(13.0), t.text);
             if let Some(v) = &f.value {
                 let v: String = if v.chars().count() > 18 { format!("{}…", v.chars().take(17).collect::<String>()) } else { v.clone() };
-                ui.painter().text(rect.right_center() - vec2(8.0, 0.0), Align2::RIGHT_CENTER, v, theme::regular(11.5), t.text_faint);
+                ui.painter().text(mirror::end_center(rect, 8.0), mirror::align(Align2::RIGHT_CENTER), v, theme::regular(11.5), t.text_faint);
             }
             let kind = format!("{:?}", f.kind);
             let mut tip = crate::i18n::fmt(tl!("{kind} field"), &[("kind", tl!(&kind))]);

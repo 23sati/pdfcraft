@@ -44,8 +44,9 @@ pub struct LangInfo {
     /// Plural form index for a count (English: 0 = one, 1 = other; Japanese: always 0). A catalog's
     /// `@plural` entries list one form per index.
     pub plural: fn(u64) -> usize,
-    /// The language is written right to left. egui lays text out left to right, so the catalog's
-    /// translations are put into display order when it loads ([`crate::bidi::display_rtl`]).
+    /// The language is written right to left. Its translations stay in logical order (the text
+    /// layout reorders them) and start with a right-to-left mark, so each is a right-to-left
+    /// paragraph whatever it starts with ([`crate::bidi::rtl_label`]); the layout is mirrored.
     pub rtl: bool,
     catalog: OnceLock<Catalog>,
 }
@@ -196,7 +197,7 @@ impl LangInfo {
                 log::warn!("{} interface catalog: {error}; that entry shows in English", self.code);
             }
             if self.rtl {
-                catalog.map_translations(crate::bidi::display_rtl);
+                catalog.map_translations(crate::bidi::rtl_label);
             }
             catalog
         })
@@ -248,8 +249,8 @@ impl Lang {
         self.0.name
     }
 
-    /// Whether the language is written right to left. Its translations come back from the
-    /// lookups in display order (see [`LangInfo::rtl`]).
+    /// Whether the language is written right to left: the interface is mirrored and its
+    /// translations are right-to-left paragraphs (see [`LangInfo::rtl`]).
     pub fn rtl(self) -> bool {
         self.0.rtl
     }
@@ -2168,10 +2169,10 @@ mod tests {
             assert_eq!(lang_from_tag(tag), Some(ar), "{tag}");
         }
         assert_eq!(first_supported("ar-MA\r\nen-US"), Some(ar));
-        assert_eq!(tr(ar, "File"), "ملف");
-        assert_eq!(tr(ar, "Bookmarks"), "المرجعية الإشارات");
-        assert_eq!(tr_ctx(ar, "comment menu", "Edit"), "تحرير");
-        assert_eq!(tr_ctx(ar, "certificate", "Subject"), "الشهادة صاحب");
+        assert_eq!(tr(ar, "File"), "\u{200F}ملف");
+        assert_eq!(tr(ar, "Bookmarks"), "\u{200F}الإشارات المرجعية");
+        assert_eq!(tr_ctx(ar, "comment menu", "Edit"), "\u{200F}تحرير");
+        assert_eq!(tr_ctx(ar, "certificate", "Subject"), "\u{200F}صاحب الشهادة");
         // Unknown strings and user text are never reordered by a lookup.
         assert_eq!(tr(ar, "تقرير نهائي {n}.pdf"), "تقرير نهائي {n}.pdf");
         let mut app = crate::PdfCraftApp::default();
@@ -2184,25 +2185,20 @@ mod tests {
         assert_eq!(restored.language, "ar");
     }
 
-    /// Lookups return Arabic in display order: egui draws the words left to right as given, and
-    /// joins the letters of each word itself.
+    /// Lookups return Arabic in logical order as right-to-left paragraphs: the text layout puts
+    /// them into display order, and a leading right-to-left mark sets the direction.
     #[test]
-    fn arabic_lookups_are_in_display_order() {
+    fn arabic_lookups_are_logical_right_to_left_paragraphs() {
         let ar = arabic();
-        // "حفظ باسم…" as typed; the ellipsis ends the phrase on the left.
-        assert_eq!(tr(ar, "Save as…"), "…باسم حفظ");
-        // Latin names keep their own direction inside the phrase.
-        assert_eq!(tr(ar, "About PdfCraft"), "PdfCraft حول");
-        // A caption's colon stays beside the widget on its right.
-        assert_eq!(tr(ar, "Name:"), "الاسم:");
-        assert_eq!(tr(ar, "Issued by: "), "عن صادرة: ");
+        assert_eq!(tr(ar, "Save as…"), "\u{200F}حفظ باسم…");
+        assert_eq!(tr(ar, "About PdfCraft"), "\u{200F}حول PdfCraft");
+        assert_eq!(tr(ar, "Name:"), "\u{200F}الاسم:");
         // Placeholders survive and are filled in place.
-        assert_eq!(tr(ar, "Couldn't open {name}: {e}"), "{name}: {e} فتح تعذّر");
-        assert_eq!(fmt(tr(ar, "Couldn't open {name}: {e}"), &[("name", "a {e}.pdf"), ("e", "x")]), "a {e}.pdf: x فتح تعذّر");
-        assert_eq!(fmt(tr(ar, "Page {p} of {n}"), &[("p", "3"), ("n", "12")]), "12 من 3 الصفحة");
+        assert_eq!(fmt(tr(ar, "Couldn't open {name}: {e}"), &[("name", "a {e}.pdf"), ("e", "x")]), "\u{200F}تعذّر فتح a {e}.pdf: x");
+        assert_eq!(fmt(tr(ar, "Page {p} of {n}"), &[("p", "3"), ("n", "12")]), "\u{200F}الصفحة 3 من 12");
         set_current(ar);
-        assert_eq!(command_label("Undo Insert pages from a.pdf"), "a.pdf من صفحات إدراج عن التراجع");
-        assert_eq!(menu_label("file.saveAs", "Save as…"), "…باسم حفظ");
+        assert_eq!(command_label("Undo Insert pages from a.pdf"), "\u{200F}التراجع عن \u{200F}إدراج صفحات من a.pdf");
+        assert_eq!(menu_label("file.saveAs", "Save as…"), "\u{200F}حفظ باسم…");
         set_current(Lang::EN);
     }
 
@@ -2215,11 +2211,11 @@ mod tests {
         assert_eq!([3, 10, 103, 110, 1003].map(form), [3; 5]);
         assert_eq!([11, 99, 111, 199, 1011].map(form), [4; 5]);
         assert_eq!([100, 101, 102, 200, 1000, u64::MAX - 13].map(form), [5; 6]);
-        assert_eq!(trn(ar, 1, "{n} page", "{n} pages"), "صفحة 1");
-        assert_eq!(trn(ar, 2, "{n} page", "{n} pages"), "صفحتان 2");
-        assert_eq!(trn(ar, 5, "{n} page", "{n} pages"), "صفحات 5");
-        assert_eq!(trn(ar, 11, "{n} field", "{n} fields"), "حقلًا 11");
-        assert_eq!(trn(ar, 100, "{n} field", "{n} fields"), "حقل 100");
+        assert_eq!(trn(ar, 1, "{n} page", "{n} pages"), "\u{200F}1 صفحة");
+        assert_eq!(trn(ar, 2, "{n} page", "{n} pages"), "\u{200F}2 صفحتان");
+        assert_eq!(trn(ar, 5, "{n} page", "{n} pages"), "\u{200F}5 صفحات");
+        assert_eq!(trn(ar, 11, "{n} field", "{n} fields"), "\u{200F}11 حقلًا");
+        assert_eq!(trn(ar, 100, "{n} field", "{n} fields"), "\u{200F}100 حقل");
     }
 
     /// Arabic translates every registered command, menu and All tools label.
@@ -2294,9 +2290,9 @@ mod tests {
             assert_eq!(lang_from_tag(tag), Some(he), "{tag}");
         }
         assert_eq!(first_supported("he-IL\r\nen-US"), Some(he));
-        assert_eq!(tr(he, "File"), "קובץ");
-        assert_eq!(tr(he, "Bookmarks"), "סימניות");
-        assert_eq!(tr_ctx(he, "comment menu", "Edit"), "עריכה");
+        assert_eq!(tr(he, "File"), "\u{200F}קובץ");
+        assert_eq!(tr(he, "Bookmarks"), "\u{200F}סימניות");
+        assert_eq!(tr_ctx(he, "comment menu", "Edit"), "\u{200F}עריכה");
         // Unknown strings and user text are never reordered by a lookup.
         assert_eq!(tr(he, "דוח סופי {n}.pdf"), "דוח סופי {n}.pdf");
         let mut app = crate::PdfCraftApp::default();
@@ -2307,20 +2303,16 @@ mod tests {
         assert_eq!(restored.language, "he");
     }
 
-    /// Lookups return Hebrew in display order, as Arabic: egui draws the words left to right.
+    /// Lookups return Hebrew in logical order as right-to-left paragraphs, as Arabic.
     #[test]
-    fn hebrew_lookups_are_in_display_order() {
+    fn hebrew_lookups_are_logical_right_to_left_paragraphs() {
         let he = hebrew();
-        // "שמירה בשם…" as typed; the ellipsis ends the phrase on the left.
-        assert_eq!(tr(he, "Save as…"), "…בשם שמירה");
-        // Latin names keep their own direction inside the phrase.
-        assert_eq!(tr(he, "About PdfCraft"), "PdfCraft אודות");
-        // A caption's colon stays beside the widget on its right.
-        assert_eq!(tr(he, "Name:"), "שם:");
-        // Placeholders survive and are filled in place.
-        assert_eq!(fmt(tr(he, "Page {p} of {n}"), &[("p", "3"), ("n", "12")]), "12 מתוך 3 עמוד");
+        assert_eq!(tr(he, "Save as…"), "\u{200F}שמירה בשם…");
+        assert_eq!(tr(he, "About PdfCraft"), "\u{200F}אודות PdfCraft");
+        assert_eq!(tr(he, "Name:"), "\u{200F}שם:");
+        assert_eq!(fmt(tr(he, "Page {p} of {n}"), &[("p", "3"), ("n", "12")]), "\u{200F}עמוד 3 מתוך 12");
         set_current(he);
-        assert_eq!(menu_label("file.saveAs", "Save as…"), "…בשם שמירה");
+        assert_eq!(menu_label("file.saveAs", "Save as…"), "\u{200F}שמירה בשם…");
         set_current(Lang::EN);
     }
 
@@ -2328,8 +2320,8 @@ mod tests {
     fn hebrew_plurals_use_one_and_other() {
         let he = hebrew();
         assert_eq!(he.0.plural_forms(), 2);
-        assert_eq!(trn(he, 1, "{n} page", "{n} pages"), "1 עמוד");
-        assert_eq!(trn(he, 5, "{n} page", "{n} pages"), "עמודים 5");
+        assert_eq!(trn(he, 1, "{n} page", "{n} pages"), "\u{200F}עמוד 1");
+        assert_eq!(trn(he, 5, "{n} page", "{n} pages"), "\u{200F}5 עמודים");
     }
 
     /// Hebrew translates every registered command, menu and All tools label.

@@ -5,7 +5,7 @@ use egui::{Align2, CornerRadius, Rect, Sense, Stroke, vec2};
 use pdfcraft_engine::catalog::{Availability, TOOL_GROUPS};
 
 use crate::theme::{self, Tokens};
-use crate::{LeftPanel, PdfCraftApp, icons};
+use crate::{LeftPanel, PdfCraftApp, icons, mirror};
 
 struct Hit {
     /// The tool panel to open (tools and catalogue items); `None` for plain commands.
@@ -24,14 +24,6 @@ fn score(hay: &str, needle: &str) -> Option<usize> {
     let h = hay.to_lowercase();
     if let Some(p) = h.find(needle) {
         return Some(p);
-    }
-    // A right-to-left language's labels are in display order (their words run the other way)
-    // while the query is in typing order, so several words match one by one.
-    if crate::i18n::current().rtl() && needle.contains(char::is_whitespace) {
-        let first = needle.split_whitespace().map(|word| h.find(word)).try_fold(usize::MAX, |first, p| p.map(|p| first.min(p)));
-        if let Some(first) = first {
-            return Some(first);
-        }
     }
     // Subsequence match as a fallback.
     let mut it = h.chars();
@@ -156,14 +148,20 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                     if resp.hovered() {
                         ui.painter().rect_filled(rect, CornerRadius::same(6), t.hover);
                     }
-                    icons::paint(ui, Rect::from_min_size(rect.min + vec2(8.0, 9.0), vec2(18.0, 18.0)), h.icon, 17.0, t.icon);
+                    icons::paint(ui, mirror::rect_at(rect, vec2(8.0, 9.0), vec2(18.0, 18.0)), h.icon, 17.0, t.icon);
                     // Display is translated; matching above already considered both languages.
                     let shown = crate::i18n::command_label(&h.label);
                     let shown_detail = tl!(&h.detail).to_string();
                     resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, h.ready, &shown));
                     let fg = if h.ready { t.text } else { t.text_faint };
-                    ui.painter().text(rect.left_center() + vec2(36.0, 0.0), Align2::LEFT_CENTER, shown, theme::regular(13.5), fg);
-                    ui.painter().text(rect.right_center() - vec2(10.0, 0.0), Align2::RIGHT_CENTER, shown_detail, theme::regular(12.0), t.text_faint);
+                    ui.painter().text(mirror::start_center(rect, 36.0), mirror::align(Align2::LEFT_CENTER), shown, theme::regular(13.5), fg);
+                    ui.painter().text(
+                        mirror::end_center(rect, 10.0),
+                        mirror::align(Align2::RIGHT_CENTER),
+                        shown_detail,
+                        theme::regular(12.0),
+                        t.text_faint,
+                    );
                     if resp.clicked() {
                         chosen = Some((h.command, h.group));
                     }

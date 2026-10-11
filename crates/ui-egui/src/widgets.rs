@@ -3,7 +3,7 @@
 use egui::{Align2, Color32, CornerRadius, Rect, Response, Sense, Stroke, vec2};
 
 use crate::theme::{self, Tokens};
-use crate::{PdfCraftApp, icons};
+use crate::{PdfCraftApp, icons, mirror};
 
 /// A mode-bar tab: text with an underline when active.
 pub fn mode_tab(ui: &mut egui::Ui, label: &str, active: bool) -> Response {
@@ -50,8 +50,8 @@ pub fn ghost_button(ui: &mut egui::Ui, icon: &str, label: &str) -> Response {
     if resp.hovered() {
         ui.painter().rect_filled(rect, CornerRadius::same(6), t.hover);
     }
-    icons::paint(ui, Rect::from_min_size(rect.min + vec2(6.0, 6.0), vec2(18.0, 18.0)), icon, 17.0, t.icon);
-    ui.painter().text(rect.left_center() + vec2(30.0, 0.0), Align2::LEFT_CENTER, label, font, t.text);
+    icons::paint(ui, mirror::rect_at(rect, vec2(6.0, 6.0), vec2(18.0, 18.0)), icon, 17.0, t.icon);
+    ui.painter().text(mirror::start_center(rect, 30.0), mirror::align(Align2::LEFT_CENTER), label, font, t.text);
     resp
 }
 
@@ -62,20 +62,24 @@ pub fn search_box(ui: &mut egui::Ui, placeholder: &str, width: f32) -> Response 
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), placeholder));
     let fill = if resp.hovered() { t.hover } else { t.field };
     ui.painter().rect(rect, CornerRadius::same(16), fill, Stroke::new(1.0, t.border), egui::StrokeKind::Inside);
-    icons::paint(ui, Rect::from_min_size(rect.min + vec2(10.0, 8.0), vec2(16.0, 16.0)), "search", 15.0, t.text_muted);
+    icons::paint(ui, mirror::rect_at(rect, vec2(10.0, 8.0), vec2(16.0, 16.0)), "search", 15.0, t.text_muted);
     let shortcut = crate::commands::command_shortcut_label(ui.ctx(), "view.palette");
     let shortcut = ui.painter().layout_no_wrap(shortcut, theme::regular(11.5), t.text_faint);
-    let shortcut_pos = rect.right_center() - vec2(12.0 + shortcut.size().x, shortcut.size().y * 0.5);
+    // Laid out from the start edge (the right one in a right-to-left interface): icon, text,
+    // then the shortcut at the far end.
+    let shortcut_pos =
+        mirror::rect_at(rect, vec2(rect.width() - 12.0 - shortcut.size().x, rect.height() * 0.5 - shortcut.size().y * 0.5), shortcut.size()).min;
     // Reserve the measured shortcut width in every language; long translations are elided
     // within the remaining space rather than painted underneath the shortcut.
-    let text_right = (shortcut_pos.x - 10.0).max(rect.left());
-    let text_left = (rect.left() + 34.0).min(text_right);
-    let text_rect = Rect::from_min_max(egui::pos2(text_left, rect.top()), egui::pos2(text_right, rect.bottom()));
+    let text_end = (rect.width() - 22.0 - shortcut.size().x).max(0.0);
+    let text_start = 34.0f32.min(text_end);
+    let text_rect = mirror::rect_at(rect, vec2(text_start, 0.0), vec2(text_end - text_start, rect.height()));
     let mut job = egui::text::LayoutJob::simple_singleline(placeholder.to_owned(), theme::regular(13.0), t.text_faint);
     job.wrap = egui::text::TextWrapping { max_width: text_rect.width(), max_rows: 1, break_anywhere: true, ..Default::default() };
     let text = ui.fonts_mut(|f| f.layout_job(job));
     let elided = text.elided;
-    ui.painter().with_clip_rect(text_rect).galley(egui::pos2(text_left, rect.center().y - text.size().y * 0.5), text, t.text_faint);
+    let text_x = if mirror::rtl() { text_rect.right() - text.size().x } else { text_rect.left() };
+    ui.painter().with_clip_rect(text_rect).galley(egui::pos2(text_x, rect.center().y - text.size().y * 0.5), text, t.text_faint);
     ui.painter().with_clip_rect(rect).galley(shortcut_pos, shortcut, t.text_faint);
     let resp = resp.on_hover_cursor(egui::CursorIcon::Text);
     if elided { resp.on_hover_text(placeholder) } else { resp }
@@ -93,13 +97,14 @@ pub fn section_title(ui: &mut egui::Ui, text: &str) {
     ui.add_space(2.0);
 }
 
-/// Paint one line of `text` left-aligned and vertically centred on `pos`, cut with "…" so it is
-/// at most `max_width` wide: a long file name or path stays inside its row (#425).
+/// Paint one line of `text` starting at `pos` (its left end, or its right end in a right-to-left
+/// interface) and vertically centred on it, cut with "…" so it is at most `max_width` wide: a
+/// long file name or path stays inside its row (#425).
 pub fn row_text(ui: &egui::Ui, pos: egui::Pos2, text: impl Into<String>, font: egui::FontId, color: Color32, max_width: f32) {
     let mut job = egui::text::LayoutJob::simple_singleline(text.into(), font, color);
     job.wrap = egui::text::TextWrapping::truncate_at_width(max_width.max(0.0));
     let galley = ui.painter().layout_job(job);
-    let rect = Align2::LEFT_CENTER.anchor_size(pos, galley.size());
+    let rect = mirror::align(Align2::LEFT_CENTER).anchor_size(pos, galley.size());
     ui.painter().galley(rect.min, galley, color);
 }
 
@@ -266,23 +271,33 @@ pub fn split_pill(ui: &mut egui::Ui, icon: &str, label: &str, more: &str) -> (Re
     let font = theme::medium(12.5);
     let w = ui.fonts_mut(|f| f.layout_no_wrap(label.to_owned(), font.clone(), t.text).size().x);
     let (rect, _) = ui.allocate_exact_size(vec2(w + 46.0 + 28.0, 30.0), Sense::hover());
-    let (main_rect, more_rect) = rect.split_left_right_at_x(rect.right() - 28.0);
+    // The menu arrow sits at the end: on the left in a right-to-left interface.
+    let (main_rect, more_rect) = if mirror::rtl() {
+        let (more, main) = rect.split_left_right_at_x(rect.left() + 28.0);
+        (main, more)
+    } else {
+        rect.split_left_right_at_x(rect.right() - 28.0)
+    };
     let main = ui.interact(main_rect, ui.id().with(("split-pill", label)), Sense::click());
     let arrow = ui.interact(more_rect, ui.id().with(("split-pill-more", label)), Sense::click());
     main.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), label));
     arrow.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), more));
     let radius = CornerRadius::same(15);
     ui.painter().rect(rect, radius, t.card, Stroke::new(1.2, t.text_muted), egui::StrokeKind::Inside);
-    let left = CornerRadius { nw: 15, sw: 15, ne: 0, se: 0 };
-    let right = CornerRadius { nw: 0, sw: 0, ne: 15, se: 15 };
+    let mut left = CornerRadius { nw: 15, sw: 15, ne: 0, se: 0 };
+    let mut right = CornerRadius { nw: 0, sw: 0, ne: 15, se: 15 };
+    if mirror::rtl() {
+        std::mem::swap(&mut left, &mut right);
+    }
     for (r, resp, corners) in [(main_rect, &main, left), (more_rect, &arrow, right)] {
         if resp.hovered() {
             ui.painter().rect_filled(r.shrink(1.2), corners, t.hover);
         }
     }
-    ui.painter().vline(more_rect.left(), rect.y_range().shrink(7.0), Stroke::new(1.0, t.text_muted));
-    crate::icons::paint(ui, Rect::from_min_size(rect.min + vec2(12.0, 7.0), vec2(16.0, 16.0)), icon, 15.0, t.text);
-    ui.painter().text(rect.left_center() + vec2(34.0, 0.0), Align2::LEFT_CENTER, label, font, t.text);
+    let divider = if mirror::rtl() { more_rect.right() } else { more_rect.left() };
+    ui.painter().vline(divider, rect.y_range().shrink(7.0), Stroke::new(1.0, t.text_muted));
+    crate::icons::paint(ui, mirror::rect_at(rect, vec2(12.0, 7.0), vec2(16.0, 16.0)), icon, 15.0, t.text);
+    ui.painter().text(mirror::start_center(rect, 34.0), mirror::align(Align2::LEFT_CENTER), label, font, t.text);
     crate::icons::paint(ui, Rect::from_center_size(more_rect.center(), vec2(14.0, 14.0)), "chevron-down", 13.0, t.text);
     (main.on_hover_text(label), arrow.on_hover_text(more))
 }
@@ -300,8 +315,8 @@ pub fn icon_pill(ui: &mut egui::Ui, icon: &str, label: &str, primary: bool) -> R
         (if resp.hovered() { t.hover } else { t.card }, Stroke::new(1.2, t.text_muted), t.text)
     };
     ui.painter().rect(rect, CornerRadius::same(15), fill, stroke, egui::StrokeKind::Inside);
-    crate::icons::paint(ui, Rect::from_min_size(rect.min + vec2(12.0, 7.0), vec2(16.0, 16.0)), icon, 15.0, text);
-    ui.painter().text(rect.left_center() + vec2(34.0, 0.0), Align2::LEFT_CENTER, label, font, text);
+    crate::icons::paint(ui, mirror::rect_at(rect, vec2(12.0, 7.0), vec2(16.0, 16.0)), icon, 15.0, text);
+    ui.painter().text(mirror::start_center(rect, 34.0), mirror::align(Align2::LEFT_CENTER), label, font, text);
     resp
 }
 
