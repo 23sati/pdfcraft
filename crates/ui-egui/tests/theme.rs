@@ -24,12 +24,10 @@ fn assert_theme(h: &Harness<'static, PdfCraftApp>, preference: ThemePreference, 
     assert_eq!(h.ctx.theme(), if kind == ThemeKind::Dark { egui::Theme::Dark } else { egui::Theme::Light });
 }
 
-fn open_toolbar(h: &mut Harness<'static, PdfCraftApp>, label: &str) {
+/// A click on the title bar's theme button cycles Light, Dark, System.
+fn click_toolbar(h: &mut Harness<'static, PdfCraftApp>, label: &str) {
     h.get_by_label(&format!("Display theme: {label}")).click();
     h.run_steps(3);
-    for choice in ["Use system setting", "Light gray", "Dark gray", "Atelier", "Editorial", "Heritage", "Executive", "Sienna", "Paper & Ink"] {
-        h.get_by_label(choice);
-    }
 }
 
 fn open_view_menu(h: &mut Harness<'static, PdfCraftApp>) {
@@ -50,18 +48,16 @@ fn toolbar_and_view_menu_share_three_state_preferences() {
     let mut h = harness();
     // Explicit light wins even on a dark desktop, including egui's popup style.
     assert_theme(&h, ThemePreference::Light, ThemeKind::Light);
-    open_toolbar(&mut h, "Light gray");
-    h.get_by_label("Use system setting").click();
-    h.run_steps(3);
+    click_toolbar(&mut h, "Light gray");
+    assert_theme(&h, ThemePreference::Dark, ThemeKind::Dark);
+    click_toolbar(&mut h, "Dark gray");
     assert_theme(&h, ThemePreference::System, ThemeKind::Dark);
 
     open_view_menu(&mut h);
     h.get_by_label("Light gray").click();
     h.run_steps(3);
     assert_theme(&h, ThemePreference::Light, ThemeKind::Light);
-    open_toolbar(&mut h, "Light gray");
-    h.get_by_label("Dark gray").click();
-    h.run_steps(3);
+    click_toolbar(&mut h, "Light gray");
     assert_theme(&h, ThemePreference::Dark, ThemeKind::Dark);
 
     open_view_menu(&mut h);
@@ -71,9 +67,8 @@ fn toolbar_and_view_menu_share_three_state_preferences() {
     h.input_mut().system_theme = Some(egui::Theme::Light);
     h.run_steps(3);
     assert_theme(&h, ThemePreference::System, ThemeKind::Light);
-    open_toolbar(&mut h, "Use system setting");
-    h.get_by_label("Dark gray").click();
-    h.run_steps(3);
+    click_toolbar(&mut h, "Use system setting");
+    click_toolbar(&mut h, "Light gray");
     // A manual choice exits system mode and survives subsequent OS changes.
     h.input_mut().system_theme = Some(egui::Theme::Dark);
     h.run_steps(2);
@@ -160,9 +155,7 @@ fn all_presets_switch_live_persist_and_preserve_unsaved_documents() {
 fn new_presets_are_available_from_the_existing_menu_and_commands() {
     let mut h = harness();
     for preference in ThemePreference::ALL.into_iter().skip(3) {
-        let tip = format!("Display theme: {}", h.state().theme_preference.label());
-        h.get_by_label(&tip).click();
-        h.run_steps(3);
+        open_view_menu(&mut h);
         h.get_by_label(preference.label()).click();
         h.run_steps(3);
         assert_eq!(h.state().theme_preference, preference);
@@ -193,7 +186,7 @@ fn palette_visual_review() {
         let shot = h.render().unwrap();
         assert!(shot.pixels().filter(|p| p.0 == [255, 255, 255, 255]).count() > 10_000, "PDF paper remains white");
         shot.save(format!("{dir}/{}-document.png", preference.id())).unwrap();
-        h.get_by_label(&format!("Display theme: {}", preference.label())).click();
+        h.get_by_label(&format!("Display theme: {}", preference.label())).click_secondary();
         h.run_steps(3);
         h.render().unwrap().save(format!("{dir}/{}-menu.png", preference.id())).unwrap();
         h.get_by_label(preference.label()).click();
@@ -215,7 +208,7 @@ fn palette_visual_review() {
     h.state_mut().set_option("theme", created["id"].as_str().unwrap()).unwrap();
     h.run_steps(4);
     h.render().unwrap().save(format!("{dir}/custom-home.png")).unwrap();
-    h.get_by_label("Display theme: Custom theme").click();
+    h.get_by_label("Display theme: Custom theme").click_secondary();
     h.run_steps(3);
     h.render().unwrap().save(format!("{dir}/custom-menu.png")).unwrap();
     h.get_by_label("Navy and cream").click();

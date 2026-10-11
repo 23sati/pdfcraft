@@ -19,32 +19,43 @@ Regression coverage checks the GUI selectors, CLI/MCP display metadata, serializ
 IDs, and imported partial custom definitions resolving the old base IDs after a
 restart, export and active-theme deletion.
 
-Latest upstream `bbbe60015c571ebfc39708ee07777b89e267122a` was fetched and reviewed.
-It changes version manifests and shared UI/icon integration, but not the theme
-core. GitHub reports the PR as conflicting; merge preview identifies
-`ATTRIBUTION.toml`, `Cargo.toml`, `crates/ui-egui/Cargo.toml`, and
-`crates/ui-egui/src/icons.rs`. These conflicts already existed before this naming
-commit. Upstream was not merged into this focused refinement because doing so
-would introduce unrelated dependency and UI changes. The PR is not mergeable
-until that integration is completed separately.
+The naming commit was initially blocked by upstream merge conflicts. The follow-up
+merges upstream `8f8e0236aaef16a4f3ca52a074ad5d48da6498f7`, preserving the shared
+theme model unchanged. It combines the version/dependency updates, localized
+catalogs, toolbar/context-menu behavior and new Appearance preferences. The
+Appearance picker includes every preset and custom theme; its cards preview the
+actual selected palette. Regression coverage exercises those choices and a custom
+palette through the new preferences section.
+
+At the start of this follow-up, the checkout was clean and fully pushed. GitHub
+reported content conflicts, no check runs for the naming commit, and no visible
+main-branch protection rule. Actions-policy access was denied, so fork-workflow
+approval requirements could not be confirmed. No repository settings were changed.
 
 The final naming rerun passed formatting, workspace Clippy with warnings denied,
 all 2,125 workspace tests (zero failures, six existing ignores), native desktop/CLI
 builds, assets and layering. The 34-image visual test was regenerated and the menu
-was inspected with the new labels. The parity failure and missing WASM/cargo-deny
-limitations below remain unchanged.
+was inspected with the new labels. That run’s parity failure was fixed in the newer upstream merge. Missing local
+WASM/cargo-deny limits still need external validation.
+
+The final integration run passed 2,398 tests (zero failures, six existing ignores),
+formatting, Clippy, native builds, assets, layering and parity. The 34-image visual
+check passed; the Executive Appearance card was inspected. Before/after CLI output
+confirmed identical names, stable IDs and all 31 colors across the merge.
 
 ## Passed
 
-- `cargo test --workspace --no-fail-fast`: **2,125 passed, zero failed, six ignored**.
+- `cargo test --workspace --no-fail-fast`: **2,398 passed, zero failed, six ignored**.
   This repeats and expands the original 1,765-test baseline after upstream integration.
   The six existing ignores concern network access, two optional corpus tests, a
   timing probe, a local signature diagnostic and a temporary macOS keychain test.
 - `cargo fmt --all -- --check` and
   `cargo clippy --workspace --all-targets -- -D warnings`.
-- `cargo build -p pdfcraft -p pdfcraft-cli` on native macOS.
-- `cargo xtask assets`: 264 repository assets, six dependency assets, 22 build inputs.
-- `cargo xtask layers`: 35 crates, no layering violations.
+- `cargo build -p pdfcraft -p pdfcraft-cli` on native macOS, plus
+  `cargo check -p pdfcraft-cli --no-default-features`.
+- `cargo xtask parity`: passes after integrating the upstream manifest repair.
+- `cargo xtask assets`: 265 repository assets, six dependency assets, 22 build inputs.
+- `cargo xtask layers`: 36 crates, no layering violations.
 - Focused final reruns: all 21 shared-core/store tests, all nine theme integration
   tests, and the adjusted MCP structured-error regression. The core tests include
   refusal of a standalone export accidentally supplied as a store. A new unit
@@ -86,11 +97,6 @@ inspected and selected through the existing GUI selector. PDF paper stayed white
 System-font loading was disabled; images and logs are ignored local artifacts.
 
 ## Remaining upstream and environment limits
-
-- `cargo xtask parity` fails on a duplicate `evidence` key at line 5254 in
-  `parity/acrobat-features.toml`. Parsing the same file from unmodified upstream
-  `b8ddf71` reproduces the failure. The earlier `798650e` validation passed; this
-  later upstream failure is not reported as a successful check.
 
 - `cargo xtask wasm` was attempted and failed because this Rust installation lacks
   the `wasm32-unknown-unknown` standard library. Browser compilation/persistence

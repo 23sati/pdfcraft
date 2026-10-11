@@ -3,7 +3,7 @@
 ## Assessment and implemented scope
 
 The original assessment used upstream main `68e91d4815ed43212895589411aa3d21b2a84bc3`.
-The branch now integrates upstream `b8ddf71` without rewriting the two initial
+The branch now integrates upstream `8f8e023` without rewriting the two initial
 commits. Closed Windows PR #616 and its separate checkout are untouched.
 
 Upstream PR #212 (`42078a8`) unified the toolbar and View menu around
@@ -38,7 +38,10 @@ browser callers currently supply an ID obtained from browser entropy.
 Native `ThemeStore` transactions re-read the latest state under an advisory lock,
 apply one operation and atomically replace the JSON file. GUI selectors use that
 same path. The running GUI checks for external changes about once per second and
-reloads them. Custom themes appear in the existing selector, with a scrolling list.
+reloads them. Custom themes appear in the View selector and toolbar context menu, with a
+scrolling list. Upstream’s Appearance preferences also use the shared selection
+API and preview the active preset/custom palette. The toolbar’s primary click
+keeps upstream’s System/Light/Dark cycle; its context menu exposes every theme.
 The future editor should use this API rather than another preference or file format.
 
 System, Light and Dark keep their historical appearance and encodings. System
