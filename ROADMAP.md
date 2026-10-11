@@ -133,6 +133,8 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 ## Progress log
 
+- 2026-10-11 — M14: expand the existing Windows/macOS installer catalogs from seven to 19 languages, preserving primary-system-language selection and English fallback. Distinguish Chinese scripts; mirror native Arabic/Urdu dialogs. Document MSI transforms, quiet/GPO deployment, reboot/exit handling and optional-service administration. Packaging checks inspect actual MSI/Setup contents; per-language visual and domain deployment acceptance remain separate.
+
 - 2026-10-11 — M13: Hot Folder server hardening: isolated bounded task processes, Windows job memory limits, automatic transient retries, durable bounded active journals, crash-safe grouped receipts and deterministic OCR replay. Stable service SID grants preserve custom SCM accounts through repair/upgrade. Added manual real-MSI local/SMB acceptance for Server 2022/2025 and opt-in disposable Server 2019; no untested server certification is claimed.
 
 - 2026-10-11 — M13: optional standalone Hot Folder with durable local/network/FTP/Outlook/open-project processing, calendar schedules, safe source policies, OCR/scan preprocessing, analysis reports, grouped PDF/Office/image/EPUB outputs, headless tools and seven UI languages. Restricted-account boot services and optional Windows/macOS/Linux installers have lifecycle coverage; proprietary ABBYY formats remain incompatible; see [the scope inventory](docs/hot-folder.md).
