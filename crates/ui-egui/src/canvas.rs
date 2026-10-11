@@ -2364,10 +2364,10 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                     let pressed = ui.input(|inp| inp.pointer.primary_pressed());
                     if pressed && press_here && !over_link {
                         let now = ui.input(|inp| inp.time);
-                        const MAX_DOUBLE_CLICK_DELAY: f64 = 0.35;
-                        const MAX_CLICK_DIST: f32 = 6.0;
-                        let is_consecutive = now - view.last_press_time <= MAX_DOUBLE_CLICK_DELAY
-                            && view.last_press_pos.is_some_and(|pos| pos.distance(p) <= MAX_CLICK_DIST);
+                        // The same limits egui uses to count clicks on release.
+                        let (max_delay, max_dist) = ui.ctx().options(|o| (o.input_options.max_double_click_delay, o.input_options.max_click_dist));
+                        let is_consecutive =
+                            now - view.last_press_time <= max_delay && view.last_press_pos.is_some_and(|pos| pos.distance(p) <= max_dist);
                         view.clicks = if is_consecutive { view.clicks.saturating_add(1) } else { 1 };
                         view.last_press_time = now;
                         view.last_press_pos = Some(p);
