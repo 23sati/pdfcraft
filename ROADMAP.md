@@ -31,7 +31,7 @@ and add a line to the [progress log](#progress-log); when a gap closes, remove i
 
 | | Value | Kind |
 |---|---|---|
-| **Feature breadth** | **≈ 67%** tier-weighted (56.9% unweighted: 423 shipped + 74 partial of 808; P0 94.2%) | measured, `parity/acrobat-features.toml` |
+| **Feature breadth** | **≈ 67%** tier-weighted (57.2% unweighted: 425 shipped + 77 partial of 810; P0 94.2%) | measured, `parity/acrobat-features.toml` |
 | Feature breadth, mainstream practitioner | ≈ 70% tier-weighted (63.2% unweighted; P0 95.3%) | measured ([split](docs/target-app-parity.md#mainstream-practitioner-vs-full-acrobat-pro)) |
 | **Ready for real work**, full Acrobat Pro | **≈ 49%** (45–53%) | estimated, weighted sum over [dimensions](#by-dimension) |
 | **Ready for real work**, mainstream practitioner | **≈ 55%** (50–60%) | estimated ([split](docs/target-app-parity.md#mainstream-practitioner-vs-full-acrobat-pro)) |
@@ -82,7 +82,7 @@ Hours are calibrated as in [Effort and calibration](docs/target-app-parity.md#ef
 | C Content editing | 53.3% | 30% | 100–180 |
 | D Organize pages | 61.2% | 70% | 12–25 |
 | E Comments and review | 77.7% | 70% | 12–25 |
-| F Forms and JavaScript | 78.5% | 65% | 40–75 |
+| F Forms and JavaScript | 79.1% | 65% | 40–75 |
 | G Protect, redact, sanitize | 58.5% | 55% | 15–30 |
 | H Digital signatures | 62.2% | 45% | 40–70 |
 | I Scan and OCR | 23.1% | 15% | 40–75 |
@@ -139,6 +139,7 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 Newest first: the date, what moved, and the new overall estimate.
 
+- **2026-10-11 (M6, form submission):** Native buttons and the explicit tool now submit current form values as HTML POST or GET, FDF or XFDF POST, and full-PDF POST after desktop review. Imported selected-field actions and NoExport filtering are covered by local-server tests. Email, JavaScript `submitForm`, browser transport and desktop selected-field authoring remain. `form.submit-form` is partial: 425 shipped + 77 partial of 810; readiness estimates unchanged.
 - **2026-10-11 (#995, #1077, permissions password after opening):** A PDF with only a permissions password opens without asking, restricted, and nothing let the user enter that password afterwards: the notice and the hint pointed at reopening with it. Now the security notice and Properties ▸ Security offer Unlock…, and Change settings / Remove security on a restricted document ask for the permissions password first and then carry on (as Acrobat does). The open password is refused there. `Session::unlock` upgrades the open document in place (owner and user passwords unlock the same file key, so nothing is re-read), unlocks the undo and redo states and reopens saves as owner; it is not an edit and doesn't mark the document unsaved. New command `protect.unlock`; the new strings are in all 15 full catalogs. Tests cover crypt, cos, engine (undo, redo, save, separate open password) and the UI. Still missing: an automation tool for it. Estimates unchanged.
 - **2026-10-11 (M14, #307 Plan 3):** Engine open and full refresh use one page/content traversal to populate marks and added content. The independent public scans remain available; the combined scanner borrows direct objects and holds referenced objects through `Arc<Object>` instead of cloning scan-only `/Contents` arrays or `/PCAdded` dictionaries. Differential tests cover an indirect `/PCAdded` dictionary as well as ordering, malformed/direct/indirect/repeated entries and `/UserUnit`. Exact `bbbe600`→final release CLI measurements used 10 alternating pairs: wall-time medians were 183.645→174.440 ms on 10,000 marker-free pages (10/10 wins), 33.587→32.752 ms on 1,500 mixed pages (8/10), and 24.331→20.133 ms on the 100,000-entry array stress fixture (10/10). The stress fixture's maximum-RSS median fell 28,655,616→19,038,208 B; peak-footprint medians were 14,747,136→14,673,408 B. From P0, the follow-up stress run was 20.886→20.201 ms (10/10), with RSS 23,953,408→19,087,360 B and peak footprint 14,706,144→14,697,952 B. `doc_open` stdout hashes matched every pair. The ancillary `organize` binding preserves the prior `prune_legacy` update condition. Estimates unchanged.
 - **2026-10-11 (M4, Organize overview):** Opening Organize pages from All tools, Home, the tool palette or `ui.set tool=organize` opens the thumbnail grid directly. Checkboxes toggle individual pages without modifier keys; page controls rotate either way or delete one page, while the toolbar acts on the selection. Portrait and landscape previews retain their aspect ratio. UI and control regressions cover entry, selection, single-page versus batch actions, undo, permissions and retaining the last page. Milestone and effort estimates unchanged.
