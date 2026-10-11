@@ -2684,7 +2684,10 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                         view.clicks = release_clicks;
                     }
                     let clicks = if view.clicks > 2 && tool != QuickTool::Select { 1 } else { view.clicks };
-                    if clicks >= 2 && over_text {
+                    // Only on the frame egui reports the multi-click: `view.clicks` outlives it, and
+                    // acting on every frame re-selected the word as soon as a selection was cleared
+                    // (a highlight made by the double-click left its word selected).
+                    if release_clicks > 0 && clicks >= 2 && over_text {
                         if view.selection.is_none() {
                             let span = text.nearest(vx, vy).and_then(|a| match clicks {
                                 2 => text.word_at(a),
