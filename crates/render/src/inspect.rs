@@ -448,7 +448,7 @@ struct Inspector<'a> {
 
 impl<'a> Inspector<'a> {
     fn new(doc: &'a dyn Structure) -> Self {
-        let page_index = doc.get_pages().into_iter().map(|(n, id)| (id, n as usize - 1)).collect();
+        let page_index = doc.page_ids().into_iter().enumerate().map(|(index, id)| (id, index)).collect();
         let mut me = Self { doc, page_index, named: HashMap::new() };
         let mut named = HashMap::new();
         if let Some(tree) =
