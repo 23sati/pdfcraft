@@ -35,7 +35,11 @@ fn fixture(n: usize) -> Vec<u8> {
 }
 
 fn harness(pages: usize, setup: impl FnOnce(&mut PdfCraftApp) + 'static) -> Harness<'static, PdfCraftApp> {
-    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
+    let mut builder = Harness::builder().with_size(egui::vec2(1400.0, 900.0));
+    if std::env::var_os("PDFCRAFT_ORGANIZE_SNAPSHOT").is_some() {
+        builder = builder.wgpu();
+    }
+    let mut h = builder.build_eframe(move |_cc| {
         let mut app = PdfCraftApp::new();
         app.set_option("language", "en").unwrap();
         app.open_bytes("doc.pdf", None, fixture(pages)).expect("fixture opens");
@@ -48,6 +52,75 @@ fn harness(pages: usize, setup: impl FnOnce(&mut PdfCraftApp) + 'static) -> Harn
 
 fn organize(pages: usize) -> Harness<'static, PdfCraftApp> {
     harness(pages, |app| app.set_option("organize", "on").unwrap())
+}
+
+fn type_selection(h: &mut Harness<'static, PdfCraftApp>, text: &str) {
+    use egui::accesskit::Role;
+    h.get_by_role_and_label(Role::TextInput, "Selected pages").click();
+    h.run_steps(1);
+    h.key_press_modifiers(Modifiers::COMMAND, Key::A);
+    h.get_by_role_and_label(Role::TextInput, "Selected pages").type_text(text);
+    h.run_steps(2);
+}
+
+#[test]
+fn organize_page_range_tracks_thumbnails_and_applies_typed_selection() {
+    use egui::accesskit::Role;
+    let mut h = organize(100);
+    h.get_by_label("Select page 2").click();
+    h.run_steps(2);
+    assert_eq!(h.get_by_role_and_label(Role::TextInput, "Selected pages").value().as_deref(), Some("2"));
+    h.get_by_label("Select page 3").click();
+    h.run_steps(2);
+    assert_eq!(h.get_by_role_and_label(Role::TextInput, "Selected pages").value().as_deref(), Some("2-3"));
+    let old = h.state().views[0].selected.clone();
+    type_selection(&mut h, "1,12,16-18,89,92,93,97,99");
+    assert_eq!(h.state().views[0].selected, old, "typing is not committed until Enter or focus loss");
+    h.key_press(Key::Enter);
+    h.run_steps(2);
+    assert_eq!(h.state().views[0].target_pages(), [0, 11, 15, 16, 17, 88, 91, 92, 96, 98]);
+    assert_eq!(h.get_by_role_and_label(Role::TextInput, "Selected pages").value().as_deref(), Some("1, 12, 16-18, 89, 92-93, 97, 99"));
+    if let Some(path) = std::env::var_os("PDFCRAFT_ORGANIZE_SNAPSHOT") {
+        h.render().unwrap().save(std::path::Path::new(&path)).unwrap();
+    }
+    h.get_by_label("Rotate clockwise").click();
+    h.run_steps(3);
+    let doc = h.state().session.get(h.state().views[0].id).unwrap();
+    for (i, page) in doc.info.pages.iter().enumerate() {
+        assert_eq!(page.rotation, if h.state().views[0].selected.contains(&i) { 90 } else { 0 });
+    }
+    h.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+    h.run_steps(3);
+    assert!(h.state().session.get(h.state().views[0].id).unwrap().info.pages.iter().all(|p| p.rotation == 0));
+}
+
+#[test]
+fn organize_page_range_rejects_invalid_input_and_escape_cancels_without_clearing() {
+    use egui::accesskit::Role;
+    let mut h = organize(5);
+    h.state_mut().set_option("select", "2-3").unwrap();
+    h.run_steps(2);
+    for text in ["0", "6", "1,", "no"] {
+        type_selection(&mut h, text);
+        h.key_press(Key::Enter);
+        h.run_steps(2);
+        assert_eq!(h.state().views[0].target_pages(), [1, 2]);
+    }
+    type_selection(&mut h, "1-5");
+    h.key_press(Key::Escape);
+    h.run_steps(2);
+    assert_eq!(h.state().views[0].target_pages(), [1, 2]);
+    assert_eq!(h.get_by_role_and_label(Role::TextInput, "Selected pages").value().as_deref(), Some("2-3"));
+    type_selection(&mut h, "5, 4, 4");
+    h.get_by_label("Apply").click();
+    h.run_steps(2);
+    assert_eq!(h.state().views[0].target_pages(), [3, 4]);
+    type_selection(&mut h, " ");
+    h.key_press(Key::Enter);
+    h.run_steps(2);
+    assert!(h.state().views[0].selected.is_empty());
+    assert!(h.state_mut().set_option("select", "0").is_err());
+    assert!(h.state_mut().set_option("select", "6").is_err());
 }
 
 #[test]
