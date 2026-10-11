@@ -89,6 +89,11 @@ const WATERMARK_MAX_OFFSET: f64 = 20_000.0;
 const BOOKMARK_PAGE: usize = 100;
 const MAX_BOOKMARK_PAGE: usize = 1000;
 
+/// `text_find` extracts this many pages first, doubling each batch up to [`FIND_MAX_BATCH`], so a
+/// match near the start returns without touching the rest of a long document (#971).
+const FIND_FIRST_BATCH: usize = 8;
+const FIND_MAX_BATCH: usize = 128;
+
 /// Page texts of one document version: (the working bytes, one slot per page).
 type TextCache = (Arc<Vec<u8>>, Vec<Option<Arc<PageText>>>);
 
@@ -1573,22 +1578,46 @@ impl Automation {
         Ok(json!({ "pages": out }))
     }
 
+    /// Matches in document order, extracting page text in growing batches and stopping as soon as
+    /// `limit` is reached, so a bounded search doesn't extract (and cache) the whole document
+    /// (#971). One match past the limit is looked for, so `complete` is true only when no more
+    /// exist; otherwise `next` holds the arguments that continue the search.
     fn text_find(&mut self, a: &Args) -> Result<Value> {
         let doc = self.doc(a)?;
         let (id, n) = (doc.id, doc.info.pages.len());
         let query = a.str("query")?;
-        let limit = a.opt_int("limit")?.unwrap_or(500).max(1) as usize;
-        let texts = self.page_texts(id, &(0..n).collect::<Vec<_>>())?;
+        let limit = usize::try_from(a.opt_int("limit")?.unwrap_or(500).max(1)).unwrap_or(usize::MAX);
+        let start = match a.opt_int("start_page")? {
+            None => 0,
+            Some(p) if p >= 1 && usize::try_from(p).is_ok_and(|p| p <= n) => usize::try_from(p - 1).unwrap_or(0),
+            Some(p) => return Err(ToolError::InvalidArgs(format!("start_page {p} is out of range: the document has {n} pages"))),
+        };
+        let skip = usize::try_from(a.opt_int("skip")?.unwrap_or(0).max(0)).unwrap_or(usize::MAX);
         let mut matches = Vec::new();
-        'pages: for (p, text) in texts.iter().enumerate() {
-            for r in text.find(query) {
-                if matches.len() == limit {
-                    break 'pages;
+        let mut next = None;
+        let (mut first, mut batch) = (start, FIND_FIRST_BATCH);
+        'search: while first < n {
+            let end = first.saturating_add(batch).min(n);
+            let pages: Vec<usize> = (first..end).collect();
+            let texts = self.page_texts(id, &pages)?;
+            for (p, text) in pages.iter().zip(&texts) {
+                let skip_here = if *p == start { skip } else { 0 };
+                for (k, r) in text.find(query).into_iter().enumerate().skip(skip_here) {
+                    if matches.len() == limit {
+                        next = Some(json!({ "start_page": p + 1, "skip": k }));
+                        break 'search;
+                    }
+                    matches.push(json!({ "page": p + 1, "text": text.text_of(r.clone()), "rects": text.line_rects(r) }));
                 }
-                matches.push(json!({ "page": p + 1, "text": text.text_of(r.clone()), "rects": text.line_rects(r) }));
             }
+            first = end;
+            batch = batch.saturating_mul(2).min(FIND_MAX_BATCH);
         }
-        Ok(json!({ "query": query, "count": matches.len(), "matches": matches }))
+        let mut out = json!({ "query": query, "count": matches.len(), "complete": next.is_none(), "matches": matches });
+        if let (Some(next), Some(o)) = (next, out.as_object_mut()) {
+            o.insert("next".into(), next);
+        }
+        Ok(out)
     }
 
     fn command_list(&self, a: &Args) -> Result<Value> {
@@ -2035,6 +2064,85 @@ fn write_atomic_with(path: &Path, bytes: &[u8], suffixes: impl IntoIterator<Item
 mod tests {
     use super::*;
     use pdfcraft_platform::staging::STAGING_ATTEMPTS;
+
+    /// `n` pages, page i showing "Page i".
+    fn numbered_pages(n: usize) -> Vec<u8> {
+        let mut objs: Vec<String> = vec!["<< /Type /Catalog /Pages 2 0 R >>".into()];
+        let kids: Vec<String> = (0..n).map(|i| format!("{} 0 R", 4 + 2 * i)).collect();
+        objs.push(format!("<< /Type /Pages /Kids [{}] /Count {n} /MediaBox [0 0 200 300] >>", kids.join(" ")));
+        objs.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".into());
+        for i in 0..n {
+            objs.push(format!("<< /Type /Page /Parent 2 0 R /Contents {} 0 R /Resources << /Font << /F1 3 0 R >> >> >>", 5 + 2 * i));
+            let body = format!("BT /F1 24 Tf 20 150 Td (Page {}) Tj ET", i + 1);
+            objs.push(format!("<< /Length {} >>\nstream\n{body}\nendstream", body.len()));
+        }
+        let mut out = b"%PDF-1.7\n".to_vec();
+        let mut offsets = Vec::new();
+        for (i, o) in objs.iter().enumerate() {
+            offsets.push(out.len());
+            out.extend_from_slice(format!("{} 0 obj\n{o}\nendobj\n", i + 1).as_bytes());
+        }
+        let xref = out.len();
+        out.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+        for o in offsets {
+            out.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+        }
+        out.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objs.len() + 1).as_bytes());
+        out
+    }
+
+    fn json(a: &mut Automation, tool: &str, args: Value) -> Value {
+        match a.call(tool, &args).map(|mut c| c.remove(0)) {
+            Ok(Content::Json(v)) => v,
+            other => panic!("{tool} {args}: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_bounded_text_find_reads_only_the_pages_it_needs_and_says_it_stopped() {
+        let dir = std::env::temp_dir().join(format!("pdfcraft-automation-find-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("long.pdf"), numbered_pages(200)).unwrap();
+        let mut a = Automation::new().with_root(&dir).unwrap();
+        let doc = json(&mut a, "doc_open", json!({ "path": "long.pdf" }))["doc"].clone();
+        let extracted = |a: &Automation| a.texts.values().map(|(_, pages)| pages.iter().filter(|t| t.is_some()).count()).sum::<usize>();
+
+        // #971: the first match is on page 1 and the next on page 10, so the rest of the 200 pages
+        // aren't extracted or cached.
+        let first = json(&mut a, "text_find", json!({ "doc": doc, "query": "Page 1", "limit": 1 }));
+        assert_eq!(first["count"], 1);
+        assert_eq!(first["matches"][0]["page"], 1);
+        assert_eq!(first["complete"], false, "{first}");
+        assert_eq!(first["next"], json!({ "start_page": 10, "skip": 0 }));
+        assert!(extracted(&a) <= 3 * FIND_FIRST_BATCH, "{} pages extracted for one match", extracted(&a));
+
+        // Following `next` returns every match exactly once, in order, and then says it's complete.
+        // "1" appears twice on pages like 11 and 101, so continuing has to skip within a page.
+        let all = json(&mut a, "text_find", json!({ "doc": doc, "query": "1", "limit": 10_000 }));
+        assert_eq!(all["complete"], true);
+        assert!(all.get("next").is_none());
+        let mut pieced = Vec::new();
+        let mut args = json!({ "doc": doc, "query": "1", "limit": 3 });
+        loop {
+            let found = json(&mut a, "text_find", args.clone());
+            pieced.extend(found["matches"].as_array().unwrap().iter().map(|m| (m["page"].clone(), m["rects"].clone())));
+            if found["complete"] == true {
+                break;
+            }
+            args["start_page"] = found["next"]["start_page"].clone();
+            args["skip"] = found["next"]["skip"].clone();
+        }
+        let expected: Vec<_> = all["matches"].as_array().unwrap().iter().map(|m| (m["page"].clone(), m["rects"].clone())).collect();
+        assert_eq!(all["count"], expected.len());
+        assert_eq!(pieced, expected);
+
+        // A search that runs to the end below its limit is complete; a start page past the end is refused.
+        let few = json(&mut a, "text_find", json!({ "doc": doc, "query": "Page 200", "start_page": 150 }));
+        assert_eq!((few["count"].clone(), few["complete"].clone()), (json!(1), json!(true)));
+        assert!(a.call("text_find", &json!({ "doc": doc, "query": "x", "start_page": 201 })).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn dot_dot_resolves_by_name_and_never_climbs_above_the_start() {
