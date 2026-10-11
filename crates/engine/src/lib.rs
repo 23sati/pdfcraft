@@ -30,7 +30,7 @@ pub mod xfa;
 
 pub use signature_image::{ImageSignaturePreview, SignatureImage};
 
-pub use pdfcraft_organize::{BoxSpec, PageBox, SplitBy, split_ranges};
+pub use pdfcraft_organize::{BoxSpec, FieldConflicts, PageBox, SplitBy, split_ranges};
 
 /// One file produced by a split: (1-based first page, last page, PDF bytes).
 pub use pdfcraft_organize::LabelStyle;
@@ -606,6 +606,14 @@ fn apply_layer_state(layers: &mut [Layer], groups: &[Vec<(u32, u16)>], changes: 
 /// A file to combine: its name (the bookmark title), bytes, and page range (`None`: all).
 pub type CombineSource = (String, Arc<Vec<u8>>, Option<String>);
 
+/// What a combine produced: the new PDF bytes, and the fields renamed to keep colliding names
+/// separate (old fully-qualified name → new one), in order across the sources.
+#[derive(Debug)]
+pub struct Combined {
+    pub bytes: Arc<Vec<u8>>,
+    pub renamed_fields: Vec<(String, String)>,
+}
+
 /// A bookmark as the bookmark list shows it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BookmarkRow {
@@ -844,6 +852,8 @@ pub enum Edit {
         bytes: Arc<Vec<u8>>,
         pages: Option<Vec<usize>>,
         at: usize,
+        /// How a form field whose name the document already uses is kept separate.
+        field_conflicts: pdfcraft_organize::FieldConflicts,
     },
     /// Add a bookmark to `page` as child `index` of the bookmark at `parent` (`[]` = top level).
     AddBookmark {
@@ -1496,6 +1506,9 @@ struct EditCtx {
     today: (i64, u32, u32),
     seed: u64,
     count: u64,
+    /// Fields the edit renamed to keep imported names separate (old → new), for the repair
+    /// log and the undo label.
+    renamed_fields: Vec<(String, String)>,
 }
 
 impl EditCtx {
@@ -1520,6 +1533,7 @@ impl EditCtx {
             today: (1970, 1, 1),
             seed,
             count: 0,
+            renamed_fields: Vec::new(),
         }
     }
 
@@ -1576,13 +1590,14 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
             pdfcraft_organize::replace_pages(doc, pages, &src, src_pages)?;
         }
         Edit::SetPageBox { pages, which, spec } => pdfcraft_organize::set_page_box(doc, pages, *which, *spec)?,
-        Edit::InsertPagesFrom { name, bytes, pages, at } => {
+        Edit::InsertPagesFrom { name, bytes, pages, at, field_conflicts } => {
             let src = open_source(name, bytes)?;
             let pages = match pages {
                 Some(p) => p.clone(),
                 None => (0..pdfcraft_organize::page_count(&src)?).collect(),
             };
-            pdfcraft_organize::import_pages(doc, &src, &pages, *at)?;
+            let outcome = pdfcraft_organize::import_pages_with(doc, &src, &pages, *at, *field_conflicts)?;
+            cx.renamed_fields = outcome.renamed_fields;
         }
         Edit::AddBookmark { parent, index, title, page } => {
             pdfcraft_organize::add_bookmark(doc, parent, *index, title, *page)?;
@@ -2502,9 +2517,32 @@ impl Session {
         if !js_off && uses_scripts(&edit) {
             cx.js = Some(js::JsRunner::new(&next, &name));
         }
+        cx.renamed_fields.clear();
         // `next` is a copy: if the edit fails or crashes, the document is unchanged.
         guard(|| run_edit(&mut next, &edit, &mut cx))
             .unwrap_or_else(|m| Err(EditError::Invalid(format!("{} failed unexpectedly ({m}); the document was not changed", edit.label()))))?;
+        // Renamed fields are said, not slipped in: a repair-log note (with the caveat that
+        // scripts were left alone) and a count in the undo step's label.
+        let renamed_note = |renamed: &[(String, String)]| {
+            (!renamed.is_empty()).then(|| {
+                let shown: Vec<String> = renamed.iter().take(5).map(|(old, new)| format!("{old} → {new}")).collect();
+                let more = renamed.len().saturating_sub(shown.len());
+                let more = if more > 0 { format!(", and {more} more") } else { String::new() };
+                format!(
+                    "inserted pages renamed {} form field{} to keep their names separate ({}{more}); scripts that refer to the old names were not rewritten",
+                    renamed.len(),
+                    if renamed.len() == 1 { "" } else { "s" },
+                    shown.join(", ")
+                )
+            })
+        };
+        if let Some(note) = renamed_note(&cx.renamed_fields) {
+            next.note_repair(note);
+        }
+        let label = match cx.renamed_fields.len() {
+            0 => edit.label(),
+            n => format!("{} — {n} field{} renamed", edit.label(), if n == 1 { "" } else { "s" }),
+        };
         // An XFA form's scripts answer the change: exit and validate scripts of the field, then
         // every calculation (and a reset recalculates). They read the data, so it is brought up
         // to date first.
@@ -2558,7 +2596,7 @@ impl Session {
         let keys = keys_after(&edit).unwrap_or_else(|| editor.keys.clone());
         let previous_keys = std::mem::replace(&mut editor.keys, keys);
         let scope = scope_of(&edit);
-        editor.undo.push((edit.label(), previous, previous_keys, scope));
+        editor.undo.push((label, previous, previous_keys, scope));
         if editor.undo.len() > MAX_UNDO {
             editor.undo.remove(0);
         }
@@ -2979,6 +3017,38 @@ impl Session {
         self.write_new(&out)
     }
 
+    /// [`Self::combine_unlocked`] reporting what the conflict resolution renamed.
+    pub fn combine_unlocked_reporting(
+        &self,
+        sources: &[CombineSource],
+        passwords: &[Option<&str>],
+        field_conflicts: pdfcraft_organize::FieldConflicts,
+    ) -> Result<Combined, EditError> {
+        let docs = sources
+            .iter()
+            .enumerate()
+            .map(|(i, (n, b, _))| open_source_with(n, b, passwords.get(i).copied().flatten()))
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut pages = Vec::with_capacity(docs.len());
+        for ((name, _, range), d) in sources.iter().zip(&docs) {
+            let range = range.as_deref().map(str::trim).filter(|r| !r.is_empty());
+            pages.push(match range {
+                Some(r) => {
+                    let n = pdfcraft_organize::page_count(d)?;
+                    let p = pdfcraft_print::select_pages(n, Some(r), &[], pdfcraft_print::Subset::All, false)
+                        .map_err(|e| EditError::Print(format!("{name}: {e}")))?;
+                    Some(p)
+                }
+                None => None,
+            });
+        }
+        let named: Vec<(&str, &pdfcraft_cos::Document, Option<&[usize]>)> =
+            sources.iter().zip(docs.iter()).zip(&pages).map(|(((n, _, _), d), p)| (n.as_str(), d, p.as_deref())).collect();
+        let out = pdfcraft_organize::combine_selected_with(&named, field_conflicts)?;
+        let bytes = self.write_new(&out.doc)?;
+        Ok(Combined { bytes, renamed_fields: out.renamed_fields })
+    }
+
     /// [`Self::combine_unlocked`] where sources with the same `groups` key (by position) are one
     /// file split into several runs placed apart: each file is opened and copied once, so it keeps
     /// one bookmark, its links between its own pages, its fields and its attachments whole (see
@@ -3021,6 +3091,52 @@ impl Session {
         }
         let out = pdfcraft_organize::combine_grouped(&runs)?;
         self.write_new(&out)
+    }
+
+    /// [`Self::combine_grouped`] reporting what the conflict resolution renamed.
+    pub fn combine_grouped_reporting(
+        &self,
+        sources: &[CombineSource],
+        groups: &[u64],
+        passwords: &[Option<&str>],
+        field_conflicts: pdfcraft_organize::FieldConflicts,
+    ) -> Result<Combined, EditError> {
+        let (mut keys, mut docs, mut file): (Vec<Option<u64>>, Vec<pdfcraft_cos::Document>, Vec<usize>) = (Vec::new(), Vec::new(), Vec::new());
+        for (i, (name, bytes, _)) in sources.iter().enumerate() {
+            let key = groups.get(i).copied();
+            let known = key.and_then(|k| keys.iter().position(|g| *g == Some(k)));
+            let at = match known {
+                Some(at) => at,
+                None => {
+                    docs.push(open_source_with(name, bytes, passwords.get(i).copied().flatten())?);
+                    keys.push(key);
+                    docs.len() - 1
+                }
+            };
+            file.push(at);
+        }
+        let mut pages = Vec::with_capacity(sources.len());
+        for ((name, _, range), at) in sources.iter().zip(&file) {
+            let range = range.as_deref().map(str::trim).filter(|r| !r.is_empty());
+            let Some(d) = docs.get(*at) else { return Err(EditError::Write(format!("{name}: not opened"))) };
+            pages.push(match range {
+                Some(r) => {
+                    let n = pdfcraft_organize::page_count(d)?;
+                    let p = pdfcraft_print::select_pages(n, Some(r), &[], pdfcraft_print::Subset::All, false)
+                        .map_err(|e| EditError::Print(format!("{name}: {e}")))?;
+                    Some(p)
+                }
+                None => None,
+            });
+        }
+        let mut runs: Vec<pdfcraft_organize::Run<'_>> = Vec::with_capacity(sources.len());
+        for (((name, _, _), at), p) in sources.iter().zip(&file).zip(&pages) {
+            let Some(d) = docs.get(*at) else { return Err(EditError::Write(format!("{name}: not opened"))) };
+            runs.push((*at, name.as_str(), d, p.as_deref()));
+        }
+        let out = pdfcraft_organize::combine_grouped_with(&runs, field_conflicts)?;
+        let bytes = self.write_new(&out.doc)?;
+        Ok(Combined { bytes, renamed_fields: out.renamed_fields })
     }
 
     /// New PDF bytes containing copies of `pages` of the document (Extract Pages).

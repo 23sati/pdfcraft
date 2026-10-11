@@ -450,7 +450,13 @@ impl PdfCraftApp {
                 self.session.convert_to_pdf(&name, &Arc::new(bytes)).and_then(|(_, pdf)| Ok((self.session.page_count_of(&name, &pdf)?, pdf)));
             match converted {
                 Ok((pages, bytes)) => {
-                    if self.apply_edit(Edit::InsertPagesFrom { name, bytes, pages: None, at }) {
+                    if self.apply_edit(Edit::InsertPagesFrom {
+                        name,
+                        bytes,
+                        pages: None,
+                        at,
+                        field_conflicts: pdfcraft_engine::FieldConflicts::Rename,
+                    }) {
                         at = at.saturating_add(pages);
                     }
                 }
