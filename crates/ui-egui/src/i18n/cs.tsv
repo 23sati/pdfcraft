@@ -2330,3 +2330,4 @@ scroll speed	Fast	Rychlá
 	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Písmo tohoto pole neumí zobrazit „{c}“ ({code}), proto PdfCraft místo něj ukazuje ?. Hodnota se uloží a jiné prohlížeče PDF pole podle ní překreslí.
 	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Písma, kterými PdfCraft píše, neumí zobrazit „{c}“ ({code}), proto se ve všech prohlížečích PDF zobrazí jako ?. Text se uloží.
 	Tools panel side	Strana panelu nástrojů
+	Add comment	Přidat komentář

@@ -2254,3 +2254,4 @@ scroll speed	Fast	Жылдам
 	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Бұл өрістің қаріпі «{c}» ({code}) таңбасын сала алмайды, сондықтан PdfCraft оның орнына ? көрсетеді. Мән сақталады, ал басқа PDF қарау құралдары өрісті соған қарап қайта салады.
 	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	PdfCraft жазатын қаріптер «{c}» ({code}) таңбасын сала алмайды, сондықтан ол барлық PDF қарау құралдарында ? болып көрінеді. Мәтін сақталады.
 	Tools panel side	Құралдар панелінің жағы
+	Add comment	Түсініктеме қосу

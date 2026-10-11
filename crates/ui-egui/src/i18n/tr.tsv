@@ -2252,3 +2252,4 @@ scroll speed	Fast	Hızlı
 	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Bu alanın yazı tipi “{c}” ({code}) karakterini çizemiyor, bu yüzden PdfCraft yerine ? gösteriyor. Değer kaydedilir ve diğer PDF görüntüleyiciler alanı ondan yeniden çizer.
 	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	PdfCraft'ın yazdığı yazı tipleri “{c}” ({code}) karakterini çizemiyor, bu yüzden her PDF görüntüleyicide ? olarak görünür. Metin kaydedilir.
 	Tools panel side	Araçlar panelinin yeri
+	Add comment	Yorum ekle
