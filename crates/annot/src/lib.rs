@@ -14,7 +14,7 @@
 
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
-use pdfcraft_cos::{Dict, Document, ObjRef, Object, PdfString};
+use pdfcraft_cos::{Dict, Document, ObjRef, Object, PdfString, Stream};
 
 pub mod appearance;
 pub mod links;
@@ -1255,7 +1255,14 @@ pub fn orient_image_stamp(doc: &mut Document, page: usize, index: usize, rotatio
 pub fn set_appearance(doc: &mut Document, r: ObjRef) -> Result<(), AnnotError> {
     let d = annot_dict(doc, r);
     let subtype = String::from_utf8_lossy(d.name(b"Subtype").unwrap_or_default()).into_owned();
-    let Some(mut stream) = appearance::build(&d) else { return Err(AnnotError::Unsupported(subtype)) };
+    let Some(stream) = build_appearance(doc, &d) else { return Err(AnnotError::Unsupported(subtype)) };
+    apply_appearance(doc, r, &d, stream)
+}
+
+/// Draw the appearance for an annotation dictionary: the expensive half of [`set_appearance`].
+/// Pure from the dictionary and the objects it points at, so [`AppearanceCache`] can reuse it.
+fn build_appearance(doc: &Document, d: &Dict) -> Option<Stream> {
+    let mut stream = appearance::build(d)?;
     // Image stamp restyling must retain the placement's page-axis correction.
     if matches!(d.get(b"PCPictureImage"), Some(Object::Bool(true))) {
         let matrix = d.get(b"AP").and_then(|ap| {
@@ -1268,6 +1275,11 @@ pub fn set_appearance(doc: &mut Document, r: ObjRef) -> Result<(), AnnotError> {
             stream.dict.set(b"Matrix".to_vec(), matrix);
         }
     }
+    Some(stream)
+}
+
+/// Store a built appearance on the annotation: the cheap half of [`set_appearance`].
+fn apply_appearance(doc: &mut Document, r: ObjRef, d: &Dict, stream: Stream) -> Result<(), AnnotError> {
     let ap = doc.add(Object::Stream(stream));
     // A copy (a shared /AP is left alone) that keeps unknown entries; the old down and rollover
     // appearances would show the previous look on press or hover, so they go with the old /N.
@@ -1282,12 +1294,75 @@ pub fn set_appearance(doc: &mut Document, r: ObjRef) -> Result<(), AnnotError> {
     Ok(())
 }
 
+/// Display appearances built for annotations without any, reused while the annotation
+/// dictionaries they were drawn from are unchanged.
+///
+/// A content edit (moving a paragraph, retyping text, …) leaves every annotation dictionary
+/// alone, but the display copy is rebuilt from the edited document on every refresh: without
+/// this cache each refresh redrew every appearance (27k on one CAD file, ~0.7 s per edit
+/// commit). Entries are keyed by annotation reference; object numbers are never reused within
+/// a document lineage, so an entry stays valid until an annotation edit runs. Callers clear
+/// the cache on any refresh that may change annotations (comments, structural and full
+/// refreshes) and keep it for content-only ones.
+#[derive(Clone, Debug, Default)]
+pub struct AppearanceCache {
+    entries: std::collections::HashMap<ObjRef, Stream>,
+    bytes: usize,
+    hits: u64,
+    builds: u64,
+}
+
+impl AppearanceCache {
+    /// Cached appearance data restarts past this instead of growing without bound.
+    const MAX_BYTES: usize = 64 << 20;
+
+    /// Forget every entry (an annotation edit may have changed the dictionaries).
+    pub fn clear(&mut self) {
+        *self = Self::default();
+    }
+
+    fn get(&mut self, r: ObjRef) -> Option<Stream> {
+        let stream = self.entries.get(&r)?.clone();
+        self.hits += 1;
+        Some(stream)
+    }
+
+    fn insert(&mut self, r: ObjRef, stream: &Stream) {
+        self.builds += 1;
+        if self.entries.len() >= 1_000_000 {
+            self.clear();
+        }
+        if self.bytes.saturating_add(stream.raw.len()) <= Self::MAX_BYTES {
+            self.bytes += stream.raw.len();
+            self.entries.insert(r, stream.clone());
+        }
+        // Else over budget: keep serving the entries already cached instead of growing.
+    }
+
+    /// Cache hits so far (reused appearances); for tests.
+    pub fn hits(&self) -> u64 {
+        self.hits
+    }
+
+    /// Appearances built so far; for tests.
+    pub fn builds(&self) -> u64 {
+        self.builds
+    }
+}
+
 /// A copy of `doc` in which every annotation without a normal appearance (`/AP /N`) has the one
 /// [`appearance::build`] draws from its dictionary, for displaying the document (`None` when no
 /// annotation needs one). Many files carry comments without appearances (FreeText, Ink, notes,
 /// stamps, …) that viewers draw from the dictionary. `doc` is not changed: saving writes the file
 /// as it was. Links, form fields and pop-ups keep their own handling.
 pub fn with_missing_appearances(doc: &Document) -> Option<Document> {
+    with_missing_appearances_cached(doc, &mut AppearanceCache::default())
+}
+
+/// A copy of `doc` with [`AppearanceCache`] reuse across refreshes: annotations whose
+/// dictionary is unchanged since the cached build keep their stored appearance instead of
+/// redrawing it. See [`AppearanceCache`] for when entries stay valid.
+pub fn with_missing_appearances_cached(doc: &Document, cache: &mut AppearanceCache) -> Option<Document> {
     let mut copy: Option<Document> = None;
     for page in page_refs(doc).ok()? {
         for r in annots(doc, page).iter().filter_map(Object::as_ref) {
@@ -1296,11 +1371,18 @@ pub fn with_missing_appearances(doc: &Document) -> Option<Document> {
                 continue;
             }
             let has_normal = d.get(b"AP").is_some_and(|ap| doc.resolve(ap).as_dict().is_some_and(|ap| ap.contains(b"N")));
-            if has_normal || appearance::build(&d).is_none() {
+            if has_normal {
                 continue;
             }
-            // Fails only when `r` isn't a dictionary, which `build` above has just ruled out.
-            set_appearance(copy.get_or_insert_with(|| doc.clone()), r).ok();
+            if let Some(stream) = cache.get(r) {
+                // Fails only when `r` isn't a dictionary, which the cached build ruled out.
+                apply_appearance(copy.get_or_insert_with(|| doc.clone()), r, &d, stream).ok();
+                continue;
+            }
+            let Some(stream) = build_appearance(doc, &d) else { continue };
+            cache.insert(r, &stream);
+            // Fails only when `r` isn't a dictionary, which the build just ruled out.
+            apply_appearance(copy.get_or_insert_with(|| doc.clone()), r, &d, stream).ok();
         }
     }
     copy

@@ -43,8 +43,8 @@ impl PdfCraftApp {
                 let info = &doc.info;
                 let view = &mut self.views[i];
                 view.signature_drag.committed(&edit, doc.edit_generation());
-                if let Some(page) = comment_page(&edit) {
-                    // Comment edits change one page: keep every other raster.
+                if let Some(page) = comment_page(&edit).or_else(|| content_page(&edit)) {
+                    // Comment and content edits change one page: keep every other raster.
                     view.page_changed(page);
                 } else if let Some(form_before) = form_before
                     && doc.info.pages.len() == page_count_before
@@ -833,7 +833,23 @@ impl PdfCraftApp {
     }
 }
 
-/// The page a comment edit changes (`None` for other edits).
+/// The single page a content edit changes (`None` for other edits). Like comment edits,
+/// these leave every other page's bytes, geometry and text alone, so their rasters stay valid.
+fn content_page(edit: &Edit) -> Option<usize> {
+    match edit {
+        Edit::MoveObjects { page, .. }
+        | Edit::EditTextLine { page, .. }
+        | Edit::EditTextBlock { page, .. }
+        | Edit::EditPageImage { page, .. }
+        | Edit::AddText { page, .. }
+        | Edit::AddImage { page, .. }
+        | Edit::UpdateContent { page, .. }
+        | Edit::DeleteContent { page, .. }
+        | Edit::ReplaceImage { page, .. } => Some(*page),
+        _ => None,
+    }
+}
+
 fn comment_page(edit: &Edit) -> Option<usize> {
     match edit {
         Edit::AddAnnotation(a) => Some(a.page),
@@ -1364,5 +1380,21 @@ mod revert_draft_tests {
         );
         assert_eq!(app.active_ids(), Some((0, source)));
         assert_eq!(app.toast.as_ref().unwrap().0, pdfcraft_engine::EditError::NoDocument.to_string());
+    }
+}
+
+#[cfg(test)]
+mod content_page_tests {
+    use super::content_page;
+    use pdfcraft_engine::{Edit, ObjectKind, ObjectTarget};
+
+    /// Single-page content edits keep every other page's rasters; anything else still
+    /// invalidates the whole document.
+    #[test]
+    fn single_page_content_edits_map_to_their_page() {
+        let moved = Edit::MoveObjects { page: 3, objects: vec![ObjectTarget { kind: ObjectKind::Text, index: 0 }], offset: [1.0, 0.0] };
+        assert_eq!(content_page(&moved), Some(3));
+        assert_eq!(content_page(&Edit::RotatePages { pages: vec![0], degrees: 90 }), None);
+        assert_eq!(content_page(&Edit::SetInfo { key: "Title".into(), value: "x".into() }), None);
     }
 }
