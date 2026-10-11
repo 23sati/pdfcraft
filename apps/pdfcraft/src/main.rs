@@ -71,10 +71,7 @@ fn migrate_legacy_folders() {
         return;
     }
     let oldest = concat!("Print", "Craft");
-    let mut moves = vec![
-        (eframe::storage_dir("PdfCraft"), settings_dir()),
-        (eframe::storage_dir(oldest), settings_dir()),
-    ];
+    let mut moves = vec![(eframe::storage_dir("PdfCraft"), settings_dir()), (eframe::storage_dir(oldest), settings_dir())];
     // Recovery lives in the settings folder except on Windows (%LOCALAPPDATA%) and Linux ($XDG_DATA_HOME / ~/.local/share).
     if cfg!(windows) {
         let local = std::env::var_os("LOCALAPPDATA").filter(|v| !v.is_empty()).map(std::path::PathBuf::from);

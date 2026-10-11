@@ -3473,13 +3473,8 @@ pub fn render_imposed_sheets(imposed_pdf: &[u8], dpi: u32, max_dpi: u32, graysca
     let mut renderer = pdfcraft_render::PageRenderer::new(arc_bytes, pdfcraft_render::RenderConfig::default());
     let mut out = Vec::with_capacity(sizes.len());
     for (page_idx, &(width_pt, height_pt)) in sizes.iter().enumerate() {
-        let mut rendered = renderer.render(pdfcraft_render::RenderRequest {
-            page: page_idx,
-            kind: pdfcraft_render::RequestKind::Pixels,
-            tile: None,
-            scale,
-            tag: 0,
-        });
+        let mut rendered =
+            renderer.render(pdfcraft_render::RenderRequest { page: page_idx, kind: pdfcraft_render::RequestKind::Pixels, tile: None, scale, tag: 0 });
         if let Some(err) = rendered.error {
             return Err(EditError::Print(format!("sheet {}: {err}", page_idx + 1)));
         }
@@ -3487,14 +3482,7 @@ pub fn render_imposed_sheets(imposed_pdf: &[u8], dpi: u32, max_dpi: u32, graysca
             print::spool::apply_grayscale_rgba(rendered.rgba.bytes_mut());
         }
         let png = export::encode_image(rendered.width, rendered.height, &rendered.rgba, export::ImageFormat::Png).map_err(EditError::Write)?;
-        out.push(print::spool::RenderedSheet {
-            width_pt,
-            height_pt,
-            width_px: rendered.width,
-            height_px: rendered.height,
-            dpi: effective_dpi,
-            png,
-        });
+        out.push(print::spool::RenderedSheet { width_pt, height_pt, width_px: rendered.width, height_px: rendered.height, dpi: effective_dpi, png });
     }
     Ok(out)
 }

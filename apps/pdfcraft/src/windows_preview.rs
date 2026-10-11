@@ -271,7 +271,10 @@ mod tests {
     fn any_change_requires_registering_again() {
         let v = parse_reg_query(CONFIG);
         let dll = key(DLL);
-        assert!(!registry_values_match(&v, &key("D:\\Other\\LinkcoPdfPreviewHandler.dll"), "123:456", "LinkcoPDFEditor.Document", true), "moved install");
+        assert!(
+            !registry_values_match(&v, &key("D:\\Other\\LinkcoPdfPreviewHandler.dll"), "123:456", "LinkcoPDFEditor.Document", true),
+            "moved install"
+        );
         assert!(!registry_values_match(&v, &dll, "124:456", "LinkcoPDFEditor.Document", true), "updated DLL");
         assert!(!registry_values_match(&v, &dll, "123:456", "AcroExch.Document.DC", true), "new default PDF app");
         assert!(!registry_values_match(&v, &dll, "123:456", "LinkcoPDFEditor.Document", false), "COM server removed");

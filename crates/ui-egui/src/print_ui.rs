@@ -296,11 +296,7 @@ impl PdfCraftApp {
     fn apply_printer_list(&mut self, details: Vec<spool::PrinterDetail>, recheck: bool) {
         let d = &mut self.print_draft;
         let printers: Vec<spool::Printer> = details.iter().map(|det| det.to_printer()).collect();
-        let replace = if recheck {
-            d.printer.as_ref().is_none_or(|name| !printers.iter().any(|p| &p.name == name))
-        } else {
-            !d.printer_picked
-        };
+        let replace = if recheck { d.printer.as_ref().is_none_or(|name| !printers.iter().any(|p| &p.name == name)) } else { !d.printer_picked };
         if replace {
             d.printer = default_printer(&details);
         }

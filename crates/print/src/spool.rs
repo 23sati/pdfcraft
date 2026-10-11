@@ -230,14 +230,12 @@ pub fn parse_windows_printers_tsv(out: &str) -> Vec<PrinterDetail> {
 /// Parse `reg.exe query` output for `HKCU\Software\Microsoft\Windows NT\CurrentVersion\Devices`
 /// and `HKCU\Software\Microsoft\Windows NT\CurrentVersion\Windows /v Device`.
 pub fn parse_windows_reg_printers(devices_out: &str, default_out: &str) -> Vec<PrinterDetail> {
-    let default_name = default_out
-        .lines()
-        .find_map(|line| {
-            let idx = line.find("REG_SZ")?;
-            let val = line[idx + "REG_SZ".len()..].trim();
-            let name = val.split(',').next()?.trim();
-            (!name.is_empty()).then(|| name.to_string())
-        });
+    let default_name = default_out.lines().find_map(|line| {
+        let idx = line.find("REG_SZ")?;
+        let val = line[idx + "REG_SZ".len()..].trim();
+        let name = val.split(',').next()?.trim();
+        (!name.is_empty()).then(|| name.to_string())
+    });
 
     let mut list = Vec::new();
     for line in devices_out.lines() {
@@ -252,14 +250,7 @@ pub fn parse_windows_reg_printers(devices_out: &str, default_out: &str) -> Vec<P
         let port = parts.next().unwrap_or("").trim().to_string();
         let is_default = default_name.as_deref().is_some_and(|d| d.eq_ignore_ascii_case(name));
         let network = name.starts_with(r"\\") || port.to_ascii_uppercase().starts_with("IP_");
-        list.push(PrinterDetail {
-            name: name.to_string(),
-            default: is_default,
-            status: PrinterStatus::Ready,
-            port,
-            driver,
-            network,
-        });
+        list.push(PrinterDetail { name: name.to_string(), default: is_default, status: PrinterStatus::Ready, port, driver, network });
     }
     list
 }
@@ -705,13 +696,7 @@ fn submit_windows(pdf: &[u8], sheets: &[RenderedSheet], job: &Job) -> Result<Str
 }
 
 #[cfg(target_os = "windows")]
-fn submit_windows_in_dir(
-    dir: &std::path::Path,
-    pdf: &[u8],
-    sheets: &[RenderedSheet],
-    job: &Job,
-    target_printer: &str,
-) -> Result<String, PrintError> {
+fn submit_windows_in_dir(dir: &std::path::Path, pdf: &[u8], sheets: &[RenderedSheet], job: &Job, target_printer: &str) -> Result<String, PrintError> {
     let manifest_path = dir.join("manifest.tsv");
     let mut manifest = String::new();
 
@@ -756,11 +741,7 @@ fn submit_windows_in_dir(
             let out = cmd.output().map_err(|e| PrintError::Spool(format!("failed to invoke pdfcraft-cli for print rendering: {e}")))?;
             if !out.status.success() || !png_path.is_file() {
                 let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
-                return Err(PrintError::Spool(if err.is_empty() {
-                    format!("failed to rasterize print sheet {}", idx + 1)
-                } else {
-                    err
-                }));
+                return Err(PrintError::Spool(if err.is_empty() { format!("failed to rasterize print sheet {}", idx + 1) } else { err }));
             }
             manifest.push_str(&format!("{}\t{:.4}\t{:.4}\t{}\n", png_path.display(), w_pt, h_pt, DEFAULT_PRINT_DPI));
         }
