@@ -4233,10 +4233,12 @@ dependencies = [
 name = "pdfcraft-platform"
 version = "0.6.0"
 dependencies = [
+ "async-channel",
  "deckcraft-fonts",
  "deckcraft-model",
  "deckcraft-pdf",
  "deckcraft-pptx",
+ "futures-lite",
  "gridcraft-engine",
  "thiserror 2.0.21",
  "wordcraft-engine",

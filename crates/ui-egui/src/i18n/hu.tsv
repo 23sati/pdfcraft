@@ -1633,7 +1633,12 @@
 	watermark	vízjel
 	background	háttér
 	This document isn't password-protected	Ez a dokumentum nincs jelszóval védve
-	Only the document's owner can change its security (open it with the permissions password)	Csak a dokumentum tulajdonosa módosíthatja a biztonságát (nyisd meg a jogosultsági jelszóval)
+	Enter permissions password…	Jogosultsági jelszó megadása…
+	Permissions password	Jogosultsági jelszó
+	“{name}” has security restrictions. Enter its permissions password to lift them.	„{name}” biztonsági korlátozásokat tartalmaz. Add meg a jogosultsági jelszavát a feloldásukhoz.
+	Restrictions lifted	Korlátozások feloldva
+	Couldn't unlock {name}: {e}	{name} feloldása nem sikerült: {e}
+	This document has no restrictions to lift	Ebben a dokumentumban nincs feloldható korlátozás
 	The document's security settings don't allow this change	A dokumentum biztonsági beállításai nem engedik ezt a módosítást
 	The document's security settings don't allow copying text and images	A dokumentum biztonsági beállításai nem engedik a szöveg és a képek másolását
 	Open a document first	Előbb nyiss meg egy dokumentumot
@@ -2141,6 +2146,8 @@ action wizard	Start	Indítás
 	Printer properties	Nyomtató tulajdonságai
 	Reset to printer defaults	A nyomtató alapértékeinek visszaállítása
 	This printer offers no settings of its own.	Ennek a nyomtatónak nincsenek saját beállításai.
+	Margins	Margók
+	For page sizes and margins.	Oldalméretekhez és margókhoz.
 	Scroll tabs left	Lapok görgetése balra
 	Scroll tabs right	Lapok görgetése jobbra
 
@@ -2210,6 +2217,13 @@ key	Space	Szóköz
 	Resize panel window	Panelablak átméretezése
 	Tools	Eszközök
 	Inspector	Tulajdonságvizsgáló
+
+# Architectural print controls (follow-up to #599).
+	PDF page: {size}	PDF-oldal: {size}
+	Match page at 100%	Papír illesztése az oldalhoz, 100%
+	PDF scale: {scale}%	PDF-méretarány: {scale}%
+	Printer paper and scaling may differ. Check driver settings.	A nyomtató papírja és méretezése eltérhet. Ellenőrizze az illesztőprogram beállításait.
+	Drawing scale changes. Use Actual size for full-scale plans.	A rajz méretaránya változik. Méretarányos tervekhez használja a Tényleges méret beállítást.
 	Reload documents when their files change on disk	Dokumentumok újratöltése, ha a fájljuk megváltozik a lemezen
 	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Ez a fájl megváltozott a lemezen. Töltsd újra az új változat megtekintéséhez; a nem mentett módosításaid elvesznek.
 	Reload	Újratöltés
@@ -2225,3 +2239,9 @@ scroll speed	Fast	Gyors
 	Enhance camera image	Kamerakép javítása
 	Drag the corners onto the document's edges, then choose Enhance page.	Húzza a sarkokat a dokumentum széleire, majd válassza az Oldal javítása lehetőséget.
 	Enhance page	Oldal javítása
+	Done adding text	Szöveg hozzáadásának befejezése
+	Discard this text (Esc)	Szöveg elvetése (Esc)
+	Clean-up	Tisztítás
+	Original	Eredeti
+	Greyscale	Szürkeárnyalatos
+	Black and white	Fekete-fehér
