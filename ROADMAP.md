@@ -2,7 +2,7 @@
 
 **Stage: alpha** · next: beta, ~26% (ready for real work 49% → 75%) and ~400–700 h away
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-10 · **Change:** minor (localized shortcut labels, #496; readiness table with hours per audience; full number as weighted sum 49%; earlier: second look: ready 40% → 47%, mainstream 55% added; core-workflow gate applied → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (object-generation identity; localized shortcut labels, #496; readiness table with hours per audience; full number as weighted sum 49%; earlier: second look: ready 40% → 47%, mainstream 55% added; core-workflow gate applied → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
 PdfCraft's one-page summary: how close it is to Adobe Acrobat Pro's offline feature set, and what
 comes next. Adobe's cloud services (Document Cloud, Acrobat Sign requests, shared review, the AI
@@ -134,6 +134,8 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 ## Progress log
 
 Newest first: the date, what moved, and the new overall estimate.
+
+- **2026-10-11 (M1, object generations):** COS reference lookups distinguish generations, including edit overlays and compressed objects. A stale reference to a reused object resolves to null instead of unrelated replacement content; full saves retain that distinction. Synthetic tests cover cache reuse, snapshots, stream lengths, incremental saves and classic/packed full saves, with independent hayro checks of reference identity and saved output. Estimates unchanged.
 
 - **2026-10-11 (M7, watermark placement):** A watermark can be moved from the page centre by a horizontal and a vertical offset in points: Add/Update Watermark has an "Offset from centre" row (the preview follows it, for text and for pictures) and `doc_watermark` takes `offset_x` and `offset_y`. A non-finite offset is refused instead of written into the page. `edit.watermark-appearance` stays partial: no offset from the page edge or in page units, no print/screen-only variants, no repeat. Image and PDF watermarks, already shipped, no longer appear as missing. The overall estimate is unchanged.
 - **2026-10-11 (M12, XFA script time limits):** An XFA script's time limit (1 s for scripts that run unasked, on open and on every change) counted the engine's start-up too: the script's thread, a new context and, for the first script in a process, the engine's own set-up (≈ 60–170 ms when idle). On a busy machine a trivial initialize script could pass the limit, be abandoned and turn the form's scripts off; that made `xfa_buttons_run_their_scripts_in_the_app` and `messages_from_scripts_run_on_open_show_right_away` flaky (under full CPU load 25 of 40 runs of the test binary failed, with "ran longer than 1.0 s and was abandoned" in the console). The limit now runs from when the engine is ready; start-up has its own 10 s cap, so nothing waits forever, and a trivial warm-up script takes the first-in-process set-up. Under the same load none of 40 runs fails, and runaway scripts are abandoned as before. The two UI tests print the script console when they fail. Overall unchanged.
@@ -331,6 +333,7 @@ Newest first: the date, what moved, and the new overall estimate.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | M1: reference lookups and full saves respect object generations, with synthetic and independent-parser regression evidence. Estimates unchanged. |
 | 2026-10-10 | minor | Readiness table with hours per audience; full number restated as the additive weighted sum over dimensions (47% → 49%; method aligned with the standard, no new evidence) |
 | 2026-10-10 | minor | Essentials-user score added (≈ 66%) |
 | 2026-10-10 | minor | Gate consistency check: convert and share re-judged partial, not blocking; stage pre-alpha → alpha |
