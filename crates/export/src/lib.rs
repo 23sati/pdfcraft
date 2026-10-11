@@ -3,7 +3,8 @@
 //! The engine reduces each page to [`Page`]: paragraphs (text, box, size, bold/italic) and
 //! images (encoded bytes and box), in reading order. The writers turn that into a flowing
 //! document: headings are the paragraphs set larger than the body text. Word keeps pages with
-//! artwork or rotated/large text as positioned, editable shapes to avoid reflowing overlays.
+//! rotated text, or text overlapped by artwork or watermark-sized text, as positioned, editable
+//! shapes to avoid reflowing overlays; other pages flow with images inline.
 
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
@@ -473,11 +474,43 @@ fn docx_table(t: &Table) -> String {
     s
 }
 
-/// Pages with rotated text or overlapping artwork cannot be put in paragraph flow without
-/// changing their layout. Keep those pages as editable, absolutely positioned text boxes.
+/// Pages with rotated text, or text that actually overlaps an image or an oversized
+/// (watermark-like) text block, cannot be put in paragraph flow without changing their layout.
+/// Keep those pages as editable, absolutely positioned text boxes. Every other page, including
+/// one with a logo or a big title that sits clear of the text, flows as paragraphs and tables.
 fn positioned(page: &Page) -> bool {
+    if page.blocks.iter().any(|b| b.rotation.abs() > 0.1) {
+        return true;
+    }
     let body = body_size(std::slice::from_ref(page)).max(1.0);
-    !page.images.is_empty() || page.blocks.iter().any(|b| b.rotation.abs() > 0.1 || b.size >= 2.0 * body)
+    let overlays = page
+        .images
+        .iter()
+        .map(|im| (im.rect, None))
+        .chain(page.blocks.iter().enumerate().filter(|(_, b)| b.size >= 2.0 * body).map(|(i, b)| (b.rect, Some(i))));
+    // Bound the pairwise test on hostile pages (many overlays times many blocks): past the
+    // budget, keep the default flowing layout.
+    let mut budget: usize = 1_000_000;
+    for (r, own) in overlays {
+        for (i, b) in page.blocks.iter().enumerate() {
+            if budget == 0 {
+                return false;
+            }
+            budget -= 1;
+            if Some(i) != own && overlaps(r, b.rect) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Whether two [x0, y0, x1, y1] boxes share more than a hairline (0.5 pt each way); boxes that
+/// only touch, or hostile non-finite coordinates, do not count.
+fn overlaps(a: [f64; 4], b: [f64; 4]) -> bool {
+    let w = a[2].min(b[2]) - a[0].max(b[0]);
+    let h = a[3].min(b[3]) - a[1].max(b[1]);
+    w.is_finite() && h.is_finite() && w > 0.5 && h > 0.5
 }
 
 /// Bound every value written into a shape's style, including hostile PDF coordinates.
@@ -545,7 +578,7 @@ fn section(page: &Page) -> String {
 }
 
 /// A Word document (.docx, Office Open XML). Ordinary pages flow as paragraphs and tables;
-/// pages with rotated text or artwork use floating shapes to retain their layout.
+/// pages with rotated text, or text that overlaps artwork, use floating shapes to retain their layout.
 pub fn docx(pages: &[Page], title: &str) -> Vec<u8> {
     let mut body = String::new();
     let mut media: Vec<(String, &Image)> = Vec::new();
@@ -831,6 +864,23 @@ mod tests {
         assert!(xml.contains("<w:tbl>"));
         assert!(!xml.contains("w:val=\"single\""), "text alignment is not evidence of a border: {xml}");
         assert!(xml.contains("<w:insideH w:val=\"nil\"/>"));
+    }
+
+    #[test]
+    fn word_keeps_a_page_with_a_clear_image_and_big_title_in_flow() {
+        // page() has a picture between paragraphs and a 24 pt title over 11 pt body text, but
+        // nothing overlaps: it must stay flowing paragraphs with the image inline.
+        let xml = part(&docx(&[page()], "Report"), "word/document.xml");
+        assert!(!xml.contains("position:absolute"), "nothing overlaps, so nothing floats: {xml}");
+        assert!(xml.contains("<wp:inline>"), "the picture stays inline: {xml}");
+        assert!(xml.contains("<w:pStyle w:val=\"Heading1\"/>"), "the title stays a heading: {xml}");
+        let (title, body) = (xml.find(">Annual Report</w:t>"), xml.find(">Body text after the picture"));
+        assert!(title.is_some() && body.is_some() && title < body, "reading order kept: {xml}");
+        // The same page with the picture moved over the body text floats.
+        let mut over = page();
+        over.images[0].rect = [72.0, 380.0, 272.0, 530.0];
+        let xml = part(&docx(&[over], "Report"), "word/document.xml");
+        assert!(xml.contains("position:absolute"), "an image over text floats: {xml}");
     }
 
     #[test]
