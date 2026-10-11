@@ -249,9 +249,11 @@ update the numbers.
 
 ### 18. Print production tools absent
 
-- **Missing:** Output Preview, separations, total area coverage, overprint preview, ink manager,
-  colour conversion, printer marks, fix hairlines, flattener preview, colour management settings;
-  print as image; PostScript output.
+- **Missing:** Output Preview (the viewer panel and area coverage), separations preview, total
+  area coverage, overprint preview, ink manager, colour conversion, printer marks, fix hairlines,
+  flattener preview, colour management settings; print as image; PostScript output.
+  Shipped since: the ink inventory those tools stand on (which inks, their highest tint, their
+  pages, overprint pages) via the `prepress` crate and the `prepress_inks` tool.
 - **Evidence:** 18 print-production features planned (L area).
 - **Estimate:** 25–45 h (part of the L area's 30–55). **Doc:** [target-app-parity.md](target-app-parity.md).
 

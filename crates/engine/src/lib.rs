@@ -104,6 +104,7 @@ pub use pdfcraft_annot::{
 pub use pdfcraft_forms::detect;
 pub use pdfcraft_optimize as optimize;
 pub use pdfcraft_preflight as pdfa;
+pub use pdfcraft_prepress as prepress;
 pub use pdfcraft_print as print;
 pub use pdfcraft_redact::codes::{CODE_SETS as REDACTION_CODE_SETS, CodeSet as RedactionCodeSet};
 pub use pdfcraft_redact::patterns::{
@@ -268,6 +269,17 @@ impl Document {
     /// PDF Optimizer ▸ Audit space usage.
     pub fn audit_space(&self) -> Vec<optimize::SpaceUse> {
         self.editor.as_ref().map(|e| optimize::audit_space(&e.cos, self.bytes.len() as u64)).unwrap_or_default()
+    }
+
+    /// Use print production ▸ Output preview: the inks every page uses (separations, spot
+    /// inks, the highest tint per ink, overprint pages).
+    pub fn inks(&self) -> prepress::Report {
+        self.editor.as_ref().map(|e| prepress::inks(&e.cos)).unwrap_or_default()
+    }
+
+    /// Use print production ▸ Output preview, one page (0-based).
+    pub fn inks_of(&self, page: usize) -> prepress::Report {
+        self.editor.as_ref().map(|e| prepress::inks_of(&e.cos, page)).unwrap_or_default()
     }
 
     /// Edit a PDF: the images `page` draws (0-based).

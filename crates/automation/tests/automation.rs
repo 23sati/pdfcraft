@@ -3181,6 +3181,57 @@ fn pdfa_through_tools() {
     assert!(a.call("pdfa_verify", &json!({ "doc": doc, "level": "9z" })).is_err());
 }
 
+/// A one-page PDF with CMYK process colour, a Pantone spot ink and overprint on.
+fn inked() -> Vec<u8> {
+    let mut objs: Vec<&str> = vec![
+        "<< /Type /Catalog /Pages 2 0 R >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 200 200] >>",
+        "<< /Type /Page /Parent 2 0 R /Resources << /ColorSpace << /CS1 5 0 R >> /ExtGState << /GS1 6 0 R >> >> /Contents 4 0 R >>",
+        "<< /Length 56 >>\nstream\n0.1 0.2 0.3 0.4 k /CS1 cs 0.8 scn /GS1 gs 0 0 10 10 re f\nendstream",
+        "[/Separation /PANTONE#20123#20C /DeviceCMYK 7 0 R]",
+        "<< /Type /ExtGState /OP true >>",
+        "<< /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [0 1 1 0] /N 1 >>",
+    ];
+    let mut out = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, o) in objs.drain(..).enumerate() {
+        offsets.push(out.len());
+        out.extend_from_slice(format!("{} 0 obj\n{o}\nendobj\n", i + 1).as_bytes());
+    }
+    let xref = out.len();
+    out.extend_from_slice("xref\n0 8\n0000000000 65535 f \n".as_bytes());
+    for o in offsets {
+        out.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+    }
+    out.extend_from_slice("trailer\n<< /Size 8 /Root 1 0 R >>\nstartxref\n".as_bytes());
+    out.extend_from_slice(format!("{xref}\n%%EOF\n").as_bytes());
+    out
+}
+
+#[test]
+fn inks_and_overprint_through_tools() {
+    let dir = workdir("prepress");
+    std::fs::write(dir.join("inks.pdf"), inked()).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "inks.pdf" }))["doc"].as_u64().unwrap();
+
+    let r = ok(&mut a, "prepress_inks", json!({ "doc": doc }));
+    let inks = r["inks"].as_array().unwrap();
+    let named = |n: &str| inks.iter().find(|i| i["name"] == n).unwrap_or_else(|| panic!("no ink {n}: {r}"));
+    assert_eq!(named("Cyan")["kind"], "process");
+    assert_eq!(named("Cyan")["max_tint"].as_f64(), Some(0.1));
+    assert_eq!(named("PANTONE 123 C")["kind"], "spot");
+    assert_eq!(named("PANTONE 123 C")["max_tint"].as_f64(), Some(0.8));
+    assert_eq!(named("PANTONE 123 C")["pages"], json!([1]));
+    assert_eq!(r["overprint_pages"], json!([1]), "{r}");
+
+    // One page, still 1-based, and the range is checked.
+    let r = ok(&mut a, "prepress_inks", json!({ "doc": doc, "page": 1 }));
+    assert_eq!(r["inks"].as_array().unwrap().len(), inks.len());
+    assert!(a.call("prepress_inks", &json!({ "doc": doc, "page": 2 })).is_err());
+    assert!(a.call("prepress_inks", &json!({ "doc": doc, "page": 0 })).is_err());
+}
+
 #[test]
 fn exporting_to_word_html_and_rtf() {
     let dir = workdir("office");

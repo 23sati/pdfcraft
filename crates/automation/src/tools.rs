@@ -870,6 +870,9 @@ pub fn tools() -> Vec<ToolDef> {
             .ro()
             .cmd("standards.pdfa")
             .with(schema(json!({ "doc": doc(), "level": { "type": "string", "enum": ["2b", "3b"], "description": "Default 2b." } }), &["doc"])),
+        t("prepress_inks", "List a document's inks", "Use print production ▸ Output preview: the inks every page draws with — the process channels (Gray, Red/Green/Blue, Cyan/Magenta/Yellow/Black) and the spot inks of Separation and DeviceN colour spaces, including the special None and All inks. Each ink reports its highest tint (0–1; empty for images and shadings, whose tints are not in the content stream) and the pages that use it. Also the pages that paint with overprint on. One page's inks with `page`. Reads colour operators and resources; it does not rasterise, so it reports which inks are used and how strongly, not how much area they cover.")
+            .ro()
+            .with(schema(json!({ "doc": doc(), "page": { "type": "integer", "minimum": 1, "description": "One page only (1-based); the whole document when omitted." } }), &["doc"])),
         t("pdfa_convert", "Save as PDF/A", "Standards ▸ Save as PDF/A: fix what can be fixed for PDF/A-2b or 3b (XMP identification and metadata, an sRGB output intent, forbidden actions and JavaScript, annotation print flags, image interpolation, encryption). Returns what was fixed and what remains (e.g. fonts that aren't embedded). Undoable; save the document to keep it.")
             .cmd("standards.pdfa")
             .with(schema(json!({ "doc": doc(), "level": { "type": "string", "enum": ["2b", "3b"] } }), &["doc"])),
