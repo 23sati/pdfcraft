@@ -2134,6 +2134,13 @@ key	Space	Пробел
 	Resize panel window	Изменить размер окна панели
 	Tools	Инструменты
 	Inspector	Инспектор
+
+# Architectural print controls (follow-up to #599).
+	PDF page: {w} × {h} in	Страница PDF: {w} × {h} дюйм.
+	Match page at 100%	Подобрать бумагу, масштаб 100%
+	PDF scale: {scale}%	Масштаб PDF: {scale}%
+	Printer paper and scaling may differ. Check driver settings.	Бумага и масштаб принтера могут отличаться. Проверьте настройки драйвера.
+	Drawing scale changes. Use Actual size for full-scale plans.	Масштаб чертежа изменяется. Для печати в исходном масштабе выберите Фактический размер.
 	Select page {label}	Выбрать страницу {label}
 	Rotate page {label} counterclockwise	Повернуть страницу {label} против часовой стрелки
 	Rotate page {label} clockwise	Повернуть страницу {label} по часовой стрелке
@@ -2145,3 +2152,7 @@ scroll speed	Fast	Высокая
 	Enhance camera image	Улучшить снимок с камеры
 	Drag the corners onto the document's edges, then choose Enhance page.	Перетащите углы к краям документа, затем выберите «Улучшить страницу».
 	Enhance page	Улучшить страницу
+	Clean-up	Очистка
+	Original	Оригинал
+	Greyscale	Оттенки серого
+	Black and white	Чёрно-белый
