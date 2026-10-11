@@ -3886,17 +3886,6 @@ fn organize_toolbar(view: &mut DocView, info: &DocInfo, editable: bool, dirty: b
                 i.consume_key(Modifiers::NONE, Key::Escape),
             )
         });
-        // ⌘C / ⌘X / ⌘V copy, cut and paste pages (egui delivers them as clipboard events).
-        let (copy, cut, paste) = ui.input(|i| {
-            let any = |f: &dyn Fn(&egui::Event) -> bool| i.events.iter().any(f);
-            (any(&|e| matches!(e, egui::Event::Copy)), any(&|e| matches!(e, egui::Event::Cut)), any(&|e| matches!(e, egui::Event::Paste(_))))
-        });
-        if copy || cut {
-            view.pending_action = Some(ViewAction::CopyPages { cut });
-        }
-        if paste {
-            view.pending_action = Some(ViewAction::PastePages);
-        }
         if del && targets.len() < n {
             view.pending_edit = Some(Edit::DeletePages { pages: targets });
         }
