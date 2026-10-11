@@ -1200,7 +1200,8 @@ mod tests {
             assert!(has(cs, menu), "Czech lacks the menu title {menu:?}");
             assert!(has(cs, spec.label), "Czech lacks the {menu} menu label {:?} ({})", spec.label, spec.id);
         }
-        const KEEP_AS_IS: &[&str] = &["OK"];
+        // Preset names are proper names, intentionally identical across catalogs.
+        const KEEP_AS_IS: &[&str] = &["OK", "Atelier", "Editorial", "Heritage", "Executive", "Sienna"];
         let (entries, _) = parse_entries(cs.0.source, cs.0.plural_forms());
         for e in &entries {
             let key_cap = e.context == "key" && KEY_CAP_NAMES.contains(&e.source.as_str());
@@ -2009,6 +2010,12 @@ mod tests {
         let (entries, errors) = parse_entries(uk.0.source, uk.0.plural_forms());
         assert!(errors.is_empty(), "{errors:?}");
         let keep = [
+            // Preset names are proper names, intentionally identical across catalogs.
+            "Atelier",
+            "Editorial",
+            "Heritage",
+            "Executive",
+            "Sienna",
             "OK",
             "PDF/A…",
             "Microsoft Word (.docx)",

@@ -2190,10 +2190,10 @@ key	Space	Spacja
 	These objects could not be moved. Select them again and try a smaller move.	Nie udało się przenieść tych obiektów. Zaznacz je ponownie i spróbuj mniejszego przesunięcia.
 	This page contains objects that cannot be selected together.	Ta strona zawiera obiekty, których nie można zaznaczyć razem.
 
-# Application theme names (palette brands retain their names).
-	Forest	Las
-	Ocean	Ocean
-	Sunset	Zachód słońca
+# Application theme names (preset names retain their spelling).
+	Heritage	Heritage
+	Executive	Executive
+	Sienna	Sienna
 	Paper & Ink	Papier i atrament
-	Catppuccin	Catppuccin
-	Solarized	Solarized
+	Atelier	Atelier
+	Editorial	Editorial

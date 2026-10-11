@@ -2080,13 +2080,13 @@ action wizard	Start	ప్రారంభించు
 	A selected field has no widget on any page, so the fields can't be edited together.	ఎంచుకున్న ఒక ఫీల్డ్‌కు ఏ పేజీలోనూ విడ్జెట్ లేదు, కాబట్టి ఫీల్డ్‌లను కలిపి సవరించలేము.
 	 ({n} at {dpi} dpi, the largest size they can be drawn at)	 ({n} {dpi} dpi వద్ద, అవి గీయగల అతిపెద్ద పరిమాణం)
 
-# Application theme names (palette brands retain their names).
-	Forest	అడవి
-	Ocean	సముద్రం
-	Sunset	సూర్యాస్తమయం
+# Application theme names (preset names retain their spelling).
+	Heritage	Heritage
+	Executive	Executive
+	Sienna	Sienna
 	Paper & Ink	కాగితం మరియు సిరా
-	Catppuccin	Catppuccin
-	Solarized	Solarized
+	Atelier	Atelier
+	Editorial	Editorial
 # Multi-object selection and movement (#844)
 @plural	{n} object selected|{n} objects selected	{n} వస్తువు ఎంచుకోబడింది|{n} వస్తువులు ఎంచుకోబడ్డాయి
 	Drag the selection to move it. Esc clears the selection.	ఎంపికను కదిలించడానికి లాగండి. Esc ఎంపికను తొలగిస్తుంది.

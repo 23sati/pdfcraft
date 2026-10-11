@@ -27,7 +27,7 @@ fn assert_theme(h: &Harness<'static, PdfCraftApp>, preference: ThemePreference, 
 fn open_toolbar(h: &mut Harness<'static, PdfCraftApp>, label: &str) {
     h.get_by_label(&format!("Display theme: {label}")).click();
     h.run_steps(3);
-    for choice in ["Use system setting", "Light gray", "Dark gray"] {
+    for choice in ["Use system setting", "Light gray", "Dark gray", "Atelier", "Editorial", "Heritage", "Executive", "Sienna", "Paper & Ink"] {
         h.get_by_label(choice);
     }
 }
@@ -40,7 +40,7 @@ fn open_view_menu(h: &mut Harness<'static, PdfCraftApp>) {
     assert!(h.query_by_label("Switch light / dark theme").is_none());
     h.get_by_label("Display theme ⏵").hover();
     h.run_steps(3);
-    for choice in ["Use system setting", "Light gray", "Dark gray"] {
+    for choice in ["Use system setting", "Light gray", "Dark gray", "Atelier", "Editorial", "Heritage", "Executive", "Sienna", "Paper & Ink"] {
         h.get_by_label(choice);
     }
 }
@@ -283,7 +283,7 @@ fn native_store_cli_edits_and_gui_activation_share_latest_library() {
     let store = ThemeStore::new(&path);
     let id = "custom:00000000-0000-0000-0000-000000000001";
     store
-        .execute("theme_create", &serde_json::json!({"id":"00000000-0000-0000-0000-000000000001", "name":"CLI Ocean", "base_theme_id":"ocean"}))
+        .execute("theme_create", &serde_json::json!({"id":"00000000-0000-0000-0000-000000000001", "name":"CLI Executive", "base_theme_id":"ocean"}))
         .unwrap();
     store.execute("theme_activate", &serde_json::json!({"id":id})).unwrap();
     // A GUI action re-reads the current store instead of saving its startup snapshot.

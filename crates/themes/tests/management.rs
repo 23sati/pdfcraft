@@ -65,3 +65,38 @@ fn future_custom_records_are_not_reinterpreted_or_mutated() {
     }
     assert_eq!(state.execute("theme_inspect", &json!({"id":CUSTOM})).unwrap()["schema_version"], 99);
 }
+
+#[test]
+fn renamed_presets_keep_ids_and_imported_base_palettes() {
+    use pdfcraft_themes::ThemePreference;
+    for (id, label) in [
+        ("catppuccin", "Atelier"),
+        ("solarized", "Editorial"),
+        ("forest", "Heritage"),
+        ("ocean", "Executive"),
+        ("sunset", "Sienna"),
+        ("paper-ink", "Paper & Ink"),
+    ] {
+        let preference: ThemePreference = serde_json::from_value(json!(id)).unwrap();
+        assert_eq!(preference.id(), id);
+        assert_eq!(preference.label(), label);
+        assert_eq!(serde_json::to_value(preference).unwrap(), json!(id));
+        let mut state = ThemeState::default();
+        let builtin = state.execute("theme_inspect", &json!({"id":id})).unwrap();
+        assert_eq!(builtin["name"], label);
+        // Import an old partial definition: absent tokens still resolve via the old base ID.
+        let document = json!({"schema_version":1,"id":ID,"name":"My original name",
+            "kind":if id == "paper-ink" { "Light" } else { "Dark" },"base_theme_id":id,"palette":{}});
+        state.execute("theme_import", &json!({"document":document})).unwrap();
+        let serialized = serde_json::to_string(&state).unwrap();
+        let mut restored: ThemeState = serde_json::from_str(&serialized).unwrap();
+        let custom = restored.execute("theme_inspect", &json!({"id":CUSTOM})).unwrap();
+        assert_eq!(custom["name"], "My original name");
+        assert_eq!(custom["base_theme_id"], id);
+        assert_eq!(custom["palette"], builtin["palette"]);
+        assert_eq!(restored.execute("theme_export", &json!({"id":CUSTOM})).unwrap()["base_theme_id"], id);
+        restored.execute("theme_activate", &json!({"id":CUSTOM})).unwrap();
+        restored.execute("theme_delete", &json!({"id":CUSTOM})).unwrap();
+        assert_eq!(restored.theme, preference);
+    }
+}

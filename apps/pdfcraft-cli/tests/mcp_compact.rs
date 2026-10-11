@@ -97,6 +97,8 @@ fn theme_management_uses_existing_mcp_and_compact_discovery() {
             ),
             call(4, "theme_inspect", json!({"store":"themes.json","id":"custom:00000000-0000-4000-8000-000000000001"})),
             call(5, "theme_delete", json!({"store":"themes.json","id":"light"})),
+            call(6, "theme_list", json!({"store":"themes.json"})),
+            call(7, "theme_inspect", json!({"store":"themes.json","id":"ocean"})),
         ],
     );
     assert!(replies[0]["result"].to_string().contains("theme_update"));
@@ -105,5 +107,17 @@ fn theme_management_uses_existing_mcp_and_compact_discovery() {
     assert_eq!(replies[3]["result"]["structuredContent"]["palette"].as_object().unwrap().len(), 31);
     assert_eq!(replies[4]["result"]["isError"], true);
     assert_eq!(replies[4]["result"]["structuredContent"]["error"]["code"], "builtin_protected");
+    let themes = replies[5]["result"]["structuredContent"]["themes"].as_array().unwrap();
+    for (id, name) in [
+        ("catppuccin", "Atelier"),
+        ("solarized", "Editorial"),
+        ("forest", "Heritage"),
+        ("ocean", "Executive"),
+        ("sunset", "Sienna"),
+        ("paper-ink", "Paper & Ink"),
+    ] {
+        assert_eq!(themes.iter().find(|theme| theme["id"] == id).unwrap()["name"], name);
+    }
+    assert_eq!(replies[6]["result"]["structuredContent"]["name"], "Executive");
     let _ = std::fs::remove_dir_all(root);
 }

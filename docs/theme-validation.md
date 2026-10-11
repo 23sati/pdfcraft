@@ -8,9 +8,35 @@ without rewriting existing commits. The latest merge retains Linux desktop
 appearance tracking and adds the preset names to Polish. Closed PR #616 and its separate checkout remain untouched at
 `2a884c911205332160808e05b326d6862a78a711`.
 
+## Naming refinement (PR #1090)
+
+Atelier, Editorial, Heritage, Executive, Sienna, and Paper & Ink are the display
+names. The original IDs and all palette values remain unchanged. A before/after
+CLI comparison verified every one of the 31 colors for all nine selections.
+All 16 localization catalogs contain the six display-name keys exactly once.
+The original Catppuccin/Solarized license notices and license files are unchanged.
+Regression coverage checks the GUI selectors, CLI/MCP display metadata, serialized
+IDs, and imported partial custom definitions resolving the old base IDs after a
+restart, export and active-theme deletion.
+
+Latest upstream `bbbe60015c571ebfc39708ee07777b89e267122a` was fetched and reviewed.
+It changes version manifests and shared UI/icon integration, but not the theme
+core. GitHub reports the PR as conflicting; merge preview identifies
+`ATTRIBUTION.toml`, `Cargo.toml`, `crates/ui-egui/Cargo.toml`, and
+`crates/ui-egui/src/icons.rs`. These conflicts already existed before this naming
+commit. Upstream was not merged into this focused refinement because doing so
+would introduce unrelated dependency and UI changes. The PR is not mergeable
+until that integration is completed separately.
+
+The final naming rerun passed formatting, workspace Clippy with warnings denied,
+all 2,125 workspace tests (zero failures, six existing ignores), native desktop/CLI
+builds, assets and layering. The 34-image visual test was regenerated and the menu
+was inspected with the new labels. The parity failure and missing WASM/cargo-deny
+limitations below remain unchanged.
+
 ## Passed
 
-- `cargo test --workspace --no-fail-fast`: **2,124 passed, zero failed, six ignored**.
+- `cargo test --workspace --no-fail-fast`: **2,125 passed, zero failed, six ignored**.
   This repeats and expands the original 1,765-test baseline after upstream integration.
   The six existing ignores concern network access, two optional corpus tests, a
   timing probe, a local signature diagnostic and a temporary macOS keychain test.
@@ -19,7 +45,7 @@ appearance tracking and adds the preset names to Polish. Closed PR #616 and its 
 - `cargo build -p pdfcraft -p pdfcraft-cli` on native macOS.
 - `cargo xtask assets`: 264 repository assets, six dependency assets, 22 build inputs.
 - `cargo xtask layers`: 35 crates, no layering violations.
-- Focused final reruns: all 20 shared-core/store tests, all nine theme integration
+- Focused final reruns: all 21 shared-core/store tests, all nine theme integration
   tests, and the adjusted MCP structured-error regression. The core tests include
   refusal of a standalone export accidentally supplied as a store. A new unit
   regression verifies Linux desktop appearance fallback through the shared palette

@@ -135,6 +135,8 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 Newest first: the date, what moved, and the new overall estimate.
 
+- **2026-10-11 (M3, theme names):** Rename preset display labels to Atelier, Editorial, Heritage, Executive, Sienna, and Paper & Ink. IDs, palettes, storage and source-license notices are unchanged; CLI/MCP and localized UI labels share the new names. Latest upstream merge conflicts remain separate from this naming-only update; readiness estimates unchanged.
+
 - **2026-10-11 (M3, upstream theme integration):** Integrate upstream `b8ddf71` while preserving Linux desktop appearance tracking and adding Polish theme names. Full suite: 2,124 passed, six ignored; native build, formatting, Clippy, assets, layers and 34-image visual validation pass. Upstream parity duplicate-key failure and local WASM/cargo-deny limits are recorded in `docs/theme-validation.md`; estimates unchanged.
 
 - **2026-10-10 (M3, programmable themes):** Shared theme API and ten CLI/MCP tools, locked native storage, legacy migration and GUI synchronization. Workspace validation: 1,867 passed; formatting, Clippy, native build, assets, layers and parity pass. WASM and dependency-audit environment limits are recorded in `docs/theme-validation.md`; readiness estimates unchanged.

@@ -48,6 +48,24 @@ the Light fallback palette and `follows_system: true`; it does not guess desktop
 appearance. PDF paper, pixels, annotations, redactions and signature ink are not
 application theme tokens. Native file dialogs remain styled by the OS.
 
+## Preset names and stable IDs
+
+| Display name | Stable ID |
+|---|---|
+| Atelier | `catppuccin` |
+| Editorial | `solarized` |
+| Heritage | `forest` |
+| Executive | `ocean` |
+| Sienna | `sunset` |
+| Paper & Ink | `paper-ink` |
+
+These are presentation names, not new identities. Palette values, serialized
+preferences, command IDs, CLI/MCP arguments and imported `base_theme_id` references
+are unchanged. Existing custom themes keep their chosen names and base palettes.
+For example, `base_theme_id=ocean` still creates a copy of Executive. The five new
+proper names retain their spelling in localization catalogs; Paper & Ink keeps
+its existing translations.
+
 ## Palette schema
 
 The registry is exhaustive: adding a Palette color without registering it fails
@@ -214,9 +232,9 @@ a `theme_create` palette, inspect its warnings, refine it using `theme_update`, 
 activate it after the user's requested workflow. The application does not yet
 implement natural-language generation, a provider, or automatic contrast correction.
 
-Catppuccin and Solarized inspirations are MIT-licensed, with pinned notices in
-NOTICE and full licenses in `docs/licenses/`. Descriptive names are localized in
-all 16 current catalogs. Typography, layout, icons and PDF rendering are unchanged.
+Atelier is inspired by Catppuccin Mocha; Editorial is inspired by Solarized.
+Both source palettes are MIT-licensed, with pinned notices in
+NOTICE and full licenses in `docs/licenses/`. Preset labels are present in all 16 current catalogs. Typography, layout, icons and PDF rendering are unchanged.
 
 ## Separate editor PR
 

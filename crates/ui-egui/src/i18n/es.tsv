@@ -2065,13 +2065,13 @@
 	A selected field has no widget on any page, so the fields can't be edited together.	Un campo seleccionado no tiene ningún widget en ninguna página, así que los campos no se pueden editar juntos.
 	 ({n} at {dpi} dpi, the largest size they can be drawn at)	 ({n} a {dpi} ppp, el mayor tamaño al que se pueden dibujar)
 
-# Application theme names (palette brands retain their names).
-	Forest	Bosque
-	Ocean	Océano
-	Sunset	Atardecer
+# Application theme names (preset names retain their spelling).
+	Heritage	Heritage
+	Executive	Executive
+	Sienna	Sienna
 	Paper & Ink	Papel y tinta
-	Catppuccin	Catppuccin
-	Solarized	Solarized
+	Atelier	Atelier
+	Editorial	Editorial
 # Multi-object selection and movement (#844)
 @plural	{n} object selected|{n} objects selected	{n} objeto seleccionado|{n} objetos seleccionados
 	Drag the selection to move it. Esc clears the selection.	Arrastra la selección para moverla. Esc borra la selección.

@@ -56,6 +56,18 @@ fn complete_theme_workflow_survives_separate_cli_processes() {
         serde_json::from_slice(&output.stdout).unwrap()
     };
     assert_eq!(run("theme_list", json!({}))["themes"].as_array().unwrap().len(), 9);
+    let listed = run("theme_list", json!({}));
+    for (id, name) in [
+        ("catppuccin", "Atelier"),
+        ("solarized", "Editorial"),
+        ("forest", "Heritage"),
+        ("ocean", "Executive"),
+        ("sunset", "Sienna"),
+        ("paper-ink", "Paper & Ink"),
+    ] {
+        assert_eq!(listed["themes"].as_array().unwrap().iter().find(|theme| theme["id"] == id).unwrap()["name"], name);
+        assert_eq!(run("theme_inspect", json!({"id":id}))["name"], name);
+    }
     let palette = run("theme_inspect", json!({"id":"ocean"}))["palette"].clone();
     assert_eq!(palette.as_object().unwrap().len(), 31);
     let created = run("theme_create", json!({"name":"Professional navy","base_theme_id":"ocean","palette":palette}));

@@ -2149,13 +2149,13 @@ signature pad	Type	入力
 	A selected field has no widget on any page, so the fields can't be edited together.	選択したフィールドの一つがどのページにもウィジェットを持たないため、まとめて編集できません。
 	 ({n} at {dpi} dpi, the largest size they can be drawn at)	（{n} 件は描画できる最大サイズの {dpi} dpi で書き出しました）
 
-# Application theme names (palette brands retain their names).
-	Forest	森
-	Ocean	海
-	Sunset	夕暮れ
+# Application theme names (preset names retain their spelling).
+	Heritage	Heritage
+	Executive	Executive
+	Sienna	Sienna
 	Paper & Ink	紙とインク
-	Catppuccin	Catppuccin
-	Solarized	Solarized
+	Atelier	Atelier
+	Editorial	Editorial
 # Multi-object selection and movement (#844)
 @plural	{n} object selected|{n} objects selected	{n}個のオブジェクトを選択中
 	Drag the selection to move it. Esc clears the selection.	選択範囲をドラッグして移動します。Escで選択を解除します。

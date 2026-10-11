@@ -2172,12 +2172,12 @@ certificate	Subject	صاحب الشهادة
 	 ({n} at {dpi} dpi, the largest size they can be drawn at)	 ({n} بدقة {dpi} dpi، وهي أكبر دقة يمكن رسمها بها)
 
 # Application themes
-	Forest	الغابة
-	Ocean	المحيط
-	Sunset	الغروب
+	Heritage	Heritage
+	Executive	Executive
+	Sienna	Sienna
 	Paper & Ink	ورق وحبر
-	Catppuccin	كاتبوتشين
-	Solarized	سولارايزد
+	Atelier	Atelier
+	Editorial	Editorial
 # Multi-object selection and movement (#844)
 @plural	{n} object selected|{n} objects selected	تم تحديد {n} عنصر|تم تحديد {n} عنصر|تم تحديد {n} عنصرين|تم تحديد {n} عناصر|تم تحديد {n} عنصرًا|تم تحديد {n} عنصر
 	Drag the selection to move it. Esc clears the selection.	اسحب التحديد لنقله. يمسح Esc التحديد.
