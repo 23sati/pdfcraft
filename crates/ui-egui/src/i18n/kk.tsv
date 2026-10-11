@@ -2179,3 +2179,72 @@ key	Esc	Esc
 key	Home	Home
 key	Shift	Shift
 key	Space	Бос орын
+
+# Added for labels that landed alongside this catalog (2026-10-11).
+	Appearance mode	Көрініс режимі
+	Light	Ашық
+	Dark	Күңгірт
+	Active	Белсенді
+	Dark theme	Күңгірт тақырып
+	Appearance settings…	Көрініс параметрлері…
+	Save ({key})	Сақтау ({key})
+	Select page {label}	{label} бетін таңдау
+	Rotate page {label} counterclockwise	{label} бетін сағат тіліне қарсы бұру
+	Rotate page {label} clockwise	{label} бетін сағат тілімен бұру
+	Delete page {label}	{label} бетін жою
+	Offset from centre	Ортадан ығысу
+	Graphic	Графика
+	Signer's name	Қол қоюшының аты
+	Fill & Sign signature	«Толтыру және қол қою» қолтаңбасы
+	Choose image…	Сурет таңдау…
+	Looking for printers…	Принтерлер ізделуде…
+	Sending to {printer}…	{printer} құрылғысына жіберілуде…
+	Enter permissions password…	Рұқсаттар құпиясөзін енгізу…
+	Permissions password	Рұқсаттар құпиясөзі
+	“{name}” has security restrictions. Enter its permissions password to lift them.	«{name}» құжатында қауіпсіздік шектеулері бар. Оларды алып тастау үшін рұқсаттар құпиясөзін енгізіңіз.
+	Restrictions lifted	Шектеулер алынды
+	Couldn't unlock {name}: {e}	{name} құлпын ашу мүмкін болмады: {e}
+	This document has no restrictions to lift	Бұл құжатта алып тасталатын шектеулер жоқ
+	The document's security settings don't allow copying text and images	Құжаттың қауіпсіздік параметрлері мәтін мен суреттерді көшіруге рұқсат бермейді
+	Add the files to combine	Біріктірілетін файлдарды қосыңыз
+	Leave out files that can't be read?	Оқылмайтын файлдарды қалдырып кету керек пе?
+	These files can't be read, so they won't be in the combined PDF:	Бұл файлдар оқылмайды, сондықтан біріктірілген PDF-ке кірмейді:
+	Combine the rest	Қалғанын біріктіру
+	and {n} more	және тағы {n}
+	Drop PDFs, images, text files or folders here, or choose them.	PDF, сурет, мәтін файлдарын немесе қалталарды осында тастаңыз не таңдаңыз.
+	Every PDF, image and text file in the folder	Қалтадағы барлық PDF, сурет және мәтін файлдары
+	Every PDF, image and text file in the folder and the folders inside it	Қалтадағы және оның ішкі қалталарындағы барлық PDF, сурет және мәтін файлдары
+	No PDFs, images or text files found in {folder}	{folder} қалтасынан PDF, сурет не мәтін файлдары табылмады
+	Added the first {n} files in {folder}	{folder} қалтасынан алғашқы {n} файл қосылды
+	Margins	Шеттер
+	For page sizes and margins.	Бет өлшемдері мен шеттері үшін.
+	Reset panel layout	Панельдер орналасуын қалпына келтіру
+	Float panel	Панельді бөлек терезеге шығару
+	Move to group	Топқа жылжыту
+	Panels	Панельдер
+	Resize panels	Панельдер өлшемін өзгерту
+	Resize panel window	Панель терезесінің өлшемін өзгерту
+	Tools	Құралдар
+	Inspector	Инспектор
+	PDF page: {size}	PDF беті: {size}
+	Match page at 100%	Бетке 100% сәйкестендіру
+	PDF scale: {scale}%	PDF масштабы: {scale}%
+	Printer paper and scaling may differ. Check driver settings.	Принтер қағазы мен масштабы өзгеше болуы мүмкін. Драйвер параметрлерін тексеріңіз.
+	Drawing scale changes. Use Actual size for full-scale plans.	Сызба масштабы өзгереді. Толық масштабты жоспарлар үшін Нақты өлшемді пайдаланыңыз.
+	Reload documents when their files change on disk	Дискідегі файлдары өзгергенде құжаттарды қайта жүктеу
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Бұл файл дискіде өзгерді. Жаңа нұсқасын көру үшін оны қайта жүктеңіз; сақталмаған өзгерістер жоғалады.
+	Reload	Қайта жүктеу
+	Couldn't reload {name}: {e}	{name} қайта жүктеу мүмкін болмады: {e}
+	Mouse wheel scroll speed	Тінтуір дөңгелегімен айналдыру жылдамдығы
+scroll speed	Slow	Баяу
+scroll speed	Normal	Қалыпты
+scroll speed	Fast	Жылдам
+	Enhance camera image	Камера суретін жақсарту
+	Drag the corners onto the document's edges, then choose Enhance page.	Бұрыштарды құжаттың жиектеріне сүйреп, содан кейін «Бетті жақсарту» таңдаңыз.
+	Enhance page	Бетті жақсарту
+	Done adding text	Мәтін қосу аяқталды
+	Discard this text (Esc)	Бұл мәтіннен бас тарту (Esc)
+	Clean-up	Тазалау
+	Original	Түпнұсқа
+	Greyscale	Сұр реңктер
+	Black and white	Ақ-қара

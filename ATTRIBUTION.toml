@@ -173,7 +173,7 @@ licence = "MIT OR Apache-2.0"
 licence_file = "LICENSE-MIT"
 kind = "translation"
 usage = "Kazakh UI strings, compiled in by crates/ui-egui/src/i18n/mod.rs"
-sha256 = "5294d8c35aef0e9d03c89b107d41c1cdf26838d6f720907612071453c28ffb2b"
+sha256 = "77afe7d7fa215c99e8e627a758178d79c51e08e33564e00b97b8840aeb91a9dd"
 
 [[asset]]
 path = "crates/ui-egui/src/i18n/ja.tsv"
