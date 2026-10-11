@@ -782,7 +782,7 @@ key	Space	Mezerník
 	Centre	Na střed
 	Align right	Zarovnat doprava
 	Justify	Do bloku
-	Standard fonts; text outside Windows-1252 isn't supported yet.	Standardní písma; text mimo Windows-1252 zatím není podporován.
+	Thai and Arabic use regular fallback fonts when available.	Thajština a arabština používají běžná náhradní písma, pokud jsou k dispozici.
 	Edit image	Upravit obrázek
 	Rotate counterclockwise	Otočit proti směru hodinových ručiček
 	Rotate clockwise	Otočit po směru hodinových ručiček
@@ -2178,7 +2178,7 @@ calendar date	December	prosince
 	Home / End	Home / End
 	H / Space (hold)	H / mezerník (podržet)
 	Line ending	Zakončení čáry
-	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Standardní písma neumí vykreslit „{c}“ ({code}). Jako text lze zatím přidávat jen západoevropské znaky.
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	Písma pro text v PDF neumí vykreslit „{c}“ ({code}). Zvolte podporovaný text.
 	Larger pages	Větší stránky
 	Smaller pages	Menší stránky
 	Reset page size	Obnovit velikost stránek
@@ -2324,3 +2324,5 @@ scroll speed	Fast	Rychlá
 	Original	Originál
 	Greyscale	Stupně šedi
 	Black and white	Černobílé
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Písmo tohoto pole neumí zobrazit „{c}“ ({code}), proto PdfCraft místo něj ukazuje ?. Hodnota se uloží a jiné prohlížeče PDF pole podle ní překreslí.
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Písma, kterými PdfCraft píše, neumí zobrazit „{c}“ ({code}), proto se ve všech prohlížečích PDF zobrazí jako ?. Text se uloží.
