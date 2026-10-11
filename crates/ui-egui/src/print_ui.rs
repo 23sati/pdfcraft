@@ -9,6 +9,12 @@ use pdfcraft_engine::print::{self, Binding, BookletSubset, Content, Layout, Orie
 use crate::theme::{self, Tokens};
 use crate::{PdfCraftApp, widgets};
 
+/// The preview pane, and the paper inside it (12 pt inset on each side).
+const PREVIEW_W: f32 = 320.0;
+const PREVIEW_H: f32 = 380.0;
+const PREVIEW_INSET: f32 = 12.0;
+pub(crate) const PREVIEW_BOX: (f32, f32) = (PREVIEW_W - 2.0 * PREVIEW_INSET, PREVIEW_H - 2.0 * PREVIEW_INSET);
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Which {
     All,
@@ -29,6 +35,10 @@ pub enum Handling {
 #[derive(Clone, Debug, PartialEq)]
 pub struct PrintDraft {
     pub printers: Vec<spool::Printer>,
+    /// The printers are still being listed in the background (see [`PrinterSource`]).
+    pub printers_loading: bool,
+    /// The user chose the printer, so a list arriving late doesn't move it to the default.
+    pub printer_picked: bool,
     /// `None` = Save as PDF.
     pub printer: Option<String>,
     pub copies: u32,
@@ -72,6 +82,8 @@ impl Default for PrintDraft {
     fn default() -> Self {
         PrintDraft {
             printers: Vec::new(),
+            printers_loading: false,
+            printer_picked: false,
             printer: None,
             copies: 1,
             collate: true,
@@ -159,11 +171,44 @@ impl PrintDraft {
     }
 }
 
+/// Lists the printers off the UI thread (the desktop app sets [`PdfCraftApp::printer_source`]):
+/// on Windows that takes PowerShell a second or more, and CUPS' driverless discovery can wait on
+/// the network. Without a source the dialog reads them as it opens, so tests stay deterministic.
+pub type PrinterSource = std::sync::Arc<dyn Fn() -> Vec<spool::Printer> + Send + Sync>;
+
+/// The system spooler's printers, as the desktop app's [`PrinterSource`].
+pub fn system_printers() -> PrinterSource {
+    std::sync::Arc::new(spool::printers)
+}
+
+/// The Print dialog's work in the background: the printer list being read, and the jobs being
+/// spooled (the printer each was sent to, and the spooler's answer).
+#[derive(Default)]
+pub(crate) struct PrintTasks {
+    #[cfg(not(target_arch = "wasm32"))]
+    printers: Option<std::sync::mpsc::Receiver<Vec<spool::Printer>>>,
+    #[cfg(not(target_arch = "wasm32"))]
+    jobs: Vec<(String, std::sync::mpsc::Receiver<Result<String, String>>)>,
+}
+
+/// The printer the dialog preselects: the system default, else the first.
+fn default_printer(printers: &[spool::Printer]) -> Option<String> {
+    printers.iter().find(|p| p.default).or(printers.first()).map(|p| p.name.clone())
+}
+
 impl PdfCraftApp {
     pub fn open_print(&mut self) {
         let Some((i, _)) = self.active_ids() else { return };
-        let printers = spool::printers();
-        let default = printers.iter().find(|p| p.default).or(printers.first()).map(|p| p.name.clone());
+        let (printers, printers_loading) = match self.printer_source.clone() {
+            // The list from the last time the dialog opened, until the fresh one arrives.
+            #[cfg(not(target_arch = "wasm32"))]
+            Some(source) => {
+                self.list_printers_in_background(source);
+                (self.print_draft.printers.clone(), true)
+            }
+            _ => (spool::printers(), false),
+        };
+        let default = default_printer(&printers);
         let current = self.views[i].current;
         let selected: Vec<usize> = self.views[i].selected.iter().copied().collect();
         let keep = std::mem::take(&mut self.print_draft);
@@ -174,8 +219,83 @@ impl PdfCraftApp {
             (true, Which::Selected) => Which::All,
             (true, other) => other,
         };
-        self.print_draft = PrintDraft { printers, printer: default, current_page: current, sheet: 0, selected, which, ..keep };
+        self.print_draft = PrintDraft {
+            printers,
+            printers_loading,
+            printer_picked: false,
+            printer: default,
+            current_page: current,
+            sheet: 0,
+            selected,
+            which,
+            ..keep
+        };
         self.dialog = Some(crate::Dialog::Print);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn list_printers_in_background(&mut self, source: PrinterSource) {
+        // A list already being read is as fresh as a new one would be.
+        if self.print_tasks.printers.is_some() {
+            return;
+        }
+        let (tx, rx) = std::sync::mpsc::channel();
+        let ctx = self.ctx.clone();
+        std::thread::spawn(move || {
+            // The receiver may be gone (the app quit): nothing to report to then.
+            let _ = tx.send(source());
+            if let Some(ctx) = ctx {
+                ctx.request_repaint();
+            }
+        });
+        self.print_tasks.printers = Some(rx);
+    }
+
+    /// Pick up a printer list or a spooled job that finished (each frame).
+    pub(crate) fn poll_print(&mut self) {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            if let Some(rx) = &self.print_tasks.printers {
+                let printers = match rx.try_recv() {
+                    Ok(p) => Some(p),
+                    Err(std::sync::mpsc::TryRecvError::Empty) => None,
+                    // A source that died lists nothing new; the dialog keeps what it has.
+                    Err(std::sync::mpsc::TryRecvError::Disconnected) => Some(self.print_draft.printers.clone()),
+                };
+                if let Some(printers) = printers {
+                    self.print_tasks.printers = None;
+                    let d = &mut self.print_draft;
+                    if !d.printer_picked {
+                        d.printer = default_printer(&printers);
+                    }
+                    d.printers = printers;
+                    d.printers_loading = false;
+                }
+            }
+            let mut finished = Vec::new();
+            self.print_tasks.jobs.retain(|(printer, rx)| match rx.try_recv() {
+                Ok(r) => {
+                    finished.push((printer.clone(), r));
+                    false
+                }
+                Err(std::sync::mpsc::TryRecvError::Empty) => true,
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    finished.push((printer.clone(), Err("the print job stopped unexpectedly".into())));
+                    false
+                }
+            });
+            for (printer, result) in finished {
+                self.report_print_job(&printer, result);
+            }
+        }
+    }
+
+    fn report_print_job(&mut self, printer: &str, result: Result<String, String>) {
+        match result {
+            Ok(msg) if msg.is_empty() => self.notify(crate::i18n::fmt(tl!("Sent to {printer}"), &[("printer", printer)])),
+            Ok(msg) => self.notify(crate::i18n::fmt(tl!("Sent to {printer}: {msg}"), &[("printer", printer), ("msg", &msg)])),
+            Err(e) => self.notify_error(e),
+        }
     }
 
     /// Print (or save) with the dialog's settings. Returns `true` on success. Save as PDF without
@@ -205,22 +325,36 @@ impl PdfCraftApp {
             }
         };
         match self.print_draft.printer.clone() {
-            Some(printer) => match spool::submit(&bytes, &self.print_draft.job(&name)) {
-                Ok(msg) => {
-                    self.notify(if msg.is_empty() {
-                        crate::i18n::fmt(tl!("Sent to {printer}"), &[("printer", &printer)])
-                    } else {
-                        crate::i18n::fmt(tl!("Sent to {printer}: {msg}"), &[("printer", &printer), ("msg", &msg)])
-                    });
-                    true
-                }
-                Err(e) => {
-                    self.notify_error(e);
-                    false
-                }
-            },
+            Some(printer) => self.send_to_printer(printer, bytes, self.print_draft.job(&name)),
             None => self.save_print_pdf(&name, bytes),
         }
+    }
+
+    /// Spool a job off the UI thread: on Windows every sheet is rendered at the printer's
+    /// resolution first, which can take minutes for a long document. The dialog closes at once
+    /// and the spooler's answer arrives as a notice.
+    #[cfg(not(target_arch = "wasm32"))]
+    fn send_to_printer(&mut self, printer: String, bytes: Vec<u8>, job: spool::Job) -> bool {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let ctx = self.ctx.clone();
+        std::thread::spawn(move || {
+            let _ = tx.send(spool::submit(&bytes, &job).map_err(|e| e.to_string()));
+            if let Some(ctx) = ctx {
+                ctx.request_repaint();
+            }
+        });
+        self.notify(crate::i18n::fmt(tl!("Sending to {printer}…"), &[("printer", &printer)]));
+        self.print_tasks.jobs.push((printer, rx));
+        true
+    }
+
+    /// A browser has no spooler: `submit` answers at once.
+    #[cfg(target_arch = "wasm32")]
+    fn send_to_printer(&mut self, printer: String, bytes: Vec<u8>, job: spool::Job) -> bool {
+        let result = spool::submit(&bytes, &job).map_err(|e| e.to_string());
+        let ok = result.is_ok();
+        self.report_print_job(&printer, result);
+        ok
     }
 
     /// Print ▸ Save as PDF on the desktop: write to `save_override` (tests and automation), or
@@ -267,6 +401,60 @@ impl PdfCraftApp {
             }
         }
     }
+}
+
+/// The longest side, in pixels, of one page's print-preview raster (also kept within the GPU's
+/// `max_texture_side`): an Actual-size print of a large page would otherwise ask for a raster
+/// bigger than a texture can be.
+pub(crate) const PREVIEW_MAX_SIDE: f32 = 4096.0;
+/// The most bytes of print-preview rasters kept at once. The current sheet comes first, then the
+/// next and the previous one; a neighbour that doesn't fit isn't rendered ahead.
+pub(crate) const PREVIEW_BYTES: f64 = 128.0 * 1024.0 * 1024.0;
+
+/// Pages on the current sheet and its neighbours, each with the device pixels per point that
+/// fill the preview pane (so the picture is not a stretched thumbnail), nearest sheet first and
+/// within [`PREVIEW_MAX_SIDE`] (and `max_side`, the GPU's texture limit) and [`PREVIEW_BYTES`].
+pub(crate) fn preview_rasters(d: &PrintDraft, sizes: &[(f64, f64)], labels: &[String], ppp: f32, max_side: f32) -> Vec<(usize, f32)> {
+    let Ok(settings) = d.settings(sizes.len(), labels) else { return Vec::new() };
+    let Ok(sheets) = print::layout(sizes, &settings) else { return Vec::new() };
+    if sheets.is_empty() {
+        return Vec::new();
+    }
+    let ppp = if ppp.is_finite() { ppp.max(1.0) } else { 1.0 };
+    let side = if max_side.is_finite() && max_side >= 1.0 { max_side.min(PREVIEW_MAX_SIDE) } else { PREVIEW_MAX_SIDE };
+    let i = d.sheet.min(sheets.len() - 1);
+    // Nearest first: the sheet on screen, then the next one, then the previous one.
+    let order = [Some(i), i.checked_add(1).filter(|n| *n < sheets.len()), i.checked_sub(1)];
+    let mut out: Vec<(usize, f32, f64)> = Vec::new();
+    let mut bytes = 0.0f64;
+    for sheet in order.into_iter().flatten().filter_map(|s| sheets.get(s)) {
+        let (sw, sh) = (sheet.size.0 as f32, sheet.size.1 as f32);
+        if !(sw.is_finite() && sh.is_finite()) || sw < 1.0 || sh < 1.0 {
+            continue;
+        }
+        let k = (PREVIEW_BOX.0 / sw).min(PREVIEW_BOX.1 / sh);
+        for pl in &sheet.placed {
+            let [a, b, _, _, _, _] = pl.matrix.0;
+            let placed = (a.hypot(b) as f32) * k * ppp;
+            let Some(&(pw, ph)) = sizes.get(pl.page) else { continue };
+            let long_pt = pw.max(ph) as f32;
+            if !placed.is_finite() || placed < 0.05 || !long_pt.is_finite() || long_pt < 1.0 {
+                continue;
+            }
+            let scale = placed.min(64.0).min(side / long_pt);
+            let cost = (pw * f64::from(scale)).ceil() * (ph * f64::from(scale)).ceil() * 4.0;
+            if let Some(slot) = out.iter_mut().find(|(page, _, _)| *page == pl.page) {
+                if scale > slot.1 && bytes - slot.2 + cost <= PREVIEW_BYTES {
+                    bytes += cost - slot.2;
+                    (slot.1, slot.2) = (scale, cost);
+                }
+            } else if out.len() < 48 && (out.is_empty() || bytes + cost <= PREVIEW_BYTES) {
+                bytes += cost;
+                out.push((pl.page, scale, cost));
+            }
+        }
+    }
+    out.into_iter().map(|(page, scale, _)| (page, scale)).collect()
 }
 
 /// Properties… on CUPS: the driver's options for this print, grouped as the driver groups them.
@@ -359,6 +547,9 @@ pub(crate) fn body(
                 ui.horizontal(|ui| {
                     let shown = d.printer.clone().unwrap_or_else(|| tl!("Save as PDF").to_string());
                     egui::ComboBox::from_id_salt("printer").selected_text(shown).width(260.0).show_ui(ui, |ui| {
+                        if d.printers_loading {
+                            ui.add_enabled(false, egui::Label::new(tl!("Looking for printers…")));
+                        }
                         for p in &d.printers {
                             let label = if p.default { crate::i18n::fmt(tl!("{name} (default)"), &[("name", &p.name)]) } else { p.name.clone() };
                             ui.selectable_value(&mut d.printer, Some(p.name.clone()), label);
@@ -386,6 +577,7 @@ pub(crate) fn body(
                     }
                 });
                 if d.printer != before {
+                    d.printer_picked = true;
                     d.show_driver_options = false;
                     d.driver_error = None;
                 }
@@ -567,15 +759,15 @@ pub(crate) fn body(
         ui.add_space(12.0);
         // Preview.
         ui.vertical(|ui| {
-            ui.set_width(320.0);
-            let (area, _) = ui.allocate_exact_size(vec2(320.0, 380.0), egui::Sense::hover());
+            ui.set_width(PREVIEW_W);
+            let (area, _) = ui.allocate_exact_size(vec2(PREVIEW_W, PREVIEW_H), egui::Sense::hover());
             ui.painter().rect_filled(area, 6.0, t.hover);
             match (&settings, sheets.get(d.sheet)) {
                 (Err(e), _) => {
                     ui.put(area.shrink(16.0), egui::Label::new(egui::RichText::new(e).color(t.text_muted)).wrap());
                 }
                 (Ok(_), Some(sheet)) => {
-                    let k = ((area.width() - 24.0) / sheet.size.0 as f32).min((area.height() - 24.0) / sheet.size.1 as f32);
+                    let k = (PREVIEW_BOX.0 / sheet.size.0 as f32).min(PREVIEW_BOX.1 / sheet.size.1 as f32);
                     let paper = Rect::from_center_size(area.center(), vec2(sheet.size.0 as f32 * k, sheet.size.1 as f32 * k));
                     ui.painter().rect_filled(paper, 0.0, Color32::WHITE);
                     ui.painter().rect_stroke(paper, 0.0, Stroke::new(1.0, t.border), egui::StrokeKind::Outside);
@@ -667,4 +859,53 @@ pub(crate) fn body(
         }
     });
     (go, cancel)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn print_preview_rasters_stay_within_the_texture_limit() {
+        // Actual size on a 14,400 pt (200 in) page would ask for a raster far past any texture.
+        let d = PrintDraft { size: SizeMode::Actual, ..PrintDraft::default() };
+        let sizes = vec![(14_400.0, 14_400.0); 2];
+        let labels = vec!["1".into(), "2".into()];
+        for max_side in [2048.0, 8192.0, 16384.0, f32::NAN, 0.0] {
+            for (page, scale) in preview_rasters(&d, &sizes, &labels, 4.0, max_side) {
+                let long = 14_400.0 * scale;
+                let cap = if max_side.is_finite() && max_side >= 1.0 { max_side.min(PREVIEW_MAX_SIDE) } else { PREVIEW_MAX_SIDE };
+                assert!(long <= cap + 1.0, "page {page} at {max_side}: {long} px");
+            }
+        }
+    }
+
+    #[test]
+    fn print_preview_rasters_keep_the_current_sheet_within_the_byte_budget() {
+        // Many large pages: the current sheet always gets its raster; neighbours only while the
+        // budget lasts, and the total stays within it.
+        let d = PrintDraft { sheet: 5, ..PrintDraft::default() };
+        let sizes = vec![(2_000.0, 2_000.0); 12];
+        let labels: Vec<String> = (1..=12).map(|n| n.to_string()).collect();
+        let rasters = preview_rasters(&d, &sizes, &labels, 4.0, 16384.0);
+        assert_eq!(rasters.first().map(|r| r.0), Some(5), "the sheet on screen comes first: {rasters:?}");
+        let total: f64 = rasters.iter().map(|(_, s)| (2_000.0 * f64::from(*s)).ceil().powi(2) * 4.0).sum();
+        assert!(total <= PREVIEW_BYTES || rasters.len() == 1, "{total} bytes for {rasters:?}");
+    }
+
+    #[test]
+    fn print_preview_is_sharper_than_a_thumbnail_on_a_high_dpi_screen() {
+        let d = PrintDraft::default();
+        let sizes = vec![(612.0, 792.0); 3];
+        let labels = vec!["1".into(), "2".into(), "3".into()];
+        let rasters = preview_rasters(&d, &sizes, &labels, 2.0, 8192.0);
+        let scale = rasters.iter().find(|(page, _)| *page == 0).map(|(_, s)| *s).unwrap();
+        // A 132 pt thumbnail at 2× is about 0.43 px/pt. The preview pane needs roughly twice that.
+        assert!(scale > 0.7, "letter page in the preview at 2 px/pt: {scale}");
+        assert!(rasters.iter().any(|(page, _)| *page == 1), "the next sheet is ready");
+        let mut later = d.clone();
+        later.sheet = 2;
+        let rasters = preview_rasters(&later, &sizes, &labels, 2.0, 8192.0);
+        assert!(rasters.iter().any(|(page, _)| *page == 2));
+    }
 }

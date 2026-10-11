@@ -150,9 +150,24 @@ pub fn tools() -> Vec<ToolDef> {
         t("page_render", "Render a page", "Render one page to a PNG image (default 96 dpi, at most 600).")
             .ro()
             .with(schema(json!({ "doc": doc(), "page": { "type": "integer", "minimum": 1 }, "dpi": { "type": "number", "minimum": 1, "maximum": 600 } }), &["doc", "page"])),
-        t("text_extract", "Extract text", "Extract the text of some or all pages, in reading order.")
+        t("object_list", "List editable objects", "List existing paragraphs, Image/Form artwork and added content once, with source kind/index references, displayed rectangles and document generation. Indexes change when content changes; use generation in object_move to reject stale references.")
+            .ro().with(schema(json!({"doc":doc(),"page":{"type":"integer","minimum":1}}), &["doc","page"])),
+        t("object_move", "Move objects together", "Atomically translate 1–1000 mixed references from object_list by [dx, dy] in displayed points (right/down). Preserves glyph codes, fonts, image data and relative spacing; success is one undo step. Clipping and vertical text are refused. A bad/stale reference refuses the entire move.")
+            .with(schema(json!({"doc":doc(),"page":{"type":"integer","minimum":1},
+                "objects":{"type":"array","minItems":1,"maxItems":1000,"uniqueItems":true,"items":{
+                    "type":"object","properties":{"kind":{"type":"string","enum":["added","text","image"]},"index":{"type":"integer","minimum":1}},"required":["kind","index"],"additionalProperties":false}},
+                "offset":{"type":"array","items":{"type":"number"},"minItems":2,"maxItems":2},
+                "generation":{"type":"integer","minimum":0,"description":"Use generation returned by object_list to reject a stale selection."}}), &["doc","page","objects","offset"])),
+        t("text_extract", "Extract text", "Extract the text of some or all pages, in reading order. With rect, only the text inside that rectangle on each page, as Column select takes it: one row per visual line, side-by-side pieces (table cells) separated by a tab.")
             .ro()
-            .with(schema(json!({ "doc": doc(), "pages": pages("to extract (default: all)") }), &["doc"])),
+            .cmd("edit.column_select")
+            .with(schema(
+                json!({
+                    "doc": doc(), "pages": pages("to extract (default: all)"),
+                    "rect": { "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4, "description": "Column select: [x0, y0, x1, y1] in points from the top-left of the displayed page; a glyph counts when its centre is inside." }
+                }),
+                &["doc"],
+            )),
         t("text_find", "Find text", "Find a phrase (case-insensitive, whitespace-normalised) and return each match with its page and line rectangles in points (origin top-left).")
             .ro()
             .cmd("edit.find")
@@ -166,6 +181,16 @@ pub fn tools() -> Vec<ToolDef> {
                     "orientation": { "type": "string", "enum": ["all", "landscape", "portrait"] },
                 }),
                 &["doc", "degrees"],
+            )),
+        t("page_enhance_camera", "Enhance camera image", "Straighten a photographed document (Scan & OCR ▸ Enhance ▸ Camera image): the part of the page inside the four corners (x1, y1, … x4, y4 in top-left-origin points, any order, a convex quadrilateral; when omitted, the document's edges are found automatically, or an error says they could not be) is warped to an upright rectangle that replaces what the page shows, at the page picture's own resolution (at most 600 dpi). The page's comments, links and bookmarks stay. Undoable.")
+            .cmd("ocr.enhance_camera")
+            .with(schema(
+                json!({
+                    "doc": doc(),
+                    "page": { "type": "integer", "minimum": 1 },
+                    "corners": { "type": "array", "items": { "type": "number" }, "minItems": 8, "maxItems": 8 },
+                }),
+                &["doc", "page"],
             )),
         t("page_delete", "Delete pages", "Delete pages. Undoable until saved.")
             .destructive()
@@ -190,13 +215,14 @@ pub fn tools() -> Vec<ToolDef> {
                 json!({ "doc": doc(), "pages": pages("to extract"), "out": save_out.clone(), "open": open.clone(), "separate": { "type": "boolean" }, "out_dir": { "type": "string" }, "delete": { "type": "boolean" } }),
                 &["doc", "pages"],
             )),
-        t("doc_combine", "Combine files", "Combine PDFs, in order, into one (bookmarks are kept under one entry per file). pages optionally chooses each file's pages, in step with paths: a range such as \"1-3, 6\" or null for all pages. passwords, also in step with paths, opens encrypted files (the open password, or the permissions password where a file's security doesn't allow copying pages; null for none). The result is not encrypted. Passwords are never echoed back.")
+        t("doc_combine", "Combine files", "Combine files, in order, into one PDF (bookmarks are kept under one entry per file). Images (PNG, JPEG, TIFF, GIF, BMP, JPEG 2000) and .txt files are made into PDFs first. pages optionally chooses each file's pages, in step with paths: a range such as \"1-3, 6\" or null for all pages. passwords, also in step with paths, opens encrypted files (the open password, or the permissions password where a file's security doesn't allow copying pages; null for none). The result is not encrypted. Passwords are never echoed back. groups, also in step with paths, splits a file around others: entries with the same number (they must name the same path) are one file, copied once, so it keeps one bookmark at its first page, its links and its form fields; null for a file of its own. A group uses its first entry's password.")
             .cmd("page.combine")
             .with(schema(
                 json!({
                     "paths": { "type": "array", "items": { "type": "string" }, "minItems": 2 },
                     "pages": { "type": "array", "items": { "type": ["string", "null"] } },
                     "passwords": { "type": "array", "items": { "type": ["string", "null"] } },
+                    "groups": { "type": "array", "items": { "type": ["integer", "null"], "minimum": 0 } },
                     "out": save_out,
                     "open": open,
                 }),
@@ -206,7 +232,7 @@ pub fn tools() -> Vec<ToolDef> {
             .cmd("create.multiple")
             .with(schema(
                 json!({
-                    "paths": { "type": "array", "items": { "type": "string" }, "minItems": 1, "maxItems": pdfcraft_engine::MAX_CREATE_FILES },
+                    "paths": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
                     "mode": { "type": "string", "enum": ["combine", "separate"] },
                     "pages": { "type": "array", "items": { "type": ["string", "null"] } },
                     "out": save_out.clone(),
@@ -215,15 +241,26 @@ pub fn tools() -> Vec<ToolDef> {
                 }),
                 &["paths"],
             )),
-        t("doc_split", "Split a document", "Split into several files written to out_dir: every N pages, before given pages, at top-level bookmarks (bookmarks: true; files named after them), or by file size (max_mb). Files are <name>-partK.pdf.")
+        t("doc_split", "Split a document", "Split into several files written to out_dir: every N pages, before given pages, at top-level bookmarks (bookmarks: true; files named after them, repeated titles get -2, -3), or by file size (max_mb). Files are <name>-partK.pdf.")
             .cmd("page.split")
             .with(schema(
                 json!({ "doc": doc(), "every": { "type": "integer", "minimum": 1 }, "before": pages("that start a new part"), "bookmarks": { "type": "boolean" }, "max_mb": { "type": "number", "exclusiveMinimum": 0 }, "out_dir": { "type": "string" } }),
                 &["doc", "out_dir"],
             )),
-        t("bookmark_list", "List bookmarks", "The bookmark tree with each bookmark's path, title, target page and open state.")
-            .ro()
-            .with(schema(json!({ "doc": doc() }), &["doc"])),
+        t(
+            "bookmark_list",
+            "List bookmarks",
+            "The bookmarks in outline order, one page at a time: each with its path (1-based, as the other bookmark tools take it), title, target page and open state, and its children on the same page. next is the offset of the following page, or null at the end. Bookmarks nested deeper than 33 levels are not listed.",
+        )
+        .ro()
+        .with(schema(
+            json!({
+                "doc": doc(),
+                "offset": { "type": "integer", "minimum": 0, "description": "Where the page starts, counted from 0 (the previous page's next)" },
+                "limit": { "type": "integer", "minimum": 1, "maximum": 1000, "description": "Bookmarks in the page (default 100)" }
+            }),
+            &["doc"],
+        )),
         t("bookmark_add", "Add a bookmark", "Add a bookmark that goes to a page, under a parent bookmark (or at the top level), at a position. Undoable.").with(schema(
             json!({ "doc": doc(), "title": { "type": "string", "minLength": 1 }, "page": { "type": "integer", "minimum": 1 }, "parent": path("Parent bookmark (omit for the top level)"), "position": { "type": "integer", "minimum": 1, "description": "1-based position among the parent's children (default: last)." } }),
             &["doc", "title", "page"],
@@ -239,6 +276,12 @@ pub fn tools() -> Vec<ToolDef> {
         )),
         t("bookmark_set_page", "Set a bookmark's page", "Point a bookmark at another page. Undoable.")
             .with(schema(json!({ "doc": doc(), "path": path("The bookmark"), "page": { "type": "integer", "minimum": 1 } }), &["doc", "path", "page"])),
+        t(
+            "bookmark_from_structure",
+            "New bookmarks from structure",
+            "Make bookmarks from the document's tagged headings (H, H1-H6), nested by level under a new first bookmark titled \"Untitled\". Fails if the document has no tagged headings. Returns the first page of the bookmark tree (see bookmark_list). Undoable.",
+        )
+        .with(schema(json!({ "doc": doc() }), &["doc"])),
         t("page_number", "Number pages", "Label a range of pages (e.g. i, ii, iii for front matter, or A-1, A-2 for an appendix). Later pages keep their labels. Undoable.").with(schema(
             json!({
                 "doc": doc(),
@@ -303,12 +346,14 @@ pub fn tools() -> Vec<ToolDef> {
         t(
             "form_set_props",
             "Field properties",
-            "Change a field's properties (General and Options tabs): name (renames it), tooltip, read_only, required, multiline, max_length (0 = no limit), options (combo/list items), font_size (0 = auto), rect (position), rotation (0, 90, 180 or 270 degrees counterclockwise; changing between horizontal and vertical swaps width and height around the center), format, validate, calculate (Acrobat's Format/Validate/Calculate tabs, run natively: values are checked, formatted and recalculated as in Acrobat). Options tab: align (left, center, right), default (the value Reset form restores; for check boxes and radio buttons their on state, \"\" for off), flags { scroll, rich_text, password, file_select, spell_check, comb (needs max_length), sort, editable, multi_select, commit_immediately }, check_style (check boxes and radio buttons: check, circle, cross, diamond, square, star). Only the given ones change. Undoable.",
+            "Change field properties: give field for one field, or fields for a list of unique field names (1–1000). A bulk change is atomic and one Undo step; an invalid or locked field leaves every field unchanged. Only the given properties change, and partial appearance changes preserve each field's other colours and font. name (rename), rect (position) and rotation require a single field. General and Options: tooltip, read_only, required, multiline, max_length (0 = no limit), options (combo/list items), font_size (0 = auto), format, validate, calculate (Acrobat's native AF rules). Options: align (left, center, right), default (Reset form's value; check boxes/radio buttons use their on state, \"\" for off), flags { scroll, rich_text, password, file_select, spell_check, comb (needs max_length), sort, editable, multi_select, commit_immediately }, check_style (check boxes/radio buttons: check, circle, cross, diamond, square, star). rotation is 0, 90, 180 or 270 degrees counterclockwise and swaps width/height when the axis changes. Undoable.",
         )
-        .with(schema(
+        .with({
+            let mut input = schema(
             json!({
                 "doc": doc(),
                 "field": { "type": "string", "description": "The field's current name." },
+                "fields": { "type": "array", "items": { "type": "string" }, "minItems": 1, "maxItems": 1000, "uniqueItems": true, "description": "Apply the same changes to these fields in one atomic edit. Use either field or fields." },
                 "name": { "type": "string" },
                 "tooltip": { "type": "string" },
                 "read_only": { "type": "boolean" },
@@ -324,13 +369,16 @@ pub fn tools() -> Vec<ToolDef> {
                 "font_size": { "type": "number", "minimum": 0 },
                 "rect": { "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4, "description": "Move/resize: points from the top-left of the displayed page." },
                 "rotation": { "type": "integer", "enum": [0, 90, 180, 270], "description": "Widget rotation in degrees, counterclockwise. Changing between horizontal and vertical swaps the rectangle around its center." },
-                "appearance": { "type": "object", "description": "Appearance tab: border, fill, text_color (#RRGGBB, a name or \"none\"), width (1 thin, 2 medium, 3 thick), style (solid, dashed, beveled, inset, underline), font (helvetica, times, courier)." },
+                "appearance": { "type": "object", "description": "Appearance tab: border, fill, text_color (#RRGGBB, a name or \"none\"), width (0–12 points; 1 thin, 2 medium, 3 thick), style (solid, dashed, beveled, inset, underline), font (helvetica, times, courier)." },
                 "format": { "description": "Format tab: {\"type\": \"number\", \"decimals\": 2, \"currency\": \"$\", \"separator\": 0-4, \"negative\": 0-3}, {\"type\": \"percent\"}, {\"type\": \"date\"|\"time\", \"pattern\": \"mm/dd/yyyy\"}, {\"type\": \"zip\"|\"zip4\"|\"phone\"|\"ssn\"}, {\"type\": \"mask\", \"mask\": \"AA-9999\"}, or \"none\"." },
                 "validate": { "description": "Validate tab: {\"min\": 0, \"max\": 100} (either may be left out) or \"none\"." },
                 "calculate": { "description": "Calculate tab: {\"op\": \"sum\"|\"product\"|\"average\"|\"min\"|\"max\", \"fields\": [\"a\", \"b\"]}, {\"notation\": \"Price * Qty\"} (simplified field notation), or \"none\"." },
             }),
-            &["doc", "field"],
-        )),
+            &["doc"],
+        );
+            input["oneOf"] = json!([{ "required": ["field"] }, { "required": ["fields"] }]);
+            input
+        }),
         t("form_tab_order", "Set the tab order", "Set the tab order of pages (default all): row (top to bottom, left to right), column, structure, or annotations (unspecified). Or order tabs manually: `field` with `move` earlier|later moves that field one place on its page. Returns the resulting order of fields. Undoable.")
             .with(schema(
                 json!({ "doc": doc(), "order": { "type": "string", "enum": ["row", "column", "structure", "annotations"] }, "pages": pages("to set (default: all)"), "field": { "type": "string" }, "move": { "type": "string", "enum": ["earlier", "later"] } }),
@@ -347,7 +395,7 @@ pub fn tools() -> Vec<ToolDef> {
         t(
             "redact_mark",
             "Mark for redaction",
-            "Mark content for redaction (nothing is removed until redact_apply). One of: rect [x0, y0, x1, y1] (points from the top-left of the displayed page) with page; find (text, every match); pattern (phone, email, credit-card, ssn, date: every match, Acrobat's Search & Redact patterns); whole_pages: true. find, pattern and whole_pages work on pages (default all). overlay: text shown on the box once applied; fill: box colour (default black). Undoable.",
+            "Mark content for redaction (nothing is removed until redact_apply). One of: rect [x0, y0, x1, y1] (points from the top-left of the displayed page) with page; find (text, every match); words (a list of words or phrases, every match of each; the result's matched_words says how many marks each made); pattern (phone, email, credit-card, ssn, date: every match, Acrobat's Search & Redact patterns); whole_pages: true. find, words, pattern and whole_pages work on pages (default all). overlay: text shown on the box once applied, or code_set (foia: U.S. FOIA (b)(1)(A)…(b)(9); privacy-act: U.S. Privacy Act (d)(5), (j)(1)…(k)(7)) with codes, shown as \"(b)(6), (b)(7)(C)\"; fill: box colour (default black). Undoable.",
         )
         .with(schema(
             json!({
@@ -355,10 +403,13 @@ pub fn tools() -> Vec<ToolDef> {
                 "page": { "type": "integer", "minimum": 1 },
                 "rect": { "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4 },
                 "find": { "type": "string", "minLength": 1 },
+                "words": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1, "maxItems": 1000 },
                 "pattern": { "type": "string", "enum": ["phone", "email", "credit-card", "ssn", "date"] },
                 "whole_pages": { "type": "boolean" },
                 "pages": pages("to search or mark (default: all)"),
                 "overlay": { "type": "string" },
+                "code_set": { "type": "string", "enum": ["foia", "privacy-act"] },
+                "codes": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "Redaction codes from code_set, e.g. [\"(b)(6)\"]." },
                 "fill": { "type": "string", "description": "#RRGGBB or a colour name." },
                 "author": { "type": "string" },
             }),
@@ -438,7 +489,7 @@ pub fn tools() -> Vec<ToolDef> {
         t(
             "page_add_text",
             "Add text to a page",
-            "Add text as page content (not a comment). Place it with at [x, y] (top-left, points from the top-left of the displayed page) and width (wrap width, default 200), or rect. Newlines start new lines; long lines wrap. Style: font helvetica/times/courier, size, bold, italic, color (#RRGGBB or a name), align left/center/right. It stays editable with content_update. Undoable.",
+            "Add text as page content (not a comment). Place it with at [x, y] (top-left, points from the top-left of the displayed page) and width (wrap width, default 200), or rect. Newlines start new lines; long lines wrap. Style: font helvetica/times/courier, size, bold, italic, color (#RRGGBB or a name), align left/center/right. Text must be Western European (WinAnsi) characters; others are refused. It stays editable with content_update. Undoable.",
         )
         .cmd("edit.text")
         .with(schema(
@@ -595,7 +646,7 @@ pub fn tools() -> Vec<ToolDef> {
             }),
             &["name", "password", "path"],
         )),
-        t("sign_windows_ids", "List Windows store digital IDs", "Windows: signing identities in the Current User Personal certificate store (certificate details and the windows: reference sign_document takes). Private keys remain in CNG; Windows may ask permission to use them.")
+        t("sign_windows_ids", "List Windows store digital IDs", "Windows: signing identities in the Current User Personal certificate store (certificate details and the windows: reference sign_document takes). Private keys remain in CNG; Windows may ask permission to use them. `unusable` lists the store's other certificates with why they can't sign (no private key, an unsupported key type, a key CNG can't open).")
             .ro()
             .cmd("sign.digital")
             .with(schema(json!({}), &[])),
@@ -642,12 +693,13 @@ pub fn tools() -> Vec<ToolDef> {
                 json!({ "doc": doc(), "sort": { "type": "string", "enum": ["page", "author", "date", "type"] }, "out": save_out, "open": open }),
                 &["doc"],
             )),
-        t("comment_edit", "Edit a comment", "Change a comment's text, colour, opacity, line width, rectangle (rectangle/oval/text box/stamp) or position (`move` [dx, dy] in points). Stamps keep their original appearance when resized. One undo step.").with(schema(
+        t("comment_edit", "Edit a comment", "Change a comment's text, colour, opacity, line width, fill (rectangle/oval/polygon; \"none\" removes it), rectangle (rectangle/oval/text box/stamp) or position (`move` [dx, dy] in points). Stamps keep their original appearance when resized. One undo step.").with(schema(
             comment_ref(json!({
                 "contents": { "type": "string" },
                 "color": color(),
                 "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
                 "width": { "type": "number", "minimum": 0 },
+                "fill": { "type": "string", "description": "Interior colour of a rectangle, oval or polygon: #RRGGBB, a colour name, or \"none\" for no fill." },
                 "rect": { "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4 },
                 "move": point(),
             })),
@@ -722,7 +774,7 @@ pub fn tools() -> Vec<ToolDef> {
             }),
             &["doc"],
         )),
-        t("doc_watermark", "Add watermark", "Add a watermark to pages: text, or a picture from `file` (an image, or page `file_page` of a PDF) at `scale` of the page (default 0.5); rotated (degrees counter-clockwise, default 45), semi-transparent (opacity 0–1, default 0.5), text fitted to the page unless font_size is given, on top unless behind: true. replace: true swaps out existing ones. Undoable.")
+        t("doc_watermark", "Add watermark", "Add a watermark to pages: text, or a picture from `file` (an image, or page `file_page` of a PDF) at `scale` of the page (default 0.5); rotated (degrees counter-clockwise, default 45), semi-transparent (opacity 0–1, default 0.5), text fitted to the page unless font_size is given, on top unless behind: true; moved from the page centre by `offset_x` (right) and `offset_y` (up) points (default 0). replace: true swaps out existing ones. Undoable.")
             .cmd("edit.watermark")
             .with(schema(
                 json!({
@@ -737,6 +789,8 @@ pub fn tools() -> Vec<ToolDef> {
                     "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
                     "rotation": { "type": "number" },
                     "behind": { "type": "boolean" },
+                    "offset_x": { "type": "number", "description": "Points right of the page centre (negative: left)." },
+                    "offset_y": { "type": "number", "description": "Points above the page centre (negative: below)." },
                     "replace": { "type": "boolean" },
                 }),
                 &["doc"],
@@ -750,7 +804,7 @@ pub fn tools() -> Vec<ToolDef> {
         t("doc_remove_marks", "Remove header & footer, watermark or background", "Remove every header and footer, watermark or background PdfCraft (or a compatible tool) added. Undoable.")
             .destructive()
             .with(schema(json!({ "doc": doc(), "kind": { "type": "string", "enum": ["header_footer", "watermark", "background"] } }), &["doc", "kind"])),
-        t("doc_export_images", "Export pages as images", "Write pages as PNG, JPEG or TIFF files (`<name>_page_<n>.png|jpg|tif`) into a folder, at a resolution (default 150 dpi). JPEG and TIFF are flattened onto white paper. Includes unsaved edits.")
+        t("doc_export_images", "Export pages as images", "Write pages as PNG, JPEG or TIFF files (`<name>_page_<n>.png|jpg|tif`) into a folder, at a resolution (default 150 dpi). JPEG and TIFF are flattened onto white paper. A page too large for the renderer at that resolution is drawn at the most it allows, listed in `lower_dpi` ({page, dpi}). Includes unsaved edits.")
             .cmd("export.image")
             .with(schema(
                 json!({
@@ -898,7 +952,7 @@ pub fn tools() -> Vec<ToolDef> {
                 }),
                 &["paths", "folder"],
             )),
-        t("ocr_status", "OCR status", "Whether text recognition is available (its models are installed: run `cargo xtask models` or set PDFCRAFT_MODELS), where it looks for them, and the languages it reads.")
+        t("ocr_status", "OCR status", "Whether text recognition is available (its models are installed: release packages include them; a source build fetches them with `cargo xtask models`; PDFCRAFT_MODELS overrides), where it looks for them, and the languages it reads.")
             .ro()
             .cmd("ocr.recognize")
             .with(schema(json!({}), &[])),
@@ -941,7 +995,7 @@ pub fn tools() -> Vec<ToolDef> {
         t(
             "doc_create",
             "Create a PDF",
-            "Create a new, unsaved document and return it like doc_open: `blank` (pages, width, height in points; default 1 US Letter page), `images` (paths of PNG, JPEG, TIFF (every page), GIF or BMP files, one page each at the image's resolution) or `text` (a .txt path, or `text` directly). Save it with doc_save and a path.",
+            "Create a new, unsaved document and return it like doc_open: `blank` (pages, width, height in points; default 1 US Letter page), `images` (paths of PNG, JPEG, TIFF (every page), GIF or BMP files, one page each at the image's resolution) or `text` (a .txt path, or `text` directly; Western European (WinAnsi) characters only, others are refused). Save it with doc_save and a path.",
         )
         .with(schema(
             json!({
@@ -957,7 +1011,7 @@ pub fn tools() -> Vec<ToolDef> {
             }),
             &["from"],
         )),
-        t("doc_reduce", "Reduce file size", "Write a smaller copy of the document to `path` with Acrobat's Reduce File Size choices: images above 225 ppi downsampled to 150 ppi and JPEG-compressed (medium quality), thumbnails dropped, identical fonts and images merged, unused objects dropped, compressed object streams. The open document is unchanged.")
+        t("doc_reduce", "Reduce file size", "Write a smaller copy of the document to `path` with Acrobat's Reduce File Size choices: images above 225 ppi downsampled to 150 ppi and JPEG-compressed (medium quality), thumbnails dropped, identical fonts and images merged, unused objects dropped, compressed object streams. If the copy wouldn't be smaller, nothing is written and `written` is false. The open document is unchanged.")
             .cmd("optimize.reduce")
             .with(schema(json!({ "doc": doc(), "path": { "type": "string" } }), &["doc", "path"])),
         t("doc_initial_view", "Initial view", "Read or change how the document opens (Document Properties ▸ Initial View) and its reading options: navigation (page, bookmarks, pages, attachments, layers), layout (default, single, continuous, two_up, two_up_continuous, two_up_cover, two_up_continuous_cover), magnification (default, actual, fit_page, fit_width, fit_height, fit_visible, or a percentage), page, window options (fit_window, center_window, full_screen, display_title), interface options (hide_menubar, hide_toolbar, hide_window_ui), language and binding (left, right). Only the given ones change; returns the result. Undoable.").with(schema(
@@ -1038,7 +1092,7 @@ pub fn tools() -> Vec<ToolDef> {
             .with(schema(json!({ "doc": doc() }), &["doc"])),
         t("doc_open_revision", "Open a revision", "Open saved revision `revision` (1 = the oldest) of a document as a new, unsaved document, to see the file as it was then.")
             .with(schema(json!({ "doc": doc(), "revision": { "type": "integer", "minimum": 1 } }), &["doc", "revision"])),
-        t("doc_optimize", "Optimize PDF", "Write an optimized copy to `path` (Acrobat's PDF Optimizer). color / gray: { downsample, ppi, above_ppi, compression: jpeg|zip|retain, quality 1–100 } (defaults: downsample to 150 ppi above 225, JPEG 60). Images are measured where pages draw them and replaced only when smaller. discard_*: thumbnails (default true), alternate_images (true), tags, print_settings; flate_unencoded (true); remove_invalid_links and remove_unreferenced_dests (true). discard: Remove Hidden Information categories (metadata, attachments, comments, form-fields, hidden-text, hidden-layers, bookmarks, links-actions-scripts, private-data). Signed documents are refused. The open document is unchanged.")
+        t("doc_optimize", "Optimize PDF", "Write an optimized copy to `path` (Acrobat's PDF Optimizer). color / gray: { downsample, ppi, above_ppi, compression: jpeg|zip|retain, quality 1–100 } (defaults: downsample to 150 ppi above 225, JPEG 60). Images are measured where pages draw them and replaced only when smaller. discard_*: thumbnails (default true), alternate_images (true), tags, print_settings; flate_unencoded (true); remove_invalid_links and remove_unreferenced_dests (true); images and forms the pages list but never draw are always dropped (unused_xobjects). discard: Remove Hidden Information categories (metadata, attachments, comments, form-fields, hidden-text, hidden-layers, bookmarks, links-actions-scripts, private-data). Signed documents are refused. The open document is unchanged.")
             .cmd("optimize.advanced")
             .with(schema(
                 json!({

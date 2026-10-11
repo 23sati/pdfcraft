@@ -17,6 +17,9 @@
 	Preferences	Настройки
 	Preferences…	Настройки…
 	Interface language	Язык интерфейса
+	Interface size	Размер интерфейса
+	Auto ({percent}%)	Авто ({percent}%)
+	Auto follows the system's text size. Pages always render at the display's full resolution.	В режиме «Авто» используется размер текста из настроек системы. Страницы всегда отображаются в полном разрешении экрана.
 	Identity	Идентификация
 	Name on new comments	Имя в новых комментариях
 	Open…	Открыть…
@@ -65,6 +68,7 @@
 	Fit visible	По видимой области
 	Marquee zoom	Масштаб выделением
 	Take a snapshot	Сделать снимок
+	Column select	Выделение столбца
 	Full screen mode	Полноэкранный режим
 	Read mode	Режим чтения
 	Switch light / dark theme	Переключить светлую / тёмную тему
@@ -89,7 +93,7 @@
 	Double-click	Двойной щелчок
 	Select a word	Выделить слово
 	Clear selection / close find	Снять выделение / закрыть поиск
-	Zoom in / out (also pinch or ⌘-scroll)	Масштаб (также щипок или ⌘-прокрутка)
+	Zoom in / out (also pinch or {key}-scroll)	Масштаб (также щипок или {key}-прокрутка)
 	Rotate view	Повернуть вид
 	First / last page	Первая / последняя страница
 	Previous / next page	Предыдущая / следующая страница
@@ -97,16 +101,22 @@
 	Select all pages (Organize)	Выделить все страницы (Организация)
 	Home	Главная
 	Open	Открыть
-	Open a PDF (⌘O)	Открыть PDF (⌘O)
+	Open a PDF ({key})	Открыть PDF ({key})
 	Dark gray theme	Тёмно-серая тема
 	Light theme	Светлая тема
+	Appearance mode	Режим оформления
+	Light	Светлое
+	Dark	Тёмное
+	Active	Активно
+	Dark theme	Тёмная тема
+	Appearance settings…	Настройки оформления…
 	All tools	Все инструменты
 	Read	Чтение
 	Convert	Конвертация
 	E-Sign	Электронная подпись
-	Print (⌘P)	Печать (⌘P)
-	Save (M4)	Сохранить (M4)
-	Document properties (⌘D)	Свойства документа (⌘D)
+	Print ({key})	Печать ({key})
+	Save ({key})	Сохранить ({key})
+	Document properties ({key})	Свойства документа ({key})
 	Find tools and commands	Найти инструменты и команды
 	Fit to height	По высоте
 	Zoom in	Увеличить
@@ -135,9 +145,9 @@
 	Compare	Сравнить
 	Page thumbnails	Миниатюры страниц
 	Form fields	Поля формы
-	Zoom out (⌘−)	Уменьшить (⌘−)
-	Zoom in (⌘+)	Увеличить (⌘+)
-	Rotate view clockwise (⇧⌘+)	Повернуть вид по часовой стрелке (⇧⌘+)
+	Zoom out ({key})	Уменьшить ({key})
+	Zoom in ({key})	Увеличить ({key})
+	Rotate view clockwise ({key})	Повернуть вид по часовой стрелке ({key})
 	Toggle fit page / fit width	Переключить по странице / по ширине
 	Next page	Следующая страница
 	Previous page	Предыдущая страница
@@ -271,6 +281,7 @@
 	Security properties…	Свойства безопасности…
 	Organize pages	Организовать страницы
 	New bookmark	Новая закладка
+	New bookmarks from structure	Новые закладки из структуры
 	Rotate pages clockwise	Повернуть страницы по часовой стрелке
 	Rotate pages counterclockwise	Повернуть страницы против часовой стрелки
 	Delete pages	Удалить страницы
@@ -774,6 +785,7 @@
 	Rotation	Поворот
 	Appear behind page	Позади страницы
 	Appear on top of page	Поверх страницы
+	Offset from centre	Смещение от центра
 	From colour	Из цвета
 	Page Range Options	Параметры диапазона страниц
 	Preview: page {p} of {n}	Предпросмотр: стр. {p} из {n}
@@ -919,6 +931,12 @@
 	Icon	Значок
 	Thickness	Толщина
 	Line ending	Окончание линии
+	Open arrow	Открытая стрелка
+	Closed arrow	Закрытая стрелка
+	Butt	Торец
+	Reverse open arrow	Обратная открытая стрелка
+	Reverse closed arrow	Обратная закрытая стрелка
+	Slash	Косая черта
 	Modified	Изменено
 	No status has been set.	Статус не установлен.
 	Compare Files	Сравнить файлы
@@ -1088,11 +1106,18 @@
 	Dates	Даты
 	Text in images isn't found; recognise text (OCR) first.	Текст в изображениях не находится; сначала распознайте текст (OCR).
 	No matches.	Совпадений нет.
+	Some bookmarks are not shown here: the panel lists a limited number, nested a limited depth.	Некоторые закладки здесь не показаны: панель показывает ограниченное число закладок с ограниченной глубиной вложенности.
 	{n} match(es) marked for redaction.	Отмечено для сокрытия: {n} совпад.
+	Multiple words or phrases	Несколько слов или фраз
+	One word or phrase per line	По одному слову или фразе в строке
+	Import list…	Импортировать список…
+	{n} word(s) or phrase(s)	Слов или фраз: {n}
+	{name} is too large for a word list (at most 1 MB).	Файл {name} слишком велик для списка слов (не более 1 МБ).
 	Redaction Tool Properties	Свойства инструмента сокрытия
 	Redacted area fill colour:	Цвет заливки скрытой области:
 	Use overlay text	Использовать текст поверх
 	Custom text:	Свой текст:
+	Redaction code:	Код сокрытия:
 	Font:	Шрифт:
 	Font size:	Размер шрифта:
 	Auto-size text to fit redaction region	Автоподбор размера текста по области сокрытия
@@ -1194,7 +1219,7 @@
 	Searchable Image (Exact)	Доступное для поиска изображение (точное)
 	Adds invisible text over each word; the page image is not changed	Добавляет невидимый текст над каждым словом; изображение страницы не меняется
 	Downsample to	Уменьшить до
-	Text recognition isn't installed: its models are missing (run `cargo xtask models`, or set PRINTCRAFT_MODELS).	Распознавание текста не установлено: отсутствуют модели (запустите `cargo xtask models` или задайте PRINTCRAFT_MODELS).
+	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	Распознавание текста не установлено: отсутствуют файлы моделей. Переустановите PdfCraft или задайте в PDFCRAFT_MODELS папку, в которой они лежат.
 	Settings	Настройки
 	Optional	Опционально
 	Planned · {m}	Запланировано · {m}
@@ -1262,7 +1287,7 @@
 	Expand all bookmarks	Развернуть все закладки
 	Expand top-level bookmarks	Развернуть закладки верхнего уровня
 	Collapse all bookmarks	Свернуть все закладки
-	New bookmark (⌘B)	Новая закладка (⌘B)
+	New bookmark ({key})	Новая закладка ({key})
 	This document has no bookmarks.	В этом документе нет закладки.
 	This document has no layers.	В этом документе нет слоёв.
 	This document has no attachments.	В этом документе нет вложений.
@@ -1277,8 +1302,8 @@
 	No matches	Совпадений нет
 	Searching… {s}/{p}	Поиск… {s}/{p}
 	{c} of {n}{more}	{c} из {n}{more}
-	Previous (⇧⌘G)	Предыдущее (⇧⌘G)
-	Next (⌘G)	Следующее (⌘G)
+	Previous ({key})	Предыдущее ({key})
+	Next ({key})	Следующее ({key})
 	Find options	Параметры поиска
 	Whole words only	Только целые слова
 	Case-sensitive	С учётом регистра
@@ -1484,6 +1509,8 @@
 	Right Edge	Правый край
 	Language	Язык
 	Saved {place}: {before} → {after} ({pct}% smaller){detail}	Сохранено {place}: {before} → {after} (на {pct}% меньше){detail}
+	This file is already as small as it can be made ({size}). No copy was saved.	Этот файл уже минимального размера ({size}). Копия не сохранена.
+	Saved {place}: {before} → {after} (not smaller){detail}	Сохранено {place}: {before} → {after} (не меньше){detail}
 	Couldn't save the image: {e}	Не удалось сохранить изображение: {e}
 	Adding images arrives on the web with file pickers for images	Добавление изображений появится в веб-версии с выбором файлов изображений
 	Replacing images on page {p} arrives on the web with image pickers ({i})	Замена изображений на стр. {p} появится в веб-версии с выбором изображений ({i})
@@ -1547,6 +1574,8 @@
 	{file} is too large for a stamp (at most {n} MB)	{file} слишком велик для штампа (не более {n} МБ)
 	Sent to {printer}	Отправлено на {printer}
 	Sent to {printer}: {msg}	Отправлено на {printer}: {msg}
+	Looking for printers…	Поиск принтеров…
+	Sending to {printer}…	Отправка на {printer}…
 	Choose a folder for the searchable files	Выберите папку для доступных для поиска файлов
 	Files are combined from top to bottom. Leave Pages empty to take every page.	Файлы объединяются сверху вниз. Оставьте «Страницы» пустыми, чтобы взять все страницы.
 	Unlock…	Разблокировать…
@@ -1564,16 +1593,16 @@
 	Opened, but its security settings don't allow combining. Enter the permissions password.	Открыто, но настройки безопасности не разрешают объединение. Введите пароль разрешений.
 	Unlocked: the combined file won't be password-protected	Разблокировано: объединённый файл не будет защищён паролем
 	Unlocked {n} of {m} files	Разблокировано {n} из {m} файлов
-	Drop PDFs or folders here, or choose them.	Перетащите PDF или папки сюда или выберите их.
+	Drop PDFs, images, text files or folders here, or choose them.	Перетащите PDF, изображения, текстовые файлы или папки сюда или выберите их.
 	Add folder…	Добавить папку…
 	Add folder and subfolders…	Добавить папку и вложенные папки…
 	More ways to add files	Больше способов добавить файлы
-	Every PDF in the folder	Каждый PDF в папке
-	Every PDF in the folder and the folders inside it	Каждый PDF в папке и вложенных папках
+	Every PDF, image and text file in the folder	Каждый PDF, изображение и текстовый файл в папке
+	Every PDF, image and text file in the folder and the folders inside it	Каждый PDF, изображение и текстовый файл в папке и вложенных папках
 	Add folder	Добавить папку
 	Add folder and subfolders	Добавить папку и вложенные папки
-	No PDFs found in {folder}	В {folder} не найдено PDF
-	Added the first {n} PDFs in {folder}	Добавлены первые {n} PDF из {folder}
+	No PDFs, images or text files found in {folder}	В {folder} не найдено PDF, изображений или текстовых файлов
+	Added the first {n} files in {folder}	Добавлены первые {n} файлов из {folder}
 	Click to sort, drag to move the column. Drag its edge to resize it.	Щёлкните для сортировки, перетащите, чтобы переместить столбец. Перетащите край, чтобы изменить размер.
 	Reset columns	Сбросить столбцы
 	Remove {n} files	Удалить {n} файлов
@@ -1591,7 +1620,7 @@
 	{n} files need attention	{n} файлов требуют внимания
 	{name} can't be combined: {why}	{name} нельзя объединить: {why}
 	Check the pages of {name}: {why}	Проверьте страницы {name}: {why}
-	Add the PDFs to combine	Добавить PDF для объединения
+	Add the files to combine	Добавить файлы для объединения
 	File name	Имя файла
 	Warnings	Предупреждения
 	Drag to reorder	Перетащить для изменения порядка
@@ -1604,6 +1633,10 @@
 	Password-protected	Защищён паролем
 	Its security settings don't allow copying pages	Его настройки безопасности не разрешают копировать страницы
 	Can't be read: {e}	Нельзя прочитать: {e}
+	Leave out files that can't be read?	Пропустить файлы, которые не удаётся прочитать?
+	These files can't be read, so they won't be in the combined PDF:	Эти файлы не удаётся прочитать, поэтому их не будет в объединённом PDF:
+	Combine the rest	Объединить остальные
+	and {n} more	и ещё {n}
 	Includes unsaved changes	Включает несохранённые изменения
 	Pages of {name} to combine, e.g. 1-3, 6	Страницы {name} для объединения, например 1-3, 6
 	Remove {name}	Удалить {name}
@@ -1760,7 +1793,7 @@
 	there are no pages to print	нет страниц для печати
 	the document has no tags	у документа нет тегов
 	{0}: {1}	{0}: {1}
-	the text recognition models are not installed (run `cargo xtask models`, or set PRINTCRAFT_MODELS)	модели распознавания текста не установлены (запустите `cargo xtask models` или задайте PRINTCRAFT_MODELS)
+	the text recognition models are not installed (reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them)	модели распознавания текста не установлены (переустановите PdfCraft или задайте в PDFCRAFT_MODELS папку, в которой они лежат)
 	the image is empty	изображение пустое
 	this file isn't XFDF, FDF, XML or text form data	этот файл не является XFDF, FDF, XML или текстовыми данными формы
 	nothing in the file matches this document	ничего в файле не соответствует этому документу
@@ -1955,7 +1988,6 @@
 	Open this web page?	Открыть эту веб-страницу?
 	Scripts run in a sandbox without file or network access. A script that asks to open a web page needs your permission first. With JavaScript off, Acrobat's standard format, validate and calculate functions still work.	Скрипты выполняются в песочнице без доступа к файлам и сети. Скрипт, который просит открыть веб-страницу, сначала нуждается в вашем разрешении. При отключённом JavaScript стандартные функции Acrobat форматирования, проверки и вычислений всё равно работают.
 	Sign yourself	Подписать самим собой
-	Text recognition isn't installed: its models are missing (run `cargo xtask models`, or set PDFCRAFT_MODELS).	Распознавание текста не установлено: отсутствуют модели (запустите `cargo xtask models` или задайте PDFCRAFT_MODELS).
 	Used when opening PDFs. An explicit launch or control mode takes precedence for the session.	Используется при открытии PDF. Явный запуск или режим управления имеет приоритет для сессии.
 	Write this email?	Написать это письмо?
 	{who} in this document wants to open this address in your browser:	{who} в этом документе хочет открыть этот адрес в вашем браузере:
@@ -2019,3 +2051,79 @@
 	Printer properties	Свойства принтера
 	Reset to printer defaults	Вернуть параметры принтера по умолчанию
 	This printer offers no settings of its own.	У этого принтера нет собственных параметров.
+	Scroll tabs left	Прокрутить вкладки влево
+	Scroll tabs right	Прокрутить вкладки вправо
+
+# Shared field properties (Prepare a form).
+	Shared Field Properties	Общие свойства полей
+	{n} fields selected	Выбрано полей: {n}
+	Mixed	Разные значения
+	Custom font	Пользовательский шрифт
+	Only checked properties will change. Mixed means the selected fields have different values.	Изменятся только отмеченные свойства. «Разные значения» означает, что значения выбранных полей различаются.
+	Shift- or Ctrl/Command-click to select several fields.	Щёлкните с Shift или Ctrl/Command, чтобы выбрать несколько полей.
+	Font size 0 uses automatic sizing.	Размер шрифта 0 включает автоматический подбор размера.
+	Character limit:	Ограничение символов:
+	Character limit 0 means no limit. A comb of characters needs a limit.	Ограничение 0 означает отсутствие ограничения. Для посимвольных ячеек нужно задать ограничение.
+	To change locked fields, also set Locked to No.	Чтобы изменить заблокированные поля, также установите «Заблокировано» в «Нет».
+	Comb of characters	Гребёнка символов
+	The document changed while you were editing field properties.	Документ изменился, пока вы редактировали свойства полей.
+	The document is no longer open.	Документ больше не открыт.
+	The field properties dialog is no longer open.	Окно свойств полей больше не открыто.
+	The field properties could not be changed.	Не удалось изменить свойства полей.
+	The selected fields could not be found. Select them again.	Выбранные поля не найдены. Выберите их снова.
+	The field {name} no longer exists.	Поле {name} больше не существует.
+	A selected field has no widget on any page, so the fields can't be edited together.	У одного из выбранных полей нет виджета ни на одной странице, поэтому поля нельзя изменить вместе.
+	 ({n} at {dpi} dpi, the largest size they can be drawn at)	 ({n} — с разрешением {dpi} dpi, максимальным, с каким их можно отрисовать)
+
+# Multi-object selection and movement (#844)
+@plural	{n} object selected|{n} objects selected	Выделен {n} объект|Выделено {n} объекта|Выделено {n} объектов
+	Drag the selection to move it. Esc clears the selection.	Перетащите выделение, чтобы переместить его. Esc снимает выделение.
+	Shift-click to select several objects. Drag empty space to select an area.	Щёлкните с Shift, чтобы выбрать несколько объектов. Протяните рамку на пустом месте, чтобы выделить область.
+	Select at most 1000 objects at a time.	Выбирайте не более 1000 объектов одновременно.
+	Finish or discard the text being edited before selecting several objects.	Завершите или отмените редактирование текста, прежде чем выбирать несколько объектов.
+	Move object	Переместить объект
+	Move objects	Переместить объекты
+	Vertical text cannot be moved with this selection.	Вертикальный текст нельзя переместить вместе с этим выделением.
+	Text used as a clipping path cannot be moved with this selection.	Текст, используемый как обтравочный контур, нельзя переместить вместе с этим выделением.
+	These objects could not be moved. Select them again and try a smaller move.	Не удалось переместить эти объекты. Выберите их снова и попробуйте меньшее смещение.
+	This page contains objects that cannot be selected together.	На этой странице есть объекты, которые нельзя выделить вместе.
+	Fill colour	Цвет заливки
+	No fill	Без заливки
+	Fill colour: none	Цвет заливки: нет
+
+# Keyboard key names, distinct from command labels.
+key	Ctrl	Ctrl
+key	Shift	Shift
+key	Delete	Delete
+key	Esc	Esc
+key	Home	Home
+key	End	End
+key	Space	Пробел
+	Grid view	Вид сеткой
+	List view	Вид списком
+	Files are combined in the order shown. Drag them to change it.	Файлы объединяются в показанном порядке. Перетащите их, чтобы изменить его.
+	Preview unavailable: {e}	Предпросмотр недоступен: {e}
+	Pages: {k} of {n}	Страницы: {k} из {n}
+	Check the pages	Проверьте страницы
+	Switch to List view to change the pages it takes.	Переключитесь на вид списком, чтобы изменить, какие страницы взять.
+	Expand all	Развернуть все
+	Collapse all	Свернуть все
+	Remove page	Удалить страницу
+	Remove {n} pages	Удалить страницы: {n}
+
+# Shared panel docking
+	Reset panel layout	Сбросить расположение панелей
+	Float panel	Сделать панель плавающей
+	Move to group	Переместить в группу
+	Panels	Панели
+	Resize panels	Изменить размеры панелей
+	Resize panel window	Изменить размер окна панели
+	Tools	Инструменты
+	Inspector	Инспектор
+	Mouse wheel scroll speed	Скорость прокрутки колесом мыши
+scroll speed	Slow	Низкая
+scroll speed	Normal	Обычная
+scroll speed	Fast	Высокая
+	Enhance camera image	Улучшить снимок с камеры
+	Drag the corners onto the document's edges, then choose Enhance page.	Перетащите углы к краям документа, затем выберите «Улучшить страницу».
+	Enhance page	Улучшить страницу
