@@ -412,7 +412,7 @@ pub struct DocView {
     pub camera: Option<crate::camera_ui::CameraQuad>,
     /// Enhance ▸ Camera image: the page just enhanced, while the bar offers rotate, crop and
     /// organize.
-    pub camera_done: Option<usize>,
+    pub camera_done: Option<crate::camera_ui::CameraDone>,
     /// Use a certificate: a signature rectangle being drawn, or an empty signature field clicked.
     pub sign: crate::sign_ui::SignView,
     /// Organize: the pages being dragged to a new place.
@@ -494,6 +494,8 @@ pub enum ViewAction {
     CameraRotate {
         clockwise: bool,
     },
+    /// After Enhance page: enhance again at the slider's clean-up level.
+    CameraLevel,
     /// After Enhance page: leave the tool for this command (Crop pages, Organize pages).
     CameraNext(&'static str),
 }

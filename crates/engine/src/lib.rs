@@ -14,6 +14,7 @@
 
 pub mod actions;
 pub mod camera;
+pub mod camera_clean;
 pub mod camera_edges;
 pub mod catalog;
 pub mod commands;
