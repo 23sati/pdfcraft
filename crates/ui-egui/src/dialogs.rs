@@ -10,6 +10,12 @@ use crate::{CloseRequest, Dialog, PdfCraftApp, PropsTab, panels::human_size, wid
 const INFO_KEYS: [&str; 4] = ["Title", "Author", "Subject", "Keywords"];
 
 pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
+    dialogs(app, ctx);
+    // Last, so it sits above Document Properties when Security's Unlock… asked for it.
+    unlock(app, ctx);
+}
+
+fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
     password(app, ctx);
     save_prompt(app, ctx);
     link_prompt(app, ctx);
@@ -94,6 +100,7 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                     }
                 });
                 ui.separator();
+                let units = app.units;
                 let Some((_, id)) = app.active_ids() else { return };
                 let Some(doc) = app.session.get(id) else { return };
                 let i = &doc.info;
@@ -257,8 +264,12 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                                         tl!("User password").to_string()
                                     },
                                 );
-                                if doc.allows_security_change() {
+                                // A restricted document asks for its permissions password first.
+                                if doc.allows_security_change() || doc.can_unlock() {
                                     ui.horizontal(|ui| {
+                                        if doc.can_unlock() && ui.button(tl!("Unlock…")).clicked() {
+                                            link_command = Some("protect.unlock");
+                                        }
                                         if ui.button(tl!("Change settings…")).clicked() {
                                             link_command = Some("protect.password");
                                         }
@@ -312,7 +323,7 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                             row(ui, "Location", crate::bidi::visual(doc.path.as_deref().unwrap_or_default()).into_owned());
                             row(ui, "File size", format!("{} ({} bytes)", human_size(i.file_size), i.file_size));
                             let p = &i.pages[0];
-                            row(ui, "Page size", format!("{:.2} × {:.2} in", p.width / 72.0, p.height / 72.0));
+                            row(ui, "Page size", units.size(f64::from(p.width), f64::from(p.height)));
                             row(ui, "Number of pages", i.pages.len().to_string());
                             row(ui, "Tagged PDF", yes(i.tagged));
                             row(ui, "Form fields", i.fields.len().to_string());
@@ -1494,47 +1505,83 @@ fn yes(b: bool) -> String {
     tl!(if b { "Yes" } else { "No" }).to_string()
 }
 
-/// Password prompt for encrypted documents (Acrobat: "Password" dialog on open).
-fn password(app: &mut PdfCraftApp, ctx: &egui::Context) {
-    let Some(prompt) = app.password_prompt.as_mut() else { return };
+/// What a password box was answered with.
+enum PasswordAnswer {
+    Submit,
+    Cancel,
+}
+
+/// A password box: a lock, a title, a message, the masked field, an error and two buttons.
+fn password_modal(
+    ctx: &egui::Context,
+    id: &str,
+    title: &str,
+    message: String,
+    input: &mut String,
+    error: Option<&str>,
+    ok: &str,
+) -> Option<PasswordAnswer> {
     let t = Tokens::get(ctx);
-    let mut submit = false;
-    let mut cancel = false;
-    let modal = widgets::show_modal(ctx, "password", |ui| {
+    let mut answer = None;
+    let modal = widgets::show_modal(ctx, id, |ui| {
         ui.set_width(400.0);
         ui.horizontal(|ui| {
             ui.add(crate::icons::image("lock", 22.0, t.accent));
-            ui.label(egui::RichText::new(tl!("Password required")).font(theme::semibold(17.0)));
+            ui.label(egui::RichText::new(title).font(theme::semibold(17.0)));
         });
         ui.add_space(6.0);
-        ui.add(egui::Label::new(crate::i18n::fmt(tl!("“{name}” is protected. Enter a password to open it."), &[("name", &prompt.name)])).wrap());
+        ui.add(egui::Label::new(message).wrap());
         ui.add_space(8.0);
-        let r = ui.add(widgets::line(&mut prompt.input).password(true).hint_text(tl!("Password")).desired_width(f32::INFINITY));
+        let r = ui.add(widgets::line(input).password(true).hint_text(tl!("Password")).desired_width(f32::INFINITY));
         // Enter submits. The field keeps focus (we request it every frame), so check the key
         // while it is focused as well as on the frame focus is lost.
         if (r.has_focus() || r.lost_focus()) && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-            submit = true;
+            answer = Some(PasswordAnswer::Submit);
         }
         r.request_focus();
-        if let Some(e) = &prompt.error {
+        if let Some(e) = error {
             ui.add_space(4.0);
             // Known error text is translated; anything else passes through.
             ui.label(egui::RichText::new(tl!(e)).color(egui::Color32::from_rgb(0xD1, 0x3B, 0x3B)));
         }
         ui.add_space(12.0);
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            if widgets::pill_button(ui, tl!("Open"), true).clicked() {
-                submit = true;
+            if widgets::pill_button(ui, ok, true).clicked() {
+                answer = Some(PasswordAnswer::Submit);
             }
             if widgets::pill_button(ui, tl!("Cancel"), false).clicked() {
-                cancel = true;
+                answer = Some(PasswordAnswer::Cancel);
             }
         });
     });
-    if submit {
-        let pw = prompt.input.clone();
-        app.submit_password(Some(pw));
-    } else if cancel || modal.should_close() {
-        app.submit_password(None);
+    answer.or(modal.should_close().then_some(PasswordAnswer::Cancel))
+}
+
+/// Password prompt for encrypted documents (Acrobat: "Password" dialog on open).
+fn password(app: &mut PdfCraftApp, ctx: &egui::Context) {
+    let Some(prompt) = app.password_prompt.as_mut() else { return };
+    let message = crate::i18n::fmt(tl!("“{name}” is protected. Enter a password to open it."), &[("name", &prompt.name)]);
+    match password_modal(ctx, "password", tl!("Password required"), message, &mut prompt.input, prompt.error.as_deref(), tl!("Open")) {
+        Some(PasswordAnswer::Submit) => {
+            let pw = prompt.input.clone();
+            app.submit_password(Some(pw));
+        }
+        Some(PasswordAnswer::Cancel) => app.submit_password(None),
+        None => {}
+    }
+}
+
+/// Permissions password prompt: lifts the restrictions of an open document (#995).
+fn unlock(app: &mut PdfCraftApp, ctx: &egui::Context) {
+    let Some(prompt) = app.unlock_prompt.as_mut() else { return };
+    let message =
+        crate::i18n::fmt(tl!("“{name}” has security restrictions. Enter its permissions password to lift them."), &[("name", &prompt.name)]);
+    match password_modal(ctx, "unlock", tl!("Permissions password"), message, &mut prompt.input, prompt.error.as_deref(), tl!("Unlock")) {
+        Some(PasswordAnswer::Submit) => {
+            let pw = prompt.input.clone();
+            app.submit_unlock(Some(pw));
+        }
+        Some(PasswordAnswer::Cancel) => app.submit_unlock(None),
+        None => {}
     }
 }

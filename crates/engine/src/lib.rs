@@ -14,6 +14,7 @@
 
 pub mod actions;
 pub mod camera;
+pub mod camera_clean;
 pub mod camera_edges;
 pub mod catalog;
 pub mod commands;
@@ -336,6 +337,12 @@ impl Document {
         let e = self.editor.as_ref().ok_or("the document can't be read")?;
         measure::scale_at(&e.cos, page, at).map_err(|e| e.to_string())
     }
+    /// [`Self::measurement_scale`], measuring true size in `unit` (`per_point` of them in a
+    /// point) where the page sets no scale.
+    pub fn measurement_scale_or(&self, page: usize, at: measure::Point, per_point: f64, unit: &str) -> Result<measure::Scale, String> {
+        let e = self.editor.as_ref().ok_or("the document can't be read")?;
+        measure::scale_at_or(&e.cos, page, at, per_point, unit).map_err(|e| e.to_string())
+    }
     pub fn measurement_to_user(&self, page: usize, point: measure::Point) -> Result<measure::Point, String> {
         let e = self.editor.as_ref().ok_or("the document can't be read")?;
         measure::view_to_user(&e.cos, page, point).map_err(|e| e.to_string())
@@ -469,6 +476,12 @@ impl Document {
     /// if encrypted, was opened with the owner password.
     pub fn allows_security_change(&self) -> bool {
         self.editable() && self.permissions().is_none_or(|p| unrestricted(&p))
+    }
+
+    /// A password restricts the document and it wasn't opened with the owner password: entering
+    /// that password ([`Session::unlock`]) lifts the restrictions.
+    pub fn can_unlock(&self) -> bool {
+        self.editable() && self.permissions().is_some_and(|p| !unrestricted(&p))
     }
 
     /// A summary of the document's security for Document Properties ▸ Security, including
@@ -2015,6 +2028,8 @@ pub enum EditError {
     Measure(#[from] measure::MeasureError),
     #[error("{0}")]
     Protection(String),
+    #[error("the password is incorrect")]
+    WrongPassword,
     #[error("{0}")]
     Form(#[from] pdfcraft_forms::FormError),
     #[error(transparent)]
@@ -2675,8 +2690,15 @@ impl Session {
             Scope::Metadata => return Ok(()),
             Scope::Comments => doc.info.annotations = comment_list(&editor.cos),
             Scope::Form => {
+                // PERF: keystroke path, index once. A linear find per field is O(F^2);
+                // forms reach 10k fields.
+                let mut by_name = std::collections::HashMap::with_capacity(form.len());
+                for x in form.iter() {
+                    // First match wins (do not simplify to collect: it keeps the last).
+                    by_name.entry(x.name.as_str()).or_insert(x);
+                }
                 for f in &mut doc.info.fields {
-                    if let Some(ff) = form.iter().find(|x| x.name == f.name) {
+                    if let Some(ff) = by_name.get(f.name.as_str()) {
                         f.value = match ff.kind {
                             pdfcraft_forms::FieldKind::CheckBox | pdfcraft_forms::FieldKind::Radio => {
                                 Some(ff.value.first().cloned().unwrap_or_else(|| "Off".into()))
@@ -2779,6 +2801,39 @@ impl Session {
         doc.dirty = false;
         doc.generation += 1;
         Self::refresh(doc)
+    }
+
+    /// Enter the permissions (owner) password of a document opened with its user password,
+    /// lifting its restrictions for this session (Acrobat asks for it before changing security).
+    /// Not an edit: nothing is marked unsaved and there is no undo step. Undo and redo states
+    /// are unlocked as well, and saving keeps the rights. Unencrypted documents and documents
+    /// opened by the owner need nothing.
+    pub fn unlock(&mut self, id: DocId, password: &str) -> Result<(), EditError> {
+        let doc = self.doc_mut(id)?;
+        let editor = doc.editor.as_mut().ok_or_else(|| EditError::ReadOnly(doc.read_only_reason.clone().unwrap_or_default()))?;
+        if editor.cos.permissions().is_none_or(|p| p.owner) {
+            return Ok(());
+        }
+        editor.cos.unlock(password).map_err(|e| match e {
+            pdfcraft_cos::CosError::WrongPassword => EditError::WrongPassword,
+            other => EditError::Protection(other.to_string()),
+        })?;
+        // Saving a state that keeps the security it was opened with reopens it with the same
+        // passwords, so it reopens as owner.
+        let reopen_as_owner = |cos: &pdfcraft_cos::Document, keys: &mut Keys| {
+            if !cos.encryption_changed() {
+                keys.reopen = Some(password.to_owned());
+            }
+        };
+        reopen_as_owner(&editor.cos, &mut editor.keys);
+        // Other states with the same restricted access are unlocked too; states opened with
+        // other passwords (protection changed and saved since) stay as they are.
+        for (_, cos, keys, _) in editor.undo.iter_mut().chain(editor.redo.iter_mut()) {
+            if cos.permissions().is_some_and(|p| !p.owner) && cos.unlock(password).is_ok() {
+                reopen_as_owner(cos, keys);
+            }
+        }
+        Ok(())
     }
 
     /// File ▸ Revert: back to the last saved version (or the file as opened). Undo history is

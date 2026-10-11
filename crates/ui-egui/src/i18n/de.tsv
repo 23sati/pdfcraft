@@ -29,7 +29,7 @@
 	Create PDF from images…	PDF aus Bildern erstellen…
 	Create PDF from multiple files…	PDF aus mehreren Dateien erstellen…
 	Create PDF from clipboard	PDF aus Zwischenablage erstellen
-	Combine files…	Dateien kombinieren…
+	Combine files…	Dateien zusammenführen…
 	Save	Speichern
 	Save as…	Speichern unter…
 	Close file	Datei schließen
@@ -54,7 +54,7 @@
 	Comments panel	Kommentarbereich
 	Form fields panel	Formularfeldbereich
 	Clear form	Formular zurücksetzen
-	Find tools and commands…	Tools und Befehle suchen…
+	Find tools and commands…	Werkzeuge und Befehle suchen…
 	Zoom	Zoom
 	Actual size	Originalgröße
 	Zoom to page level	Ganze Seite
@@ -96,7 +96,7 @@
 	Print ({key})	Drucken ({key})
 	Save ({key})	Speichern ({key})
 	Document properties ({key})	Dokumenteigenschaften ({key})
-	Find tools and commands	Tools und Befehle suchen
+	Find tools and commands	Werkzeuge und Befehle suchen
 	Fit to height	Seitenhöhe
 	Zoom in	Vergrößern
 	Zoom out	Verkleinern
@@ -322,9 +322,9 @@
 	Images	Bilder
 	Clipboard	Zwischenablage
 	Blank page	Leere Seite
-	Combine files	Dateien kombinieren
-	Combine	Kombinieren
-	Add files to combine	Dateien zum Kombinieren hinzufügen
+	Combine files	Dateien zusammenführen
+	Combine	Zusammenführen
+	Add files to combine	Dateien zum Zusammenführen hinzufügen
 	Page options	Seitenoptionen
 	Page grid	Seitenraster
 	Rotate	Drehen
@@ -337,7 +337,7 @@
 	Set page boxes	Seitenrahmen festlegen
 	Page labels	Seitenbeschriftungen
 	Page transitions	Seitenübergänge
-	Add comments	Kommentieren
+	Add comments	Kommentare hinzufügen
 	Markup	Markierungen
 	Sticky note	Notiz
 	Underline	Unterstreichen
@@ -1648,7 +1648,12 @@
 	watermark	Wasserzeichen
 	background	Hintergrund
 	This document isn't password-protected	Dieses Dokument ist nicht passwortgeschützt
-	Only the document's owner can change its security (open it with the permissions password)	Nur der Eigentümer des Dokuments kann die Sicherheit ändern (öffne es mit dem Berechtigungspasswort)
+	Enter permissions password…	Berechtigungspasswort eingeben…
+	Permissions password	Berechtigungspasswort
+	“{name}” has security restrictions. Enter its permissions password to lift them.	„{name}“ hat Sicherheitseinschränkungen. Gib das Berechtigungspasswort ein, um sie aufzuheben.
+	Restrictions lifted	Einschränkungen aufgehoben
+	Couldn't unlock {name}: {e}	{name} konnte nicht entsperrt werden: {e}
+	This document has no restrictions to lift	Dieses Dokument hat keine Einschränkungen, die aufgehoben werden können
 	The document's security settings don't allow this change	Die Sicherheitseinstellungen des Dokuments erlauben diese Änderung nicht
 	The document's security settings don't allow copying text and images	Die Sicherheitseinstellungen des Dokuments erlauben kein Kopieren von Text und Bildern
 	Open a document first	Öffne zuerst ein Dokument
@@ -2147,6 +2152,8 @@ action wizard	Start	Starten
 	Printer properties	Druckereigenschaften
 	Reset to printer defaults	Auf Druckerstandard zurücksetzen
 	This printer offers no settings of its own.	Dieser Drucker bietet keine eigenen Einstellungen.
+	Margins	Ränder
+	For page sizes and margins.	Für Seitengrößen und Ränder.
 	Scroll tabs left	Tabs nach links scrollen
 	Scroll tabs right	Tabs nach rechts scrollen
 
@@ -2216,6 +2223,13 @@ key	Space	Leertaste
 	Resize panel window	Größe des Bereichsfensters ändern
 	Tools	Werkzeuge
 	Inspector	Inspektor
+
+# Architectural print controls (follow-up to #599).
+	PDF page: {size}	PDF-Seite: {size}
+	Match page at 100%	Papier an Seite anpassen, 100%
+	PDF scale: {scale}%	PDF-Maßstab: {scale}%
+	Printer paper and scaling may differ. Check driver settings.	Druckerpapier und Skalierung können abweichen. Treibereinstellungen prüfen.
+	Drawing scale changes. Use Actual size for full-scale plans.	Der Zeichnungsmaßstab ändert sich. Für maßstabsgetreue Pläne Tatsächliche Größe verwenden.
 	Reload documents when their files change on disk	Dokumente neu laden, wenn sich ihre Dateien auf dem Datenträger ändern
 	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Diese Datei wurde auf dem Datenträger geändert. Lade sie neu, um die neue Version zu sehen; deine nicht gespeicherten Änderungen gehen dabei verloren.
 	Reload	Neu laden
@@ -2227,3 +2241,7 @@ scroll speed	Fast	Schnell
 	Enhance camera image	Kamerafoto verbessern
 	Drag the corners onto the document's edges, then choose Enhance page.	Ziehen Sie die Ecken auf die Kanten des Dokuments und wählen Sie dann Seite verbessern.
 	Enhance page	Seite verbessern
+	Clean-up	Bereinigung
+	Original	Original
+	Greyscale	Graustufen
+	Black and white	Schwarzweiß

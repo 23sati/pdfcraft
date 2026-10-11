@@ -1711,7 +1711,12 @@
 	watermark	водяний знак
 	background	тло
 	This document isn't password-protected	Цей документ не захищено паролем
-	Only the document's owner can change its security (open it with the permissions password)	Лише власник документа може змінювати захист (відкрийте з паролем дозволів)
+	Enter permissions password…	Ввести пароль дозволів…
+	Permissions password	Пароль дозволів
+	“{name}” has security restrictions. Enter its permissions password to lift them.	«{name}» має обмеження захисту. Введіть пароль дозволів, щоб зняти їх.
+	Restrictions lifted	Обмеження знято
+	Couldn't unlock {name}: {e}	Не вдалося розблокувати {name}: {e}
+	This document has no restrictions to lift	Цей документ не має обмежень, які можна зняти
 	The document's security settings don't allow this change	Налаштування захисту документа не дозволяють цю зміну
 	The document's security settings don't allow copying text and images	Налаштування захисту документа не дозволяють копіювати текст і зображення
 	Open a document first	Спочатку відкрийте документ
@@ -2165,6 +2170,8 @@ calendar date	December	грудня
 	Printer properties	Властивості принтера
 	Reset to printer defaults	Скинути до налаштувань принтера за замовчуванням
 	This printer offers no settings of its own.	Цей принтер не має власних налаштувань.
+	Margins	Поля
+	For page sizes and margins.	Для розмірів сторінок і полів.
 certificate	Subject	Власник сертифіката
 	Scroll tabs left	Прокрутити вкладки ліворуч
 	Scroll tabs right	Прокрутити вкладки праворуч
@@ -2233,6 +2240,13 @@ key	Space	Пробіл
 	Panels	Панелі
 	Resize panels	Змінити розмір панелей
 	Resize panel window	Змінити розмір вікна панелі
+
+# Architectural print controls (follow-up to #599).
+	PDF page: {size}	Сторінка PDF: {size}
+	Match page at 100%	Підібрати папір, масштаб 100%
+	PDF scale: {scale}%	Масштаб PDF: {scale}%
+	Printer paper and scaling may differ. Check driver settings.	Папір і масштаб принтера можуть відрізнятися. Перевірте налаштування драйвера.
+	Drawing scale changes. Use Actual size for full-scale plans.	Масштаб креслення змінюється. Для друку в початковому масштабі виберіть Фактичний розмір.
 	Reload documents when their files change on disk	Перезавантажувати документи, коли їхні файли змінюються на диску
 	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Цей файл змінено на диску. Перезавантажте його, щоб побачити нову версію; незбережені зміни буде втрачено.
 	Reload	Перезавантажити
@@ -2248,3 +2262,7 @@ scroll speed	Fast	Швидка
 	Enhance camera image	Поліпшити знімок з камери
 	Drag the corners onto the document's edges, then choose Enhance page.	Перетягніть кути до країв документа, потім виберіть «Поліпшити сторінку».
 	Enhance page	Поліпшити сторінку
+	Clean-up	Очищення
+	Original	Оригінал
+	Greyscale	Відтінки сірого
+	Black and white	Чорно-білий

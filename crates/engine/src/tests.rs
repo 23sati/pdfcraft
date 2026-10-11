@@ -708,6 +708,52 @@ fn copy_restricted_documents_refuse_extraction_unless_opened_by_the_owner() {
 }
 
 #[test]
+fn the_permissions_password_unlocks_an_open_document() {
+    // Only a permissions password (#995, #1077): opens without asking. Changes are allowed,
+    // security changes aren't.
+    let bytes = protected("", "owner", 0b1100);
+    let mut s = Session::new();
+    let id = s.open("r.pdf", None, bytes, None).unwrap();
+    s.apply(id, Edit::SetInfo { key: "Title".into(), value: "Before".into() }).unwrap();
+    assert!(!s.get(id).unwrap().allows_security_change());
+    assert!(matches!(s.apply(id, Edit::RemoveProtection), Err(EditError::NotPermitted(_))));
+    for wrong in ["", "nope"] {
+        assert_eq!(s.unlock(id, wrong), Err(EditError::WrongPassword), "{wrong:?}");
+    }
+    assert!(!s.get(id).unwrap().allows_security_change());
+    s.unlock(id, "owner").unwrap();
+    let d = s.get(id).unwrap();
+    assert!(d.allows_security_change() && d.security_summary().unwrap().owner);
+    assert!(d.dirty, "unlocking leaves the unsaved edit alone");
+    assert_eq!(d.can_undo(), Some("Change Title"), "and adds no undo step");
+    // Undo and redo don't bring the restrictions back.
+    s.undo(id).unwrap();
+    assert!(s.get(id).unwrap().allows_security_change(), "after undo");
+    s.redo(id).unwrap();
+    assert!(s.get(id).unwrap().allows_security_change(), "after redo");
+    // Neither does saving.
+    let saved = s.save_bytes(id).unwrap();
+    s.mark_saved(id, saved, None).unwrap();
+    assert!(s.get(id).unwrap().allows_security_change(), "after saving");
+    s.apply(id, Edit::RemoveProtection).unwrap();
+    let plain = s.save_bytes(id).unwrap();
+    assert!(pdfcraft_cos::Document::open(plain).unwrap().security().is_none(), "security removed");
+}
+
+#[test]
+fn unlocking_needs_the_permissions_password_not_the_open_password() {
+    let mut s = Session::new();
+    let id = s.open("r.pdf", None, protected("open", "perms", 0b0100), Some("open")).unwrap();
+    assert_eq!(s.unlock(id, "open"), Err(EditError::WrongPassword));
+    s.unlock(id, "perms").unwrap();
+    assert!(s.get(id).unwrap().allows_security_change());
+    // Nothing to unlock: opened by the owner already, or not encrypted.
+    s.unlock(id, "anything").unwrap();
+    let plain = s.open("p.pdf", None, Arc::new(fixture(1)), None).unwrap();
+    s.unlock(plain, "anything").unwrap();
+}
+
+#[test]
 fn combining_protected_files_is_refused_clearly() {
     let s = Session::new();
     let err = s.combine(&[("a.pdf".into(), protected("pw", "o", -1)), ("b.pdf".into(), Arc::new(fixture(1)))]).unwrap_err();
@@ -1191,6 +1237,37 @@ fn form_edits_refresh_field_values_without_a_full_inspection() {
     let values = |fs: &[pdfcraft_render::Field]| fs.iter().map(|f| (f.name.clone(), f.value.clone())).collect::<Vec<_>>();
     assert_eq!(values(&d.info.fields), values(&full.fields));
     assert_eq!(values(&d.info.fields), [("name".to_string(), Some("Ada".to_string())), ("ok".to_string(), Some("Yes".to_string()))]);
+}
+
+#[test]
+fn form_refresh_keeps_first_value_when_field_names_repeat() {
+    // Two widgets share one name; the refresh reads the first.
+    let objs = [
+        "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R 5 0 R 6 0 R] /DA (/Helv 0 Tf 0 g) /DR << /Font << /Helv 7 0 R >> >> >> >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 200 300] >>",
+        "<< /Type /Page /Parent 2 0 R /Annots [4 0 R 5 0 R 6 0 R] >>",
+        "<< /Type /Annot /Subtype /Widget /FT /Tx /T (dup) /V (first) /Rect [20 250 180 270] /P 3 0 R >>",
+        "<< /Type /Annot /Subtype /Widget /FT /Tx /T (dup) /V (second) /Rect [20 220 180 240] /P 3 0 R >>",
+        "<< /Type /Annot /Subtype /Widget /FT /Tx /T (other) /Rect [20 190 180 210] /P 3 0 R >>",
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+    ];
+    let mut bytes = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offsets.push(bytes.len());
+        bytes.extend_from_slice(format!("{} 0 obj\n{o}\nendobj\n", i + 1).as_bytes());
+    }
+    let xref = bytes.len();
+    bytes.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+    for o in offsets {
+        bytes.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+    }
+    bytes.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objs.len() + 1).as_bytes());
+    let mut s = Session::new();
+    let id = s.open("dup.pdf", None, Arc::new(bytes), None).unwrap();
+    s.apply(id, Edit::SetFieldValue { name: "other".into(), value: FieldValue::Text("x".into()) }).unwrap();
+    let dup = s.get(id).unwrap().info.fields.iter().find(|f| f.name == "dup").unwrap().value.clone();
+    assert_eq!(dup.as_deref(), Some("first"));
 }
 
 #[test]
@@ -3236,6 +3313,39 @@ fn detect_camera_corners_finds_the_sheet_in_user_space() {
     let id = s.open("doc.pdf", None, Arc::new(fixture(1)), None).unwrap();
     assert_eq!(s.detect_camera_corners(id, 0), None);
     assert_eq!(s.detect_camera_corners(id, 7), None);
+}
+
+#[test]
+fn enhance_camera_page_at_a_level_whitens_a_shadowed_sheet() {
+    // A sheet lit unevenly: full light at the left, a third of it at the right.
+    let img = image::RgbImage::from_fn(400, 300, |x, y| {
+        let light = 1.0 - 0.66 * x as f32 / 400.0;
+        let ink = if (y / 10) % 3 == 1 && (40..360).contains(&x) { 0.12 } else { 0.96 };
+        let v = (ink * light * 255.0) as u8;
+        image::Rgb([v, v, (v as f32 * 0.85) as u8])
+    });
+    let mut png = Vec::new();
+    img.write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png).unwrap();
+    let whole = [[0.0, 0.0], [400.0, 0.0], [400.0, 300.0], [0.0, 300.0]];
+    let paper_at_right = |level: u8| {
+        let mut s = Session::new().with_clock(|| 1_700_000_000);
+        let bytes = s.create_from_images_with_resolution(&[("photo.png".into(), png.clone())], ImageResolution::Dpi(72.0)).unwrap();
+        let id = s.open("photo.pdf", None, bytes, None).unwrap();
+        s.enhance_camera_page_at(id, 0, whole, camera_clean::Look::Colour, level).unwrap();
+        assert_eq!(s.get(id).unwrap().can_undo(), Some("Enhance camera image"), "one step at level {level}");
+        let doc = s.get(id).unwrap();
+        let shot = pdfcraft_render::PageRenderer::new(doc.bytes.clone(), doc.config.clone()).render(pdfcraft_render::RenderRequest {
+            page: 0,
+            scale: 1.0,
+            ..Default::default()
+        });
+        // A paper pixel near the right edge, between text rows.
+        let i = ((5 * shot.width + shot.width - 12) * 4) as usize;
+        shot.rgba[i..i + 3].to_vec()
+    };
+    let (before, after) = (paper_at_right(0), paper_at_right(80));
+    assert!(before.iter().all(|&v| v < 140), "the shadow: {before:?}");
+    assert!(after.iter().all(|&v| v > 235), "white paper: {after:?}");
 }
 
 #[test]

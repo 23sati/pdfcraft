@@ -776,7 +776,7 @@
 	{verb} Header and Footer	ヘッダーとフッターを{verb}
 	{verb} Watermark	透かしを{verb}
 	{verb} Background	背景を{verb}
-	Margins (in)	余白（インチ）
+	Margins	余白
 	Left Header Text	左ヘッダーのテキスト
 	Center Header Text	中央ヘッダーのテキスト
 	Right Header Text	右ヘッダーのテキスト
@@ -1724,7 +1724,12 @@
 	watermark	透かし
 	background	背景
 	This document isn't password-protected	この文書はパスワード保護されていません
-	Only the document's owner can change its security (open it with the permissions password)	文書の所有者のみセキュリティを変更できます（権限パスワードで開いてください）
+	Enter permissions password…	権限パスワードを入力…
+	Permissions password	権限パスワード
+	“{name}” has security restrictions. Enter its permissions password to lift them.	「{name}」にはセキュリティの制限があります。制限を解除するには権限パスワードを入力してください。
+	Restrictions lifted	制限を解除しました
+	Couldn't unlock {name}: {e}	{name} のロックを解除できませんでした: {e}
+	This document has no restrictions to lift	この文書には解除する制限がありません
 	The document's security settings don't allow this change	文書のセキュリティ設定により、この変更は許可されていません
 	The document's security settings don't allow copying text and images	文書のセキュリティ設定により、テキストと画像のコピーは許可されていません
 	Open a document first	先に文書を開いてください
@@ -2012,6 +2017,7 @@
 	Choose a PNG or JPEG image (up to 4 MiB). Transparency is preserved.	PNG または JPEG 画像を選択してください（最大 4 MiB）。透明度は保持されます。
 	Couldn't import the signature image: {e}	署名画像を読み込めませんでした: {e}
 	Go to page…	ページへ移動…
+	For page sizes and margins.	ページサイズと余白に使います。
 	Reopen the files that were open when PdfCraft last closed	前回 PdfCraft を閉じたときに開いていたファイルを再度開く
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	標準フォントでは「{c}」（{code}）を表示できません。現在、テキストとして追加できるのは西ヨーロッパの文字のみです。
 	Open arrow	開いた矢印
@@ -2212,6 +2218,13 @@ key	Space	スペース
 	Resize panel window	パネルウィンドウのサイズを変更
 	Tools	ツール
 	Inspector	インスペクター
+
+# Architectural print controls (follow-up to #599).
+	PDF page: {size}	PDFページ: {size}
+	Match page at 100%	ページに合わせて100%に設定
+	PDF scale: {scale}%	PDFの倍率: {scale}%
+	Printer paper and scaling may differ. Check driver settings.	プリンターの用紙や倍率は異なる場合があります。ドライバーの設定を確認してください。
+	Drawing scale changes. Use Actual size for full-scale plans.	図面の縮尺が変わります。原寸で印刷するには「実際のサイズ」を使用してください。
 	Reload documents when their files change on disk	ディスク上のファイルが変更されたら文書を再読み込みする
 	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	このファイルはディスク上で変更されました。再読み込みすると新しいバージョンが表示されますが、未保存の変更は失われます。
 	Reload	再読み込み
@@ -2227,3 +2240,7 @@ scroll speed	Fast	速い
 	Enhance camera image	カメラ画像を補正
 	Drag the corners onto the document's edges, then choose Enhance page.	四隅を文書の端までドラッグしてから、「ページを補正」を選択します。
 	Enhance page	ページを補正
+	Clean-up	クリーンアップ
+	Original	オリジナル
+	Greyscale	グレースケール
+	Black and white	白黒
