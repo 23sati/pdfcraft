@@ -114,6 +114,11 @@ pub struct InterpreterSettings {
     /// operator. What was drawn is then incomplete, so only set it when the output will be
     /// thrown away (a viewer's render whose result nobody can receive any more).
     pub cancelled: Option<Arc<AtomicBool>>,
+    /// PdfCraft patch: a low-detail render for previews (page backdrops, thumbnails). Images
+    /// that would cover only a few device pixels are skipped: redrawing them at full detail
+    /// costs a decode and a resample each for pixels nobody can see. Never set it for a final
+    /// render (tiles, whole pages, print, export).
+    pub preview: bool,
 }
 
 impl Default for InterpreterSettings {
@@ -135,6 +140,7 @@ impl Default for InterpreterSettings {
             hide_comments: false,
             ocg_overrides: Arc::new(Vec::new()),
             cancelled: None,
+            preview: false,
         }
     }
 }
@@ -757,12 +763,14 @@ pub fn interpret<'a>(
             TypedInstruction::ShapeGlyph(_) => {}
             TypedInstruction::XObject(x) => {
                 let cache = context.interpreter_cache.object_cache.clone();
+                let decoded_cache = context.interpreter_cache.decoded_cache.clone();
                 let transfer_function = context.get().graphics_state.transfer_function.clone();
                 if let Some(x_object) = resources.get_x_object(x.0).and_then(|s| {
                     XObject::new(
                         &s,
                         &context.settings.warning_sink,
                         &cache,
+                        &decoded_cache,
                         transfer_function.clone(),
                     )
                 }) {
@@ -773,11 +781,13 @@ pub fn interpret<'a>(
                 let warning_sink = context.settings.warning_sink.clone();
                 let transfer_function = context.get().graphics_state.transfer_function.clone();
                 let cache = context.interpreter_cache.object_cache.clone();
+                let decoded_cache = context.interpreter_cache.decoded_cache.clone();
                 if let Some(x_object) = ImageXObject::new(
                     i.0,
                     |name| context.get_color_space(resources, name),
                     &warning_sink,
                     &cache,
+                    &decoded_cache,
                     false,
                     transfer_function,
                 ) {

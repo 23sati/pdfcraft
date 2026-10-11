@@ -1,4 +1,4 @@
-use crate::cache::Cache;
+use crate::cache::{Cache, DecodedImageCache};
 use crate::color::{ColorComponents, ColorSpace, ToRgb};
 use crate::context::Context;
 use crate::device::Device;
@@ -34,6 +34,7 @@ impl<'a> XObject<'a> {
         stream: &Stream<'a>,
         warning_sink: &WarningSinkFn,
         cache: &Cache,
+        decoded_cache: &DecodedImageCache,
         transfer_function: Option<ActiveTransferFunction>,
     ) -> Option<Self> {
         let dict = stream.dict();
@@ -43,6 +44,7 @@ impl<'a> XObject<'a> {
                 |_| None,
                 warning_sink,
                 cache,
+                decoded_cache,
                 false,
                 transfer_function,
             )?)),
@@ -270,6 +272,8 @@ pub(crate) struct ImageXObject<'a> {
     height: u32,
     color_space: Option<ColorSpace>,
     cache: Cache,
+    /// PdfCraft patch: decoded pixels shared across renders (see `decoded_raster`).
+    decoded_cache: DecodedImageCache,
     interpolate: bool,
     is_mask: bool,
     is_stencil_mask: bool,
@@ -284,6 +288,7 @@ impl<'a> ImageXObject<'a> {
         resolve_cs: impl FnOnce(&Name<'_>) -> Option<ColorSpace>,
         warning_sink: &WarningSinkFn,
         cache: &Cache,
+        decoded_cache: &DecodedImageCache,
         mut is_mask: bool,
         transfer_function: Option<ActiveTransferFunction>,
     ) -> Option<Self> {
@@ -329,6 +334,7 @@ impl<'a> ImageXObject<'a> {
         Some(Self {
             width,
             cache: cache.clone(),
+            decoded_cache: decoded_cache.clone(),
             height,
             color_space: image_cs,
             warning_sink: warning_sink.clone(),
@@ -345,7 +351,16 @@ impl<'a> ImageXObject<'a> {
             return None;
         }
 
-        decode_mask(self, target_dimension)
+        // PdfCraft patch: decode once per (stream, target size); tiles and scales share it.
+        // `u32::MAX` stands for no decode hint.
+        let (tw, th) = target_dimension.unwrap_or((u32::MAX, u32::MAX));
+        let key = (self.stream.cache_key(), tw, th);
+        self.decoded_cache.get_or_insert_with(
+            key,
+            MAX_DECODED_IMAGE_BYTES,
+            decoded_mask_size,
+            || decode_mask(self, target_dimension),
+        )
     }
 
     pub(crate) fn decoded_raster(
@@ -356,7 +371,16 @@ impl<'a> ImageXObject<'a> {
             return None;
         }
 
-        decode_raster(self, target_dimension)
+        // PdfCraft patch: decode once per (stream, target size); tiles and scales share it.
+        // `u32::MAX` stands for no decode hint.
+        let (tw, th) = target_dimension.unwrap_or((u32::MAX, u32::MAX));
+        let key = (self.stream.cache_key(), tw, th);
+        self.decoded_cache.get_or_insert_with(
+            key,
+            MAX_DECODED_IMAGE_BYTES,
+            decoded_raster_size,
+            || decode_raster(self, target_dimension),
+        )
     }
 
     pub(crate) fn width(&self) -> u32 {
@@ -378,10 +402,35 @@ impl<'a> ImageXObject<'a> {
     }
 }
 
+/// PdfCraft patch: budget for [`DecodedImageCache`] entries per interpreter cache: decoded
+/// image pixels shared across tiles and scales. Past it the cache starts a fresh epoch.
+const MAX_DECODED_IMAGE_BYTES: usize = 64 << 20;
+
+/// PdfCraft patch: pixel bytes held by a decoded mask.
+fn decoded_mask_size(mask: &DecodedMask) -> usize {
+    mask.luma.width as usize * mask.luma.height as usize
+}
+
+/// PdfCraft patch: pixel bytes held by a decoded raster image and its mask.
+fn decoded_raster_size(raster: &DecodedRaster) -> usize {
+    let image = match &raster.image {
+        ImageData::Rgb(d) => d.width as usize * d.height as usize * 3,
+        ImageData::Luma(d) => d.width as usize * d.height as usize,
+    };
+    let alpha = raster
+        .alpha
+        .as_ref()
+        .map(|a| a.width as usize * a.height as usize)
+        .unwrap_or(0);
+    image.saturating_add(alpha)
+}
+
+#[derive(Clone)]
 pub(crate) struct DecodedMask {
     pub(crate) luma: LumaData,
 }
 
+#[derive(Clone)]
 pub(crate) struct DecodedRaster {
     pub(crate) image: ImageData,
     pub(crate) alpha: Option<LumaData>,
@@ -754,7 +803,7 @@ fn resolve_alpha(
         .get::<Stream<'_>>(SMASK)
         .or_else(|| dict.get::<Stream<'_>>(MASK))
     {
-        let obj = ImageXObject::new(&s_mask, |_| None, &obj.warning_sink, &obj.cache, true, None)?;
+        let obj = ImageXObject::new(&s_mask, |_| None, &obj.warning_sink, &obj.cache, &obj.decoded_cache, true, None)?;
 
         decode_mask(&obj, target_dimension).map(|decoded| decoded.luma)
     } else if let Some(color_key_mask) = dict.get::<SmallVec<[u16; 4]>>(MASK) {
@@ -814,7 +863,7 @@ fn resolve_matte(
     let mut matte_rgb = [0_u8; 3];
     color_space.convert_f32(&matte, &mut matte_rgb, false);
 
-    let mask_obj = ImageXObject::new(&s_mask, |_| None, &obj.warning_sink, &obj.cache, true, None)?;
+    let mask_obj = ImageXObject::new(&s_mask, |_| None, &obj.warning_sink, &obj.cache, &obj.decoded_cache, true, None)?;
     let alpha = decode_mask(&mask_obj, target_dimension)?.luma;
 
     Some((alpha, matte_rgb))

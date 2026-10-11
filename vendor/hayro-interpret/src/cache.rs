@@ -9,7 +9,6 @@ use std::sync::{Arc, Mutex};
 type CacheMap = HashMap<u128, Option<Box<dyn Any + Send + Sync>>>;
 #[derive(Clone)]
 pub(crate) struct Cache(Arc<Mutex<CacheMap>>);
-
 impl Default for Cache {
     fn default() -> Self {
         Self::new()
@@ -47,6 +46,71 @@ impl Cache {
                 val
             }
         }
+    }
+}
+
+/// PdfCraft patch: a byte-budgeted cache of decoded images, keyed by stream and decode
+/// target size. Image-heavy pages decode thousands of images; without this every tile and
+/// every scale decodes them all again. Entries hold owned pixels, so a hit never changes
+/// them; when an insert would pass the budget the whole map is dropped (a fresh epoch),
+/// which only costs re-decoding. The budget caps memory per interpreter cache.
+#[derive(Clone)]
+pub(crate) struct DecodedImageCache(Arc<Mutex<DecodedImageCacheInner>>);
+
+#[derive(Default)]
+struct DecodedImageCacheInner {
+    map: HashMap<(u128, u32, u32), Option<Box<dyn Any + Send + Sync>>>,
+    bytes: usize,
+}
+
+impl DecodedImageCache {
+    pub(crate) fn new() -> Self {
+        Self(Arc::new(Mutex::new(DecodedImageCacheInner::default())))
+    }
+
+    pub(crate) fn get_or_insert_with<T: Clone + Send + Sync + 'static>(
+        &self,
+        key: (u128, u32, u32),
+        budget: usize,
+        size_of: impl FnOnce(&T) -> usize,
+        f: impl FnOnce() -> Option<T>,
+    ) -> Option<T> {
+        // Fast path: a hit clones the pixels without decoding.
+        if let Some(hit) = self
+            .0
+            .lock()
+            .unwrap()
+            .map
+            .get(&key)
+            .and_then(|val| val.as_ref())
+            .and_then(|val| val.downcast_ref::<T>().cloned())
+        {
+            return Some(hit);
+        }
+        // Miss: decode without holding the lock (decoding must never deadlock the cache).
+        let val = f();
+        let mut locked = self.0.lock().unwrap();
+        // Another thread may have decoded it meanwhile: keep the first copy.
+        if let Some(existing) = locked.map.get(&key)
+            && let Some(existing) = existing.as_ref().and_then(|val| val.downcast_ref::<T>())
+        {
+            return Some(existing.clone());
+        }
+        let size = match &val {
+            Some(v) => size_of(v),
+            None => 0,
+        };
+        if locked.bytes.saturating_add(size) > budget {
+            locked.map.clear();
+            locked.bytes = 0;
+        }
+        locked.bytes = locked.bytes.saturating_add(size);
+        locked.map.insert(
+            key,
+            val.clone()
+                .map(|val| Box::new(val) as Box<dyn Any + Send + Sync>),
+        );
+        val
     }
 }
 
