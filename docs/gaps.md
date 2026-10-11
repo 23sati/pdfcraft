@@ -130,17 +130,20 @@ update the numbers.
 - **Estimate:** 40–75 h, partly blocked on openly licensed models. **Doc:**
   [file-format-parity.md](file-format-parity.md).
 
-### 8. Office export weak, Office import absent
+### 8. Office exchange incomplete
 
-- **Missing:** Word export that keeps layout; Excel and PowerPoint export; creating PDFs from Office,
-  HTML, web pages and PostScript; SVG/XML/EPS/PS/JPEG 2000 export.
+- **Missing:** Word export that keeps layout; Excel and PowerPoint export; Office import in Combine
+  and Create Multiple; background conversion and progress; conversion without an optional
+  Office conversion fidelity and batch import; PDFs from HTML, web pages and PostScript;
+  SVG/XML/EPS/PS/JPEG 2000 export.
 - **Evidence:** `create.export-docx` partial; [#773](https://github.com/storytold/pdfcraft/issues/773)
   (an invoice converted to Word loses its layout, gains table borders and duplicates pages);
-  `create.export-xlsx`, `create.export-pptx`, `create.from-office`, `create.from-html` planned.
+  `create.export-xlsx`, `create.export-pptx` and `create.from-html` planned;
+  `create.from-office` partial (DeckCraft, WordCraft and GridCraft on native desktop).
 - **Impact:** "Export PDF" and "Create PDF" are two of Acrobat's most used tools.
 - **Gate:** lossy or missing sub-cases of the convert-and-share workflow (partial, not blocking).
-  First beta items: Create PDF from Office (LibreOffice sidecar, 10–20 h) and a Word export that
-  keeps layout (20–35 h).
+  First beta items: complete Office-to-PDF workflows and verify their fidelity, then make Word
+  export keep layout (20–35 h).
 - **Estimate:** 55–100 h. **Doc:** [file-format-parity.md](file-format-parity.md).
 
 ### 9. No Preflight; PDF/A partial; PDF/X and PDF/UA absent

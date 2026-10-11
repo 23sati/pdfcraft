@@ -28,3 +28,6 @@ pdfcraft-cos = { workspace = true }
 pdfcraft-model = { workspace = true }
 pdfcraft-xfa = { workspace = true }
 image = { version = "0.25", default-features = false, features = ["jpeg"] }
+deckcraft-model = { git = "https://github.com/earlvanze/deckcraft", rev = "1cd3fc1ec11bce1b961be08d1857e6bf7e4e9b32" }
+deckcraft-pptx = { git = "https://github.com/earlvanze/deckcraft", rev = "1cd3fc1ec11bce1b961be08d1857e6bf7e4e9b32" }
+zip = { version = "3", default-features = false }

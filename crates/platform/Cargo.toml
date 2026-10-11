@@ -9,6 +9,20 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+thiserror = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# Reuse DeckCraft's native PowerPoint reader and PDF exporter for PPTX → PDF.
+deckcraft-pptx = { git = "https://github.com/earlvanze/deckcraft", rev = "1cd3fc1ec11bce1b961be08d1857e6bf7e4e9b32" }
+deckcraft-pdf = { git = "https://github.com/earlvanze/deckcraft", rev = "1cd3fc1ec11bce1b961be08d1857e6bf7e4e9b32" }
+deckcraft-fonts = { git = "https://github.com/earlvanze/deckcraft", rev = "1cd3fc1ec11bce1b961be08d1857e6bf7e4e9b32", features = ["bundled-fonts-only"] }
+gridcraft-engine = { git = "https://github.com/storytold/gridcraft", rev = "347d2a5bc2e8d8f89c093e20fbbed4b67d5ac28f" }
+wordcraft-engine = { git = "https://github.com/earlvanze/wordcraft", rev = "dfe93890602c17baab3c59380b78f8c945e6980c" }
+wordcraft-pdf = { git = "https://github.com/earlvanze/wordcraft", rev = "dfe93890602c17baab3c59380b78f8c945e6980c" }
+wordcraft-fonts = { git = "https://github.com/earlvanze/wordcraft", rev = "dfe93890602c17baab3c59380b78f8c945e6980c", features = ["bundled-fonts-only"] }
+
+[dev-dependencies]
+deckcraft-model = { git = "https://github.com/earlvanze/deckcraft", rev = "1cd3fc1ec11bce1b961be08d1857e6bf7e4e9b32" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # The desktop's light/dark choice (see `desktop_theme.rs`). Already in the tree, with the features

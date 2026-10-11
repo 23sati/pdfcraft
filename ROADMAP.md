@@ -41,7 +41,7 @@ and add a line to the [progress log](#progress-log); when a gap closes, remove i
 **Why alpha:** all six of Acrobat Pro's everyday workflows can be completed end to end on macOS
 (the [alpha gate](docs/roadmap.md#alpha-gate)), and users praise them (7.6k stars, ≈ 217k downloads
 of 0.4–0.5, switching reports such as #179). Two are only partial: editing (no CJK/RTL) and convert
-and share (no in-app Office→PDF; Word export loses layout, #773; password-protected files open in
+and share (Office→PDF is partial; Word export loses layout, #773; password-protected files open in
 Acrobat since #836, #774). Those, unmeasured quality against Acrobat, the borrowed `hayro` renderer,
 no printing on the web and 245 open issues keep it far from beta.
 
@@ -122,7 +122,7 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 | Rank | Milestone | Estimate (h) |
 |---|---|---|
-| 0 | Convert and share: Create PDF from Office, Word export that keeps layout (#773) | 32–55 |
+| 0 | Convert and share: finish Office-to-PDF workflows and Word export that keeps layout (#773) | 32–55 |
 | 1 | Backlog and platform: crash and wrong-result reports, web printing, Chinese UI face (#826) | 65–120 |
 | 2 | Fidelity harness against Acrobat and the renderer decision (M2; owner decision on #841) | 110–190 |
 | 3 | Editing existing content (M7) | 100–180 |
@@ -135,6 +135,8 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 ## Progress log
 
 Newest first: the date, what moved, and the new overall estimate.
+
+- **2026-10-11 (M10, Office to PDF):** Open and Create PDF now accept PPTX/POTX/PPSX through DeckCraft's Rust presentation importer and PDF exporter. DOC/DOCX/ODT/RTF use WordCraft and XLS/XLSX/ODS use GridCraft through the same PdfCraft conversion service; the headless `doc_create` tool and desktop Open share it. The conversion remains partial: batch Office import, Excel/PowerPoint export and fidelity comparisons are pending. Overall estimate unchanged.
 
 - **2026-10-11 (M14, #307 Plan 3):** Engine open and full refresh use one page/content traversal to populate marks and added content. The independent public scans remain available; the combined scanner borrows direct objects and holds referenced objects through `Arc<Object>` instead of cloning scan-only `/Contents` arrays or `/PCAdded` dictionaries. Differential tests cover an indirect `/PCAdded` dictionary as well as ordering, malformed/direct/indirect/repeated entries and `/UserUnit`. Exact `bbbe600`→final release CLI measurements used 10 alternating pairs: wall-time medians were 183.645→174.440 ms on 10,000 marker-free pages (10/10 wins), 33.587→32.752 ms on 1,500 mixed pages (8/10), and 24.331→20.133 ms on the 100,000-entry array stress fixture (10/10). The stress fixture's maximum-RSS median fell 28,655,616→19,038,208 B; peak-footprint medians were 14,747,136→14,673,408 B. From P0, the follow-up stress run was 20.886→20.201 ms (10/10), with RSS 23,953,408→19,087,360 B and peak footprint 14,706,144→14,697,952 B. `doc_open` stdout hashes matched every pair. The ancillary `organize` binding preserves the prior `prune_legacy` update condition. Estimates unchanged.
 - **2026-10-11 (M4, Organize overview):** Opening Organize pages from All tools, Home, the tool palette or `ui.set tool=organize` opens the thumbnail grid directly. Checkboxes toggle individual pages without modifier keys; page controls rotate either way or delete one page, while the toolbar acts on the selection. Portrait and landscape previews retain their aspect ratio. UI and control regressions cover entry, selection, single-page versus batch actions, undo, permissions and retaining the last page. Milestone and effort estimates unchanged.

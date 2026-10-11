@@ -1,6 +1,6 @@
 # File format parity
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (encrypted output opens in Acrobat, #774; XFDF fixes #807, #809, #819) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** Office-to-PDF via DeckCraft, WordCraft and GridCraft Rust engines · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
 Every format Acrobat Pro reads or writes, and PdfCraft's support for it. Acrobat's list comes from
 its bundle's `Info.plist` `CFBundleDocumentTypes` (what it opens) and its public documentation
@@ -67,7 +67,7 @@ features total).
 | Plain text | yes | yes | good | `create.from-text` |
 | Clipboard (image or text) | yes | yes | good | `create.from-clipboard` |
 | Screenshot | yes | no | none | `create.from-screenshot` planned |
-| Word, Excel, PowerPoint (and Visio, Publisher on Windows) | yes | no | none | `create.from-office` planned (LibreOffice sidecar) |
+| Word, Excel, PowerPoint (and Visio, Publisher on Windows) | yes | PPTX/POTX/PPSX through DeckCraft; DOC/DOCX/ODT/RTF through WordCraft; XLS/XLSX/ODS through GridCraft on native builds; Visio/Publisher absent | basic, native desktop | `create.from-office` partial; app and headless tests |
 | HTML file, web page URL | yes | no | none | `create.from-html`, `create.from-web-page` planned |
 | RTF | yes | no | none | |
 | PostScript / EPS (Distiller) | yes | no | none | `create.distiller` planned (P3) |
@@ -109,5 +109,6 @@ features total).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Office to PDF: DeckCraft, WordCraft and GridCraft Rust engines for presentations, documents and spreadsheets, shared by desktop Open and `doc_create`. |
 | 2026-10-11 | minor | Encrypted PDF row: written files open in Acrobat DC (#774, fixed by #836). FDF row: #807, #809 and #819 fixed |
 | 2026-10-10 | major | Created from Acrobat 26.002.21931's `CFBundleDocumentTypes`, Acrobat's public Create/Export documentation, and PdfCraft's code and checklist |
