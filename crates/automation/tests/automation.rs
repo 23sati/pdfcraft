@@ -3319,6 +3319,34 @@ fn ocr_tools_make_a_scan_searchable() {
     assert!(matches!(a.call("ocr_recognize", &json!({ "doc": scan, "language": "xx" })), Err(ToolError::InvalidArgs(_))));
 }
 
+/// #1028: `skip_text_pages: false` reads a picture on a page that has its own text, and the
+/// page's own words are left out (counted) instead of being added a second time.
+#[test]
+fn ocr_recognize_reads_pictures_on_pages_with_text() {
+    let dir = workdir("ocr-hybrid");
+    let mut a = auto(&dir);
+    if ok(&mut a, "ocr_status", json!({}))["available"] != true {
+        eprintln!("skipped: OCR models not installed");
+        return;
+    }
+    let text = ok(&mut a, "doc_create", json!({ "from": "text", "text": "Pictures of words become searchable" }))["doc"].as_u64().unwrap();
+    ok(&mut a, "doc_export_images", json!({ "doc": text, "folder": "scan", "dpi": 150, "pages": [1] }));
+    let png = std::fs::read_dir(dir.join("scan")).unwrap().next().unwrap().unwrap().path();
+    let doc = ok(&mut a, "doc_create", json!({ "from": "images", "paths": [png.to_string_lossy()] }))["doc"].as_u64().unwrap();
+    ok(&mut a, "page_add_text", json!({ "doc": doc, "page": 1, "text": "Invoice reference 4711", "at": [40, 500], "size": 24 }));
+
+    let skipped = ok(&mut a, "ocr_recognize", json!({ "doc": doc }));
+    assert!(skipped["pages"][0]["skipped"].is_string(), "{skipped}");
+    let r = ok(&mut a, "ocr_recognize", json!({ "doc": doc, "skip_text_pages": false }));
+    let page = &r["pages"][0];
+    let added = page["text"].as_str().unwrap().to_lowercase();
+    assert!(added.contains("searchable") && !added.contains("invoice"), "{r}");
+    assert!(page["already_on_page"].as_u64().unwrap() >= 2, "{r}");
+    let found = |a: &mut Automation, q: &str| ok(a, "text_find", json!({ "doc": doc, "query": q }))["count"].as_u64().unwrap();
+    assert_eq!((found(&mut a, "invoice"), found(&mut a, "searchable")), (1, 1));
+    assert!(matches!(a.call("ocr_recognize", &json!({ "doc": doc, "skip_text_pages": "no" })), Err(ToolError::InvalidArgs(_))));
+}
+
 #[test]
 fn ocr_recognize_files_refuses_paths_outside_the_root() {
     let dir = workdir("ocr-files-root");

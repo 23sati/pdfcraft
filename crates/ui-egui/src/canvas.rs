@@ -499,6 +499,8 @@ pub enum ViewAction {
     InsertFromFile,
     /// Insert files at a gap of the page grid (0 = before the first page).
     InsertFromFileAt(usize),
+    /// Replace the selected pages with pages from another file.
+    ReplacePages,
     /// Save the document as the grid shows it.
     Save,
     Extract,
@@ -2993,6 +2995,9 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
 
     view.viewport_screen = out.inner_rect;
     view.auto_scroll.paint(ui, avail);
+    if unobstructed && matches!(tool, QuickTool::Select | QuickTool::ColumnSelect) {
+        selection_actions(ui, avail, view, info, prefs, allowed && !comments_hidden);
+    }
 
     // Collect all main-page demand, including cached surfaces, for byte admission later.
     // Pan-settle debounce for tiled pages: each tile costs a full page interpret, so holding
@@ -3261,6 +3266,92 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     quick_bar(app, avail, ui);
 }
 
+#[derive(Clone, Copy)]
+enum SelectionAction {
+    Note,
+    Markup(comments::CommentTool),
+    Replace,
+    Copy,
+}
+
+/// Actions on an existing text selection, next to the selected words.
+fn selection_actions(ui: &mut egui::Ui, viewport: Rect, view: &mut DocView, info: &DocInfo, prefs: &comments::CommentPrefs, can_comment: bool) {
+    if ui.input(|input| input.pointer.is_decidedly_dragging()) {
+        return;
+    }
+    let Some(selection) = view.selection else { return };
+    let Some(text) = view.texts.get(&selection.page) else { return };
+    let Some(xf) = view.page_xform(selection.page) else { return };
+    let Some(last) = selection.rects(text).last().copied() else { return };
+    let selected = selection.text(text);
+    if selected.is_empty() {
+        return;
+    }
+    let rect = xf.view_rect(last);
+    if !viewport.intersects(rect) {
+        return;
+    }
+    let x = rect.left().clamp(viewport.left() + 8.0, (viewport.right() - 520.0).max(viewport.left() + 8.0));
+    let y = if rect.bottom() + 48.0 < viewport.bottom() { rect.bottom() + 6.0 } else { (rect.top() - 44.0).max(viewport.top() + 6.0) };
+    let mut chosen = None;
+    egui::Area::new(egui::Id::new(("text-selection-actions", view.id.0))).order(egui::Order::Foreground).fixed_pos(pos2(x, y)).show(ui.ctx(), |ui| {
+        egui::Frame::popup(ui.style()).show(ui, |ui| {
+            ui.horizontal(|ui| {
+                for (label, action) in [
+                    (tl!("Add comment"), SelectionAction::Note),
+                    (tl!("Highlight"), SelectionAction::Markup(comments::CommentTool::Highlight)),
+                    (tl!("Underline"), SelectionAction::Markup(comments::CommentTool::Underline)),
+                    (tl!("Strikethrough"), SelectionAction::Markup(comments::CommentTool::StrikeOut)),
+                    (tl!("Replace text"), SelectionAction::Replace),
+                ] {
+                    if ui.add_enabled(can_comment, egui::Button::new(label)).clicked() {
+                        chosen = Some(action);
+                    }
+                }
+                if ui.button(tl!("Copy")).clicked() {
+                    chosen = Some(SelectionAction::Copy);
+                }
+            });
+        });
+    });
+    let Some(action) = chosen else { return };
+    if let SelectionAction::Copy = action {
+        ui.ctx().copy_text(selected);
+        return;
+    }
+    let Some((page, quads)) = view.selection_quads(info) else { return };
+    let last = quads.last().copied().unwrap_or_default();
+    let at = [last[2].max(last[6]), last[1].max(last[3])];
+    view.clear_selection();
+    match action {
+        SelectionAction::Note | SelectionAction::Replace => {
+            if matches!(action, SelectionAction::Replace) {
+                view.comments.replace = Some(quads);
+            }
+            view.comments.composer = Some(comments::Composer {
+                page,
+                at,
+                kind: if matches!(action, SelectionAction::Replace) { comments::ComposerKind::Replace } else { comments::ComposerKind::Note },
+                text: String::new(),
+                focus: true,
+            });
+        }
+        SelectionAction::Markup(tool) => {
+            // Every markup button carries a markup tool; anything else adds nothing.
+            let Some(kind) = tool.markup() else { return };
+            view.pending_edit = Some(Edit::AddAnnotation(pdfcraft_engine::NewAnnotation {
+                page,
+                shape: pdfcraft_engine::Shape::TextMarkup { kind, quads },
+                style: prefs.style(tool),
+                contents: String::new(),
+                author: prefs.author.clone(),
+            }));
+        }
+        // Copied above.
+        SelectionAction::Copy => {}
+    }
+}
+
 /// Run a push button's action (the ones that need no JavaScript engine).
 fn run_button(app: &mut PdfCraftApp, index: usize, name: &str, action: pdfcraft_engine::form_scripts::ButtonAction) {
     use pdfcraft_engine::form_scripts::ButtonAction as B;
@@ -3421,8 +3512,8 @@ fn find_bar(view: &mut DocView, pages: usize, area: Rect, ui: &mut egui::Ui, t: 
                         }
                         let opts = icons::button(ui, "settings-2", 26.0, find.case_sensitive || find.whole_words, tl!("Find options"));
                         egui::Popup::menu(&opts).show(|ui| {
-                            let a = ui.checkbox(&mut find.whole_words, tl!("Whole words only")).changed();
-                            let b = ui.checkbox(&mut find.case_sensitive, tl!("Case-sensitive")).changed();
+                            let a = ui.add(widgets::checkbox(&mut find.whole_words, tl!("Whole words only"))).changed();
+                            let b = ui.add(widgets::checkbox(&mut find.case_sensitive, tl!("Case-sensitive"))).changed();
                             if a || b {
                                 // Search again with the new options.
                                 find.case_query.clear();
@@ -3805,6 +3896,9 @@ fn organize_toolbar(view: &mut DocView, info: &DocInfo, editable: bool, dirty: b
                 if icons::button(ui, "file-input", 30.0, false, tl!("Insert pages from a file…")).clicked() {
                     view.pending_action = Some(ViewAction::InsertFromFile);
                 }
+                if icons::button(ui, "replace", 30.0, false, tl!("Replace pages…")).clicked() {
+                    view.pending_action = Some(ViewAction::ReplacePages);
+                }
                 if icons::button(ui, "file-output", 30.0, false, tl!("Extract pages to a new document")).clicked() {
                     view.pending_action = Some(ViewAction::Extract);
                 }
@@ -4045,7 +4139,7 @@ fn organize_grid(view: &mut DocView, info: &DocInfo, editable: bool, dirty: bool
                 // outside the page image, including on very tall or wide pages.
                 let mut checked = view.selected.contains(&i);
                 let check_rect = Rect::from_min_size(c.min + vec2(8.0, 8.0), Vec2::splat(20.0));
-                let check = ui.push_id(("org-check", i), |ui| ui.put(check_rect, egui::Checkbox::without_text(&mut checked))).inner;
+                let check = ui.push_id(("org-check", i), |ui| ui.put(check_rect, widgets::checkbox_without_text(&mut checked))).inner;
                 let label = crate::i18n::fmt(tl!("Select page {label}"), &[("label", &p.label)]);
                 check.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Checkbox, true, checked, label.clone()));
                 if check.on_hover_text(label).changed() {
@@ -4085,12 +4179,21 @@ fn organize_grid(view: &mut DocView, info: &DocInfo, editable: bool, dirty: bool
                 if resp.double_clicked() {
                     open_page = Some(i);
                 }
-                // Right-click: Cut, Copy, Paste (on the selection, or this page).
+                // Right-click: Extract, Replace, Cut, Copy, Paste (on the selection, or this page).
                 resp.context_menu(|ui| {
                     if !view.selected.contains(&i) {
                         view.selected = [i].into();
                         view.current = i;
                     }
+                    if ui.button(tl!("Extract pages")).clicked() {
+                        view.pending_action = Some(ViewAction::Extract);
+                        ui.close();
+                    }
+                    if ui.add_enabled(editable, egui::Button::new(tl!("Replace pages…"))).clicked() {
+                        view.pending_action = Some(ViewAction::ReplacePages);
+                        ui.close();
+                    }
+                    ui.separator();
                     if ui.add_enabled(editable, egui::Button::new(tl!("Cut"))).clicked() {
                         view.pending_action = Some(ViewAction::CopyPages { cut: true });
                         ui.close();

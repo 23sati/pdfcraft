@@ -107,6 +107,10 @@ sync_github_name = true
 [people.earlvanze]
 sync_github_name = true
 
+[people.rp6186030]
+real_name = "Raj Patel"
+sync_github_name = false
+
 [people.yeniufuklar-com]
 real_name = "Ufuk Efe"
 display_name = "Ufuk Efe"

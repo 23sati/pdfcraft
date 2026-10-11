@@ -37,6 +37,26 @@ fn home_shows_welcome_and_tools() {
     h.get_by_label("Open file");
 }
 
+#[test]
+fn tools_panel_side_preference_moves_and_persists() {
+    use pdfcraft_ui_egui::Dialog;
+
+    let mut h = harness(|_| {});
+    h.state_mut().dialog = Some(Dialog::Preferences);
+    h.run_steps(3);
+    h.get_by_label("Tools panel side");
+    h.get_by_label("Right").click();
+    h.run_steps(3);
+    assert!(h.state().docking.tools_on_right());
+    let saved = h.state().persist();
+    let mut restored = PdfCraftApp::new();
+    restored.restore(&saved);
+    assert!(restored.docking.tools_on_right());
+    h.get_by_label("Left").click();
+    h.run_steps(3);
+    assert!(!h.state().docking.tools_on_right());
+}
+
 /// Every piece of text painted on the last frame: its whole text, whether it was cut with "…",
 /// and where it was drawn.
 fn painted_text(h: &Harness<'static, PdfCraftApp>) -> Vec<(String, bool, egui::Rect)> {
@@ -553,6 +573,30 @@ fn zoom_keeps_the_point_under_the_cursor_still() {
     h.run_steps(4);
     let after = h.state().views[0].glyph_screen_pos(0, 4).expect("glyph still on screen");
     assert!((after - before).length() < 2.0, "moved from {before:?} to {after:?}");
+}
+
+#[test]
+fn trackpad_pinch_zooms_the_pdf_under_the_pointer() {
+    let mut h = harness(|app| {
+        app.open_bytes("text.pdf", None, TEXT_FIXTURE.to_vec()).expect("opens");
+        app.set_option("left", "closed").unwrap();
+        app.set_option("panel", "none").unwrap();
+    });
+    settle(&mut h);
+    let before = h.state().views[0].glyph_screen_pos(0, 4).expect("glyph on screen");
+    let zoom = h.state().views[0].zoom;
+    h.hover_at(before);
+    h.run_steps(1);
+    h.event(egui::Event::Zoom(1.5));
+    h.run_steps(4);
+    let enlarged = &h.state().views[0];
+    assert!((enlarged.zoom - zoom * 1.5).abs() < 0.01);
+    let after = enlarged.glyph_screen_pos(0, 4).expect("glyph still on screen");
+    assert!((after - before).length() < 2.0, "moved from {before:?} to {after:?}");
+
+    h.event(egui::Event::Zoom(0.5));
+    h.run_steps(4);
+    assert!((h.state().views[0].zoom - zoom * 0.75).abs() < 0.01);
 }
 
 #[test]
