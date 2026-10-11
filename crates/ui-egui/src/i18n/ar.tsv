@@ -856,6 +856,10 @@
 	The signature will be invisible.	سيكون التوقيع غير مرئي.
 	Distinguished name	الاسم المميز
 	Labels	التسميات
+	Graphic	رسم
+	Signer's name	اسم الموقّع
+	Fill & Sign signature	توقيع «تعبئة وتوقيع»
+	Choose image…	اختيار صورة…
 	Permitted actions after certifying	الإجراءات المسموح بها بعد التصديق
 	No changes allowed	لا يُسمح بأي تغييرات
 	Annotations, form fill-in, and digital signatures	التعليقات وتعبئة النماذج والتوقيعات الرقمية
@@ -1711,6 +1715,7 @@
 	This document isn't password-protected	هذا المستند غير محمي بكلمة مرور
 	Only the document's owner can change its security (open it with the permissions password)	مالك المستند وحده يستطيع تغيير أمانه (افتحه بكلمة مرور الأذونات)
 	The document's security settings don't allow this change	إعدادات أمان المستند لا تسمح بهذا التغيير
+	The document's security settings don't allow copying text and images	إعدادات أمان المستند لا تسمح بنسخ النصوص والصور
 	Open a document first	افتح مستندًا أولًا
 	Security will be removed when you save	سيُزال الأمان عند الحفظ
 	Click text or an image to edit it	انقر على نص أو صورة لتحريرها
@@ -2227,6 +2232,14 @@ key	Space	مسافة
 	Panels	اللوحات
 	Resize panels	تغيير حجم اللوحات
 	Resize panel window	تغيير حجم نافذة اللوحة
+	Reload documents when their files change on disk	إعادة تحميل المستندات عند تغيّر ملفاتها على القرص
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	تغيّر هذا الملف على القرص. أعد تحميله لعرض النسخة الجديدة؛ ستفقد تغييراتك غير المحفوظة.
+	Reload	إعادة تحميل
+	Couldn't reload {name}: {e}	تعذّرت إعادة تحميل {name}: {e}
+	Select page {label}	تحديد الصفحة {label}
+	Rotate page {label} counterclockwise	تدوير الصفحة {label} عكس اتجاه عقارب الساعة
+	Rotate page {label} clockwise	تدوير الصفحة {label} باتجاه عقارب الساعة
+	Delete page {label}	حذف الصفحة {label}
 	Mouse wheel scroll speed	سرعة التمرير بعجلة الماوس
 scroll speed	Slow	بطيئة
 scroll speed	Normal	عادية

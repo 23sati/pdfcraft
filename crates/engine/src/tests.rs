@@ -505,6 +505,43 @@ fn a_file_split_around_another_combines_in_order_with_one_bookmark() {
 }
 
 #[test]
+fn create_multiple_reads_each_source_only_after_the_previous_one_is_released() {
+    let mut s = Session::new();
+    let mut earlier: Vec<std::sync::Weak<Vec<u8>>> = Vec::new();
+    let texts = ["Alpha", "Beta", "Gamma"];
+    let sources = texts.iter().map(|text| {
+        // The combine has finished with every earlier source, so their bytes are gone by now.
+        assert!(earlier.iter().all(|w| w.upgrade().is_none()), "a source is released before the next is read");
+        let (_, pdf) = s.convert_to_pdf(&format!("{text}.txt"), &Arc::new(text.as_bytes().to_vec())).unwrap();
+        earlier.push(Arc::downgrade(&pdf));
+        Ok::<CombineSource, EditError>((text.to_string(), pdf, None))
+    });
+    let combined = s.combine_each(sources).unwrap().unwrap();
+    assert!(earlier.iter().all(|w| w.upgrade().is_none()));
+    let id = s.open_new("Combined.pdf", combined).unwrap();
+    assert_eq!(page_texts(&s, id), ["Alpha", "Beta", "Gamma"]);
+    assert_eq!(outline_titles(&s.get(id).unwrap().info.outline), ["Alpha→1", "Beta→2", "Gamma→3"]);
+}
+
+#[test]
+fn create_multiple_gives_the_bytes_of_combine_ranges_and_refuses_a_bad_source() {
+    let s = Session::new();
+    let (a, b) = (Arc::new(fixture(3)), Arc::new(fixture(2)));
+    let sources: Vec<CombineSource> =
+        vec![("a".into(), a.clone(), Some("1-2".into())), ("b".into(), b, None), ("a".into(), a.clone(), Some("3".into()))];
+    let by_ranges = s.combine_ranges(&sources).unwrap();
+    let streamed = s.combine_each(sources.into_iter().map(Ok::<_, EditError>)).unwrap().unwrap();
+    assert_eq!(*streamed, *by_ranges);
+    // A bad range, or a file that isn't a PDF, stops the combine with an error naming that source.
+    let bad_range: Vec<Result<CombineSource, EditError>> = vec![Ok(("a".into(), a.clone(), None)), Ok(("c".into(), a.clone(), Some("9".into())))];
+    assert!(matches!(s.combine_each(bad_range), Err(EditError::Print(e)) if e.starts_with("c:")));
+    let junk: Vec<Result<CombineSource, EditError>> = vec![Ok(("junk".into(), Arc::new(b"not a pdf".to_vec()), None))];
+    assert!(matches!(s.combine_each(junk), Err(EditError::Source(m)) if m.starts_with("junk:")));
+    // Nothing to combine is `None`, not an empty document.
+    assert!(matches!(s.combine_each(Vec::<Result<CombineSource, EditError>>::new()), Ok(None)));
+}
+
+#[test]
 fn a_page_with_a_form_field_shown_twice_keeps_one_field() {
     // Regression (found by review): the repeated page copied the whole field again, so the
     // result had two fields named "shared", filled in separately.
@@ -642,6 +679,32 @@ fn restricted_documents_refuse_changes_unless_opened_by_the_owner() {
     let oid = s.open("r.pdf", None, bytes, Some("owner")).unwrap();
     assert!(s.get(oid).unwrap().allows_assembly());
     s.apply(oid, Edit::DeletePages { pages: vec![0] }).unwrap();
+}
+
+/// Table 22, bit 5: "Copy or otherwise extract text and graphics" (#568). Snapshots, exports and
+/// Save Image As are refused, other permissions are untouched, and the owner password lifts it.
+#[test]
+fn copy_restricted_documents_refuse_extraction_unless_opened_by_the_owner() {
+    let bytes = protected("", "owner", -1 ^ 0b1_0000); // everything but copying, no password to open
+    let mut s = Session::new();
+    let id = s.open("r.pdf", None, bytes.clone(), None).unwrap();
+    let d = s.get(id).unwrap();
+    assert!(!d.allows_copying());
+    assert!(d.allows_printing() && d.allows_modification() && d.allows_assembly(), "only copying is withheld");
+    assert_eq!(d.check_copying(), Err(EditError::NotPermitted("copying text and images")));
+    assert!(d.page_image_file(0, 0).unwrap_err().contains("don't allow copying"));
+    let extracting = ["edit.snapshot", "export.image", "export.text", "export.docx", "export.html", "export.rtf", "export.all_images"];
+    let enabled = |s: &Session, id, c| commands::is_enabled(commands::command(c).unwrap(), s, Some(id));
+    for c in extracting {
+        assert!(!enabled(&s, id, c), "{c} is disabled");
+    }
+    assert!(enabled(&s, id, "edit.find") && enabled(&s, id, "a11y.check"), "searching and accessibility don't copy");
+    let oid = s.open("r.pdf", None, bytes, Some("owner")).unwrap();
+    assert!(s.get(oid).unwrap().allows_copying());
+    assert!(extracting.iter().all(|c| enabled(&s, oid, c)));
+    // Unencrypted documents allow everything.
+    let (s, plain) = session_with(1);
+    assert!(s.get(plain).unwrap().check_copying().is_ok() && extracting.iter().all(|c| enabled(&s, plain, c)));
 }
 
 #[test]
@@ -1265,6 +1328,56 @@ fn headers_footers_watermarks_and_backgrounds_show_update_and_remove() {
 }
 
 #[test]
+fn open_populates_marks_and_added_from_the_combined_marker_scan() {
+    let (mut source, source_id) = session_with(1);
+    let mut header = HeaderFooter::default();
+    header.text[0] = "Header".into();
+    source.apply(source_id, Edit::AddHeaderFooter { pages: vec![0], settings: header, replace: false }).unwrap();
+    source
+        .apply(
+            source_id,
+            Edit::AddWatermark { pages: vec![0], settings: Watermark { text: "Draft".into(), ..Watermark::default() }, file: None, replace: false },
+        )
+        .unwrap();
+    source
+        .apply(
+            source_id,
+            Edit::AddBackground {
+                pages: vec![0],
+                settings: Background { color: [0.9, 0.9, 1.0], opacity: 1.0, ..Background::default() },
+                replace: false,
+                file: None,
+            },
+        )
+        .unwrap();
+    source
+        .apply(
+            source_id,
+            Edit::AddText { page: 0, text: AddedText { rect: [20.0, 250.0, 180.0, 280.0], text: "Added note".into(), ..Default::default() } },
+        )
+        .unwrap();
+
+    let bytes = source.save_bytes(source_id).unwrap();
+    let reference = pdfcraft_cos::Document::open(bytes.clone()).unwrap();
+    let expected_marks = pdfcraft_edit::marks_present(&reference);
+    let expected_added = pdfcraft_edit::list_added(&reference);
+    source.mark_saved(source_id, bytes.clone(), None).unwrap();
+    let refreshed = source.get(source_id).unwrap();
+    assert_eq!(refreshed.marks, expected_marks);
+    assert_eq!(refreshed.added, expected_added);
+    let mut reopened = Session::new();
+    let reopened_id = reopened.open("marked.pdf", None, bytes, None).unwrap();
+    let opened = reopened.get(reopened_id).unwrap();
+    assert_eq!(opened.marks, expected_marks);
+    assert_eq!(opened.added, expected_added);
+    assert_eq!(opened.marks.len(), 3);
+    assert!(opened.marks.contains(&MarkKind::HeaderFooter));
+    assert!(opened.marks.contains(&MarkKind::Watermark));
+    assert!(opened.marks.contains(&MarkKind::Background));
+    assert_eq!(opened.added.len(), 1);
+}
+
+#[test]
 fn export_images_and_text_follow_the_working_file() {
     let (mut s, id) = session_with(2);
     s.apply(id, Edit::RotatePages { pages: vec![1], degrees: 90 }).unwrap();
@@ -1547,6 +1660,25 @@ fn added_images_rotate_flip_and_crop_as_drawn() {
     img.crop = [0.0, 0.0, 0.5, 0.0];
     s.apply(id, Edit::UpdateContent { page: 0, index: 0, content: AddedContent::Image(img) }).unwrap();
     assert!(red(colour_at(&s, 130, 150)), "the right half cropped away: red fills the box");
+}
+
+#[test]
+fn reload_reads_the_new_file_into_the_same_document() {
+    let (mut s, id) = session_with(2);
+    let other = s.open("other.pdf", None, Arc::new(fixture(1)), None).unwrap();
+    s.apply(id, Edit::RotatePages { pages: vec![0], degrees: 90 }).unwrap();
+    let before = s.get(id).unwrap().edit_generation();
+    s.reload(id, Arc::new(fixture(3))).unwrap();
+    let d = s.get(id).unwrap();
+    assert_eq!((d.id, d.name.as_str()), (id, "fixture.pdf"), "same document, same name");
+    assert_eq!(page_texts(&s, id), ["Page 1", "Page 2", "Page 3"], "the new version");
+    assert!(!d.dirty && d.can_undo().is_none(), "nothing unsaved, nothing to undo");
+    assert!(d.edit_generation() > before, "caches keyed by the generation see a change");
+    assert_eq!(s.docs().iter().map(|d| d.id).collect::<Vec<_>>(), [id, other], "no new tab, same order");
+    // A file that isn't a PDF (yet) leaves the document as it was.
+    assert!(s.reload(id, Arc::new(b"%PDF-1.7 half written".to_vec())).is_err());
+    assert_eq!(page_texts(&s, id).len(), 3);
+    assert_eq!(s.docs().len(), 2);
 }
 
 #[test]
