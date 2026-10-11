@@ -17,15 +17,15 @@ on run arguments
         set chosen to item 1 of (preferred as list)
         if chosen is not item 2 of testCase then error "Unexpected locale for " & item 1 of testCase & ": " & chosen
         set tablePath to resourcePath & "/" & chosen & ".lproj/Localizable.strings"
-        set table to current application's NSDictionary's dictionaryWithContentsOfFile:tablePath
-        if table is missing value then error "Unreadable localization: " & tablePath
-        set key to "Install the PdfCraft application for working with PDF documents."
-        set value to table's objectForKey:key
-        if value is missing value then error "Missing PdfCraft choice description: " & chosen
+        set localizationTable to current application's NSDictionary's dictionaryWithContentsOfFile:tablePath
+        if localizationTable is missing value then error "Unreadable localization: " & tablePath
+        set descriptionKey to "Install the PdfCraft application for working with PDF documents."
+        set localizedDescription to localizationTable's objectForKey:descriptionKey
+        if localizedDescription is missing value then error "Missing PdfCraft choice description: " & chosen
         if chosen is in {"en", "ja", "ru", "pt", "zh-Hant"} then
-            if (value as text) is not key then error "Non-English unsupported-language fallback: " & chosen
+            if (localizedDescription as text) is not descriptionKey then error "Non-English unsupported-language fallback: " & chosen
         else
-            if (value as text) is key then error "Missing translated choice description: " & chosen
+            if (localizedDescription as text) is descriptionKey then error "Missing translated choice description: " & chosen
         end if
     end repeat
     return "ok: native locale resolution, regional variants, primary-language English fallback and PKG strings"
