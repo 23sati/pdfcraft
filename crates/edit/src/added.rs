@@ -893,37 +893,7 @@ fn write(doc: &mut Document, page: usize, c: &Content, obj: Option<ObjRef>) -> R
 
 /// Every added item, page by page, in drawing order.
 pub fn list_added(doc: &Document) -> Vec<Added> {
-    let mut out = Vec::new();
-    for (pi, p) in page_list(doc).iter().enumerate() {
-        let list: Vec<Object> = match p.dict.get(b"Contents") {
-            Some(c) => match &*doc.resolve(c) {
-                Object::Array(a) => a.clone(),
-                _ => vec![c.clone()],
-            },
-            None => Vec::new(),
-        };
-        for o in list {
-            let Some(r) = o.as_ref() else { continue };
-            let obj = doc.get(r);
-            let Some(d) = obj.as_dict() else { continue };
-            if d.name(b"PCMark") != Some(TAG.as_bytes()) {
-                continue;
-            }
-            let Some(params) = d.get(b"PCAdded").and_then(|o| doc.resolve(o).as_dict().cloned()) else { continue };
-            if let Some(c) = parse(doc, &params) {
-                // Display points depend on the page's /UserUnit. An item records the one it was
-                // written for; none means 1, as for items written before display space followed
-                // /UserUnit.
-                let written = params
-                    .get(b"UserUnit")
-                    .and_then(Object::as_f64)
-                    .filter(|u| u.is_finite() && *u >= 1.0)
-                    .map_or(1.0, |u| u.min(pdfcraft_model::MAX_USER_UNIT));
-                out.push(Added { page: pi, obj: r, content: c.scaled(p.user_unit(doc) / written) });
-            }
-        }
-    }
-    out
+    scan_markers(doc).added
 }
 
 /// Add an item to a page (0-based). Returns its index among the page's added items.
