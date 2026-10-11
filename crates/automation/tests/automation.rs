@@ -4249,3 +4249,20 @@ fn architectural_and_iso_papers_through_tools() {
     assert_eq!(std::fs::read(dir.join("plot.pdf")).unwrap(), before);
     assert!(a.call("doc_print", &json!({"doc": doc, "paper": "ARCH D", "path": "../escape.pdf"})).is_err());
 }
+
+#[test]
+fn session_recovery_round_trip_honors_root_and_existing_work() {
+    let dir = workdir("session-recovery");
+    let mut source = auto(&dir);
+    let id = ok(&mut source, "doc_open", json!({"path":"a.pdf"}))["doc"].as_u64().unwrap();
+    ok(&mut source, "doc_set_info", json!({"doc":id,"key":"Title","value":"Recovery test"}));
+    ok(&mut source, "session_capture", json!({"path":"recovery.craft-session"}));
+    assert!(source.call("session_capture", &json!({"path":"../outside.craft-session"})).is_err());
+    assert!(source.call("session_restore", &json!({"path":"recovery.craft-session"})).is_err());
+    let mut restored = auto(&dir);
+    assert_eq!(ok(&mut restored, "session_inspect", json!({"path":"recovery.craft-session"}))["password_prompts"], json!([]));
+    ok(&mut restored, "session_restore", json!({"path":"recovery.craft-session"}));
+    assert_eq!(restored.session().get(pdfcraft_engine::DocId(id)).unwrap().info.title.as_deref(), Some("Recovery test"));
+    ok(&mut restored, "edit_undo", json!({"doc":id}));
+    assert_ne!(restored.session().get(pdfcraft_engine::DocId(id)).unwrap().info.title.as_deref(), Some("Recovery test"));
+}

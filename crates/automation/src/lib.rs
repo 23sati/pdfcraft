@@ -164,6 +164,44 @@ impl Automation {
         let a = Args(args);
         let out = match name {
             "doc_open" => self.doc_open(&a)?,
+            "session_capture" => {
+                let bytes = self.session.craft_capture(json!({})).map_err(failed)?;
+                let path = self.resolve(a.str("path")?, true)?;
+                write_atomic(&path, &bytes)?;
+                json!({"bytes": bytes.len()})
+            }
+            "session_inspect" | "session_restore" => {
+                use std::io::Read;
+                let path = self.resolve(a.str("path")?, false)?;
+                let file = std::fs::File::open(path).map_err(|e| failed(e.to_string()))?;
+                let mut bytes = Vec::new();
+                file.take(512 * 1024 * 1024 + 1).read_to_end(&mut bytes).map_err(|e| failed(e.to_string()))?;
+                let prompts = Session::craft_credentials(&bytes).map_err(failed)?;
+                if name == "session_inspect" {
+                    json!({"password_prompts": prompts})
+                } else {
+                    if !self.session.docs().is_empty() {
+                        return Err(failed("Close current documents before restoring a session"));
+                    }
+                    let passwords: Vec<String> = match args.get("passwords") {
+                        Some(value) => serde_json::from_value(value.clone()).map_err(|_| failed("passwords must be strings"))?,
+                        None => Vec::new(),
+                    };
+                    let mut restored = Session::new();
+                    restored.craft_restore_with_passwords(&bytes, &passwords).map_err(failed)?;
+                    // Paths inside a checkpoint are untrusted too. They must not bypass --root
+                    // when a later doc_save uses a document's restored path.
+                    for document in restored.docs() {
+                        if let Some(path) = &document.path {
+                            self.resolve(path, true)?;
+                        }
+                    }
+                    self.session = restored;
+                    self.renderers.clear();
+                    self.texts.clear();
+                    json!({"documents": self.session.docs().iter().map(summary).collect::<Vec<_>>()})
+                }
+            }
             "doc_list" => json!({ "documents": self.session.docs().iter().map(summary).collect::<Vec<_>>() }),
             "doc_info" => info(self.doc(&a)?),
             "doc_close" => self.doc_close(&a)?,

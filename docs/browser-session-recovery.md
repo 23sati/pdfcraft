@@ -1,13 +1,62 @@
-# Browser editing-session recovery and clipboard
+# Browser session recovery
 
-This contribution ports the existing *craft browser fixes. Desktop recovery and native OS clipboard readers are unchanged. The browser checkpoint contains open documents/catalog, tab or photo selection, both history stacks and serializable view/preferences state. GPU resources and unfinished gestures are recreated or excluded.
+Status: draft implementation; browser coverage and large-history performance remain under review.
 
-Refresh restores the latest committed checkpoint. Returning later asks whether to restore. Start fresh keeps the old recovery slot. Separate tabs use independent writers protected by Web Locks. Without locks a fresh identity is allocated. IndexedDB commits checkpoint bytes and discovery metadata atomically and retains the preceding checkpoint. Quota errors preserve the last committed save and expose Retry. Recovery import/download and persistent-storage requests are user initiated. No document bytes are uploaded. Clearing browser data or eviction removes recovery. Pending writes can still be lost on hard termination.
+## Architecture
 
-Checkpoints are bounded to 512 MiB without truncating undo/redo. Full-history serialization may be expensive for large projects. PDF checkpoints can include passwords necessary to reopen encrypted files. LightCraft recovery contains original-photo references rather than bundling original photos; its explicit library backup remains available.
+The browser host starts recovery without blocking PdfCraft's event loop. `browser_store.rs`
+uses `web-sys` IndexedDB requests and transactions, with Rust futures and bounded timeouts.
+`browser_session.rs` owns lifecycle and egui recovery controls. There is no handwritten
+JavaScript, npm test dependency, DOM stylesheet or external coordinator script.
 
-The browser coordinator and minimal storage controls use JavaScript for IndexedDB, lifecycle and locks. Engine serialization and clipboard ownership stay in Rust. This is an explicit architecture proposal for maintainer review against the project's Rust-only preference.
+Each page load allocates a fresh random writer id. A reload reads the last committed id from
+sessionStorage; a later visit offers the latest committed snapshot. Duplicated tabs fork the
+snapshot into independent writers. The document snapshot, preceding snapshot and latest
+pointer commit in one transaction. Only transaction completion marks a save successful.
+Quota, blocked storage and timeout failures leave editing available and show Retry.
+The UI does not overwrite an already-open document to restore a session.
 
-Clipboard reads are explicit paste actions. Browser image/text routes reject changed destinations and report unsupported APIs or denied permissions. PhotoCraft and VectorCraft publish PNG with alpha; VectorCraft also publishes editable SVG text. PDF pages and LightCraft edit settings retain their internal clipboard semantics. Focused text fields retain their own events.
+Checkpoints retain ordered documents, dirty flags, both history stacks, active tab, page,
+zoom, layout, rotation, scroll and navigation history. GPU resources and unfinished gestures
+are not persisted. Capture waits for 1.5 seconds of inactivity and writes at most every two
+seconds. Hard termination can lose changes after the last committed snapshot. Full-history
+serialization is bounded to 512 MiB and can still be expensive. History is never silently
+truncated. Older session ids are retained; storage may fill until site data is cleared.
 
-Validation: `npm install --ignore-scripts && npm run test:sessions` in the web app directory checks storage with fake IndexedDB/DOM. `cargo test -p pdfcraft-engine --test craft_session` exercises native history round trips. `cargo check --target wasm32-unknown-unknown -p pdfcraft-web` checks the actual browser host. Real Chromium, Firefox and WebKit clipboard permissions, paired/split-frame gestures, text focus, stale asynchronous destinations, refresh/return, tab duplication, quota failures and large-history performance require separate browser review.
+## Passwords and compatibility
+
+Schema 2 contains credential references and descriptive prompts, not document passwords.
+This applies to current document credentials and all undo/redo states, including owner
+passwords and passwords changed during editing. Restoring a protected session prompts for
+each distinct nonempty credential. Passwords remain in memory only. A wrong or missing
+password fails restoration atomically. PDF snapshots retain their PDF encryption; recovery
+does not add an independent encryption layer to otherwise unencrypted documents or metadata.
+The internal `Keys` type is deliberately not serializable.
+
+The former draft's schema 1 is rejected. Its `pdfcraft-web-sessions` database is not read,
+migrated or silently deleted. Anyone who ran that draft should export important documents
+and then clear its legacy site data because it may contain plaintext passwords. The new
+store is `pdfcraft-rust-sessions-v2`. Starting fresh preserves existing recovery copies.
+Clearing browser data or browser eviction removes recovery.
+
+## Controls and automation
+
+The egui Session recovery panel offers restore/start fresh, masked password entry, retry,
+recovery-copy import/export and a user-initiated persistent-storage request. Importing or
+restoring requires closing current documents first. A downloaded recovery copy contains no
+passwords but may contain confidential document content and editing history.
+
+Headless tools: `session_capture {path}`, `session_inspect {path}` (password prompts), and
+`session_restore {path, passwords?}`. Restore requires an empty session and validates embedded
+document paths against `--root`. Capture writes atomically and does not mark documents saved.
+These tools do not implement browser storage in native builds.
+
+## Validation
+
+Engine regressions cover tab/history round trips, localizable labels, changed document
+passwords, owner passwords in redo-only states, no raw credentials in checkpoint bytes,
+and atomic failure with existing work. An automation regression covers recovery and root
+confinement. Browser IndexedDB and UI checks are tracked in the PR validation record.
+
+Revision history: 2026-10-11 — replace the draft JavaScript coordinator with Rust and
+replace stored credentials with password references; split clipboard routing into its own PR.

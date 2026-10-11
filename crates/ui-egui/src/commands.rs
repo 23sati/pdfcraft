@@ -641,19 +641,6 @@ impl PdfCraftApp {
         // while the field has yet to see the Escape and discard its draft.)
         let active = self.active_ids();
         let form_typing = active.and_then(|(i, _)| self.views.get(i)).is_some_and(|v| v.forms.focus.is_some());
-        // Page commands use the same permission checks as menus and automation. Explicit
-        // page selections in the Pages sidebar work too; text/form editors retain clipboard input.
-        let page_context = active.and_then(|(i, _)| self.views.get(i)).is_some_and(|v| v.organize || !v.selected.is_empty());
-        if page_context && !typing && !form_typing {
-            let mut events = ctx.input_mut(|i| std::mem::take(&mut i.events));
-            let commands = take_page_clipboard(&mut events, ctx);
-            ctx.input_mut(|i| i.events = events);
-            for command in commands {
-                self.execute(command);
-            }
-        } else {
-            ctx.data_mut(|d| d.remove::<Vec<egui::Key>>(egui::Id::new("pdfcraft-page-clipboard")));
-        }
         let mut specs: Vec<&CommandSpec> = COMMANDS.iter().filter(|c| c.shortcut.is_some()).collect();
         specs.sort_by_key(|c| std::cmp::Reverse(c.shortcut.map(|s| s.modifier_count()).unwrap_or(0)));
         for spec in specs {
@@ -767,78 +754,5 @@ mod tests {
         assert_eq!(command_shortcut_label(&ctx, "view.read_mode"), "⌃⌘H");
         assert_eq!(command_modifier_label(&ctx), "⌘");
         crate::i18n::set_current(previous);
-    }
-}
-
-/// Consume both raw keys and logical clipboard events once, even across browser frames.
-fn take_page_clipboard(events: &mut Vec<egui::Event>, ctx: &egui::Context) -> Vec<&'static str> {
-    use egui::{Event, Key};
-    let id = egui::Id::new("pdfcraft-page-clipboard");
-    let mut pending = ctx.data_mut(|d| d.remove_temp::<Vec<Key>>(id)).unwrap_or_default();
-    let mut commands = Vec::new();
-    events.retain(|event| {
-        let key = match event {
-            Event::Key { key, pressed: true, repeat, modifiers, .. }
-                if modifiers.command && !modifiers.alt && !modifiers.shift && matches!(key, Key::C | Key::X | Key::V) =>
-            {
-                if *repeat {
-                    return false;
-                }
-                if !pending.contains(key) {
-                    pending.push(*key);
-                }
-                *key
-            }
-            Event::Key { key, pressed: false, .. } => {
-                pending.retain(|k| k != key);
-                return true;
-            }
-            Event::WindowFocused(false) => {
-                pending.clear();
-                return true;
-            }
-            Event::Copy | Event::Cut | Event::Paste(_) => {
-                let key = match event {
-                    Event::Copy => Key::C,
-                    Event::Cut => Key::X,
-                    _ => Key::V,
-                };
-                if let Some(index) = pending.iter().position(|k| *k == key) {
-                    pending.remove(index);
-                    return false;
-                }
-                key
-            }
-            _ => return true,
-        };
-        commands.push(match key {
-            Key::C => "page.copy",
-            Key::X => "page.cut",
-            _ => "page.paste",
-        });
-        false
-    });
-    ctx.data_mut(|d| d.insert_temp(id, pending));
-    commands
-}
-#[cfg(test)]
-mod clipboard_routing_tests {
-    use super::*;
-    #[test]
-    fn page_clipboard_gestures_are_consumed_once_across_frames() {
-        let ctx = egui::Context::default();
-        for (key, event, command) in [
-            (egui::Key::C, egui::Event::Copy, "page.copy"),
-            (egui::Key::X, egui::Event::Cut, "page.cut"),
-            (egui::Key::V, egui::Event::Paste("".into()), "page.paste"),
-        ] {
-            let mut events = vec![egui::Event::Key { key, physical_key: None, pressed: true, repeat: false, modifiers: egui::Modifiers::COMMAND }];
-            assert_eq!(take_page_clipboard(&mut events, &ctx), vec![command]);
-            assert!(events.is_empty());
-            events.push(event.clone());
-            assert!(take_page_clipboard(&mut events, &ctx).is_empty());
-            events.push(event);
-            assert_eq!(take_page_clipboard(&mut events, &ctx), vec![command]);
-        }
     }
 }

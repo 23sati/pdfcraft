@@ -121,6 +121,12 @@ pub fn tools() -> Vec<ToolDef> {
         t("doc_open", "Open a PDF", "Open a PDF file and return its document id, page count and whether it can be edited.")
             .cmd("file.open")
             .with(schema(json!({ "path": { "type": "string" }, "password": { "type": "string", "description": "User or owner password for encrypted files." } }), &["path"])),
+        t("session_capture", "Save recovery copy", "Atomically save open documents and undo/redo history. Passwords are excluded; re-enter them on restore. Does not mark documents saved.")
+            .destructive().with(schema(json!({"path": path_arg()}), &["path"])),
+        t("session_inspect", "Inspect recovery copy", "List required password prompts without restoring documents.")
+            .ro().with(schema(json!({"path": path_arg()}), &["path"])),
+        t("session_restore", "Restore recovery copy", "Restore into an empty session. Passwords correspond to session_inspect prompts. Fails without changing documents on a wrong password or invalid data.")
+            .with(schema(json!({"path": path_arg(), "passwords": {"type":"array", "items":{"type":"string"}}}), &["path"])),
         t("doc_list", "List open documents", "List the open documents with their ids, page counts and unsaved state.").ro().with(schema(json!({}), &[])),
         t("doc_info", "Inspect a document", "Metadata, page sizes and labels, bookmarks, annotations, form fields, links, layers, attachments, fonts, security and repair notes.")
             .ro()

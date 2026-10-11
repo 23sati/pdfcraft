@@ -1,11 +1,9 @@
-Browser page shortcuts and organizer actions could independently consume the same clipboard gesture. This ports the existing *craft command-layer Copy/Cut/Paste routing and cross-frame gesture matching while preserving focused text and form controls. Pages keep their internal clipboard semantics.
+Browser recovery is now Rust-only: web-sys IndexedDB, Rust futures and egui controls. Handwritten JavaScript, inline_js, session.css and npm test scaffolding were removed. Recovery readiness never gates the app's logic loop.
 
-Browser checkpoints restore ordered PDF tabs, active document, PDF snapshots and both history stacks, dirty status, per-document current page, scroll offset, zoom, fit, page layout, continuous-page mode, rotation and navigation history. The rebase preserves upstream's newer page-layout and camera actions.
+Schema 2 stores credential references instead of document passwords, including owner credentials and earlier undo/redo states. Restore prompts for required credentials and fails atomically on wrong or missing passwords. Old draft schema-1 stores are left untouched and rejected; see docs/browser-session-recovery.md for cleanup guidance.
 
-Addresses the browser session-restoration portion of #418 and #1178. Desktop persistence and independently reopening a document after explicitly closing it are not implemented here, so neither report is automatically closed.
+Every page load has an independent writer id. Reloads recover the last committed snapshot; later visits offer restoration. Snapshot, previous snapshot and latest pointer commit atomically. The session includes document tabs, both history stacks, dirty state and view state. Headless capture/inspect/restore tools respect --root and refuse to replace open work.
 
-Validation so far: nine standalone storage tests passed for this app at the root URL; the common harness extracting the actual rebased production clipboard routers/PNG decoder passed eight tests. All four rebased applications passed local WebAssembly checks. Native engine history round-trip tests are still running and are not yet claimed passed. No GitHub Actions build was requested.
+The Organize clipboard changes have been removed and split into a separate PR. Addresses the browser portion of #418 and #1178 without claiming desktop recovery or independent reopening of explicitly closed documents.
 
-This is a draft port of existing code, rebased onto upstream main as captured by the fork. Launcher, shared fonts, branding removals and hosting changes are excluded. See docs/browser-session-recovery.md for storage limits, migration and testing details. The JavaScript IndexedDB/lifecycle coordinator is an explicit architecture proposal for review against the Rust-only repository preference.
-
-Pending before merge: repository-wide quality checks and real Chromium/Firefox/WebKit clipboard permission, menu/keyboard, text focus, stale destination, refresh/return, duplicated-tab and large-history review. Compilation and fake-DOM storage tests do not establish complete browser behavior. AI assistance was used to port and review the changes.
+Validation and remaining limitations are recorded in the PR conversation. The PR remains a draft pending real-browser and large-history review. AI assistance was used for implementation and review.

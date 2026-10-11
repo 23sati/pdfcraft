@@ -147,7 +147,7 @@ pub struct DocId(pub u64);
 const MAX_UNDO: usize = 100;
 
 /// The passwords that go with one state of a document (protection can change them).
-#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 struct Keys {
     /// What the renderer and inspector open the working file with (the user password).
     render: Option<String>,

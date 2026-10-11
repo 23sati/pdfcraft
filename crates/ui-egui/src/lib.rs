@@ -420,6 +420,8 @@ pub struct RecentFile {
 }
 
 pub struct PdfCraftApp {
+    #[cfg(target_arch = "wasm32")]
+    browser_session: browser_session::Recovery,
     pub docking: docking::Workspace,
     pub(crate) pending_panel_reveals: Vec<docking::Panel>,
     pub session: Session,
@@ -760,6 +762,8 @@ fn rgb_triple(v: &serde_json::Value) -> Option<[f64; 3]> {
 impl PdfCraftApp {
     pub fn new() -> Self {
         Self {
+            #[cfg(target_arch = "wasm32")]
+            browser_session: browser_session::Recovery::default(),
             session: Session::new(),
             views: Vec::new(),
             active: None,
@@ -2231,9 +2235,7 @@ impl eframe::App for PdfCraftApp {
 
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         #[cfg(target_arch = "wasm32")]
-        if !craft_bridge::restore(|bytes| self.craft_restore(bytes)) {
-            return;
-        }
+        self.browser_session.clone().poll(self);
         self.ctx = Some(ctx.clone());
         self.dialog_epoch();
         // Notices raised outside `ui` (opened files, OS events, the control channel) translate too.
@@ -2380,6 +2382,8 @@ impl eframe::App for PdfCraftApp {
             ctx.request_repaint();
             return;
         }
+        #[cfg(target_arch = "wasm32")]
+        self.browser_session.clone().ui(self, &ctx);
         for view in &mut self.views {
             view.begin_render_frame();
         }
@@ -2473,5 +2477,7 @@ impl PdfCraftApp {
 }
 
 #[cfg(target_arch = "wasm32")]
-mod craft_bridge;
+mod browser_session;
+#[cfg(target_arch = "wasm32")]
+mod browser_store;
 mod craft_session;

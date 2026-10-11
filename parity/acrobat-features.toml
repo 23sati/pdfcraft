@@ -559,11 +559,11 @@ title = "Crash recovery in the web app"
 area = "A"
 tier = "P1"
 milestone = "M4"
-status = "planned"
+status = "partial"
 commands = []
-tools = []
-evidence = []
-notes = ""
+tools = ["session_capture", "session_inspect", "session_restore"]
+evidence = ["crates/engine/tests/craft_session.rs::craft_session_keeps_pdf_tabs_and_both_history_stacks", "crates/automation/tests/automation.rs::session_recovery_round_trip_honors_root_and_existing_work"]
+notes = "Draft Rust IndexedDB recovery with password re-entry and full history. Browser matrix, quota failures, tab duplication and large-history performance require further review."
 
 [[feature]]
 id = "core.unsaved-changes-prompt"
