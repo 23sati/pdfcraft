@@ -1483,6 +1483,8 @@
 	{file} is too large for a stamp (at most {n} MB)	{file} 對於戳記來說太大了（最大 {n} MB）
 	Sent to {printer}	已傳送到{printer}
 	Sent to {printer}: {msg}	已傳送到{printer}：{msg}
+	Looking for printers…	正在尋找印表機…
+	Sending to {printer}…	正在傳送到{printer}…
 	Choose a folder for the searchable files	選擇可搜尋檔案的資料夾
 	Files are combined from top to bottom. Leave Pages empty to take every page.	檔案將按從上到下的順序合併。頁碼留空表示取全部頁面。
 	Unlock…	解除鎖定…
@@ -2070,3 +2072,13 @@ key	Space	空格
 	Collapse all	全部摺疊
 	Remove page	刪除頁面
 	Remove {n} pages	刪除 {n} 頁
+
+# Shared panel docking
+	Reset panel layout	重設面板配置
+	Float panel	浮動面板
+	Move to group	移至群組
+	Panels	面板
+	Resize panels	調整面板大小
+	Resize panel window	調整面板視窗大小
+	Tools	工具
+	Inspector	檢查器
