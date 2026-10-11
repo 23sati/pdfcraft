@@ -828,7 +828,7 @@ area = "B"
 tier = "P0"
 milestone = "M3"
 status = "shipped"
-commands = ["view.layout.continuous"]
+commands = ["view.continuous"]
 tools = []
 evidence = ["crates/ui-egui/tests/view.rs::continuous_layout_stacks_pages_vertically", "crates/ui-egui/tests/view.rs::page_display_commands_switch_layouts", "crates/ui-egui/tests/view.rs::default_page_display_is_used_for_new_documents", "crates/ui-egui/src/canvas.rs::fit_page_and_height_hold_still_while_mixed_page_sizes_scroll_past"]
 notes = "the default for PDFs that don't ask for a layout (Preferences ▸ Default page display); pages stack with no snapping. Fit page and Fit height fit the largest page, so the zoom holds still across mixed page sizes"
@@ -2566,8 +2566,8 @@ milestone = "M4"
 status = "shipped"
 commands = ["page.organize"]
 tools = []
-evidence = ["crates/ui-egui/tests/editing.rs::shift_click_selects_a_range_and_moves_it"]
-notes = ""
+evidence = ["crates/ui-egui/tests/editing.rs::shift_click_selects_a_range_and_moves_it", "crates/ui-egui/tests/editing.rs::organize_tool_opens_the_overview_directly_and_can_be_reentered", "crates/ui-egui/tests/control.rs::organize_overview_is_reachable_through_the_control_channel"]
+notes = "Opening the Organize pages tool enters the overview directly. Hovered, focused and selected pages expose individual rotate/delete actions; the toolbar acts on the selection."
 
 [[feature]]
 id = "organize.multi-select-pages"
@@ -2579,7 +2579,7 @@ status = "shipped"
 commands = ["page.organize"]
 tools = []
 evidence = ["crates/ui-egui/tests/editing.rs::command_click_toggles_and_rotation_applies_to_selection", "crates/ui-egui/tests/editing.rs::shift_click_selects_a_range_and_moves_it", "crates/ui-egui/tests/editing.rs::organize_select_all_shortcut_preserves_current_page_and_sets_range_anchor", "crates/ui-egui/tests/control.rs::select_all_key_selects_every_page_in_organize"]
-notes = "Ctrl+A / ⌘A selects every page in the Organize grid, preserving the current page; text inputs and dialogs keep their own keyboard input."
+notes = "Ctrl+A / ⌘A selects every page in the Organize grid, preserving the current page; text inputs and dialogs keep their own keyboard input. Page checkboxes also toggle selection without modifiers (organize_checkboxes_toggle_multiple_pages_without_modifiers)."
 
 [[feature]]
 id = "organize.rotate-pages"
@@ -2590,7 +2590,7 @@ milestone = "M4"
 status = "shipped"
 commands = ["page.rotate", "page.rotate_ccw"]
 tools = ["page_rotate"]
-evidence = ["crates/organize/src/tests.rs::rotate_uses_inherited_rotation_and_round_trips", "crates/ui-egui/tests/editing.rs::command_click_toggles_and_rotation_applies_to_selection"]
+evidence = ["crates/organize/src/tests.rs::rotate_uses_inherited_rotation_and_round_trips", "crates/ui-egui/tests/editing.rs::command_click_toggles_and_rotation_applies_to_selection", "crates/ui-egui/tests/editing.rs::organize_page_actions_rotate_only_the_named_page_and_undo", "crates/ui-egui/tests/editing.rs::organize_local_actions_respect_document_permissions"]
 notes = ""
 
 [[feature]]
@@ -5941,9 +5941,9 @@ tier = "P1"
 milestone = "M9"
 status = "partial"
 commands = ["sign.digital"]
-tools = []
-evidence = ["crates/ui-egui/tests/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting"]
-notes = "text items (name, date, reason, location, DN, labels); no graphics or saved appearances yet"
+tools = ["sign_document"]
+evidence = ["crates/ui-egui/tests/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting", "crates/ui-egui/tests/signing.rs::the_fill_and_sign_signature_or_an_image_shows_in_a_digital_signature", "crates/sign/tests/pdf.rs::visible_signatures_show_a_drawn_typed_or_image_graphic", "crates/sign/tests/pdf.rs::malformed_signature_graphics_are_refused_not_drawn", "crates/sign/tests/pdf.rs::an_encrypted_documents_signature_graphic_is_encrypted_with_it", "crates/automation/tests/automation.rs::signing_with_an_image_typed_or_drawn_graphic_through_tools"]
+notes = "text items (name, date, reason, location, DN, labels), and a graphic where the large name would be: the saved Fill & Sign signature (drawn, typed or image) or an imported PNG/JPEG (white paper made transparent, as in Fill & Sign), remembered for the next signing; alone it fills the box. Missing: named saved appearances (one remembered choice only), a PDF page as the graphic, the logo/watermark background, drawing a new signature inside the dialog"
 
 [[feature]]
 id = "sign.reason-location"
