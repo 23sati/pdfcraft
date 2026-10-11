@@ -23,7 +23,7 @@ status = "shipped"
 commands = ["file.open"]
 tools = ["doc_open"]
 evidence = ["crates/automation/tests/automation.rs::open_inspect_render_and_find", "crates/ui-egui/tests/ui.rs::opening_a_pdf_shows_comments_and_bookmarks", "crates/ui-egui/tests/ui.rs::files_and_quit_from_the_operating_system"]
-notes = "File ▸ Open, the command line (Linux and Windows file associations), and on macOS Finder, Open With and the Dock (Apple events; the bundle declares PDF as a document type)"
+notes = "File ▸ Open, the command line (Linux and Windows file associations), the Windows MSI's \"Edit with PdfCraft\" entry on PDF files' File Explorer right-click menu (#682; several selected PDFs open as tabs of one window), and on macOS Finder, Open With and the Dock (Apple events; the bundle declares PDF as a document type). Not yet: a first-level Windows 11 menu entry (needs package identity) or Combine from the file manager (#585)"
 
 [[feature]]
 id = "core.repair-broken-files"
@@ -10035,7 +10035,7 @@ status = "planned"
 commands = []
 tools = []
 evidence = []
-notes = "Windows MSI creates a Start menu shortcut and an optional (default on) desktop shortcut and confirms full-UI completion with Finish (#143); packaging/windows/test-msi.ps1 checks the compiled MSI and windows-arm64.yml checks installation/removal. PDF files use a dedicated embedded document icon when PdfCraft is chosen as the default reader (confirmed in Windows Explorer); first-page thumbnails remain unsupported. Signed installers across platforms remain planned."
+notes = "Windows MSI creates a Start menu shortcut, an optional (default on) desktop shortcut and an optional (default on, INSTALLPDFCONTEXTMENU) \"Edit with PdfCraft\" File Explorer menu entry for PDF files (#682), and confirms full-UI completion with Finish (#143); packaging/windows/test-msi.ps1 checks the compiled MSI and windows-arm64.yml checks installation/removal. PDF files use a dedicated embedded document icon when PdfCraft is chosen as the default reader (confirmed in Windows Explorer); first-page thumbnails remain unsupported. Signed installers across platforms remain planned."
 
 [[feature]]
 id = "misc.web-deploy"
