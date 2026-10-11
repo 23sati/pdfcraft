@@ -171,6 +171,7 @@ fn primary_ui_fonts_cover_latin_and_cyrillic_catalogs() {
     let defs = theme::font_definitions();
     for (code, catalog) in [
         ("cs", include_str!("../src/i18n/cs.tsv")),
+        ("el", include_str!("../src/i18n/el.tsv")),
         ("pt-br", include_str!("../src/i18n/pt-br.tsv")),
         ("de", include_str!("../src/i18n/de.tsv")),
         ("es", include_str!("../src/i18n/es.tsv")),
