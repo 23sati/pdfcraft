@@ -13,3 +13,15 @@ pdfcraft-cos = { workspace = true }
 pdfcraft-content = { workspace = true }
 pdfcraft-model = { workspace = true }
 thiserror = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+# Printing without starting anything (issue #1107): the printer list (EnumPrinters) and the job
+# (Windows.Data.Pdf drawn with Direct2D into the XPS print API, options as a PrintTicket) are safe
+# wrappers over Win32 and WinRT (BSD-3-Clause). Its default `pdfium` feature downloads PDFium at
+# build time and is off. Pinned exactly, review before bumping.
+winprint = { version = "=0.2.1", default-features = false }
+# GetDefaultPrinter; already in the tree through the desktop app (MIT).
+winsafe = { version = "0.0.29", default-features = false, features = ["winspool"] }
+# The job file's private folder and reading the PrintTicket the driver hands back; both already in the tree.
+tempfile = "3"
+roxmltree = "0.20"

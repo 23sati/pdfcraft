@@ -36,13 +36,19 @@ garbage-collected file (callers check the print permission).
 `lpstat -e` (driverless destinations no queue exists for; CUPS builds a temporary one when the
 job arrives), jobs go to `lp` with copies, collation, duplex and monochrome options. The job is
 piped to `lp` on stdin and never written to a temp file, where another local user could read or
-swap it. On Windows the printers come from `Win32_Printer` and jobs are rendered by the in-box
-`Windows.Data.Pdf` and spooled by `System.Drawing.Printing` with the driver's own settings (both
-through `powershell`, so no Win32 API is called here); that job file exists for the seconds the
-spooler reads it, under a fresh unpredictable name. Each sheet prints at 100% on the driver's
-paper closest to its size, turned landscape when it is wide, and is rasterised at the printer's
-resolution (up to 600 dpi), not sent as vectors. Other platforms report that printing to a
-printer isn't available yet; the print-ready PDF can always be saved.
+swap it. On Windows everything happens in-process, with no PowerShell or other program started,
+so printing also works where App Control for Business or AppLocker lock scripts down (#1107):
+the printers come from `EnumPrinters` (local queues and the user's connections) with the default
+from `GetDefaultPrinter`, and the job is drawn by the in-box `Windows.Data.Pdf` with Direct2D into
+the XPS print API, as vectors, through the `winprint` crate. Copies, collation, two-sided, colour,
+the sheet's paper and orientation and "no scaling" go in a PrintTicket that the driver validates
+first; when it has no such paper, or would change the paper, orientation or scaling, nothing is
+sent. A job has one ticket, so sheets that Auto orientation turned for landscape pages are turned
+back with `/Rotate` and print in the same job. The job file exists for the seconds the spooler
+reads it, in a private temporary folder. Pages are drawn by Windows' PDF engine, not PdfCraft's
+renderer, so an unusual file can print slightly differently from how it looks on screen. Other
+platforms report that printing to a printer isn't available yet; the print-ready PDF can always
+be saved.
 
 Not yet: the web spooler, print as image, poster labels, PostScript output, colour conversion for
 grayscale.

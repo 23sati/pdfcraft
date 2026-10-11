@@ -1,12 +1,14 @@
 //! The system print spooler. On macOS and Linux this is CUPS: printers come from `lpstat` — its
 //! queues, and the driverless destinations it can print to without one — and jobs are piped to
 //! `lp` with the job options (copies, collation, duplex, colour). On Windows the printers come
-//! from `Win32_Printer` and jobs are rendered with the in-box `Windows.Data.Pdf` and spooled
-//! with the driver's own settings — both through `powershell`, so no Win32 API is called here.
-//! Other platforms report that printing isn't available yet; the print-ready PDF can still be
-//! saved.
+//! from the spooler and jobs are drawn by the in-box `Windows.Data.Pdf` into the XPS print API
+//! with the options as a PrintTicket, all in this process (`spool/windows.rs`). Other platforms
+//! report that printing isn't available yet; the print-ready PDF can still be saved.
 
 use crate::PrintError;
+
+#[cfg(windows)]
+mod windows;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Printer {
@@ -314,14 +316,7 @@ pub fn printers() -> Vec<Printer> {
     }
     #[cfg(windows)]
     {
-        // Win32_Printer through CIM: `wmic` was removed from Windows 11 (24H2) and
-        // `Get-CimInstance` is on every desktop install. A machine whose PowerShell is locked
-        // down lists no printers and the dialog offers only Save as PDF, as with CUPS that
-        // isn't running.
-        match powershell_command(POWERSHELL_PRINTERS).output() {
-            Ok(o) if o.status.success() => parse_windows_printers(&String::from_utf8_lossy(&o.stdout)),
-            _ => Vec::new(),
-        }
+        windows::printers()
     }
     #[cfg(not(any(windows, all(unix, not(target_arch = "wasm32")))))]
     {
@@ -347,47 +342,14 @@ pub fn printers_parsed(queues: &str, available: Option<&str>) -> Vec<Printer> {
     printers
 }
 
-/// The `powershell` command that runs a script. `-NoProfile` keeps a user's profile from
-/// writing banners into what is parsed, `-NonInteractive` from waiting for input.
-/// `CREATE_NO_WINDOW`: the release app has no console of its own, so without it Windows opens
-/// a console window for PowerShell over the app for as long as the script runs.
-#[cfg(windows)]
-fn powershell_command(script: &str) -> std::process::Command {
-    use std::os::windows::process::CommandExt as _;
-    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    let mut c = std::process::Command::new("powershell");
-    c.args(["-NoProfile", "-NonInteractive", "-Command", script]);
-    c.creation_flags(CREATE_NO_WINDOW);
-    c
-}
-
-/// The Windows printer list: one line per printer, `*` on the system default. UTF-8, through
-/// the output encoding the script sets first. Only the two properties the list needs are
-/// pulled, so a machine with many printers doesn't wait for the rest of each record.
-#[cfg(windows)]
-const POWERSHELL_PRINTERS: &str = "[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false); Get-CimInstance Win32_Printer -Property Name, Default | ForEach-Object { if ($_.Default) { '*' + $_.Name } else { $_.Name } }";
-
-/// The Print dialog's printers from the Windows printer list: one per line, `*` before the
-/// system default (a Windows queue name may not contain `*`). The first `*` wins when a broken
-/// spooler marks more than one, so the dialog still has a single default to preselect.
-pub fn parse_windows_printers(out: &str) -> Vec<Printer> {
-    let mut printers: Vec<Printer> = out
-        .lines()
-        .map(|l| l.strip_suffix('\r').unwrap_or(l))
-        .filter(|l| !l.is_empty())
-        .map(|l| match l.strip_prefix('*') {
-            Some(name) => Printer { name: name.to_string(), default: true },
-            None => Printer { name: l.to_string(), default: false },
-        })
-        .collect();
-    let mut seen_default = false;
-    for p in &mut printers {
-        if p.default {
-            p.default = !seen_default;
-            seen_default = true;
-        }
-    }
-    printers
+/// The Print dialog's printers from the Windows spooler's queue names: sorted, each once, the
+/// default marked when it is one of them.
+#[cfg(any(test, windows))]
+pub(crate) fn printer_list(names: impl IntoIterator<Item = String>, default: Option<&str>) -> Vec<Printer> {
+    let mut names: Vec<String> = names.into_iter().filter(|n| !n.trim().is_empty()).collect();
+    names.sort();
+    names.dedup();
+    names.into_iter().map(|name| Printer { default: default == Some(name.as_str()), name }).collect()
 }
 
 /// Send a print-ready PDF to the spooler. Returns the spooler's message (the job id).
@@ -398,7 +360,7 @@ pub fn submit(pdf: &[u8], job: &Job) -> Result<String, PrintError> {
     }
     #[cfg(windows)]
     {
-        windows_submit(pdf, job, &[])
+        windows::submit(pdf, job)
     }
     #[cfg(not(any(windows, all(unix, not(target_arch = "wasm32")))))]
     {
@@ -407,81 +369,52 @@ pub fn submit(pdf: &[u8], job: &Job) -> Result<String, PrintError> {
     }
 }
 
-/// [`submit`] on Windows: the print-ready PDF goes to a job file of its own (WinRT reads from
-/// a path), the embedded [`WINDOWS_PRINT_SCRIPT`] spools it, and the file is gone again however
-/// the job ended. `extra_envs` reaches the script too — the tests use it for
-/// `PDFCRAFT_PRINT_DRYRUN`, which renders without a printer.
-#[cfg(windows)]
-pub(crate) fn windows_submit(pdf: &[u8], job: &Job, extra_envs: &[(&str, &str)]) -> Result<String, PrintError> {
-    let path = windows_job_file(pdf)?;
-    let mut ps = powershell_command(WINDOWS_PRINT_SCRIPT);
-    for (key, value) in windows_env_vars(&path, job).into_iter().chain(extra_envs.iter().map(|(k, v)| (k.to_string(), v.to_string()))) {
-        ps.env(key, value);
-    }
-    let out = ps.output();
-    // Remove the job file before reporting: a spooler that refused the job must not leave the
-    // document behind.
-    let _ = std::fs::remove_file(&path);
-    let out = out.map_err(|e| PrintError::Spool(format!("the print spooler is not available: {e}")))?;
-    if !out.status.success() {
-        let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
-        let err = if err.is_empty() { String::from_utf8_lossy(&out.stdout).trim().to_string() } else { err };
-        return Err(PrintError::Spool(if err.is_empty() { "the print job was refused".into() } else { err }));
-    }
-    Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+/// A print-ready PDF whose sheets all have one size and orientation; see [`one_sheet_shape`].
+#[cfg(any(test, windows))]
+pub(crate) struct OneShape<'a> {
+    pub pdf: std::borrow::Cow<'a, [u8]>,
+    /// The sheets' size in points.
+    pub sheet: (f64, f64),
+    pub count: usize,
 }
 
-/// The job file [`windows_submit`] hands to `powershell`, in this user's own temporary folder:
-/// a fresh name no other local user can predict (`create_new`, with the process id and the
-/// time), written before anything is spawned and removed after. WinRT reads a path, so unlike
-/// the job piped to `lp` this one touches disk for the seconds the spooler reads it.
-#[cfg(windows)]
-fn windows_job_file(pdf: &[u8]) -> Result<std::path::PathBuf, PrintError> {
-    use std::io::Write as _;
-    let written = |e: std::io::Error| PrintError::Spool(format!("the print job could not be written: {e}"));
-    let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos());
-    for attempt in 0..64u32 {
-        let path = std::env::temp_dir().join(format!("pdfcraft-print-{}-{nanos}-{attempt}.pdf", std::process::id()));
-        match std::fs::OpenOptions::new().write(true).create_new(true).open(&path) {
-            Ok(mut file) => {
-                file.write_all(pdf).map_err(written)?;
-                return Ok(path);
-            }
-            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
-            Err(e) => return Err(written(e)),
+/// The print-ready PDF with every sheet the shape of the first. Windows prints a job with one PrintTicket, so with one paper size and
+/// orientation; the sheets of one job differ only where Auto orientation turned some for
+/// landscape pages. Those are turned back with `/Rotate` (a landscape sheet a quarter turn
+/// anticlockwise, as drivers put a landscape job on the paper), so a document with portrait and
+/// landscape pages still prints as one job. A sheet of another size is refused; the print-ready
+/// PDFs [`crate::impose`] makes never have one.
+#[cfg(any(test, windows))]
+pub(crate) fn one_sheet_shape(pdf: &[u8]) -> Result<OneShape<'_>, PrintError> {
+    use pdfcraft_cos::{Document, Object, SaveOptions, write_full};
+    let mut doc = Document::open(std::sync::Arc::new(pdf.to_vec()))?;
+    let pages = pdfcraft_model::pages(&doc);
+    let first = pages.first().ok_or(PrintError::NoPages)?.display_size(&doc);
+    let same = |a: (f64, f64), b: (f64, f64)| (a.0 - b.0).abs() <= 0.1 && (a.1 - b.1).abs() <= 0.1;
+    let quarter = if first.0 > first.1 { 90 } else { 270 };
+    let mut turned = Vec::new();
+    for page in &pages {
+        let size = page.display_size(&doc);
+        if same(size, first) {
+            continue;
         }
+        if !same((size.1, size.0), first) {
+            return Err(PrintError::Spool("Windows prints one paper size per job; print the sheets of each size separately".into()));
+        }
+        turned.push((page.obj, (page.rotation(&doc) + quarter) % 360));
     }
-    Err(PrintError::Spool("the print job could not be written: no free name in the temporary folder".into()))
+    if turned.is_empty() {
+        return Ok(OneShape { pdf: std::borrow::Cow::Borrowed(pdf), sheet: first, count: pages.len() });
+    }
+    for (obj, rotate) in turned {
+        let Some(mut dict) = doc.get(obj).as_dict().cloned() else {
+            return Err(PrintError::Spool("the print-ready PDF has a page that is not a page".into()));
+        };
+        dict.set(b"Rotate".to_vec(), Object::Int(rotate));
+        doc.set(obj, Object::Dict(dict));
+    }
+    Ok(OneShape { pdf: std::borrow::Cow::Owned(write_full(&doc, &SaveOptions::default())?), sheet: first, count: pages.len() })
 }
-
-/// The print script's environment: no arguments, so a printer name with quotes or spaces
-/// survives the command line and the document's path is not visible in the process list while
-/// it prints. The driver options in [`Job::options`] are CUPS' PPD keywords; on Windows the
-/// driver's own per-printer preferences apply (Print ▸ Properties…), so they are not sent.
-#[cfg_attr(not(windows), allow(dead_code))]
-pub(crate) fn windows_env_vars(path: &std::path::Path, job: &Job) -> Vec<(String, String)> {
-    vec![
-        ("PDFCRAFT_PRINT_FILE".into(), path.to_string_lossy().into_owned()),
-        ("PDFCRAFT_PRINT_PRINTER".into(), job.printer.clone().unwrap_or_default()),
-        ("PDFCRAFT_PRINT_COPIES".into(), job.copies.to_string()),
-        ("PDFCRAFT_PRINT_COLLATE".into(), if job.collate { "1" } else { "0" }.into()),
-        (
-            "PDFCRAFT_PRINT_DUPLEX".into(),
-            match job.duplex {
-                Duplex::Off => "off",
-                Duplex::LongEdge => "long-edge",
-                Duplex::ShortEdge => "short-edge",
-            }
-            .into(),
-        ),
-        ("PDFCRAFT_PRINT_GRAYSCALE".into(), if job.grayscale { "1" } else { "0" }.into()),
-        ("PDFCRAFT_PRINT_TITLE".into(), job.title.clone()),
-    ]
-}
-
-/// The embedded print script (see [`windows_submit`]).
-#[cfg(windows)]
-pub(crate) const WINDOWS_PRINT_SCRIPT: &str = include_str!("windows_print.ps1");
 
 /// [`submit`] with the spooler command given, so tests can stand in for `lp`.
 ///
