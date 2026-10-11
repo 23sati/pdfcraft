@@ -762,6 +762,8 @@
 	Appear behind page	Az oldal mögött
 	Appear on top of page	Az oldal előtt
 	Offset from centre	Eltolás a középponttól
+	Show when displaying on screen	Megjelenítés a képernyőn
+	Show when printing	Megjelenítés nyomtatáskor
 	From colour	Színből
 	Page Range Options	Oldaltartomány beállításai
 	Preview: page {p} of {n}	Előnézet: {p}. oldal / {n}

@@ -2432,3 +2432,227 @@ fn group_move_budget_refusals_keep_the_original_page_selectable() {
         assert_eq!(editable_objects(&doc, 0).unwrap(), objects, "refusal retains a usable inventory");
     }
 }
+
+/// The document's layer configuration (`/OCProperties`), if it has one.
+fn layer_props(doc: &Document) -> Option<Dict> {
+    let root = doc.trailer().get(b"Root")?.as_ref()?;
+    let cat = doc.get(root).as_dict()?.clone();
+    cat.get(b"OCProperties").map(|p| doc.resolve(p)).and_then(|p| p.as_dict().cloned())
+}
+
+/// The layer groups listed in `/OCGs`.
+fn layer_groups(doc: &Document) -> Vec<ObjRef> {
+    layer_props(doc)
+        .and_then(|p| p.get(b"OCGs").and_then(Object::as_array).map(|a| a.iter().filter_map(Object::as_ref).collect()))
+        .unwrap_or_default()
+}
+
+/// The state (`"ON"`, `"OFF"`) a layer's usage gives for `category` (`View`, `Print`).
+fn usage_state(doc: &Document, layer: ObjRef, category: &str) -> Option<String> {
+    let group = doc.get(layer);
+    let usage = doc.resolve(group.as_dict()?.get(b"Usage")?);
+    let entry = doc.resolve(usage.as_dict()?.get(category.as_bytes())?);
+    let key = format!("{category}State");
+    Some(String::from_utf8_lossy(entry.as_dict()?.name(key.as_bytes())?).into_owned())
+}
+
+/// The layers `page` names in its `/Properties` resources: (resource name, group).
+fn page_layers(doc: &Document, page: usize) -> Vec<(String, ObjRef)> {
+    let p = &pdfcraft_model::pages(doc)[page];
+    let res = p.dict.get(b"Resources").map(|r| doc.resolve(r)).and_then(|r| r.as_dict().cloned()).unwrap_or_default();
+    let props = res.get(b"Properties").map(|r| doc.resolve(r)).and_then(|r| r.as_dict().cloned()).unwrap_or_default();
+    props.iter().filter_map(|(n, v)| Some((String::from_utf8_lossy(n).into_owned(), v.as_ref()?))).collect()
+}
+
+fn shown(screen: bool, print: bool) -> Visibility {
+    Visibility { screen, print }
+}
+
+fn wm_with(visibility: Visibility) -> Watermark {
+    Watermark { text: "DRAFT".into(), visibility, ..Watermark::default() }
+}
+
+#[test]
+fn a_screen_only_watermark_is_a_layer_that_is_not_printed() {
+    let mut doc = fixture();
+    add_watermark(&mut doc, &[0], &wm_with(shown(true, false)), false).unwrap();
+    let groups = layer_groups(&doc);
+    assert_eq!(groups.len(), 1);
+    let layer = groups[0];
+    let group = doc.get(layer);
+    assert_eq!(group.as_dict().unwrap().name(b"Type"), Some(&b"OCG"[..]));
+    assert_eq!(group.as_dict().unwrap().name(b"PCMark"), Some(&b"Watermark"[..]), "marked as ours, to find it again");
+    assert_eq!(usage_state(&doc, layer, "View").as_deref(), Some("ON"));
+    assert_eq!(usage_state(&doc, layer, "Print").as_deref(), Some("OFF"));
+    // On by default (the default state is the on-screen state), and one usage application per event.
+    let props = layer_props(&doc).unwrap();
+    let d = props.get(b"D").and_then(Object::as_dict).unwrap();
+    assert!(!d.contains(b"OFF"), "shown on screen by default: {d:?}");
+    let events: Vec<&[u8]> = d.get(b"AS").and_then(Object::as_array).unwrap().iter().filter_map(|a| a.as_dict()?.name(b"Event")).collect();
+    assert_eq!(events, [&b"View"[..], b"Print"]);
+    // The mark is inside marked content for the layer, and the page names the layer.
+    let name = format!("PCOC{}", layer.num);
+    let s = streams(&doc, 0);
+    let mark = s.iter().find(|c| c.contains("/PCMark /Watermark")).expect("the watermark stream");
+    assert!(mark.contains(&format!("/OC /{name} BDC")), "{mark}");
+    assert_eq!(mark.matches("BDC").count(), mark.matches("EMC").count(), "balanced marked content: {mark}");
+    assert_eq!(page_layers(&doc, 0), [(name, layer)]);
+    assert!(page_layers(&doc, 1).is_empty(), "other pages are untouched");
+    reopen(&doc);
+}
+
+#[test]
+fn a_print_only_watermark_is_a_layer_that_is_off_on_screen() {
+    let mut doc = fixture();
+    add_watermark(&mut doc, &[0], &wm_with(shown(false, true)), false).unwrap();
+    let layer = layer_groups(&doc)[0];
+    assert_eq!(usage_state(&doc, layer, "View").as_deref(), Some("OFF"));
+    assert_eq!(usage_state(&doc, layer, "Print").as_deref(), Some("ON"));
+    let props = layer_props(&doc).unwrap();
+    let d = props.get(b"D").and_then(Object::as_dict).unwrap();
+    let off: Vec<ObjRef> = d.get(b"OFF").and_then(Object::as_array).unwrap().iter().filter_map(Object::as_ref).collect();
+    assert_eq!(off, [layer], "hidden by default, so a viewer that only knows on and off hides it on screen");
+}
+
+#[test]
+fn a_watermark_shown_everywhere_has_no_layer() {
+    let mut doc = fixture();
+    add_watermark(&mut doc, &[0], &wm_with(Visibility::default()), false).unwrap();
+    assert!(layer_props(&doc).is_none(), "nothing is added to the document's layers");
+    assert!(page_layers(&doc, 0).is_empty());
+    let s = streams(&doc, 0);
+    assert!(!s.iter().any(|c| c.contains("/OC /")), "no marked content for a layer");
+}
+
+#[test]
+fn a_watermark_shown_nowhere_is_refused_and_changes_nothing() {
+    let mut doc = fixture();
+    assert!(matches!(add_watermark(&mut doc, &[0], &wm_with(shown(false, false)), false), Err(EditError::Invalid(_))));
+    assert!(!doc.is_modified());
+}
+
+#[test]
+fn the_documents_own_layers_are_kept_and_come_back_exactly_when_the_watermark_goes() {
+    let mut doc = fixture();
+    // A layer the document already has, off by default, with its own Print usage application.
+    let mut own_group = Dict::new();
+    own_group.set(b"Type".to_vec(), Object::name("OCG"));
+    own_group.set(b"Name".to_vec(), Object::String(PdfString::text("Notes")));
+    let own = doc.add(Object::Dict(own_group));
+    let mut print_application = Dict::new();
+    print_application.set(b"Event".to_vec(), Object::name("Print"));
+    print_application.set(b"Category".to_vec(), Object::Array(vec![Object::name("Print")]));
+    print_application.set(b"OCGs".to_vec(), Object::Array(vec![Object::Ref(own)]));
+    let mut config = Dict::new();
+    config.set(b"OFF".to_vec(), Object::Array(vec![Object::Ref(own)]));
+    config.set(b"AS".to_vec(), Object::Array(vec![Object::Dict(print_application)]));
+    let mut props = Dict::new();
+    props.set(b"OCGs".to_vec(), Object::Array(vec![Object::Ref(own)]));
+    props.set(b"D".to_vec(), Object::Dict(config));
+    let root = doc.trailer().get(b"Root").and_then(Object::as_ref).unwrap();
+    doc.update_dict(root, |c| c.set(b"OCProperties".to_vec(), Object::Dict(props))).unwrap();
+    let before = layer_props(&doc).unwrap();
+
+    add_watermark(&mut doc, &[0], &wm_with(shown(false, true)), false).unwrap();
+    let groups = layer_groups(&doc);
+    assert_eq!(groups.len(), 2);
+    assert_eq!(groups[0], own, "the document's layer is still first and unchanged");
+    let layer = groups[1];
+    let props = layer_props(&doc).unwrap();
+    let d = props.get(b"D").and_then(Object::as_dict).unwrap();
+    let off: Vec<ObjRef> = d.get(b"OFF").and_then(Object::as_array).unwrap().iter().filter_map(Object::as_ref).collect();
+    assert_eq!(off, [own, layer]);
+    let applications = d.get(b"AS").and_then(Object::as_array).unwrap();
+    assert_eq!(applications.len(), 2, "the Print application is joined, a View one is new");
+    let print: Vec<ObjRef> =
+        applications[0].as_dict().unwrap().get(b"OCGs").and_then(Object::as_array).unwrap().iter().filter_map(Object::as_ref).collect();
+    assert_eq!(print, [own, layer]);
+
+    assert_eq!(remove_marks(&mut doc, &[0], MarkKind::Watermark).unwrap(), 1);
+    assert_eq!(layer_props(&doc), Some(before), "the layer configuration is exactly what it was");
+    assert!(page_layers(&doc, 0).is_empty());
+}
+
+#[test]
+fn removing_the_only_layer_takes_the_layer_configuration_with_it() {
+    let mut doc = fixture();
+    add_watermark(&mut doc, &[0], &wm_with(shown(true, false)), false).unwrap();
+    assert!(layer_props(&doc).is_some());
+    remove_marks(&mut doc, &[0], MarkKind::Watermark).unwrap();
+    assert!(layer_props(&doc).is_none(), "the document had none before");
+    assert!(page_layers(&doc, 0).is_empty());
+}
+
+#[test]
+fn replacing_a_watermark_replaces_its_layer() {
+    let mut doc = fixture();
+    add_watermark(&mut doc, &[0], &wm_with(shown(false, true)), false).unwrap();
+    add_watermark(&mut doc, &[0], &wm_with(shown(true, false)), true).unwrap();
+    let groups = layer_groups(&doc);
+    assert_eq!(groups.len(), 1, "the old layer is gone, not left behind");
+    assert_eq!(usage_state(&doc, groups[0], "Print").as_deref(), Some("OFF"));
+    // And back to shown everywhere: no layer at all.
+    add_watermark(&mut doc, &[0], &wm_with(Visibility::default()), true).unwrap();
+    assert!(layer_props(&doc).is_none());
+}
+
+#[test]
+fn two_watermarks_on_a_page_keep_their_own_layers() {
+    let mut doc = fixture();
+    add_watermark(&mut doc, &[0], &wm_with(shown(true, false)), false).unwrap();
+    add_watermark(&mut doc, &[0], &wm_with(shown(false, true)), false).unwrap();
+    assert_eq!(layer_groups(&doc).len(), 2);
+    let named = page_layers(&doc, 0);
+    assert_eq!(named.len(), 2, "different resource names: {named:?}");
+    assert_ne!(named[0].0, named[1].0);
+    let s = streams(&doc, 0);
+    for (name, _) in &named {
+        assert_eq!(s.iter().filter(|c| c.contains(&format!("/OC /{name} BDC"))).count(), 1, "{name}");
+    }
+}
+
+#[test]
+fn a_layer_goes_only_when_no_page_uses_it_any_more() {
+    let mut doc = fixture();
+    add_watermark(&mut doc, &[0, 1], &wm_with(shown(true, false)), false).unwrap();
+    assert_eq!(layer_groups(&doc).len(), 1, "one layer for the watermark, whatever the pages");
+    remove_marks(&mut doc, &[0], MarkKind::Watermark).unwrap();
+    assert_eq!(layer_groups(&doc).len(), 1, "page 2 still uses it");
+    assert!(page_layers(&doc, 0).is_empty() && page_layers(&doc, 1).len() == 1);
+    remove_marks(&mut doc, &[1], MarkKind::Watermark).unwrap();
+    assert!(layer_props(&doc).is_none());
+}
+
+#[test]
+fn a_picture_watermark_can_be_in_a_layer_too() {
+    let mut doc = fixture();
+    let src = MarkSource { xobject: pdfcraft_cos::ObjRef::new(50, 0), size: (100.0, 50.0), image: true };
+    let wm = Watermark { source: Some(src), visibility: shown(false, true), ..Watermark::default() };
+    add_watermark(&mut doc, &[0], &wm, false).unwrap();
+    let layer = layer_groups(&doc)[0];
+    let s = streams(&doc, 0);
+    let mark = s.iter().find(|c| c.contains("/PCMark /Watermark")).unwrap();
+    assert!(mark.contains(&format!("/OC /PCOC{} BDC", layer.num)) && mark.contains("/PCPic50 Do"), "{mark}");
+    assert_eq!(page_layers(&doc, 0).len(), 1);
+}
+
+#[test]
+fn damaged_layer_configurations_are_replaced_or_skipped_not_followed() {
+    // OCProperties that is not a dictionary, one whose /OCGs and /D are the wrong types, and an
+    // /AS full of things that are not applications: adding a layered watermark must not panic.
+    let mut wrong_types = Dict::new();
+    wrong_types.set(b"OCGs".to_vec(), Object::Int(1));
+    wrong_types.set(b"D".to_vec(), Object::Int(2));
+    let mut config = Dict::new();
+    config.set(b"AS".to_vec(), Object::Array(vec![Object::Int(1), Object::Null, Object::name("x")]));
+    let mut junk_applications = Dict::new();
+    junk_applications.set(b"D".to_vec(), Object::Dict(config));
+    for damaged in [Object::Int(5), Object::Dict(wrong_types), Object::Dict(junk_applications)] {
+        let mut doc = fixture();
+        let root = doc.trailer().get(b"Root").and_then(Object::as_ref).unwrap();
+        doc.update_dict(root, |c| c.set(b"OCProperties".to_vec(), damaged.clone())).unwrap();
+        add_watermark(&mut doc, &[0], &wm_with(shown(false, true)), false).unwrap_or_else(|e| panic!("{damaged:?}: {e}"));
+        assert_eq!(layer_groups(&doc).len(), 1, "{damaged:?}");
+        remove_marks(&mut doc, &[0], MarkKind::Watermark).unwrap();
+    }
+}

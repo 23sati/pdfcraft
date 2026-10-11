@@ -1478,6 +1478,36 @@ fn watermarks_move_from_the_page_centre_through_tools() {
 }
 
 #[test]
+fn watermarks_for_the_screen_or_for_print_through_tools() {
+    let dir = workdir("wm-visibility");
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    // The layers of the saved file, as the document inspector reads them after reopening it.
+    let mut saved = 0;
+    let mut layers = |a: &mut Automation| -> Value {
+        saved += 1;
+        let path = format!("visibility{saved}.pdf");
+        ok(a, "doc_save", json!({ "doc": doc, "path": path }));
+        let copy = ok(a, "doc_open", json!({ "path": path }))["doc"].as_u64().unwrap();
+        ok(a, "doc_info", json!({ "doc": copy }))["layers"].clone()
+    };
+    assert_eq!(layers(&mut a), json!([]), "the document has no layers to begin with");
+    // Print only: a layer that is off by default, so a viewer hides it on screen.
+    ok(&mut a, "doc_watermark", json!({ "doc": doc, "pages": [1], "text": "DRAFT", "show_on_screen": false }));
+    assert_eq!(layers(&mut a), json!([{ "name": "Watermark", "visible": false }]));
+    // Replacing it with a screen-only one swaps the layer: one layer, on.
+    ok(&mut a, "doc_watermark", json!({ "doc": doc, "pages": [1], "text": "DRAFT", "show_when_printing": false, "replace": true }));
+    assert_eq!(layers(&mut a), json!([{ "name": "Watermark", "visible": true }]));
+    // Shown everywhere again: no layer left.
+    ok(&mut a, "doc_watermark", json!({ "doc": doc, "pages": [1], "text": "DRAFT", "replace": true }));
+    assert_eq!(layers(&mut a), json!([]));
+    // Neither is refused, and a value that is not a boolean is an argument error.
+    let neither = json!({ "doc": doc, "text": "X", "show_on_screen": false, "show_when_printing": false });
+    assert!(matches!(a.call("doc_watermark", &neither), Err(ToolError::Failed(_))));
+    assert!(matches!(a.call("doc_watermark", &json!({ "doc": doc, "text": "X", "show_on_screen": "no" })), Err(ToolError::InvalidArgs(_))));
+}
+
+#[test]
 fn exporting_images_and_text_through_tools() {
     let dir = workdir("export");
     let mut a = auto(&dir);

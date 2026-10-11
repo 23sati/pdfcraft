@@ -478,6 +478,8 @@
 	Appear behind page	显示在页面后面
 	Appear on top of page	显示在页面上层
 	Offset from centre	与中心的偏移
+	Show when displaying on screen	在屏幕上显示
+	Show when printing	打印时显示
 	From colour	使用颜色
 	Page Range Options	页面范围选项
 	Preview: page {p} of {n}	预览：第 {p} 页，共 {n} 页

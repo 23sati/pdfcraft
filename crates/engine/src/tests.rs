@@ -3396,3 +3396,34 @@ fn enhance_camera_page_refuses_bad_corners_and_pages() {
     assert!(matches!(s.enhance_camera_page(DocId(999), 0, ok), Err(EditError::NoDocument)));
     assert_eq!(s.get(id).unwrap().can_undo(), None, "nothing changed");
 }
+
+#[test]
+fn a_watermark_for_the_screen_or_for_print_shows_only_there() {
+    // Large red text, fully opaque, on a page whose own text is black. On screen means the
+    // document drawn as saved; printed means the sheets `print_pdf` builds from it.
+    let cases = [
+        (Visibility::default(), true, true),
+        (Visibility { screen: true, print: false }, true, false),
+        (Visibility { screen: false, print: true }, false, true),
+    ];
+    for (visibility, on_screen, printed) in cases {
+        let (mut s, id) = session_with(1);
+        let settings = Watermark {
+            text: "WWWW".into(),
+            color: [1.0, 0.0, 0.0],
+            opacity: 1.0,
+            font_size: 80.0,
+            rotation: 0.0,
+            visibility,
+            ..Watermark::default()
+        };
+        s.apply(id, Edit::AddWatermark { pages: vec![0], settings, replace: false, file: None }).unwrap();
+        let saved = s.save_bytes(id).unwrap();
+        assert_eq!(first_page_has_red(saved.to_vec()), on_screen, "on screen ({visibility:?})");
+        let sheet = s.print_pdf(id, &print::Settings { pages: vec![0], ..Default::default() }).unwrap();
+        assert_eq!(first_page_has_red(sheet), printed, "printed ({visibility:?})");
+        // Removing it leaves a document with no layers and no watermark.
+        s.apply(id, Edit::RemoveMarks { kind: MarkKind::Watermark }).unwrap();
+        assert!(!first_page_has_red(s.save_bytes(id).unwrap().to_vec()), "removed ({visibility:?})");
+    }
+}

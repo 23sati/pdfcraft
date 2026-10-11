@@ -14,7 +14,7 @@
 
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
-use pdfcraft_cos::{Dict, Document, Object, Stream};
+use pdfcraft_cos::{Dict, Document, ObjRef, Object, PdfString, Stream};
 use pdfcraft_fonts::{helvetica_width, literal, win_ansi};
 
 #[derive(Debug, thiserror::Error, PartialEq)]
@@ -101,6 +101,23 @@ pub struct Watermark {
     pub behind: bool,
     /// Offset of the centre from the page centre, in points (right, up).
     pub offset: [f64; 2],
+    /// Show it on screen, when printing, or both.
+    pub visibility: Visibility,
+}
+
+/// Where a watermark shows. Both (the default) draws it as before, in no layer of its own; any
+/// other choice puts it in an optional-content group (a layer) that tells every reader whether
+/// it is visible on screen and whether it is printed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Visibility {
+    pub screen: bool,
+    pub print: bool,
+}
+
+impl Default for Visibility {
+    fn default() -> Self {
+        Self { screen: true, print: true }
+    }
 }
 
 impl Default for Watermark {
@@ -115,6 +132,7 @@ impl Default for Watermark {
             rotation: 45.0,
             behind: false,
             offset: [0.0; 2],
+            visibility: Visibility::default(),
         }
     }
 }
@@ -161,6 +179,207 @@ fn add_picture_resource(doc: &mut Document, page: &pdfcraft_model::Page, src: &M
     xo.set(format!("PCPic{}", src.xobject.num).into_bytes(), Object::Ref(src.xobject));
     res.set(b"XObject".to_vec(), Object::Dict(xo));
     doc.update_dict(page.obj, |d| d.set(b"Resources".to_vec(), Object::Dict(res)))?;
+    Ok(())
+}
+
+/// The catalog's reference and a copy of its dictionary.
+fn catalog(doc: &Document) -> Option<(ObjRef, Dict)> {
+    let root = doc.trailer().get(b"Root")?.as_ref()?;
+    Some((root, doc.get(root).as_dict()?.clone()))
+}
+
+/// The layer configuration `/OCProperties` and its default configuration `/D`, as copies (empty
+/// when the document has none).
+fn layer_config(doc: &Document, cat: &Dict) -> (Dict, Dict) {
+    let props = cat.get(b"OCProperties").map(|p| doc.resolve(p)).and_then(|p| p.as_dict().cloned()).unwrap_or_default();
+    let config = props.get(b"D").map(|d| doc.resolve(d)).and_then(|d| d.as_dict().cloned()).unwrap_or_default();
+    (props, config)
+}
+
+/// A copy of the array `o` (which may be indirect); empty when it is not one.
+fn array_of(doc: &Document, o: Option<&Object>) -> Vec<Object> {
+    o.map(|o| doc.resolve(o)).and_then(|o| o.as_array().cloned()).unwrap_or_default()
+}
+
+/// The resource name a page uses for the layer of a watermark.
+fn layer_name(layer: ObjRef) -> String {
+    format!("PCOC{}", layer.num)
+}
+
+/// Add the optional-content group of a watermark that is not shown everywhere, and record it in
+/// the document's layer configuration without touching the layers that are already there.
+///
+/// The group's usage says whether it is visible on screen and whether it is printed, which is
+/// what readers apply for those events (`/AS`). Its default state is its on-screen state, so a
+/// viewer that only knows on and off shows a screen-only mark and hides a print-only one.
+fn add_layer(doc: &mut Document, visibility: Visibility) -> Result<ObjRef, EditError> {
+    let state = |on: bool| Object::name(if on { "ON" } else { "OFF" });
+    let (mut view, mut print) = (Dict::new(), Dict::new());
+    view.set(b"ViewState".to_vec(), state(visibility.screen));
+    print.set(b"PrintState".to_vec(), state(visibility.print));
+    let mut usage = Dict::new();
+    usage.set(b"View".to_vec(), Object::Dict(view));
+    usage.set(b"Print".to_vec(), Object::Dict(print));
+    let mut group = Dict::new();
+    group.set(b"Type".to_vec(), Object::name("OCG"));
+    group.set(b"Name".to_vec(), Object::String(PdfString::text("Watermark")));
+    group.set(b"PCMark".to_vec(), Object::name(MarkKind::Watermark.tag()));
+    group.set(b"Usage".to_vec(), Object::Dict(usage));
+    let layer = doc.add(Object::Dict(group));
+
+    let (root, cat) = catalog(doc).ok_or_else(|| EditError::Invalid("the document has no catalog".into()))?;
+    let (mut props, mut config) = layer_config(doc, &cat);
+    let mut groups = array_of(doc, props.get(b"OCGs"));
+    groups.push(Object::Ref(layer));
+    props.set(b"OCGs".to_vec(), Object::Array(groups));
+    // Default state: on screen, or not.
+    let base_on = config.name(b"BaseState") != Some(&b"OFF"[..]);
+    let (key, wanted) = if visibility.screen { (&b"ON"[..], !base_on) } else { (&b"OFF"[..], true) };
+    if wanted {
+        let mut list = array_of(doc, config.get(key));
+        list.push(Object::Ref(layer));
+        config.set(key.to_vec(), Object::Array(list));
+    }
+    // One usage application per event, joined to an existing one for the same event and category.
+    let mut applications = array_of(doc, config.get(b"AS"));
+    for event in ["View", "Print"] {
+        let same = |o: &Object| {
+            let entry = doc.resolve(o);
+            let Some(d) = entry.as_dict() else { return false };
+            let categories = array_of(doc, d.get(b"Category"));
+            d.name(b"Event") == Some(event.as_bytes())
+                && categories.len() == 1
+                && categories.first().and_then(Object::as_name) == Some(event.as_bytes())
+        };
+        match applications.iter().position(same).and_then(|at| applications.get_mut(at)) {
+            Some(slot) => {
+                let mut d = doc.resolve(slot).as_dict().cloned().unwrap_or_default();
+                let mut covered = array_of(doc, d.get(b"OCGs"));
+                covered.push(Object::Ref(layer));
+                d.set(b"OCGs".to_vec(), Object::Array(covered));
+                *slot = Object::Dict(d);
+            }
+            None => {
+                let mut d = Dict::new();
+                d.set(b"Event".to_vec(), Object::name(event));
+                d.set(b"Category".to_vec(), Object::Array(vec![Object::name(event)]));
+                d.set(b"OCGs".to_vec(), Object::Array(vec![Object::Ref(layer)]));
+                applications.push(Object::Dict(d));
+            }
+        }
+    }
+    config.set(b"AS".to_vec(), Object::Array(applications));
+    props.set(b"D".to_vec(), Object::Dict(config));
+    doc.update_dict(root, |c| c.set(b"OCProperties".to_vec(), Object::Dict(props)))?;
+    Ok(layer)
+}
+
+/// Let a page's marked content name a watermark's layer (`/Properties`, `/PCOC<n>`).
+fn add_layer_resource(doc: &mut Document, page: &pdfcraft_model::Page, layer: ObjRef) -> Result<(), EditError> {
+    let mut res = page.dict.get(b"Resources").map(|r| doc.resolve(r)).and_then(|r| r.as_dict().cloned()).unwrap_or_default();
+    let mut properties = res.get(b"Properties").map(|p| doc.resolve(p)).and_then(|p| p.as_dict().cloned()).unwrap_or_default();
+    properties.set(layer_name(layer).into_bytes(), Object::Ref(layer));
+    res.set(b"Properties".to_vec(), Object::Dict(properties));
+    doc.update_dict(page.obj, |d| d.set(b"Resources".to_vec(), Object::Dict(res)))?;
+    Ok(())
+}
+
+/// After watermarks were removed from `pages`: take their layers off those pages and, for the
+/// groups no page uses any more, out of the document's layer configuration, so the document is
+/// as it was before. Layers that are not a watermark's are never touched.
+fn release_watermark_layers(doc: &mut Document, pages: &[usize]) -> Result<(), EditError> {
+    let Some((root, cat)) = catalog(doc) else { return Ok(()) };
+    let (props, _) = layer_config(doc, &cat);
+    let ours: Vec<ObjRef> = array_of(doc, props.get(b"OCGs"))
+        .iter()
+        .filter_map(Object::as_ref)
+        .filter(|r| doc.get(*r).as_dict().and_then(|d| d.name(b"PCMark")) == Some(MarkKind::Watermark.tag().as_bytes()))
+        .collect();
+    if ours.is_empty() {
+        return Ok(());
+    }
+    let pages_now = page_list(doc);
+    for &i in pages {
+        let Some(page) = pages_now.get(i) else { continue };
+        let mut res = page.dict.get(b"Resources").map(|r| doc.resolve(r)).and_then(|r| r.as_dict().cloned()).unwrap_or_default();
+        let Some(mut properties) = res.get(b"Properties").map(|p| doc.resolve(p)).and_then(|p| p.as_dict().cloned()) else { continue };
+        let gone: Vec<Vec<u8>> = properties
+            .iter()
+            .filter(|(name, value)| name.starts_with(b"PCOC") && Object::as_ref(value).is_some_and(|r| ours.contains(&r)))
+            .map(|(name, _)| name.clone())
+            .collect();
+        if gone.is_empty() {
+            continue;
+        }
+        for name in &gone {
+            properties.remove(name);
+        }
+        if properties.is_empty() {
+            res.remove(b"Properties");
+        } else {
+            res.set(b"Properties".to_vec(), Object::Dict(properties));
+        }
+        doc.update_dict(page.obj, |d| d.set(b"Resources".to_vec(), Object::Dict(res)))?;
+    }
+    // The groups some page still draws.
+    let mut used: Vec<ObjRef> = Vec::new();
+    for page in page_list(doc) {
+        let properties = page.dict.get(b"Resources").map(|r| doc.resolve(r)).and_then(|r| r.as_dict().cloned());
+        let properties = properties.and_then(|r| r.get(b"Properties").map(|p| doc.resolve(p))).and_then(|p| p.as_dict().cloned());
+        used.extend(properties.iter().flat_map(|p| p.iter()).filter_map(|(_, v)| v.as_ref()).filter(|r| ours.contains(r)));
+    }
+    let unused: Vec<ObjRef> = ours.into_iter().filter(|r| !used.contains(r)).collect();
+    if unused.is_empty() {
+        return Ok(());
+    }
+    let (mut props, mut config) = layer_config(doc, &cat);
+    let without = |doc: &Document, o: Option<&Object>| -> Vec<Object> {
+        array_of(doc, o).into_iter().filter(|g| g.as_ref().is_none_or(|r| !unused.contains(&r))).collect()
+    };
+    let groups = without(doc, props.get(b"OCGs"));
+    // A list our groups were the only ones in goes too, as it was not there before them.
+    for key in [&b"ON"[..], b"OFF", b"Order"] {
+        if config.contains(key) {
+            let rest = without(doc, config.get(key));
+            if rest.is_empty() {
+                config.remove(key);
+            } else {
+                config.set(key.to_vec(), Object::Array(rest));
+            }
+        }
+    }
+    if config.contains(b"AS") {
+        let mut kept = Vec::new();
+        for entry in array_of(doc, config.get(b"AS")) {
+            let mut d = doc.resolve(&entry).as_dict().cloned().unwrap_or_default();
+            let before = array_of(doc, d.get(b"OCGs")).len();
+            let after = without(doc, d.get(b"OCGs"));
+            // An application that only covered the removed groups has nothing left to do.
+            if before > 0 && after.is_empty() {
+                continue;
+            }
+            if before != after.len() {
+                d.set(b"OCGs".to_vec(), Object::Array(after));
+                kept.push(Object::Dict(d));
+            } else {
+                kept.push(entry);
+            }
+        }
+        if kept.is_empty() {
+            config.remove(b"AS");
+        } else {
+            config.set(b"AS".to_vec(), Object::Array(kept));
+        }
+    }
+    if groups.is_empty() {
+        doc.update_dict(root, |c| {
+            c.remove(b"OCProperties");
+        })?;
+    } else {
+        props.set(b"OCGs".to_vec(), Object::Array(groups));
+        props.set(b"D".to_vec(), Object::Dict(config));
+        doc.update_dict(root, |c| c.set(b"OCProperties".to_vec(), Object::Dict(props)))?;
+    }
     Ok(())
 }
 
@@ -507,9 +726,17 @@ pub fn add_watermark(doc: &mut Document, pages: &[usize], wm: &Watermark, replac
     {
         return Err(EditError::Invalid("invalid watermark settings".into()));
     }
+    if !wm.visibility.screen && !wm.visibility.print {
+        return Err(EditError::Invalid("show the watermark on screen, when printing, or both".into()));
+    }
     if replace {
         remove_marks(doc, pages, MarkKind::Watermark)?;
     }
+    // Shown everywhere: no layer. Otherwise one layer for this watermark, whatever the pages.
+    let layer = if wm.visibility == Visibility::default() { None } else { Some(add_layer(doc, wm.visibility)?) };
+    // The marked content that puts a copy in the layer, and the end of it.
+    let enter = layer.map(|l| format!("/OC /{} BDC\n", layer_name(l))).unwrap_or_default();
+    let leave = if layer.is_some() { "EMC\n" } else { "" };
     let opacity = wm.opacity.clamp(0.0, 1.0);
     let lines: Vec<&str> = text.lines().collect();
     for &i in pages {
@@ -517,11 +744,16 @@ pub fn add_watermark(doc: &mut Document, pages: &[usize], wm: &Watermark, replac
         let (w, h) = page.display_size(doc);
         if let Some(src) = &wm.source {
             let mut content = begin(MarkKind::Watermark, "Watermark", page.view_matrix(doc));
+            content.push_str(&enter);
             content.push_str(&format!("/PCGS{} gs\n", (opacity * 100.0).round() as i64));
             content.push_str(&picture(src, (w, h), wm.scale, wm.rotation, wm.offset));
+            content.push_str(leave);
             content.push_str(END);
             add_resources(doc, &page, Some(opacity), None)?;
             add_picture_resource(doc, &page_list(doc)[i].clone(), src)?;
+            if let Some(l) = layer {
+                add_layer_resource(doc, &page_list(doc)[i].clone(), l)?;
+            }
             let page = &page_list(doc)[i];
             place(doc, page, MarkKind::Watermark, content.into_bytes(), wm.behind)?;
             continue;
@@ -531,6 +763,7 @@ pub fn add_watermark(doc: &mut Document, pages: &[usize], wm: &Watermark, replac
         let (s, c) = wm.rotation.to_radians().sin_cos();
         let (cx, cy) = (w / 2.0 + wm.offset[0], h / 2.0 + wm.offset[1]);
         let mut content = begin(MarkKind::Watermark, "Watermark", page.view_matrix(doc)).into_bytes();
+        content.extend(enter.bytes());
         content.extend(
             format!(
                 "/PCGS{} gs\n{} {} {} {} {} {} cm\nBT\n/PCHelv {} Tf\n{}\n",
@@ -553,8 +786,12 @@ pub fn add_watermark(doc: &mut Document, pages: &[usize], wm: &Watermark, replac
             content.extend(text_op(-tw / 2.0, total / 2.0 - li as f64 * line_h - size * 0.35, line));
         }
         content.extend_from_slice(b"ET\n");
+        content.extend_from_slice(leave.as_bytes());
         content.extend_from_slice(END.as_bytes());
         add_resources(doc, &page, Some(opacity), None)?;
+        if let Some(l) = layer {
+            add_layer_resource(doc, &page_list(doc)[i].clone(), l)?;
+        }
         let page = &page_list(doc)[i];
         place(doc, page, MarkKind::Watermark, content, wm.behind)?;
     }
@@ -613,6 +850,10 @@ pub fn remove_marks(doc: &mut Document, pages: &[usize], kind: MarkKind) -> Resu
         if before != kept.len() {
             doc.update_dict(page.obj, |d| d.set(b"Contents".to_vec(), Object::Array(kept)))?;
         }
+    }
+    // A watermark that was in a layer of its own takes the layer with it.
+    if kind == MarkKind::Watermark && removed > 0 {
+        release_watermark_layers(doc, pages)?;
     }
     Ok(removed)
 }

@@ -969,7 +969,7 @@ impl Automation {
     }
 
     fn marks(&mut self, tool: &str, a: &Args) -> Result<Value> {
-        use pdfcraft_engine::{Background, HeaderFooter, MarkKind, Watermark};
+        use pdfcraft_engine::{Background, HeaderFooter, MarkKind, Visibility, Watermark};
         let n = self.doc(a)?.info.pages.len();
         let pages = match a.opt_ints("pages")? {
             Some(_) => self.pages(a, "pages")?,
@@ -1017,6 +1017,10 @@ impl Automation {
                         a.opt_num("offset_x")?.unwrap_or(0.0).clamp(-WATERMARK_MAX_OFFSET, WATERMARK_MAX_OFFSET),
                         a.opt_num("offset_y")?.unwrap_or(0.0).clamp(-WATERMARK_MAX_OFFSET, WATERMARK_MAX_OFFSET),
                     ],
+                    visibility: Visibility {
+                        screen: a.opt_bool("show_on_screen")?.unwrap_or(true),
+                        print: a.opt_bool("show_when_printing")?.unwrap_or(true),
+                    },
                 };
                 Edit::AddWatermark { pages, settings: wm, replace, file }
             }

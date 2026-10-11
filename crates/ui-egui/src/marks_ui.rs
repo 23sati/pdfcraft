@@ -279,6 +279,10 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens, kind: M
                         ui.label(tl!("Vertical"));
                         ui.add(egui::DragValue::new(&mut d.wm.offset[1]).range(-MAX_OFFSET..=MAX_OFFSET).suffix(" pt"));
                     });
+                    ui.horizontal(|ui| {
+                        ui.checkbox(&mut d.wm.visibility.screen, tl!("Show when displaying on screen"));
+                        ui.checkbox(&mut d.wm.visibility.print, tl!("Show when printing"));
+                    });
                 });
             });
         }
@@ -390,11 +394,8 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens, kind: M
         let ready = match kind {
             MarkKind::HeaderFooter => d.hf.text.iter().any(|x| !x.trim().is_empty()),
             MarkKind::Watermark => {
-                if d.use_file {
-                    d.file.is_some()
-                } else {
-                    !d.wm.text.trim().is_empty()
-                }
+                // Shown somewhere: on screen, in print, or both.
+                (d.wm.visibility.screen || d.wm.visibility.print) && if d.use_file { d.file.is_some() } else { !d.wm.text.trim().is_empty() }
             }
             MarkKind::Background => !d.use_file || d.file.is_some(),
         } && !d.range.pages(count).is_empty();
@@ -477,6 +478,7 @@ pub fn edit(d: &MarksDraft, kind: MarkKind, count: usize) -> Edit {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pdfcraft_engine::Visibility;
 
     #[test]
     fn page_ranges_with_subsets() {
@@ -486,6 +488,19 @@ mod tests {
         assert_eq!(r.pages(6), [1, 3, 5]);
         let r = PageRange { all: true, subset: Subset::Odd, ..PageRange::default() };
         assert_eq!(r.pages(5), [0, 2, 4]);
+    }
+
+    #[test]
+    fn the_watermark_edit_carries_the_visibility() {
+        let mut d = MarksDraft::default();
+        d.wm.text = "DRAFT".into();
+        // Shown on screen and in print unless said otherwise, which is what a watermark always was.
+        assert_eq!(d.wm.visibility, Visibility { screen: true, print: true });
+        d.wm.visibility = Visibility { screen: true, print: false };
+        match edit(&d, MarkKind::Watermark, 3) {
+            Edit::AddWatermark { settings, .. } => assert_eq!(settings.visibility, Visibility { screen: true, print: false }),
+            other => panic!("expected AddWatermark, got {other:?}"),
+        }
     }
 
     #[test]

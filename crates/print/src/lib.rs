@@ -554,6 +554,91 @@ fn page_form(doc: &mut Document, index: usize, content: Content) -> Result<ObjRe
     Ok(doc.add(Object::Stream(Stream::flate(d, &body))))
 }
 
+/// The indirect references in `o` (an array, possibly itself indirect); anything else is skipped.
+fn refs(doc: &Document, o: Option<&Object>) -> Vec<ObjRef> {
+    let Some(o) = o else { return Vec::new() };
+    doc.resolve(o).as_array().map(|a| a.iter().filter_map(Object::as_ref).collect()).unwrap_or_default()
+}
+
+/// The optional-content (layer) configuration as it applies when *printing*, written out so that
+/// the sheets show what a printer shows without a reader having to know about the Print event.
+///
+/// Each group starts in the default configuration's state (`/BaseState`, then `/ON` and `/OFF`).
+/// Then every `/AS` entry for the Print event is applied to its groups: when the group's `/Usage`
+/// has a state for each of the entry's categories (`/Print` → `/PrintState`), the group is on if
+/// they are all `/ON` and off otherwise. This is how a layer is made to show only on screen
+/// (`/PrintState /OFF`) or only in print (off by default, `/PrintState /ON`). The result has the
+/// groups and an `/OFF` list and nothing else: no `/AS`, no order, no radio-button groups.
+fn print_layers(src: &Document) -> Option<Object> {
+    let root = src.trailer().get(b"Root").map(|r| src.resolve(r))?;
+    let props = src.resolve(root.as_dict()?.get(b"OCProperties")?);
+    let props = props.as_dict()?;
+    let groups = refs(src, props.get(b"OCGs"));
+    if groups.is_empty() {
+        return None;
+    }
+    let config = props.get(b"D").map(|d| src.resolve(d));
+    let config = config.as_deref().and_then(Object::as_dict);
+    // A BTreeMap, so the output does not depend on a hash seed.
+    let mut on: std::collections::BTreeMap<ObjRef, bool> = std::collections::BTreeMap::new();
+    let base_on = config.and_then(|c| c.name(b"BaseState")) != Some(&b"OFF"[..]);
+    for g in &groups {
+        on.insert(*g, base_on);
+    }
+    if let Some(c) = config {
+        for (key, state) in [(&b"ON"[..], true), (&b"OFF"[..], false)] {
+            for r in refs(src, c.get(key)) {
+                if let Some(s) = on.get_mut(&r) {
+                    *s = state;
+                }
+            }
+        }
+        let applications = c.get(b"AS").map(|a| src.resolve(a));
+        for entry in applications.as_deref().and_then(Object::as_array).into_iter().flatten() {
+            let entry = src.resolve(entry);
+            let Some(entry) = entry.as_dict() else { continue };
+            if entry.name(b"Event") != Some(&b"Print"[..]) {
+                continue;
+            }
+            let categories: Vec<Vec<u8>> = entry
+                .get(b"Category")
+                .map(|c| src.resolve(c))
+                .as_deref()
+                .and_then(Object::as_array)
+                .map(|a| a.iter().filter_map(|n| n.as_name().map(<[u8]>::to_vec)).collect())
+                .unwrap_or_default();
+            for r in refs(src, entry.get(b"OCGs")) {
+                let Some(state) = on.get_mut(&r) else { continue };
+                let group = src.get(r);
+                let usage = group.as_dict().and_then(|g| g.get(b"Usage")).map(|u| src.resolve(u));
+                let Some(usage) = usage.as_deref().and_then(Object::as_dict) else { continue };
+                // One state per category the group's usage has an entry for; none: left as it is.
+                let states: Vec<bool> = categories
+                    .iter()
+                    .filter_map(|cat| {
+                        let entry = src.resolve(usage.get(cat)?);
+                        let key = [cat.as_slice(), b"State"].concat();
+                        Some(entry.as_dict()?.name(&key)? == b"ON")
+                    })
+                    .collect();
+                if !states.is_empty() {
+                    *state = states.iter().all(|s| *s);
+                }
+            }
+        }
+    }
+    let mut d = Dict::new();
+    d.set(b"BaseState".to_vec(), Object::name("ON"));
+    let off: Vec<Object> = on.iter().filter(|(_, on)| !**on).map(|(r, _)| Object::Ref(*r)).collect();
+    if !off.is_empty() {
+        d.set(b"OFF".to_vec(), Object::Array(off));
+    }
+    let mut p = Dict::new();
+    p.set(b"OCGs".to_vec(), Object::Array(groups.into_iter().map(Object::Ref).collect()));
+    p.set(b"D".to_vec(), Object::Dict(d));
+    Some(Object::Dict(p))
+}
+
 /// Build the print-ready PDF for `settings`. Encryption is not carried over (the file goes to a
 /// printer or is the user's own copy); callers must check the print permission first.
 pub fn impose(src: &Document, settings: &Settings) -> Result<Vec<u8>, PrintError> {
@@ -634,10 +719,9 @@ pub fn impose(src: &Document, settings: &Settings) -> Result<Vec<u8>, PrintError
     let mut cat = Dict::new();
     cat.set(b"Type".to_vec(), Object::name("Catalog"));
     cat.set(b"Pages".to_vec(), Object::Ref(pages_root));
-    // Keep the layers' configuration, or a layer that is off in the document would print: the
-    // pages' marked content still refers to its groups, and without this nothing says they are off.
-    let layers = src.trailer().get(b"Root").and_then(|r| src.resolve(r).as_dict().and_then(|root| root.get(b"OCProperties").cloned()));
-    if let Some(layers) = layers {
+    // Keep the layers, as they are when printing, or a layer that is off would print: the pages'
+    // marked content still refers to its groups, and without this nothing says they are off.
+    if let Some(layers) = print_layers(src) {
         cat.set(b"OCProperties".to_vec(), layers);
     }
     let root = doc.add(Object::Dict(cat));

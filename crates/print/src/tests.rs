@@ -658,3 +658,94 @@ fn paper_matching_accepts_rounded_metric_sizes_but_not_custom_or_invalid_sizes()
         assert_eq!(matching_paper(size), None);
     }
 }
+
+/// A one-page document with four layers (objects 5–8, named A–D) and a default configuration with
+/// `/OFF [B D]`. C is on by default but its usage says it is not printed; D is off by default but
+/// its usage says it is printed. `extra` goes into the default configuration's dictionary.
+fn layered(extra: &str) -> Document {
+    let pdf = format!(
+        "%PDF-1.7\n\
+         1 0 obj << /Type /Catalog /Pages 2 0 R /OCProperties << /OCGs [5 0 R 6 0 R 7 0 R 8 0 R] /D << /OFF [6 0 R 8 0 R] {extra} >> >> >> endobj\n\
+         2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n\
+         3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] >> endobj\n\
+         5 0 obj << /Type /OCG /Name (A) >> endobj\n\
+         6 0 obj << /Type /OCG /Name (B) >> endobj\n\
+         7 0 obj << /Type /OCG /Name (C) /Usage << /Print << /PrintState /OFF >> >> >> endobj\n\
+         8 0 obj << /Type /OCG /Name (D) /Usage << /Print << /PrintState /ON >> >> >> endobj\n\
+         trailer << /Root 1 0 R >>\n%%EOF"
+    );
+    Document::open(Arc::new(pdf.into_bytes())).unwrap()
+}
+
+/// The object numbers of the groups in `key` of a layer configuration `/D`.
+fn layer_numbers(config: &Object, key: &[u8]) -> Vec<u32> {
+    let d = config.as_dict().and_then(|p| p.get(b"D")).and_then(Object::as_dict);
+    let list = if key == b"OCGs" { config.as_dict().and_then(|p| p.get(key)) } else { d.and_then(|d| d.get(key)) };
+    list.and_then(Object::as_array).map(|a| a.iter().filter_map(|o| o.as_ref().map(|r| r.num)).collect()).unwrap_or_default()
+}
+
+#[test]
+fn layers_are_printed_as_they_are_when_printing() {
+    // The Print event of /AS applies to C and D: C is hidden in print, D shown. A and B have no
+    // usage and keep the default state. The View entry is not for printing.
+    let as_entries = "/AS [<< /Event /Print /Category [/Print] /OCGs [7 0 R 8 0 R] >> << /Event /View /Category [/View] /OCGs [5 0 R] >>]";
+    let layers = print_layers(&layered(as_entries)).expect("the layers are carried over");
+    assert_eq!(layer_numbers(&layers, b"OCGs"), [5, 6, 7, 8]);
+    assert_eq!(layer_numbers(&layers, b"OFF"), [6, 7], "B (off by default) and C (not printed) are off; A and D are on");
+    let d = layers.as_dict().and_then(|p| p.get(b"D")).and_then(Object::as_dict).unwrap();
+    assert_eq!(d.name(b"BaseState"), Some(&b"ON"[..]));
+    assert!(!d.contains(b"AS"), "the result has no usage application: the states are already worked out");
+}
+
+#[test]
+fn without_a_print_usage_application_the_default_state_is_kept() {
+    // Same usages, but nothing applies them: C stays on and D stays off, as in the viewer.
+    let layers = print_layers(&layered("")).unwrap();
+    assert_eq!(layer_numbers(&layers, b"OFF"), [6, 8]);
+    // A usage application for another event does nothing either.
+    let view = print_layers(&layered("/AS [<< /Event /View /Category [/Print] /OCGs [7 0 R 8 0 R] >>]")).unwrap();
+    assert_eq!(layer_numbers(&view, b"OFF"), [6, 8]);
+}
+
+#[test]
+fn the_base_state_off_and_on_lists_are_followed() {
+    // Everything off, then A and C on.
+    let all_off = "/BaseState /OFF /ON [5 0 R 7 0 R]";
+    let layers = print_layers(&layered(all_off)).unwrap();
+    // /OFF [B D] comes after /ON in the dictionary text but /OFF is applied last; nothing else is off.
+    assert_eq!(layer_numbers(&layers, b"OFF"), [6, 8]);
+}
+
+#[test]
+fn a_document_without_layers_has_none_on_the_sheets() {
+    assert!(print_layers(&fixture(1)).is_none());
+}
+
+#[test]
+fn damaged_usage_applications_are_ignored() {
+    // A number, a dictionary with no event, a category that is not an array, groups that are not
+    // references, and a reference to something that is not a layer: none of it may panic or change a state.
+    let damaged = "/AS [5 << /Category [/Print] >> << /Event /Print /Category 3 /OCGs [7 0 R] >> << /Event /Print /Category [/Print] /OCGs 9 >> \
+                   << /Event /Print /Category [/Print] /OCGs [(x) 99 0 R 3 0 R] >>]";
+    let layers = print_layers(&layered(damaged)).expect("still has the layers");
+    assert_eq!(layer_numbers(&layers, b"OFF"), [6, 8], "the default states");
+}
+
+#[test]
+fn impose_writes_the_layers_into_the_sheets() {
+    let as_entries = "/AS [<< /Event /Print /Category [/Print] /OCGs [7 0 R 8 0 R] >>]";
+    let bytes = impose(&layered(as_entries), &Settings { pages: vec![0], ..Default::default() }).unwrap();
+    let sheets = Document::open(Arc::new(bytes)).unwrap();
+    let root = sheets.trailer().get(b"Root").map(|r| sheets.resolve(r)).unwrap();
+    let props = sheets.resolve(root.as_dict().unwrap().get(b"OCProperties").expect("the sheets keep the layers"));
+    let off =
+        props.as_dict().and_then(|p| p.get(b"D")).map(|d| sheets.resolve(d)).and_then(|d| d.as_dict().and_then(|d| d.get(b"OFF").cloned())).unwrap();
+    let names: Vec<String> = sheets
+        .resolve(&off)
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|g| sheets.resolve(g).as_dict().and_then(|d| d.get(b"Name")).and_then(Object::as_string).map(|s| s.to_text()).unwrap_or_default())
+        .collect();
+    assert_eq!(names, ["B", "C"]);
+}

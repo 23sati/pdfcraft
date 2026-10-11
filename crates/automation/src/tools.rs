@@ -796,7 +796,7 @@ pub fn tools() -> Vec<ToolDef> {
             }),
             &["doc"],
         )),
-        t("doc_watermark", "Add watermark", "Add a watermark to pages: text, or a picture from `file` (an image, or page `file_page` of a PDF) at `scale` of the page (default 0.5); rotated (degrees counter-clockwise, default 45), semi-transparent (opacity 0–1, default 0.5), text fitted to the page unless font_size is given, on top unless behind: true; moved from the page centre by `offset_x` (right) and `offset_y` (up) points (default 0). replace: true swaps out existing ones. Undoable.")
+        t("doc_watermark", "Add watermark", "Add a watermark to pages: text, or a picture from `file` (an image, or page `file_page` of a PDF) at `scale` of the page (default 0.5); rotated (degrees counter-clockwise, default 45), semi-transparent (opacity 0–1, default 0.5), text fitted to the page unless font_size is given, on top unless behind: true; moved from the page centre by `offset_x` (right) and `offset_y` (up) points (default 0); `show_on_screen` and `show_when_printing` (both default true) make it screen-only or print-only, in a layer of its own that is removed with it (at least one must be true). replace: true swaps out existing ones. Undoable.")
             .cmd("edit.watermark")
             .with(schema(
                 json!({
@@ -813,6 +813,8 @@ pub fn tools() -> Vec<ToolDef> {
                     "behind": { "type": "boolean" },
                     "offset_x": { "type": "number", "description": "Points right of the page centre (negative: left)." },
                     "offset_y": { "type": "number", "description": "Points above the page centre (negative: below)." },
+                    "show_on_screen": { "type": "boolean", "description": "Show the watermark when the document is displayed (default true). With show_when_printing false it is a screen-only watermark." },
+                    "show_when_printing": { "type": "boolean", "description": "Show the watermark when the document is printed (default true). With show_on_screen false it is a print-only watermark; at least one of the two must be true." },
                     "replace": { "type": "boolean" },
                 }),
                 &["doc"],

@@ -2,7 +2,7 @@
 
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable;
-use pdfcraft_engine::MarkKind;
+use pdfcraft_engine::{MarkKind, Visibility};
 use pdfcraft_ui_egui::{Dialog, PdfCraftApp};
 
 const FIXTURE: &[u8] = b"%PDF-1.7
@@ -74,6 +74,28 @@ fn watermark_and_background_dialogs() {
     h.get_by_label("OK").click();
     h.run_steps(3);
     assert_eq!(marks(&h).len(), 2);
+}
+
+#[test]
+fn a_watermark_can_be_for_the_screen_or_for_print_but_not_for_nothing() {
+    let mut h = harness();
+    h.state_mut().execute("edit.watermark");
+    h.run_steps(2);
+    h.get_by_label("Show when displaying on screen");
+    h.get_by_label("Show when printing");
+    h.state_mut().marks_draft.wm.text = "DRAFT".into();
+    // Shown nowhere: OK is held back.
+    h.state_mut().marks_draft.wm.visibility = Visibility { screen: false, print: false };
+    h.run_steps(2);
+    assert!(h.query_by(|n| n.label().as_deref() == Some("OK") && n.is_disabled()).is_some(), "OK waits for somewhere to show it");
+    // Print only is fine.
+    h.state_mut().marks_draft.wm.visibility = Visibility { screen: false, print: true };
+    h.run_steps(2);
+    assert!(h.query_by(|n| n.label().as_deref() == Some("OK") && n.is_disabled()).is_none(), "OK is available");
+    h.get_by_label("OK").click();
+    h.run_steps(3);
+    assert_eq!(h.state().dialog, None);
+    assert_eq!(marks(&h), [MarkKind::Watermark]);
 }
 
 #[test]

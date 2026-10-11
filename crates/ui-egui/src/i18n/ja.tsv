@@ -792,6 +792,8 @@
 	Appear behind page	ページの背面に表示
 	Appear on top of page	ページの前面に表示
 	Offset from centre	中心からのオフセット
+	Show when displaying on screen	画面表示時に表示する
+	Show when printing	印刷時に表示する
 	From colour	色を指定
 	Page Range Options	ページ範囲のオプション
 	Preview: page {p} of {n}	プレビュー: {n} ページ中 {p} ページ
