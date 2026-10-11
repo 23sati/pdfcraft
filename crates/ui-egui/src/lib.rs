@@ -65,7 +65,7 @@ mod object_ui;
 pub use create_ui::Clip;
 pub use link_ui::LinkDraft;
 pub use optimize_ui::{OptimizeDraft, OptimizeTab};
-pub use sign_ui::{DigitalIdEntry, SignDraft, SignStep};
+pub use sign_ui::{DigitalIdEntry, SignDraft, SignGraphic, SignStep};
 mod autoscroll;
 mod bidi;
 pub mod bulk_fields;
@@ -641,6 +641,9 @@ pub struct PdfCraftApp {
     pub signature_draft: fill_sign::SigDraft,
     pub(crate) signature_preview: Option<(fill_sign::SavedSig, egui::TextureHandle)>,
     pub(crate) saved_signature_previews: [Option<(fill_sign::SavedSig, egui::TextureHandle)>; 2],
+    /// What visible digital signatures show on their left, and its preview in Sign as.
+    pub sign_graphic: sign_ui::SignGraphic,
+    pub(crate) sign_graphic_preview: Option<(fill_sign::SavedSig, egui::TextureHandle)>,
     #[cfg(target_arch = "wasm32")]
     pub(crate) signature_images: fill_sign::ImageInbox,
     /// The Comment Properties dialog's state.
@@ -867,6 +870,8 @@ impl PdfCraftApp {
             signature_draft: Default::default(),
             signature_preview: None,
             saved_signature_previews: [None, None],
+            sign_graphic: sign_ui::SignGraphic::Name,
+            sign_graphic_preview: None,
             #[cfg(target_arch = "wasm32")]
             signature_images: Default::default(),
             comment_props: None,
@@ -908,12 +913,15 @@ impl PdfCraftApp {
         match v.layout {
             // The view opened in Default page display already.
             L::Default => {}
-            L::SinglePage => view.layout = canvas::PageLayout::Single,
-            L::SinglePageContinuous => view.layout = canvas::PageLayout::Continuous,
-            L::TwoUp | L::TwoUpContinuous => view.layout = canvas::PageLayout::TwoUp,
-            L::TwoUpCoverPage | L::TwoUpContinuousCoverPage => {
-                view.layout = canvas::PageLayout::TwoUp;
-                view.cover = true;
+            L::SinglePage => (view.layout, view.continuous) = (canvas::PageLayout::Single, false),
+            L::SinglePageContinuous => (view.layout, view.continuous) = (canvas::PageLayout::Single, true),
+            L::TwoUp => (view.layout, view.continuous) = (canvas::PageLayout::TwoUp, false),
+            L::TwoUpContinuous => (view.layout, view.continuous) = (canvas::PageLayout::TwoUp, true),
+            L::TwoUpCoverPage => {
+                (view.layout, view.continuous, view.cover) = (canvas::PageLayout::TwoUp, false, true);
+            }
+            L::TwoUpContinuousCoverPage => {
+                (view.layout, view.continuous, view.cover) = (canvas::PageLayout::TwoUp, true, true);
             }
         }
         match v.magnification {
@@ -989,6 +997,13 @@ impl PdfCraftApp {
             self.active = Some(self.views.len() - 1);
         }
         self.apply_initial_view(self.views.len() - 1, &initial);
+        if activate
+            && self.left_open
+            && self.left == LeftPanel::Tool("organize")
+            && let Some(view) = self.views.last_mut()
+        {
+            view.organize = true;
+        }
         if activate && let Some(mode) = self.mode_override {
             // Explicit mode options do not reset independent --tool / --left choices.
             self.mode = mode;
@@ -1449,10 +1464,23 @@ impl PdfCraftApp {
         self.pending_panel_reveals.push(docking::Panel::Tools);
     }
 
+    /// Enter a tool from the catalogue, Home, palette or control channel. Organize is a
+    /// workspace, so opening its panel also opens the page grid (without toggling it off).
+    pub(crate) fn select_tool(&mut self, id: &'static str) {
+        self.left = LeftPanel::Tool(id);
+        self.reveal_tools();
+        if let Some(view) = self.active.and_then(|i| self.views.get_mut(i)) {
+            view.organize = id == "organize";
+        }
+    }
+
     /// Select the workspace and its matching tool panel, just like the mode bar.
     pub(crate) fn select_mode(&mut self, mode: Mode) {
         self.mode = mode;
         self.reveal_tools();
+        if let Some(view) = self.active.and_then(|i| self.views.get_mut(i)) {
+            view.organize = false;
+        }
         self.left = match mode {
             Mode::Edit => LeftPanel::Tool("edit"),
             Mode::Convert => LeftPanel::Tool("export"),
@@ -1517,7 +1545,7 @@ impl PdfCraftApp {
             "theme": self.theme_preference,
             "scroll_speed": self.scroll_speed,
             "default_mode": self.default_mode,
-            "default_layout": self.view_defaults.layout.as_str(),
+            "default_layout": canvas::display_token(self.view_defaults.layout, self.view_defaults.continuous),
             "default_zoom": self.view_defaults.zoom_name(),
             "highlight_fields": self.view_defaults.highlight_fields,
             "language": self.language,
@@ -1546,6 +1574,7 @@ impl PdfCraftApp {
             "signature_text": match &self.signature { Some(fill_sign::SavedSig::Typed(t)) => Some(t), _ => None },
             "signature_image": match &self.signature { Some(s @ fill_sign::SavedSig::Image(_)) => Some(s), _ => None },
             "initials": self.initials,
+            "sign_graphic": self.sign_graphic,
             // macOS Keychain and Windows store identities are read from their OS key stores each time.
             "digital_ids": self.digital_ids.iter().filter(|e| !e.path.starts_with("keychain:") && !e.path.starts_with("windows:")).collect::<Vec<_>>(),
             "trusted": trusted,
@@ -1599,8 +1628,8 @@ impl PdfCraftApp {
         if let Ok(mode) = serde_json::from_value::<Mode>(v["default_mode"].clone()) {
             self.default_mode = mode;
         }
-        if let Some(layout) = v["default_layout"].as_str().and_then(canvas::PageLayout::try_parse) {
-            self.view_defaults.layout = layout;
+        if let Some((layout, continuous)) = v["default_layout"].as_str().and_then(canvas::parse_display_token) {
+            (self.view_defaults.layout, self.view_defaults.continuous) = (layout, continuous);
         }
         if let Some(on) = v["highlight_fields"].as_bool() {
             self.view_defaults.highlight_fields = on;
@@ -1673,6 +1702,8 @@ impl PdfCraftApp {
         if let Ok(i) = serde_json::from_value::<fill_sign::SavedSig>(v["initials"].clone()) {
             self.initials = Some(i);
         }
+        // An unreadable choice (a damaged image) falls back to the name.
+        self.sign_graphic = serde_json::from_value(v["sign_graphic"].clone()).unwrap_or_default();
         if let Ok(ids) = serde_json::from_value::<Vec<DigitalIdEntry>>(v["digital_ids"].clone()) {
             self.digital_ids = ids;
         }
@@ -1745,8 +1776,7 @@ impl PdfCraftApp {
             ("date-language", _) => self.session.set_date_language(Some(value).filter(|v| *v != "auto"))?,
             ("tool", _) => {
                 let g = pdfcraft_engine::catalog::group(value).ok_or_else(|| format!("unknown tool {value}"))?;
-                self.left = LeftPanel::Tool(g.id);
-                self.reveal_tools();
+                self.select_tool(g.id);
             }
             ("left", _) => self.left_open = value != "closed",
             ("home", _) => self.active = None,
@@ -1798,7 +1828,15 @@ impl PdfCraftApp {
             }
             ("page", Some(v)) => v.go_to_page(value.parse::<usize>().map_err(|e| e.to_string())?.saturating_sub(1)),
             ("zoom", Some(v)) => v.set_zoom(value.trim_end_matches('%').parse::<f32>().map_err(|e| e.to_string())? / 100.0),
-            ("layout", Some(v)) => v.set_layout(canvas::PageLayout::try_parse(value).ok_or("layout must be continuous, single or two-up")?),
+            ("layout", Some(v)) => {
+                let (layout, continuous) = canvas::parse_display_token(value).ok_or("layout must be single, continuous, two-up or two-page")?;
+                v.set_display(layout, continuous);
+            }
+            ("continuous", Some(v)) => match value {
+                "on" => v.set_continuous(true),
+                "off" => v.set_continuous(false),
+                _ => return Err("continuous must be on or off".into()),
+            },
             ("cover", Some(v)) => {
                 let on = match value {
                     "on" => true,
@@ -1811,7 +1849,16 @@ impl PdfCraftApp {
                 v.set_cover(on);
             }
             ("default-layout", _) => {
-                self.view_defaults.layout = canvas::PageLayout::try_parse(value).ok_or("default-layout must be continuous, single or two-up")?;
+                let (layout, continuous) =
+                    canvas::parse_display_token(value).ok_or("default-layout must be single, continuous, two-up or two-page")?;
+                (self.view_defaults.layout, self.view_defaults.continuous) = (layout, continuous);
+            }
+            ("default-continuous", _) => {
+                self.view_defaults.continuous = match value {
+                    "on" => true,
+                    "off" => false,
+                    _ => return Err("default-continuous must be on or off".into()),
+                };
             }
             ("default-zoom", _) => {
                 self.view_defaults =
@@ -1935,8 +1982,22 @@ impl PdfCraftApp {
                 self.set_combine_zoom(percent / 100.0);
             }
             (k, None)
-                if ["page", "zoom", "layout", "cover", "organize", "grid-zoom", "fields", "find", "rotate", "select", "notice", "comment"]
-                    .contains(&k) =>
+                if [
+                    "page",
+                    "zoom",
+                    "layout",
+                    "continuous",
+                    "cover",
+                    "organize",
+                    "grid-zoom",
+                    "fields",
+                    "find",
+                    "rotate",
+                    "select",
+                    "notice",
+                    "comment",
+                ]
+                .contains(&k) =>
             {
                 return Err(format!("`{k}` needs an open document"));
             }
@@ -1995,11 +2056,42 @@ impl PdfCraftApp {
             }
             self.tool_keys(i, ctx);
             canvas::shortcuts(&mut self.views[i], ctx);
+            self.copy_key(i, ctx);
         }
     }
 }
 
+/// Why nothing can be copied out of the document: its security doesn't allow it (Table 22,
+/// bit 5; #568).
+pub(crate) fn copy_refused() -> &'static str {
+    tl!("The document's security settings don't allow copying text and images")
+}
+
 impl PdfCraftApp {
+    /// Whether text and images may be copied out of document `id`; says why not when they may
+    /// not. Reading aloud and accessibility tools don't ask (assistive technology may read
+    /// anything, §7.6.4.2).
+    pub(crate) fn may_copy(&mut self, id: DocId) -> bool {
+        if self.session.get(id).is_none_or(pdfcraft_engine::Document::allows_copying) {
+            return true;
+        }
+        self.notify(copy_refused().to_string());
+        false
+    }
+
+    /// ⌘C copies the selected text, unless a text field has the keyboard (it copies its own).
+    fn copy_key(&mut self, i: usize, ctx: &egui::Context) {
+        // ⌘C arrives as a Copy event on most platforms.
+        let copy = ctx.input(|input| input.events.iter().any(|e| matches!(e, egui::Event::Copy)));
+        if !copy || ctx.egui_wants_keyboard_input() {
+            return;
+        }
+        let Some((id, text)) = self.views.get(i).and_then(|v| Some((v.id, v.selected_text()?))) else { return };
+        if self.may_copy(id) {
+            ctx.copy_text(text);
+        }
+    }
+
     /// The quick tools' keys, as in Acrobat: V selects, H pans, and holding Space pans until it
     /// is released. Plain letters, so not while a text field, a form field, a dialog or the
     /// palette has the keyboard.

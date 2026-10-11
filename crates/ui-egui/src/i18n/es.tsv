@@ -849,6 +849,10 @@
 	The signature will be invisible.	La firma será invisible.
 	Distinguished name	Nombre distintivo
 	Labels	Etiquetas
+	Graphic	Gráfico
+	Signer's name	Nombre del firmante
+	Fill & Sign signature	Firma de Rellenar y firmar
+	Choose image…	Elegir imagen…
 	Permitted actions after certifying	Acciones permitidas después de certificar
 	No changes allowed	No se permite ningún cambio
 	Annotations, form fill-in, and digital signatures	Anotaciones, rellenado de formularios y firmas digitales
@@ -1715,6 +1719,7 @@
 	This document isn't password-protected	Este documento no está protegido con contraseña
 	Only the document's owner can change its security (open it with the permissions password)	Solo el propietario del documento puede cambiar su seguridad (ábrelo con la contraseña de permisos)
 	The document's security settings don't allow this change	La configuración de seguridad del documento no permite este cambio
+	The document's security settings don't allow copying text and images	La configuración de seguridad del documento no permite copiar texto ni imágenes
 	Open a document first	Abre primero un documento
 	Security will be removed when you save	La seguridad se quitará al guardar
 	Click text or an image to edit it	Haz clic en un texto o una imagen para editarlo
@@ -2122,6 +2127,10 @@ key	Space	Espacio
 	Resize panel window	Cambiar tamaño de la ventana del panel
 	Tools	Herramientas
 	Inspector	Inspector
+	Select page {label}	Seleccionar la página {label}
+	Rotate page {label} counterclockwise	Girar la página {label} en sentido antihorario
+	Rotate page {label} clockwise	Girar la página {label} en sentido horario
+	Delete page {label}	Eliminar la página {label}
 	Mouse wheel scroll speed	Velocidad de desplazamiento de la rueda del ratón
 scroll speed	Slow	Lenta
 scroll speed	Normal	Normal
