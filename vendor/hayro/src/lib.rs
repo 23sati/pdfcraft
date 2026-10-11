@@ -86,6 +86,53 @@ impl<'a> RenderCache<'a> {
     }
 }
 
+/// PdfCraft patch: replacement colours for the "reading colours" view setting (Acrobat's
+/// "Replace Document Colors"). Solid paints are mapped by luminance: dark paints move towards
+/// `text`, light paints towards `background`. Images, shadings and patterns never pass through
+/// the mapping.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ColorReplacement {
+    /// The sRGB colour that dark paints (low luminance) are mapped towards.
+    pub text: [u8; 3],
+    /// The sRGB colour that light paints (high luminance) are mapped towards.
+    pub background: [u8; 3],
+    /// When `true`, paints with a luminance above 10% are left unchanged, so only near-black
+    /// text and line art is recoloured.
+    pub only_black: bool,
+    /// When `true`, line-art paints are mapped in addition to text paints.
+    pub line_art: bool,
+}
+
+impl ColorReplacement {
+    /// Maps a solid paint colour. `is_text` distinguishes glyph fills/strokes from
+    /// plain path art. Alpha is copied verbatim. Never panics.
+    pub fn map(&self, rgba8: [u8; 4], is_text: bool) -> [u8; 4] {
+        if !is_text && !self.line_art {
+            return rgba8;
+        }
+        let [r, g, b, a] = rgba8;
+        // Luminance of the gamma-encoded sRGB bytes, normalized to `0.0..=1.0`.
+        let t = (0.2126 * f32::from(r) + 0.7152 * f32::from(g) + 0.0722 * f32::from(b)) / 255.0;
+        if self.only_black && t > 0.10 {
+            return rgba8;
+        }
+        let [text_r, text_g, text_b] = self.text;
+        let [background_r, background_g, background_b] = self.background;
+        let channel = |text_ch: u8, background_ch: u8| {
+            let mixed = f32::from(text_ch) * (1.0 - t) + f32::from(background_ch) * t;
+            // The mixture of two channel values with weights summing to one stays within
+            // `0.0..=255.0` up to float noise; the clamp keeps the cast total anyway.
+            mixed.round().clamp(0.0, 255.0) as u8
+        };
+        [
+            channel(text_r, background_r),
+            channel(text_g, background_g),
+            channel(text_b, background_b),
+            a,
+        ]
+    }
+}
+
 /// Settings to apply during rendering.
 #[derive(Clone, Copy)]
 pub struct RenderSettings {
@@ -107,6 +154,9 @@ pub struct RenderSettings {
     pub x_offset: f32,
     /// See `x_offset`.
     pub y_offset: f32,
+    /// PdfCraft patch: when set, solid text and line-art paint colours are remapped while
+    /// rendering; `None` renders exactly as without the patch.
+    pub color_replacement: Option<ColorReplacement>,
 }
 
 impl Default for RenderSettings {
@@ -119,6 +169,7 @@ impl Default for RenderSettings {
             bg_color: TRANSPARENT,
             x_offset: 0.0,
             y_offset: 0.0,
+            color_replacement: None,
         }
     }
 }
@@ -265,5 +316,75 @@ pub(crate) fn derive_settings(settings: &vello_cpu::RenderSettings) -> vello_cpu
     vello_cpu::RenderSettings {
         num_threads: 0,
         ..*settings
+    }
+}
+
+// PdfCraft patch: unit tests for the reading-colours mapping.
+#[cfg(test)]
+mod color_replacement_tests {
+    use super::ColorReplacement;
+
+    fn config(
+        text: [u8; 3],
+        background: [u8; 3],
+        only_black: bool,
+        line_art: bool,
+    ) -> ColorReplacement {
+        ColorReplacement {
+            text,
+            background,
+            only_black,
+            line_art,
+        }
+    }
+
+    #[test]
+    fn black_maps_to_text_colour() {
+        let r = config([0x12, 0x34, 0x56], [0xff, 0xff, 0xff], false, true);
+        assert_eq!(r.map([0x00, 0x00, 0x00, 0xff], true), [0x12, 0x34, 0x56, 0xff]);
+    }
+
+    #[test]
+    fn white_maps_to_background() {
+        let r = config([0x00, 0x00, 0x00], [0xab, 0xcd, 0xef], false, true);
+        assert_eq!(r.map([0xff, 0xff, 0xff, 0xff], true), [0xab, 0xcd, 0xef, 0xff]);
+    }
+
+    #[test]
+    fn midgrey_interpolates() {
+        // 0x80 grey between black text and a white background lands near 0x80.
+        let r = config([0x00, 0x00, 0x00], [0xff, 0xff, 0xff], false, true);
+        let [mapped_r, mapped_g, mapped_b, mapped_a] = r.map([0x80, 0x80, 0x80, 0xff], true);
+        assert!(mapped_r.abs_diff(0x80) <= 2);
+        assert!(mapped_g.abs_diff(0x80) <= 2);
+        assert!(mapped_b.abs_diff(0x80) <= 2);
+        assert_eq!(mapped_a, 0xff);
+    }
+
+    #[test]
+    fn alpha_copied_verbatim() {
+        let r = config([0xff, 0x00, 0x00], [0x00, 0x00, 0xff], false, true);
+        assert_eq!(r.map([0x00, 0x00, 0x00, 137], true), [0xff, 0x00, 0x00, 137]);
+        assert_eq!(r.map([0xff, 0xff, 0xff, 0], true), [0x00, 0x00, 0xff, 0]);
+    }
+
+    #[test]
+    fn only_black_threshold() {
+        // White text on black: a mapped grey v becomes 255 - v, so mapped and skipped
+        // values are distinguishable.
+        let r = config([0xff, 0xff, 0xff], [0x00, 0x00, 0x00], true, true);
+        // Luminance t = 25/255 ≈ 0.098 is just under the 0.10 threshold: mapped.
+        assert_eq!(r.map([25, 25, 25, 255], true), [230, 230, 230, 255]);
+        // Luminance t = 27/255 ≈ 0.106 is just over it: left unchanged.
+        assert_eq!(r.map([27, 27, 27, 255], true), [27, 27, 27, 255]);
+    }
+
+    #[test]
+    fn line_art_false_skips_paths_but_not_text() {
+        let r = config([0xff, 0xff, 0xff], [0x00, 0x00, 0x00], false, false);
+        // A plain path fill is left unchanged when line art is off.
+        assert_eq!(r.map([0x00, 0x00, 0x00, 255], false), [0x00, 0x00, 0x00, 255]);
+        // Text fills/strokes still map.
+        assert_eq!(r.map([0x00, 0x00, 0x00, 255], true), [0xff, 0xff, 0xff, 255]);
     }
 }

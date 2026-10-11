@@ -311,6 +311,7 @@ fn render_page<'a>(
                     x_offset: t.x as f32,
                     y_offset: t.y as f32,
                     bg_color: WHITE,
+                    ..Default::default()
                 }
             }
             None => {
