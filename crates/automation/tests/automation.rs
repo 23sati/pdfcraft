@@ -1580,6 +1580,36 @@ trailer << /Root 1 0 R >>
 }
 
 #[test]
+fn accessibility_review_record_compares_two_versions_without_changing_them() {
+    let dir = workdir("a11y-review-record");
+    let source = std::fs::read(dir.join("a.pdf")).unwrap();
+    let mut a = auto(&dir);
+    let before = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    let after = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    ok(&mut a, "accessibility_fix", json!({ "doc": after, "rule": "primary-language", "value": "en-GB" }));
+
+    let output = ok(&mut a, "accessibility_review_record", json!({ "before": before, "after": after, "path": "review.json" }));
+    let file: Value = serde_json::from_slice(&std::fs::read(dir.join("review.json")).unwrap()).unwrap();
+    assert_eq!(output["record"], file);
+    assert_eq!(file["schema"], 1);
+    assert_eq!(file["before"]["sha256"].as_str().unwrap().len(), 64);
+    assert_eq!(file["after"]["sha256"].as_str().unwrap().len(), 64);
+    assert_ne!(file["before"]["sha256"], file["after"]["sha256"]);
+    assert_eq!(file["changed"], json!(["primary-language"]));
+    let language = file["rules"].as_array().unwrap().iter().find(|r| r["rule"] == "primary-language").unwrap();
+    assert_eq!(language["before"]["status"], "failed");
+    assert_eq!(language["after"]["status"], "passed");
+    assert!(file["review_required"].as_array().unwrap().iter().any(|r| r == "tagged-pdf"));
+    assert_eq!(std::fs::read(dir.join("a.pdf")).unwrap(), source);
+    assert!(matches!(
+        a.call("accessibility_review_record", &json!({ "before": before, "after": before, "path": "same.json" })),
+        Err(ToolError::InvalidArgs(_))
+    ));
+    assert!(!dir.join("same.json").exists());
+    assert!(a.call("accessibility_review_record", &json!({ "before": before, "after": after, "path": "../escape.json" })).is_err());
+}
+
+#[test]
 fn editing_existing_text_through_tools() {
     let dir = workdir("edit-text");
     let mut a = auto(&dir);

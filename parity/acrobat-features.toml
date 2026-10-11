@@ -9002,6 +9002,18 @@ evidence = []
 notes = ""
 
 [[feature]]
+id = "a11y.review-record"
+title = "Compare accessibility checks and export a review record"
+area = "M"
+tier = "P2"
+milestone = "M12"
+status = "shipped"
+commands = []
+tools = ["accessibility_review_record"]
+evidence = ["crates/automation/tests/automation.rs::accessibility_review_record_compares_two_versions_without_changing_them"]
+notes = "Headless JSON record compares two open document versions with hashes, rule statuses, finding counts and remaining manual/failed rules. A guided UI, manual decisions and independent PDF/UA verification remain planned in issue #1202."
+
+[[feature]]
 id = "a11y.setup-assistant"
 title = "Accessibility setup assistant"
 area = "M"

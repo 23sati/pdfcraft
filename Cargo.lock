@@ -3619,6 +3619,7 @@ dependencies = [
  "pdfcraft-xfa",
  "png 0.18.1",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]

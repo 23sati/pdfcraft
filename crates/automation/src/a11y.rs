@@ -1,7 +1,9 @@
 //! Accessibility tools: the full check, the accessibility report, and the automatic fixes.
 
+use pdfcraft_engine::DocId;
 use pdfcraft_engine::a11y::{Category, Options, Report, Rule, Status};
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 
 use crate::{Args, Automation, Result, ToolError, child, failed, unused, write_atomic};
 
@@ -91,6 +93,78 @@ impl Automation {
         let mut out = report_json(&r);
         out["path"] = json!(path.to_string_lossy());
         Ok(out)
+    }
+
+    pub(crate) fn a11y_review_record(&self, a: &Args) -> Result<Value> {
+        let id = |key| -> Result<DocId> {
+            let n = u64::try_from(a.int(key)?).map_err(|_| ToolError::InvalidArgs(format!("{key} must be positive")))?;
+            if n == 0 {
+                return Err(ToolError::InvalidArgs(format!("{key} must be positive")));
+            }
+            Ok(DocId(n))
+        };
+        let before_id = id("before")?;
+        let after_id = id("after")?;
+        if before_id == after_id {
+            return Err(ToolError::InvalidArgs("before and after must be separate open documents".into()));
+        }
+        let before = self.session.get(before_id).ok_or_else(|| failed(format!("no open document with id {}", before_id.0)))?;
+        let after = self.session.get(after_id).ok_or_else(|| failed(format!("no open document with id {}", after_id.0)))?;
+        let mut options = Options::default();
+        if a.opt_bool("all")?.unwrap_or(false) {
+            options.rules = Rule::ALL.into_iter().collect();
+        }
+        let before_report = before.accessibility_check(&options).ok_or_else(|| failed("the original document can't be read for checking"))?;
+        let after_report = after.accessibility_check(&options).ok_or_else(|| failed("the edited document can't be read for checking"))?;
+        if before_report.results.len() != after_report.results.len() {
+            return Err(failed("the two accessibility checks returned different rule sets"));
+        }
+        let mut rules = Vec::new();
+        let mut changed = Vec::new();
+        let mut review_required = Vec::new();
+        for (prior, current) in before_report.results.iter().zip(&after_report.results) {
+            if prior.rule != current.rule {
+                return Err(failed("the two accessibility checks returned different rule sets"));
+            }
+            let rule = prior.rule.id();
+            let before_status = status_id(prior.status);
+            let after_status = status_id(current.status);
+            let before_findings = prior.findings.len();
+            let after_findings = current.findings.len();
+            if before_status != after_status || before_findings != after_findings {
+                changed.push(rule);
+            }
+            if matches!(current.status, Status::Failed | Status::Manual) {
+                review_required.push(rule);
+            }
+            rules.push(json!({
+                "rule": rule,
+                "before": { "status": before_status, "findings": before_findings },
+                "after": { "status": after_status, "findings": after_findings },
+            }));
+        }
+        let (y, m, d) = self.session.today();
+        let hash = |bytes: &[u8]| Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect::<String>();
+        let record = json!({
+            "schema": 1,
+            "date": format!("{y}-{m:02}-{d:02}"),
+            "before": { "name": before.name, "sha256": hash(before.bytes.as_slice()), "summary": {
+                "passed": before_report.count(Status::Passed), "failed": before_report.count(Status::Failed),
+                "manual": before_report.count(Status::Manual), "skipped": before_report.count(Status::Skipped),
+            } },
+            "after": { "name": after.name, "sha256": hash(after.bytes.as_slice()), "summary": {
+                "passed": after_report.count(Status::Passed), "failed": after_report.count(Status::Failed),
+                "manual": after_report.count(Status::Manual), "skipped": after_report.count(Status::Skipped),
+            } },
+            "rules": rules,
+            "changed": changed,
+            "review_required": review_required,
+            "note": "Automated checks cover only part of accessibility. Review remaining findings manually and validate the final PDF independently.",
+        });
+        let path = self.resolve(a.str("path")?, true)?;
+        let bytes = serde_json::to_vec_pretty(&record).map_err(failed)?;
+        write_atomic(&path, &bytes)?;
+        Ok(json!({ "path": path.to_string_lossy(), "record": record }))
     }
 
     pub(crate) fn a11y_fix(&mut self, a: &Args) -> Result<Value> {
