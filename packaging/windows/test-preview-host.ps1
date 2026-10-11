@@ -35,6 +35,13 @@ $Started = Get-Date
 $lines = New-Object System.Collections.Generic.List[string]
 function Say([string] $text) { foreach ($l in ($text -split "`r?`n")) { $lines.Add($l); Write-Output $l } }
 
+trap {
+  Say "ERROR: $($_.Exception.Message)"
+  Say "  at $($_.InvocationInfo.PositionMessage)"
+  [IO.File]::WriteAllLines($Report, $lines)
+  exit 1
+}
+
 $Work = Join-Path ([IO.Path]::GetTempPath()) ('linkco-host-' + [Guid]::NewGuid().ToString('N').Substring(0, 8))
 $App = Join-Path $Work 'Linkco PDF Editor'
 New-Item -ItemType Directory -Force -Path $App | Out-Null
@@ -101,7 +108,9 @@ function Run-Host([string] $name, [string] $mode) {
       '@echo off',
       ('"' + $HostExe + '" ' + $Clsid + ' "' + $Pdf + '" ' + $mode + ' ' + $Seconds + ' "' + $shot + '" > "' + $outFile + '" 2>&1'),
       ('echo %ERRORLEVEL%> "' + $outFile + '.done"'))
-    & runas.exe /trustlevel:0x20000 $bat | Out-Null
+    $ErrorActionPreference = 'Continue'
+    & runas.exe /trustlevel:0x20000 $bat 2>&1 | ForEach-Object { Say "  runas: $_" }
+    $ErrorActionPreference = 'Stop'
     $deadline = (Get-Date).AddSeconds($Seconds + 120)
     while (-not (Test-Path "$outFile.done") -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
     if (Test-Path "$outFile.done") {
@@ -112,8 +121,10 @@ function Run-Host([string] $name, [string] $mode) {
     }
   }
   if ($null -eq $code) {
-    & $HostExe $Clsid $Pdf $mode $Seconds $shot > $outFile 2>&1
+    $ErrorActionPreference = 'Continue'
+    & $HostExe $Clsid $Pdf $mode $Seconds $shot 2>&1 | ForEach-Object { "$_" } | Set-Content -LiteralPath $outFile
     $code = $LASTEXITCODE
+    $ErrorActionPreference = 'Stop'
   }
   if (Test-Path $outFile) { Say ((Get-Content -LiteralPath $outFile -Raw) -replace '\s+$', '') }
   Say "  exit code $code"

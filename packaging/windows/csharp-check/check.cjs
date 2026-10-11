@@ -37,6 +37,13 @@ const JOBS = [
     sources: () => [['PreviewHandler.cs', fs.readFileSync(path.join(REPO, 'packaging', 'windows', 'PreviewHandler.cs'))]],
   },
   {
+    title: 'packaging/windows/preview-host-test/PreviewHostTest.cs -> PreviewHostTest.exe',
+    name: 'PreviewHostTest',
+    kind: 'exe',
+    refs: FRAMEWORK_REFS,
+    sources: () => [['PreviewHostTest.cs', fs.readFileSync(path.join(REPO, 'packaging', 'windows', 'preview-host-test', 'PreviewHostTest.cs'))]],
+  },
+  {
     title: 'installer.py (embedded C#) -> LinkcoPDFEditorSetup.exe',
     name: 'LinkcoPDFEditorSetup',
     kind: 'winexe',
