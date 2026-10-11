@@ -87,6 +87,12 @@ $Stage = Join-Path $TargetDir "windows-package\$Arch"
 Remove-Item -Recurse -Force $Stage -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $Stage | Out-Null
 Copy-Item (Join-Path $Bin 'pdfcraft.exe'), (Join-Path $Bin 'pdfcraft-cli.exe') $Stage
+# The document icon embeds Lucide artwork: carry its ISC notice and the project licences
+# beside the binaries in both distributions.
+foreach ($f in 'LICENSE-MIT', 'LICENSE-APACHE', 'NOTICE') {
+  Copy-Item (Join-Path $Root $f) $Stage
+}
+Copy-Item (Join-Path $Root 'assets\app-icon\LICENSE-document.txt') $Stage
 
 # Compile Windows File Explorer PDF Preview Handler (LinkcoPdfPreviewHandler.dll)
 $PreviewCs = Join-Path $PSScriptRoot 'PreviewHandler.cs'
@@ -147,6 +153,9 @@ $Portable = Join-Path $TargetDir "windows-package\LinkcoPDFEditor-$Version-windo
 Remove-Item -Recurse -Force $Portable -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $Portable | Out-Null
 Copy-Item (Join-Path $Stage '*.exe') $Portable
+foreach ($f in 'NOTICE', 'LICENSE-document.txt') {
+  Copy-Item (Join-Path $Stage $f) $Portable
+}
 Copy-Item -Recurse $Models (Join-Path $Portable 'models')
 foreach ($f in 'README.md', 'LICENSE', 'LICENSE-MIT', 'LICENSE-APACHE') {
   $p = Join-Path $Root $f

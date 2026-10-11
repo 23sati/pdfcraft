@@ -1,9 +1,51 @@
-# Linkco PDF Editor v0.5.0 — Release Notes
+# Linkco PDF Editor v0.6.0 — Release Notes
 
 **Product:** Linkco PDF Editor  
-**Version:** `0.5.0`  
+**Version:** `0.6.0`  
 **Publisher:** Al Rawabet Commercial Services & Contracting Company W.L.L. (Linkco)  
 **Location:** Building 159, Street 220, Zone 24, P.O. Box 32282, Doha – State of Qatar (`www.linkco.com.qa`)
+
+---
+
+## What's new in v0.6.0
+
+v0.6.0 brings in every change from the upstream PdfCraft 0.6.0 release (75 changes) while keeping the Linkco PDF Editor name, branding, Windows integration and installers.
+
+### 1. Windows printing that keeps the window responsive
+- The Print dialog opens straight away: printers (with their Ready / Paused / Offline / Error status) are listed in the background, and "Looking for printers…" shows until the list arrives. A printer you pick while it is still looking stays picked. The refresh button ("Check again") also runs in the background.
+- **Print** closes the dialog at once. The sheets are rendered at the chosen 150 / 300 / 600 DPI and sent to the spooler on a worker thread, so a long document no longer freezes the window. "Sending to *printer*…" appears first, then the spooler's answer (or the error, for example an offline printer).
+- Unchanged from v0.5.0: each sheet prints at 100% on the driver's closest paper size, with zero margins, landscape when the sheet is wide, hard-margin compensation and no console window.
+- Upstream's alternative Windows print backend (`windows_print.ps1`) was not adopted, because Linkco's backend already covers the same behaviour plus printer status and the 3-tier printer detection.
+- A scaled annotation appearance no longer prints larger than its rectangle.
+
+### 2. Windows PDF file icon and licence files
+- PDF files associated with Linkco PDF Editor now show a dedicated **PDF document icon** (a page with a PDF badge, in Linkco navy and crimson) instead of the app icon. It is embedded in `LinkcoPDFEditor.exe` as icon resource 2 and registered by the Setup EXE, the NSIS installer and the MSI (`DefaultIcon …,-2`).
+- `LICENSE-MIT`, `LICENSE-APACHE`, `NOTICE` and `LICENSE-document.txt` (the icon's ISC notice) are now installed beside the executables by every installer and included in the portable ZIP.
+
+### 3. Editing, pages and forms
+- **Combine Files:** a thumbnail grid of every page from every file, where pages can be rotated, removed and reordered before combining.
+- **Column select** (Alt/Option-drag, or *Edit ▸ Column select*), and selecting and moving several kinds of page objects together.
+- Rectangle, oval and polygon comments get a fill colour; exported images keep their transparency (JPEG cut-outs included).
+- Fill & Sign improvements; white or pale text is edited on a dark box instead of vanishing on white; **Reduce File Size** shrinks office scans, drops images nothing draws, and never saves a bigger copy.
+- Docking: Tools and Inspector panels can be grouped as tabs, split beside the PDF or floated. *View ▸ Reset panel layout* restores the default.
+
+### 4. Interface
+- **Preferences ▸ Interface size** (Auto follows the desktop's text scaling).
+- Keyboard shortcut key names are shown in the interface language.
+- Precision touchpads scroll 1:1 with the fingers.
+- **Polish** interface (17 languages in total), including the Linkco Home page strings.
+- Portable mode keeps its own single-instance window, separate from an installed copy.
+
+### 5. Fixes and hardening
+- Passwords with non-ASCII characters open encrypted files; text files saved as UTF-16 create correct PDFs.
+- Redaction pattern fixes; search handles the Turkish dotted/dotless i and runs of whitespace.
+- OCR recognises €, and its model path is checked; about 30 smaller fixes and several hardening changes for hostile files.
+- Agent and automation control: `ui.resize`, `ui.focus`, `ui.quit` (shows the save prompt when there are unsaved changes), `inspect focused=true` and `ui.dock`. These are only available when the app is started with `--control`.
+
+### 6. Downloads
+- `dist/release/LinkcoPDFEditorSetup.exe`
+- `dist/release/LinkcoPDFEditorSetup-0.6.0-windows-x64.msi`
+- `dist/release/LinkcoPDFEditor-0.6.0-windows-x64-portable.zip`
 
 ---
 

@@ -190,3 +190,85 @@ fn print_dialog_shows_the_printer_driver_options() {
     h.state_mut().print_draft.printer = Some("Other_Queue".into());
     assert!(h.state().print_draft.job("form.pdf").options.is_empty());
 }
+
+/// The desktop app lists printers in the background (PowerShell on Windows takes a second or
+/// more): the dialog opens at once, then preselects the default when the list arrives — unless
+/// the user has already picked a printer. "Check again" lists them in the background too.
+#[test]
+fn printers_listed_in_the_background_preselect_the_default_unless_one_was_picked() {
+    use pdfcraft_engine::print::spool::{PrinterDetail, PrinterStatus};
+    use std::sync::{Arc, Mutex};
+    let printer = |name: &str, default: bool, status: PrinterStatus| PrinterDetail {
+        name: name.into(),
+        default,
+        status,
+        port: String::new(),
+        driver: String::new(),
+        network: false,
+    };
+    let mut h = harness();
+    // The source waits until the test lets it answer, so the dialog is seen while it looks.
+    let gate = Arc::new(Mutex::new(()));
+    let hold = gate.lock().unwrap();
+    let wait = gate.clone();
+    let listed = vec![printer("Office", false, PrinterStatus::Ready), printer("Front Desk", true, PrinterStatus::Ready)];
+    let answer = Arc::new(Mutex::new(listed));
+    let source = answer.clone();
+    h.state_mut().printer_source = Some(Arc::new(move || {
+        let _open = wait.lock();
+        source.lock().map(|l| l.clone()).unwrap_or_default()
+    }));
+    fn settle(h: &mut Harness<'static, PdfCraftApp>) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while h.state().print_draft.printers_loading && std::time::Instant::now() < deadline {
+            h.run_steps(1);
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert!(!h.state().print_draft.printers_loading);
+    }
+    assert!(h.state_mut().execute("print.dialog"));
+    h.run_steps(2);
+    assert_eq!(h.state().dialog, Some(Dialog::Print), "the dialog doesn't wait for the printers");
+    assert!(h.state().print_draft.printers_loading);
+    assert_eq!(h.state().print_draft.printer, None);
+    drop(hold);
+    settle(&mut h);
+    assert_eq!(h.state().print_draft.printers.len(), 2);
+    assert_eq!(h.state().print_draft.printer_details.len(), 2, "the status comes with the list");
+    assert_eq!(h.state().print_draft.printer.as_deref(), Some("Front Desk"));
+
+    // Opened again: last time's list shows at once; a choice made before the fresh list
+    // arrives is kept.
+    h.state_mut().dialog = None;
+    let hold = gate.lock().unwrap();
+    assert!(h.state_mut().execute("print.dialog"));
+    h.run_steps(2);
+    assert_eq!(h.state().print_draft.printers.len(), 2, "the last list shows while looking");
+    {
+        let d = &mut h.state_mut().print_draft;
+        d.printer = None;
+        d.printer_picked = true;
+    }
+    drop(hold);
+    settle(&mut h);
+    assert_eq!(h.state().print_draft.printer, None, "Save as PDF, as picked");
+
+    // Check again, with no default left and Front Desk offline: the dialog keeps working while
+    // it looks, a printer still listed stays chosen, and Save as PDF moves to an online printer.
+    if let Ok(mut l) = answer.lock() {
+        *l = vec![printer("Front Desk", false, PrinterStatus::Offline), printer("Office", false, PrinterStatus::Ready)];
+    }
+    h.state_mut().print_draft.printer = Some("Front Desk".into());
+    let hold = gate.lock().unwrap();
+    h.state_mut().print_draft.recheck_printers = true;
+    h.run_steps(2);
+    assert!(h.state().print_draft.printers_loading, "Check again doesn't hold up the dialog");
+    drop(hold);
+    settle(&mut h);
+    assert_eq!(h.state().print_draft.printer.as_deref(), Some("Front Desk"), "a listed printer stays chosen");
+    h.state_mut().print_draft.printer = None;
+    h.state_mut().print_draft.recheck_printers = true;
+    h.run_steps(2);
+    settle(&mut h);
+    assert_eq!(h.state().print_draft.printer.as_deref(), Some("Office"), "an online printer before an offline one");
+}

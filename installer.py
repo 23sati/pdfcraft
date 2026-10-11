@@ -35,6 +35,15 @@ import build
 
 ROOT = Path(__file__).resolve().parent
 
+# Licence texts that travel with the binaries in every package: the embedded PDF file icon
+# adapts Lucide (ISC, whose notice must accompany copies), plus the project licences and NOTICE.
+LICENCE_FILES = {
+    "LICENSE-document.txt": ROOT / "assets" / "app-icon" / "LICENSE-document.txt",
+    "LICENSE-MIT": ROOT / "LICENSE-MIT",
+    "LICENSE-APACHE": ROOT / "LICENSE-APACHE",
+    "NOTICE": ROOT / "NOTICE",
+}
+
 APP_NAME = "Linkco PDF Editor"
 COMPANY_NAME = "Al Rawabet Commercial Services & Contracting Company W.L.L."
 COPYRIGHT = "© Al Rawabet Commercial Services & Contracting Company W.L.L."
@@ -375,7 +384,8 @@ namespace LinkcoSetup
                 {
                     progId.SetValue("", "PDF Document");
                     using (RegistryKey iconKey = progId.CreateSubKey("DefaultIcon"))
-                        if (iconKey != null) iconKey.SetValue("", mainExe + ",0");
+                        // Resource 2 is the PDF document icon (apps/pdfcraft/build.rs); 1 is the app icon.
+                        if (iconKey != null) iconKey.SetValue("", "\"" + mainExe + "\",-2");
                     using (RegistryKey cmdKey = progId.CreateSubKey(@"shell\open\command"))
                         if (cmdKey != null) cmdKey.SetValue("", "\"" + mainExe + "\" \"%1\"");
                 }
@@ -813,7 +823,7 @@ namespace LinkcoSetup
 
                 try { SHChangeNotify(0x08000000, 0, IntPtr.Zero, IntPtr.Zero); } catch { }
 
-                foreach (string f in new string[] { "LinkcoPDFEditor.exe", "pdfcraft.exe", "pdfcraft-cli.exe", "LinkcoPdfPreviewHandler.dll" })
+                foreach (string f in new string[] { "LinkcoPDFEditor.exe", "pdfcraft.exe", "pdfcraft-cli.exe", "LinkcoPdfPreviewHandler.dll", "LICENSE-document.txt", "LICENSE-MIT", "LICENSE-APACHE", "NOTICE" })
                 {
                     DeleteWithRetry(Path.Combine(installDir, f));
                 }
@@ -1052,7 +1062,7 @@ def build_dotnet_setup_exe(
         tmp = Path(tmp_str)
         payload_zip = tmp / "payload.zip"
         with zipfile.ZipFile(payload_zip, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-            for exe_name in ("LinkcoPDFEditor.exe", "pdfcraft.exe", "pdfcraft-cli.exe", "LinkcoPdfPreviewHandler.dll"):
+            for exe_name in ("LinkcoPDFEditor.exe", "pdfcraft.exe", "pdfcraft-cli.exe", "LinkcoPdfPreviewHandler.dll", *LICENCE_FILES):
                 f = stage_dir / exe_name
                 if f.is_file():
                     zf.write(f, arcname=exe_name)
@@ -1157,6 +1167,9 @@ def build_windows_installer(
     shutil.copy2(gui_exe, stage_dir / "pdfcraft.exe")
     shutil.copy2(gui_exe, stage_dir / "LinkcoPDFEditor.exe")
     shutil.copy2(cli_exe, stage_dir / "pdfcraft-cli.exe")
+    for name, src in LICENCE_FILES.items():
+        if src.is_file():
+            shutil.copy2(src, stage_dir / name)
 
     preview_dll_bin = bin_dir / "LinkcoPdfPreviewHandler.dll"
     csc_preview = find_csc()
@@ -1290,7 +1303,7 @@ def build_windows_installer(
     portable_zip = out_dir / f"LinkcoPDFEditor-{version}-windows-{arch}-portable.zip"
     print(f"==> Creating portable archive: {portable_zip}")
     with zipfile.ZipFile(portable_zip, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        for exe_name in ("LinkcoPDFEditor.exe", "pdfcraft.exe", "pdfcraft-cli.exe", "LinkcoPdfPreviewHandler.dll"):
+        for exe_name in ("LinkcoPDFEditor.exe", "pdfcraft.exe", "pdfcraft-cli.exe", "LinkcoPdfPreviewHandler.dll", "LICENSE-document.txt"):
             f = stage_dir / exe_name
             if f.is_file():
                 zf.write(f, arcname=exe_name)

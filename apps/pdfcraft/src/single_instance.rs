@@ -4,8 +4,9 @@
 //! Outlook attachments, Explorer double-clicks and Open With all start
 //! `LinkcoPDFEditor.exe "<file>"`, so until now every file got its own process and window. The
 //! first Linkco PDF Editor listens on a Unix domain socket (Windows 10 1803 and later) in
-//! `%LOCALAPPDATA%\Linkco PDF Editor` (beside the crash-recovery folder), or in the data folder of
-//! a portable copy. The socket is named after the Windows session (`instance-Console.sock`), so
+//! `%LOCALAPPDATA%\Linkco PDF Editor` (beside the crash-recovery folder); a portable copy uses its
+//! own name there (`portable-instance-Console.sock`), so it never hands files to an installed copy.
+//! The socket is named after the Windows session (`instance-Console.sock`), so
 //! two sign-ins of the same user never open files in each other's windows, and it lives in the
 //! user's own profile, so other accounts can't create, replace or reach it: nobody else can
 //! intercept a launch or open files in this user's window. The exchange is one line each way, a
@@ -136,17 +137,16 @@ pub fn claim(files: &[String], may_hand_off: bool) -> Claim {
     }
 }
 
-/// The socket in `%LOCALAPPDATA%\Linkco PDF Editor` (beside the crash-recovery folder); none for a
-/// portable copy.
+/// The socket in `%LOCALAPPDATA%\Linkco PDF Editor` (beside the crash-recovery folder); none when
+/// `%LOCALAPPDATA%` is unset.
 #[cfg(windows)]
 fn socket_path() -> Option<std::path::PathBuf> {
     let name = socket_name(std::env::var("SESSIONNAME").ok().as_deref());
-    // A portable copy may sit in a folder other accounts can write to (`C:\Tools`): a socket
-    // there would let them receive this user's file paths or send it files to open. Portable
-    // launches each open their own window instead, and write nothing outside their folder.
-    if pdfcraft_ui_egui::portable::data_dir().is_some() {
-        return None;
-    }
+    // %LOCALAPPDATA% is private to the user's sign-in, so other accounts can't receive this
+    // user's file paths or send it files to open. A portable copy uses it too (#889), under its
+    // own name so it never hands files to an installed copy (which keeps its settings elsewhere).
+    // Never the portable folder itself: it may sit where other accounts can write (`C:\Tools`).
+    let name = if pdfcraft_ui_egui::portable::data_dir().is_some() { format!("portable-{name}") } else { name };
     std::env::var_os("LOCALAPPDATA").filter(|v| !v.is_empty()).map(|d| std::path::PathBuf::from(d).join("Linkco PDF Editor").join(name))
 }
 

@@ -36,6 +36,13 @@ pub enum Handling {
 pub struct PrintDraft {
     pub printers: Vec<spool::Printer>,
     pub printer_details: Vec<spool::PrinterDetail>,
+    /// The printers are still being listed in the background (see [`PrinterSource`]).
+    pub printers_loading: bool,
+    /// The user chose the printer, so a list arriving late doesn't move it to the default.
+    pub printer_picked: bool,
+    /// "Check again" was pressed: the printers are listed afresh on the next frame (in the
+    /// background when there is a [`PrinterSource`]).
+    pub recheck_printers: bool,
     /// `None` = Save as PDF.
     pub printer: Option<String>,
     pub copies: u32,
@@ -81,6 +88,9 @@ impl Default for PrintDraft {
         PrintDraft {
             printers: Vec::new(),
             printer_details: Vec::new(),
+            printers_loading: false,
+            printer_picked: false,
+            recheck_printers: false,
             printer: None,
             copies: 1,
             collate: true,
@@ -169,18 +179,72 @@ impl PrintDraft {
     }
 }
 
+/// Lists the printers off the UI thread (the desktop app sets [`PdfCraftApp::printer_source`]):
+/// on Windows that takes PowerShell a second or more, and CUPS' driverless discovery can wait on
+/// the network. Without a source the dialog reads them as it opens, so tests stay deterministic.
+pub type PrinterSource = std::sync::Arc<dyn Fn() -> Vec<spool::PrinterDetail> + Send + Sync>;
+
+/// The system spooler's printers, with their status, as the desktop app's [`PrinterSource`].
+pub fn system_printers() -> PrinterSource {
+    std::sync::Arc::new(spool::printers_detailed)
+}
+
+/// The Print dialog's work in the background: the printer list being read, and the jobs being
+/// spooled (the printer each was sent to, and the spooler's answer).
+#[derive(Default)]
+pub(crate) struct PrintTasks {
+    #[cfg(not(target_arch = "wasm32"))]
+    printers: Option<std::sync::mpsc::Receiver<Vec<spool::PrinterDetail>>>,
+    /// The list being read was asked for by "Check again" (see [`PdfCraftApp::apply_printer_list`]).
+    #[cfg(not(target_arch = "wasm32"))]
+    recheck: bool,
+    #[cfg(not(target_arch = "wasm32"))]
+    jobs: Vec<(String, std::sync::mpsc::Receiver<Result<String, String>>)>,
+}
+
+/// The printer the dialog preselects: the system default if it is online, else the default, else
+/// the first online printer, else the first.
+fn default_printer(details: &[spool::PrinterDetail]) -> Option<String> {
+    details
+        .iter()
+        .find(|p| p.default && !p.status.is_offline())
+        .or_else(|| details.iter().find(|p| p.default))
+        .or_else(|| details.iter().find(|p| !p.status.is_offline()))
+        .or_else(|| details.first())
+        .map(|p| p.name.clone())
+}
+
+/// How Windows renders a job's sheets before spooling them (the other spoolers take the PDF).
+struct SheetRender {
+    dpi: u32,
+    max_dpi: u32,
+    grayscale: bool,
+}
+
+/// Render the sheets if the spooler needs them, then hand the job over. Runs on a worker thread
+/// on the desktop: a long document at 600 dpi takes a while.
+fn spool_job(bytes: &[u8], job: &spool::Job, render: Option<SheetRender>) -> Result<String, String> {
+    let sheets = match render {
+        Some(r) => pdfcraft_engine::render_imposed_sheets(bytes, r.dpi, r.max_dpi, r.grayscale).map_err(|e| e.to_string())?,
+        None => Vec::new(),
+    };
+    spool::submit_sheets(bytes, &sheets, job).map_err(|e| e.to_string())
+}
+
 impl PdfCraftApp {
     pub fn open_print(&mut self) {
         let Some((i, _)) = self.active_ids() else { return };
-        let details = spool::printers_detailed();
+        let (details, printers_loading) = match self.printer_source.clone() {
+            // The list from the last time the dialog opened, until the fresh one arrives.
+            #[cfg(not(target_arch = "wasm32"))]
+            Some(source) => {
+                self.list_printers_in_background(source, false);
+                (self.print_draft.printer_details.clone(), true)
+            }
+            _ => (spool::printers_detailed(), false),
+        };
         let printers: Vec<spool::Printer> = details.iter().map(|d| d.to_printer()).collect();
-        let default = details
-            .iter()
-            .find(|p| p.default && !p.status.is_offline())
-            .or_else(|| details.iter().find(|p| p.default))
-            .or_else(|| details.iter().find(|p| !p.status.is_offline()))
-            .or_else(|| details.first())
-            .map(|p| p.name.clone());
+        let default = default_printer(&details);
         let current = self.views[i].current;
         let selected: Vec<usize> = self.views[i].selected.iter().copied().collect();
         let keep = std::mem::take(&mut self.print_draft);
@@ -191,8 +255,112 @@ impl PdfCraftApp {
             (true, Which::Selected) => Which::All,
             (true, other) => other,
         };
-        self.print_draft = PrintDraft { printers, printer_details: details, printer: default, current_page: current, sheet: 0, selected, which, ..keep };
+        self.print_draft = PrintDraft {
+            printers,
+            printer_details: details,
+            printers_loading,
+            printer_picked: false,
+            recheck_printers: false,
+            printer: default,
+            current_page: current,
+            sheet: 0,
+            selected,
+            which,
+            ..keep
+        };
         self.dialog = Some(crate::Dialog::Print);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn list_printers_in_background(&mut self, source: PrinterSource, recheck: bool) {
+        self.print_tasks.recheck |= recheck;
+        // A list already being read is as fresh as a new one would be.
+        if self.print_tasks.printers.is_some() {
+            return;
+        }
+        let (tx, rx) = std::sync::mpsc::channel();
+        let ctx = self.ctx.clone();
+        std::thread::spawn(move || {
+            // The receiver may be gone (the app quit): nothing to report to then.
+            let _ = tx.send(source());
+            if let Some(ctx) = ctx {
+                ctx.request_repaint();
+            }
+        });
+        self.print_tasks.printers = Some(rx);
+    }
+
+    /// A fresh printer list arrived. When the dialog opened, the default is preselected unless
+    /// the user has picked a printer meanwhile; after "Check again", the choice stays unless it
+    /// was Save as PDF or that printer is gone.
+    fn apply_printer_list(&mut self, details: Vec<spool::PrinterDetail>, recheck: bool) {
+        let d = &mut self.print_draft;
+        let printers: Vec<spool::Printer> = details.iter().map(|det| det.to_printer()).collect();
+        let replace = if recheck {
+            d.printer.as_ref().is_none_or(|name| !printers.iter().any(|p| &p.name == name))
+        } else {
+            !d.printer_picked
+        };
+        if replace {
+            d.printer = default_printer(&details);
+        }
+        d.printers = printers;
+        d.printer_details = details;
+        d.printers_loading = false;
+    }
+
+    /// Pick up a printer list or a spooled job that finished, and start a "Check again" (each
+    /// frame).
+    pub(crate) fn poll_print(&mut self) {
+        if std::mem::take(&mut self.print_draft.recheck_printers) {
+            match self.printer_source.clone() {
+                #[cfg(not(target_arch = "wasm32"))]
+                Some(source) => {
+                    self.print_draft.printers_loading = true;
+                    self.list_printers_in_background(source, true);
+                }
+                _ => self.apply_printer_list(spool::printers_detailed(), true),
+            }
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            if let Some(rx) = &self.print_tasks.printers {
+                let details = match rx.try_recv() {
+                    Ok(p) => Some(p),
+                    Err(std::sync::mpsc::TryRecvError::Empty) => None,
+                    // A source that died lists nothing new; the dialog keeps what it has.
+                    Err(std::sync::mpsc::TryRecvError::Disconnected) => Some(self.print_draft.printer_details.clone()),
+                };
+                if let Some(details) = details {
+                    self.print_tasks.printers = None;
+                    let recheck = std::mem::take(&mut self.print_tasks.recheck);
+                    self.apply_printer_list(details, recheck);
+                }
+            }
+            let mut finished = Vec::new();
+            self.print_tasks.jobs.retain(|(printer, rx)| match rx.try_recv() {
+                Ok(r) => {
+                    finished.push((printer.clone(), r));
+                    false
+                }
+                Err(std::sync::mpsc::TryRecvError::Empty) => true,
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    finished.push((printer.clone(), Err("the print job stopped unexpectedly".into())));
+                    false
+                }
+            });
+            for (printer, result) in finished {
+                self.report_print_job(&printer, result);
+            }
+        }
+    }
+
+    fn report_print_job(&mut self, printer: &str, result: Result<String, String>) {
+        match result {
+            Ok(msg) if msg.is_empty() => self.notify(crate::i18n::fmt(tl!("Sent to {printer}"), &[("printer", printer)])),
+            Ok(msg) => self.notify(crate::i18n::fmt(tl!("Sent to {printer}: {msg}"), &[("printer", printer), ("msg", &msg)])),
+            Err(e) => self.notify_error(e),
+        }
     }
 
     /// Print (or save) with the dialog's settings. Returns `true` on success. Save as PDF without
@@ -224,34 +392,51 @@ impl PdfCraftApp {
         match self.print_draft.printer.clone() {
             Some(printer) => {
                 let job = self.print_draft.job(&name);
-                let rendered_sheets = if cfg!(target_os = "windows") {
-                    match self.session.render_print_sheets(id, &bytes, self.print_draft.dpi, self.print_draft.grayscale) {
-                        Ok(s) => s,
+                // Windows prints sheets the app renders itself; the document's print permission
+                // sets the highest resolution here, and the rendering happens with the spooling.
+                let render = if cfg!(target_os = "windows") {
+                    match self.session.print_max_dpi(id) {
+                        Ok(max_dpi) => Some(SheetRender { dpi: self.print_draft.dpi, max_dpi, grayscale: self.print_draft.grayscale }),
                         Err(e) => {
                             self.notify_error(e);
                             return false;
                         }
                     }
                 } else {
-                    Vec::new()
+                    None
                 };
-                match spool::submit_sheets(&bytes, &rendered_sheets, &job) {
-                    Ok(msg) => {
-                        self.notify(if msg.is_empty() {
-                            crate::i18n::fmt(tl!("Sent to {printer}"), &[("printer", &printer)])
-                        } else {
-                            crate::i18n::fmt(tl!("Sent to {printer}: {msg}"), &[("printer", &printer), ("msg", &msg)])
-                        });
-                        true
-                    }
-                    Err(e) => {
-                        self.notify_error(e);
-                        false
-                    }
-                }
+                self.send_to_printer(printer, bytes, job, render)
             }
             None => self.save_print_pdf(&name, bytes),
         }
+    }
+
+    /// Spool a job off the UI thread: on Windows every sheet is rendered at the printer's
+    /// resolution first, which can take minutes for a long document. The dialog closes at once
+    /// and the spooler's answer arrives as a notice.
+    #[cfg(not(target_arch = "wasm32"))]
+    fn send_to_printer(&mut self, printer: String, bytes: Vec<u8>, job: spool::Job, render: Option<SheetRender>) -> bool {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let ctx = self.ctx.clone();
+        std::thread::spawn(move || {
+            // The receiver may be gone (the app quit): nothing to report to then.
+            let _ = tx.send(spool_job(&bytes, &job, render));
+            if let Some(ctx) = ctx {
+                ctx.request_repaint();
+            }
+        });
+        self.notify(crate::i18n::fmt(tl!("Sending to {printer}…"), &[("printer", &printer)]));
+        self.print_tasks.jobs.push((printer, rx));
+        true
+    }
+
+    /// A browser has no spooler: `submit` answers at once.
+    #[cfg(target_arch = "wasm32")]
+    fn send_to_printer(&mut self, printer: String, bytes: Vec<u8>, job: spool::Job, render: Option<SheetRender>) -> bool {
+        let result = spool_job(&bytes, &job, render);
+        let ok = result.is_ok();
+        self.report_print_job(&printer, result);
+        ok
     }
 
     /// Print ▸ Save as PDF on the desktop: write to `save_override` (tests and automation), or
@@ -444,6 +629,9 @@ pub(crate) fn body(
                 ui.horizontal(|ui| {
                     let shown = d.printer.clone().unwrap_or_else(|| tl!("Save as PDF").to_string());
                     egui::ComboBox::from_id_salt("printer").selected_text(shown).width(235.0).show_ui(ui, |ui| {
+                        if d.printers_loading {
+                            ui.add_enabled(false, egui::Label::new(tl!("Looking for printers…")));
+                        }
                         for p in &d.printers {
                             let status_suffix = d
                                 .printer_details
@@ -483,15 +671,11 @@ pub(crate) fn body(
                         }
                     }
                     if crate::icons::button(ui, "rotate-cw", 24.0, false, tl!("Check again")).clicked() {
-                        let details = spool::printers_detailed();
-                        d.printers = details.iter().map(|det| det.to_printer()).collect();
-                        d.printer_details = details;
-                        if d.printer.is_none() {
-                            d.printer = d.printers.iter().find(|p| p.default).or(d.printers.first()).map(|p| p.name.clone());
-                        }
+                        d.recheck_printers = true;
                     }
                 });
                 if d.printer != before {
+                    d.printer_picked = true;
                     d.show_driver_options = false;
                     d.driver_error = None;
                 }

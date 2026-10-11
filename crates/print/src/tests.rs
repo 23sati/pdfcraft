@@ -458,6 +458,19 @@ fn the_spoolers_reply_drops_the_file_count_of_a_job_sent_on_stdin() {
     assert_eq!(spool::job_message(b""), "");
 }
 
+/// Windows: the printer list comes from the spooler (`Win32_Printer`, then .NET, then the
+/// registry). A bare machine may have no printer; the list that exists has real names and at most
+/// one default, and the detailed list the Print dialog uses names the same printers.
+#[cfg(windows)]
+#[test]
+fn windows_lists_the_printers_the_system_knows() {
+    let printers = spool::printers();
+    assert!(printers.iter().all(|p| !p.name.trim().is_empty()), "{printers:?}");
+    assert!(printers.iter().filter(|p| p.default).count() <= 1, "{printers:?}");
+    let detailed = spool::printers_detailed();
+    assert!(detailed.iter().filter(|p| p.default).count() <= 1, "{detailed:?}");
+}
+
 /// A PPD shaped like a Fiery's: installable options, multi-line PostScript in the choices, Latin-1
 /// labels, options the Print dialog sets itself.
 const FIERY_PPD: &[u8] = b"*PPD-Adobe: \"4.3\"\n\
@@ -535,4 +548,17 @@ fn printer_option_defaults_and_job_arguments() {
     let args = lp_args(&job).join(" ");
     assert!(args.ends_with("-o fit-to-page=false -o InputSlot=Tray2 -o EFMediaType=Heavy1"), "{args}");
     assert!(spool::printer_options("../../etc/passwd").is_empty(), "not a queue name");
+}
+
+#[test]
+fn a_scaled_appearance_is_not_scaled_twice() {
+    let doc = fixture(1);
+    let nums = |v: [f64; 6]| Object::Array(v.iter().map(|x| Object::Real(*x)).collect());
+    let mut form = Dict::new();
+    form.set(b"BBox".to_vec(), Object::Array([0.0, 0.0, 10.0, 10.0].iter().map(|x| Object::Real(*x)).collect()));
+    form.set(b"Matrix".to_vec(), nums([2.0, 0.0, 0.0, 2.0, 0.0, 0.0]));
+    // The form's own /Matrix doubles it to 20x20 when drawn; the placement only has to map 20x20 onto the 40x40 rect.
+    let m = appearance_matrix(&doc, &form, [10.0, 10.0, 50.0, 50.0]).unwrap();
+    assert!(close(m.0[0], 2.0) && close(m.0[3], 2.0), "{:?}", m.0);
+    assert!(close(m.0[4], 10.0) && close(m.0[5], 10.0), "{:?}", m.0);
 }

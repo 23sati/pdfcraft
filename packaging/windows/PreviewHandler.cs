@@ -58,8 +58,8 @@ using Microsoft.Win32;
 [assembly: AssemblyCompany("Al Rawabet Commercial Services & Contracting Company W.L.L.")]
 [assembly: AssemblyProduct("Linkco PDF Editor")]
 [assembly: AssemblyCopyright("\u00A9 Al Rawabet Commercial Services & Contracting Company W.L.L.")]
-[assembly: AssemblyVersion("0.5.0.0")]
-[assembly: AssemblyFileVersion("0.5.0.0")]
+[assembly: AssemblyVersion("0.6.0.0")]
+[assembly: AssemblyFileVersion("0.6.0.0")]
 [assembly: ComVisible(true)]
 
 namespace LinkcoPdfPreview

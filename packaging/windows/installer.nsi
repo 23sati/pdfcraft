@@ -6,7 +6,7 @@ Unicode true
 !include "x64.nsh"
 
 !ifndef VERSION
-  !define VERSION "0.5.0"
+  !define VERSION "0.6.0"
 !endif
 !ifndef BIN_DIR
   !define BIN_DIR "..\..\target\x86_64-pc-windows-msvc\release"
@@ -66,6 +66,11 @@ Section "${APP_NAME} (required)" SecCore
   File "${BIN_DIR}\pdfcraft.exe"
   File "${BIN_DIR}\pdfcraft-cli.exe"
   File /nonfatal "${BIN_DIR}\LinkcoPdfPreviewHandler.dll"
+  ; Licence texts: the embedded PDF file icon adapts Lucide (ISC); staged by installer.py / package.ps1.
+  File /nonfatal "${BIN_DIR}\LICENSE-document.txt"
+  File /nonfatal "${BIN_DIR}\LICENSE-MIT"
+  File /nonfatal "${BIN_DIR}\LICENSE-APACHE"
+  File /nonfatal "${BIN_DIR}\NOTICE"
   CopyFiles /SILENT "$INSTDIR\pdfcraft.exe" "$INSTDIR\LinkcoPDFEditor.exe"
 
   WriteRegStr HKLM "Software\Linkco\Linkco PDF Editor" "InstallDir" "$INSTDIR"
@@ -78,11 +83,14 @@ Section "${APP_NAME} (required)" SecCore
 
   ; PDF Open With registration (never overwrites user's default handler)
   WriteRegStr HKLM "Software\Classes\LinkcoPDFEditor.Document" "" "PDF Document"
-  WriteRegStr HKLM "Software\Classes\LinkcoPDFEditor.Document\DefaultIcon" "" "$INSTDIR\LinkcoPDFEditor.exe,0"
+  ; Resource 2 is the PDF document icon (apps/pdfcraft/build.rs); 1 is the app icon.
+  WriteRegStr HKLM "Software\Classes\LinkcoPDFEditor.Document\DefaultIcon" "" "$\"$INSTDIR\LinkcoPDFEditor.exe$\",-2"
   WriteRegStr HKLM "Software\Classes\LinkcoPDFEditor.Document\shell\open\command" "" '"$INSTDIR\LinkcoPDFEditor.exe" "%1"'
   WriteRegStr HKLM "Software\Classes\.pdf\OpenWithProgids" "LinkcoPDFEditor.Document" ""
   WriteRegStr HKLM "Software\Classes\Applications\LinkcoPDFEditor.exe" "FriendlyAppName" "${APP_NAME}"
   WriteRegStr HKLM "Software\Classes\Applications\pdfcraft.exe" "FriendlyAppName" "${APP_NAME}"
+  WriteRegStr HKLM "Software\Classes\Applications\LinkcoPDFEditor.exe\DefaultIcon" "" "$\"$INSTDIR\LinkcoPDFEditor.exe$\",-2"
+  WriteRegStr HKLM "Software\Classes\Applications\pdfcraft.exe\DefaultIcon" "" "$\"$INSTDIR\pdfcraft.exe$\",-2"
 
   ; Windows File Explorer PDF Preview Handler (IPreviewHandler {8895b1c6-b41f-4c1c-a562-0d564250836f})
   ReadRegStr $0 HKLM "Software\Classes\.pdf\ShellEx\{8895b1c6-b41f-4c1c-a562-0d564250836f}" ""
@@ -96,7 +104,7 @@ Section "${APP_NAME} (required)" SecCore
   WriteRegStr HKLM "Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}\InprocServer32" "" "mscoree.dll"
   WriteRegStr HKLM "Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}\InprocServer32" "ThreadingModel" "Apartment"
   WriteRegStr HKLM "Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}\InprocServer32" "Class" "LinkcoPdfPreview.LinkcoPdfPreviewHandler"
-  WriteRegStr HKLM "Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}\InprocServer32" "Assembly" "LinkcoPdfPreviewHandler, Version=0.5.0.0, Culture=neutral, PublicKeyToken=null"
+  WriteRegStr HKLM "Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}\InprocServer32" "Assembly" "LinkcoPdfPreviewHandler, Version=0.6.0.0, Culture=neutral, PublicKeyToken=null"
   WriteRegStr HKLM "Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}\InprocServer32" "RuntimeVersion" "v4.0.30319"
   WriteRegStr HKLM "Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}\InprocServer32" "CodeBase" "file:///$INSTDIR\LinkcoPdfPreviewHandler.dll"
   WriteRegStr HKLM "Software\Classes\CLSID\{D4E7B6A2-4C91-4E3A-9B12-7A8F5C3E1D20}\ProgId" "" "LinkcoPDFEditor.PreviewHandler"
@@ -111,7 +119,7 @@ Section "${APP_NAME} (required)" SecCore
   WriteRegStr HKLM "Software\Classes\CLSID\{3D8CDE4B-E969-481F-BEB0-5E3B98287416}\InprocServer32" "" "mscoree.dll"
   WriteRegStr HKLM "Software\Classes\CLSID\{3D8CDE4B-E969-481F-BEB0-5E3B98287416}\InprocServer32" "ThreadingModel" "Apartment"
   WriteRegStr HKLM "Software\Classes\CLSID\{3D8CDE4B-E969-481F-BEB0-5E3B98287416}\InprocServer32" "Class" "LinkcoPdfPreview.LinkcoPdfThumbnailProvider"
-  WriteRegStr HKLM "Software\Classes\CLSID\{3D8CDE4B-E969-481F-BEB0-5E3B98287416}\InprocServer32" "Assembly" "LinkcoPdfPreviewHandler, Version=0.5.0.0, Culture=neutral, PublicKeyToken=null"
+  WriteRegStr HKLM "Software\Classes\CLSID\{3D8CDE4B-E969-481F-BEB0-5E3B98287416}\InprocServer32" "Assembly" "LinkcoPdfPreviewHandler, Version=0.6.0.0, Culture=neutral, PublicKeyToken=null"
   WriteRegStr HKLM "Software\Classes\CLSID\{3D8CDE4B-E969-481F-BEB0-5E3B98287416}\InprocServer32" "RuntimeVersion" "v4.0.30319"
   WriteRegStr HKLM "Software\Classes\CLSID\{3D8CDE4B-E969-481F-BEB0-5E3B98287416}\InprocServer32" "CodeBase" "file:///$INSTDIR\LinkcoPdfPreviewHandler.dll"
   WriteRegStr HKLM "Software\Classes\CLSID\{3D8CDE4B-E969-481F-BEB0-5E3B98287416}\ProgId" "" "LinkcoPDFEditor.ThumbnailProvider"
@@ -168,6 +176,10 @@ Section "Uninstall"
   Delete "$INSTDIR\pdfcraft.exe"
   Delete "$INSTDIR\pdfcraft-cli.exe"
   Delete "$INSTDIR\LinkcoPdfPreviewHandler.dll"
+  Delete "$INSTDIR\LICENSE-document.txt"
+  Delete "$INSTDIR\LICENSE-MIT"
+  Delete "$INSTDIR\LICENSE-APACHE"
+  Delete "$INSTDIR\NOTICE"
   Delete "$INSTDIR\Uninstall.exe"
   RMDir "$INSTDIR"
   RMDir "$PROGRAMFILES64\Linkco"

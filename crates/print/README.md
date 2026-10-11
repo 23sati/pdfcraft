@@ -32,11 +32,19 @@ Each source page becomes a Form XObject (its content wrapped in q/Q, plus the pr
 annotations); sheets place them with a clip. The result is a fresh, unencrypted,
 garbage-collected file (callers check the print permission).
 
-`spool` talks to CUPS: printers come from `lpstat -p -d` (the queues) and `lpstat -e` (driverless
-destinations no queue exists for; CUPS builds a temporary one when the job arrives), jobs go to
-`lp` with copies, collation, duplex and monochrome options. The job is piped to `lp` on stdin and
-never written to a temp file, where another local user could read or swap it. Other platforms
-report that printing to a printer isn't available yet; the print-ready PDF can always be saved.
+`spool` talks to CUPS on macOS and Linux: printers come from `lpstat -p -d` (the queues) and
+`lpstat -e` (driverless destinations no queue exists for; CUPS builds a temporary one when the
+job arrives), jobs go to `lp` with copies, collation, duplex and monochrome options. The job is
+piped to `lp` on stdin and never written to a temp file, where another local user could read or
+swap it. On Windows the printers come from the Print Spooler (`Win32_Printer`, then .NET
+`PrinterSettings`, then the registry) with their default, offline, paused and error status; the
+app renders the imposed sheets itself at 150, 300 or 600 dpi and `System.Drawing.Printing` spools
+them with the job options, through `powershell` (no Win32 API is called here, and the console
+stays hidden). Each sheet prints at 100% on the driver's paper closest to its size (or a custom
+size), with zero margins, turned landscape when it is wide; offline or failed printers are
+refused before anything is sent. The sheet files live in a fresh temporary folder that is removed
+after the job. Other platforms report that printing to a
+printer isn't available yet; the print-ready PDF can always be saved.
 
-Not yet: Windows and web spoolers, print as image, poster labels, PostScript output, colour
-conversion for grayscale.
+Not yet: the web spooler, print as image, poster labels, PostScript output, colour conversion for
+grayscale.

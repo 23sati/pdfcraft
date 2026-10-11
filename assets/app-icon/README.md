@@ -16,5 +16,21 @@
 | `pdfcraft-1024.png` | macOS runtime window/Dock icon (`apps/pdfcraft/src/main.rs`, on Apple's grid) |
 | `pdfcraft.icns` | macOS `.app` bundle (`packaging/macos/package.sh`; `ic12`/`ic07`/`ic13`/`ic08`/`ic14`/`ic09`/`ic10`) |
 | `pdfcraft.ico` | Windows executable & installer icon (`apps/pdfcraft/build.rs`, `packaging/windows/pdfcraft.wxs`, 16–256 px, full-bleed) |
+| `pdfcraft-document.svg` | Windows PDF file icon master: a Lucide document outline, crimson PDF badge and outlined lettering in the Linkco palette; no font dependency |
+| `pdfcraft-document.ico` | Windows PDF file icon (16–256 px), embedded as resource 2 in `pdfcraft.exe` / `LinkcoPDFEditor.exe` (`apps/pdfcraft/build.rs`) |
 | `hicolor/<n>x<n>/apps/ai.storyteller.pdfcraft.png` | Linux hicolor theme, 16–512 px; the 256 px one is the runtime icon on Windows and Linux |
 | `hicolor/scalable/apps/ai.storyteller.pdfcraft.svg` | Linux scalable icon (copy of the master) |
+
+Windows PDF files use resource 2 (`"LinkcoPDFEditor.exe",-2`) when Linkco PDF Editor is the default
+reader; the app keeps resource 1. The document outline is adapted from Lucide `file-text` 1.49.0
+(ISC); its badge and outlined lettering are by the PdfCraft contributors (`MIT OR Apache-2.0`),
+recoloured to the Linkco palette (navy `#01131C`, crimson `#D11616`), covered by
+[LICENSE-document.txt](LICENSE-document.txt). Both icons are embedded, requiring no runtime sidecar.
+Explorer's large icon views show first-page thumbnails from `LinkcoPdfPreviewHandler.dll` instead.
+
+## Regenerate
+
+```sh
+packaging/icons.sh        # needs resvg and python3; iconutil (macOS) for the .icns
+cargo xtask assets        # then update the sha256 values in ATTRIBUTION.toml and run with --write
+```
