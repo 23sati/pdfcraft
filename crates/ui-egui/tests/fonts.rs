@@ -135,8 +135,12 @@ fn system_fallback_fills_missing_scripts() {
         assert!(defs.families.values().all(|stack| !stack.iter().any(|n| n == theme::SYSTEM_FALLBACK)));
         return;
     }
+    let hebrew = defs.font_data.contains_key(theme::SYSTEM_FALLBACK_HEBREW);
     for (family, stack) in &defs.families {
-        assert_eq!(stack.last().map(String::as_str), Some(theme::SYSTEM_FALLBACK), "{family:?}: {stack:?}");
+        // The installed faces end every family: the general one, then a Hebrew one if needed.
+        let tail: Vec<&str> = stack.iter().rev().take(if hebrew { 2 } else { 1 }).rev().map(String::as_str).collect();
+        let expected: &[&str] = if hebrew { &[theme::SYSTEM_FALLBACK, theme::SYSTEM_FALLBACK_HEBREW] } else { &[theme::SYSTEM_FALLBACK] };
+        assert_eq!(tail, expected, "{family:?}: {stack:?}");
         assert_eq!(stack.iter().filter(|n| *n == theme::SYSTEM_FALLBACK).count(), 1, "{family:?}");
     }
     let mut fonts = Fonts::new(TextOptions::default(), defs);

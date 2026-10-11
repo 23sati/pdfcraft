@@ -143,6 +143,8 @@ pub fn install_fonts_for(ctx: &egui::Context, prefer_hans: bool) {
 
 /// The name of the installed face [`installed_font_definitions`] may add after the embedded ones.
 pub const SYSTEM_FALLBACK: &str = "system-fallback";
+/// The installed Hebrew face it may add after [`SYSTEM_FALLBACK`] when that one has no Hebrew.
+pub const SYSTEM_FALLBACK_HEBREW: &str = "system-fallback-hebrew";
 
 /// What [`install_fonts_for`] installs: [`font_definitions_for`], then, on desktop, one face
 /// already installed on this machine as the last fallback of every family. It only draws
@@ -152,10 +154,11 @@ pub fn installed_font_definitions(prefer_hans: bool) -> FontDefinitions {
     #[cfg_attr(target_arch = "wasm32", expect(unused_mut))]
     let mut fonts = font_definitions_for(prefer_hans);
     #[cfg(not(target_arch = "wasm32"))]
-    if let Some(data) = crate::system_fonts::fallback() {
-        fonts.font_data.insert(SYSTEM_FALLBACK.to_owned(), data);
+    for (name, data) in [(SYSTEM_FALLBACK, crate::system_fonts::fallback()), (SYSTEM_FALLBACK_HEBREW, crate::system_fonts::hebrew_fallback())] {
+        let Some(data) = data else { continue };
+        fonts.font_data.insert(name.to_owned(), data);
         for stack in fonts.families.values_mut() {
-            stack.push(SYSTEM_FALLBACK.to_owned());
+            stack.push(name.to_owned());
         }
     }
     fonts
@@ -194,9 +197,10 @@ pub fn font_definitions_for(prefer_hans: bool) -> FontDefinitions {
             fonts.families.entry(family).or_default().push(name.clone());
         }
     }
-    // Arabic-script faces (file names, document titles) and Telugu faces (the Telugu interface,
-    // file names) after the CJK ones; the ranges don't overlap.
-    for face in pdfcraft_fonts::ui_arabic_fonts().into_iter().chain(pdfcraft_fonts::ui_telugu_fonts()) {
+    // Arabic-script faces (file names, document titles), Hebrew and Telugu faces (their
+    // interfaces, file names) after the CJK ones; the ranges don't overlap.
+    let scripts = pdfcraft_fonts::ui_arabic_fonts().into_iter().chain(pdfcraft_fonts::ui_hebrew_fonts()).chain(pdfcraft_fonts::ui_telugu_fonts());
+    for face in scripts {
         let name = face.name();
         if !fonts.font_data.contains_key(&name) {
             add(&mut fonts, &name, face.bytes);

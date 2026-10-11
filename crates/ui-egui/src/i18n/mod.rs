@@ -126,7 +126,7 @@ fn plural_polish(n: u64) -> usize {
 }
 
 /// The registry. English first: it is the fallback and the source language.
-pub static LANGUAGES: [LangInfo; 17] = [
+pub static LANGUAGES: [LangInfo; 18] = [
     LangInfo { code: "en", name: "English", source: "", plural: plural_one_other, rtl: false, catalog: OnceLock::new() },
     LangInfo { code: "ja", name: "日本語", source: include_str!("ja.tsv"), plural: plural_none, rtl: false, catalog: OnceLock::new() },
     // Simplified Chinese; `zh`, `zh-CN`, `zh-SG` and `zh-Hans-*` locales resolve here (see `candidates`).
@@ -177,6 +177,10 @@ pub static LANGUAGES: [LangInfo; 17] = [
     LangInfo { code: "ar", name: "العربية", source: include_str!("ar.tsv"), plural: plural_arabic, rtl: true, catalog: OnceLock::new() },
     // Polish; every `pl-*` locale (`pl-pl`, `pl_pl.UTF-8`) resolves here.
     LangInfo { code: "pl", name: "Polski", source: include_str!("pl.tsv"), plural: plural_polish, rtl: false, catalog: OnceLock::new() },
+    // Hebrew (gender-neutral phrasing, Western digits); every `he-*` locale (`he-IL`) and the legacy
+    // `iw` code resolve here (see `candidates`). Right to left: see `LangInfo::rtl`. Counts take
+    // the one/other forms ("עמוד 1", "{n} עמודים"), which read naturally for every integer.
+    LangInfo { code: "he", name: "עברית", source: include_str!("he.tsv"), plural: plural_one_other, rtl: true, catalog: OnceLock::new() },
 ];
 
 impl LangInfo {
@@ -278,6 +282,10 @@ fn candidates(tag: &str) -> Vec<String> {
         // Chinese by region when no script is given.
         let script = if parts.iter().any(|p| matches!(*p, "tw" | "hk" | "mo")) { "zh-hant" } else { "zh-hans" };
         out.insert(out.len().saturating_sub(1), script.to_string());
+    }
+    if primary == "iw" {
+        // The pre-1989 ISO 639 code for Hebrew, still reported by some Java and Android systems.
+        out.push("he".to_string());
     }
     if primary == "pt" && !out.iter().any(|c| c == "pt-br") {
         // The only Portuguese catalog is Brazilian; other regions use it rather than English.
@@ -2153,7 +2161,8 @@ mod tests {
         let ar = arabic();
         assert_eq!(ar.name(), "العربية");
         assert!(ar.rtl());
-        assert!(Lang::all().filter(|l| l.rtl()).eq([ar]), "Arabic is the only right-to-left language");
+        let he = Lang::from_code("he").expect("he registered");
+        assert!(Lang::all().filter(|l| l.rtl()).eq([ar, he]), "Arabic and Hebrew are the right-to-left languages");
         assert_eq!(normalize_pref("AR"), Some("ar"));
         for tag in ["ar", "ar-MA", "ar_EG.UTF-8", "AR-sa", "ar_DZ@variant"] {
             assert_eq!(lang_from_tag(tag), Some(ar), "{tag}");
@@ -2267,6 +2276,107 @@ mod tests {
                 let missing: std::collections::BTreeSet<char> = labels.chars().filter(|c| !fonts.has_glyphs(&id, &c.to_string())).collect();
                 assert!(missing.is_empty(), "{build}: {id:?} lacks Arabic label glyphs {missing:?}");
             }
+        }
+    }
+
+    fn hebrew() -> Lang {
+        Lang::from_code("he").expect("he registered")
+    }
+
+    #[test]
+    fn hebrew_is_registered_and_persists() {
+        let he = hebrew();
+        assert_eq!(he.name(), "עברית");
+        assert!(he.rtl());
+        assert_eq!(normalize_pref("HE"), Some("he"));
+        // `iw` is the legacy ISO 639 code some systems still report for Hebrew.
+        for tag in ["he", "he-IL", "he_IL.UTF-8", "HE-il", "iw", "iw_IL.UTF-8"] {
+            assert_eq!(lang_from_tag(tag), Some(he), "{tag}");
+        }
+        assert_eq!(first_supported("he-IL\r\nen-US"), Some(he));
+        assert_eq!(tr(he, "File"), "קובץ");
+        assert_eq!(tr(he, "Bookmarks"), "סימניות");
+        assert_eq!(tr_ctx(he, "comment menu", "Edit"), "עריכה");
+        // Unknown strings and user text are never reordered by a lookup.
+        assert_eq!(tr(he, "דוח סופי {n}.pdf"), "דוח סופי {n}.pdf");
+        let mut app = crate::PdfCraftApp::default();
+        app.set_option("language", "HE").unwrap();
+        assert_eq!(app.language, "he");
+        let mut restored = crate::PdfCraftApp::default();
+        restored.restore(&app.persist());
+        assert_eq!(restored.language, "he");
+    }
+
+    /// Lookups return Hebrew in display order, as Arabic: egui draws the words left to right.
+    #[test]
+    fn hebrew_lookups_are_in_display_order() {
+        let he = hebrew();
+        // "שמירה בשם…" as typed; the ellipsis ends the phrase on the left.
+        assert_eq!(tr(he, "Save as…"), "…בשם שמירה");
+        // Latin names keep their own direction inside the phrase.
+        assert_eq!(tr(he, "About PdfCraft"), "PdfCraft אודות");
+        // A caption's colon stays beside the widget on its right.
+        assert_eq!(tr(he, "Name:"), "שם:");
+        // Placeholders survive and are filled in place.
+        assert_eq!(fmt(tr(he, "Page {p} of {n}"), &[("p", "3"), ("n", "12")]), "12 מתוך 3 עמוד");
+        set_current(he);
+        assert_eq!(menu_label("file.saveAs", "Save as…"), "…בשם שמירה");
+        set_current(Lang::EN);
+    }
+
+    #[test]
+    fn hebrew_plurals_use_one_and_other() {
+        let he = hebrew();
+        assert_eq!(he.0.plural_forms(), 2);
+        assert_eq!(trn(he, 1, "{n} page", "{n} pages"), "1 עמוד");
+        assert_eq!(trn(he, 5, "{n} page", "{n} pages"), "עמודים 5");
+    }
+
+    /// Hebrew translates every registered command, menu and All tools label.
+    #[test]
+    fn hebrew_covers_commands_and_catalogue() {
+        let he = hebrew();
+        for command in pdfcraft_engine::commands::COMMANDS {
+            assert!(has(he, command.label), "missing command: {}", command.label);
+            if let Some(menu) = command.menu {
+                assert!(has(he, menu), "missing menu: {menu}");
+            }
+        }
+        for group in pdfcraft_engine::catalog::TOOL_GROUPS {
+            assert!(has(he, group.label), "missing group: {}", group.label);
+            for section in group.sections {
+                assert!(has(he, section.title), "missing section: {}", section.title);
+                for item in section.items {
+                    assert!(has(he, item.label), "missing item: {}", item.label);
+                }
+            }
+        }
+    }
+
+    /// Hebrew translates every `tl!("…")` literal in the UI source.
+    #[test]
+    fn hebrew_covers_ui_literals() {
+        let literals = ui_literals();
+        assert!(literals.len() > 900, "source scan found only {} literals", literals.len());
+        let missing: Vec<_> = literals.iter().filter(|label| !has(hebrew(), label)).collect();
+        assert!(missing.is_empty(), "untranslated Hebrew UI literals: {missing:#?}");
+    }
+
+    /// With a craft-fonts Hebrew face, every Hebrew translation has glyphs in every family.
+    #[test]
+    fn hebrew_labels_have_glyphs() {
+        if pdfcraft_fonts::ui_hebrew_fonts().is_empty() {
+            eprintln!("skipping Hebrew glyph checks: build with CRAFT_FONTS_DIR and a Hebrew face to run them");
+            return;
+        }
+        let he = hebrew();
+        let (entries, _) = parse_entries(he.0.source, he.0.plural_forms());
+        let labels: String = entries.iter().flat_map(|e| e.translation.chars()).chain(he.name().chars()).filter(|c| !c.is_control()).collect();
+        use egui::epaint::text::{Fonts, TextOptions};
+        let mut fonts = Fonts::new(TextOptions::default(), crate::theme::font_definitions());
+        for id in [egui::FontId::proportional(13.0), egui::FontId::monospace(13.0), crate::theme::medium(13.0), crate::theme::semibold(17.0)] {
+            let missing: std::collections::BTreeSet<char> = labels.chars().filter(|c| !fonts.has_glyphs(&id, &c.to_string())).collect();
+            assert!(missing.is_empty(), "{id:?} lacks Hebrew label glyphs {missing:?}");
         }
     }
 

@@ -59,6 +59,13 @@ fn arabic<'a>(faces: impl IntoIterator<Item = &'a CraftFont>) -> Vec<&'a CraftFo
     faces.into_iter().filter(|f| f.covers("Arab")).collect()
 }
 
+/// The `Hebr` craft-fonts faces for Hebrew interface text (the Hebrew catalog, file names,
+/// document titles), in manifest order. Empty when built without craft-fonts or when it has no
+/// Hebrew face; the interface then draws Hebrew with an installed face (`system_fonts`).
+pub fn ui_hebrew_fonts() -> Vec<&'static CraftFont> {
+    CRAFT_FONTS.iter().filter(|f| f.covers("Hebr")).collect()
+}
+
 /// The `Telu` craft-fonts faces for Telugu interface text (the Telugu catalog, file names,
 /// document titles), in manifest order. Empty when built without craft-fonts or when it has no
 /// Telugu face.

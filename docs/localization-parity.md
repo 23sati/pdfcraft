@@ -1,6 +1,6 @@
 # Localization parity
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-10 · **Change:** major (first per-language status, measured from the catalogs) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (Hebrew catalog) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
 Per-language status of PdfCraft's interface against Acrobat Pro's. How translations work and how to
 add a language: [localization.md](localization.md). Summary in [ROADMAP.md](../ROADMAP.md).
@@ -60,13 +60,15 @@ none has translated help.
 | Hungarian | `hu` | 2,126 (99.2%) | partial | yes |
 | Ukrainian | `uk` | 2,142 (100%) | partial | yes |
 | Italian | `it` | 2,130 (99.4%) | partial | yes |
+| Polish | `pl` | 2,169 entries (≈99%) | partial | yes |
+| Hebrew | `he` | 2,143 (100%) | partial (right to left like Arabic: layout not mirrored; no `Hebr` face in craft-fonts yet, desktop uses an installed font) | yes (Middle East edition) |
 
-**8 other languages** ship (15 catalogs plus English, 16 interface languages in Preferences).
-Acrobat languages PdfCraft lacks: Danish, Dutch, Finnish, Norwegian, Polish, Swedish, Turkish,
-Hebrew.
+**10 other languages** ship (17 catalogs plus English, 18 interface languages in Preferences).
+Acrobat languages PdfCraft lacks: Danish, Dutch, Finnish, Norwegian, Swedish, Turkish.
 
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Hebrew (`he`) catalog added: 100% of the keys, right to left; Polish (shipped in #782) listed |
 | 2026-10-10 | major | Created. Catalog counts measured from `crates/ui-egui/src/i18n/*.tsv` against the 2,143-key union; Acrobat's localizations from its bundle's `.lproj` and Sequences folder names |
