@@ -75,5 +75,10 @@ sync_github_name = true
 [people.jay-tau]
 sync_github_name = true
 
+[people.arcanii]
+real_name = "Bryan Mark"
+display_name = "Arcanii"
+sync_github_name = false
+
 [people.Losminek]
 sync_github_name = true
