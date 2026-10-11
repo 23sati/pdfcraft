@@ -2193,6 +2193,8 @@ certificate	Subject	صاحب الشهادة
 	A selected field has no widget on any page, so the fields can't be edited together.	أحد الحقول المحددة ليس له عنصر واجهة في أي صفحة، لذا لا يمكن تحرير الحقول معًا.
 	Text recognition isn't installed: its models are missing (run `cargo xtask models`, or set PDFCRAFT_MODELS).	التعرف على النص غير مثبت: نماذجه مفقودة (شغّل `cargo xtask models`، أو اضبط PDFCRAFT_MODELS).
 	 ({n} at {dpi} dpi, the largest size they can be drawn at)	 ({n} بدقة {dpi} dpi، وهي أكبر دقة يمكن رسمها بها)
+	Margins	الهوامش
+	For page sizes and margins.	لأحجام الصفحات والهوامش.
 
 # Multi-object selection and movement (#844)
 @plural	{n} object selected|{n} objects selected	تم تحديد {n} عنصر|تم تحديد {n} عنصر|تم تحديد {n} عنصرين|تم تحديد {n} عناصر|تم تحديد {n} عنصرًا|تم تحديد {n} عنصر
@@ -2239,7 +2241,7 @@ key	Space	مسافة
 	Resize panel window	تغيير حجم نافذة اللوحة
 
 # Architectural print controls (follow-up to #599).
-	PDF page: {w} × {h} in	صفحة PDF: {w} × {h} بوصة
+	PDF page: {size}	صفحة PDF: {size}
 	Match page at 100%	مطابقة الورق للصفحة بنسبة 100%
 	PDF scale: {scale}%	مقياس PDF: {scale}%
 	Printer paper and scaling may differ. Check driver settings.	قد يختلف ورق الطابعة ومقياس الطباعة. تحقق من إعدادات برنامج التشغيل.
@@ -2259,6 +2261,8 @@ scroll speed	Fast	سريعة
 	Enhance camera image	تحسين صورة الكاميرا
 	Drag the corners onto the document's edges, then choose Enhance page.	اسحب الزوايا إلى حواف المستند، ثم اختر تحسين الصفحة.
 	Enhance page	تحسين الصفحة
+	Done adding text	إنهاء إضافة النص
+	Discard this text (Esc)	تجاهل هذا النص (Esc)
 	Clean-up	تنظيف
 	Original	الأصل
 	Greyscale	تدرج رمادي

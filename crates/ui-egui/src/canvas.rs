@@ -367,7 +367,7 @@ pub struct DocView {
     screen_xforms: Vec<(usize, PageXform)>,
     /// The scroll viewport on screen last frame.
     viewport_screen: Rect,
-    /// Pending zoom anchor: page, position within it (0..1), and offset from the viewport corner.
+    /// Pending zoom anchor: page, fractional position (also in gutters), and viewport offset.
     zoom_anchor: Option<(usize, f32, f32, Vec2)>,
     /// The page view has been shown, so its scroll offset in egui's memory is this document's.
     shown: bool,
@@ -1214,17 +1214,31 @@ impl DocView {
 
     /// Zoom keeping the centre of the view still.
     pub fn set_zoom(&mut self, zoom: f32) {
-        let centre = self.viewport_screen.center();
+        // CLI/view options can set zoom before the first layout. Rect::NOTHING has no
+        // finite centre yet, but an initial zoom still needs to leave the default fit mode.
+        let centre = if self.viewport_screen.is_positive() { self.viewport_screen.center() } else { Pos2::ZERO };
         self.zoom_at(zoom, centre);
     }
 
     /// Zoom keeping the document point under `screen_pos` still (pinch, ⌘-scroll).
     pub fn zoom_at(&mut self, zoom: f32, screen_pos: Pos2) {
-        let anchor = self.screen_rects.iter().find(|(_, r)| r.expand(GAP).contains(screen_pos)).map(|(p, r)| {
-            let f = (screen_pos - r.min) / r.size();
-            (*p, f.x.clamp(0.0, 1.0), f.y.clamp(0.0, 1.0), screen_pos - self.viewport_screen.min)
-        });
-        self.zoom = zoom.clamp(0.08, 64.0);
+        if !zoom.is_finite() || !screen_pos.is_finite() {
+            return;
+        }
+        let zoom = zoom.clamp(0.08, 64.0);
+        if zoom == self.zoom && self.fit == Fit::None {
+            return;
+        }
+        // In gutters/gaps, anchor relative to the nearest page rather than jumping to its top.
+        // Fractions outside 0..1 preserve the pointer's position outside the page as well.
+        let anchor =
+            self.screen_rects.iter().min_by(|(_, a), (_, b)| a.distance_sq_to_pos(screen_pos).total_cmp(&b.distance_sq_to_pos(screen_pos))).map(
+                |(p, r)| {
+                    let f = (screen_pos - r.min) / r.size();
+                    (*p, f.x, f.y, screen_pos - self.viewport_screen.min)
+                },
+            );
+        self.zoom = zoom;
         self.fit = Fit::None;
         match anchor {
             Some(a) => self.zoom_anchor = Some(a),
@@ -1997,7 +2011,10 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
 
     // Pinch / ctrl+scroll zoom, anchored on the current page.
     let zoom_delta = ui.input(|i| i.zoom_delta());
-    if (zoom_delta - 1.0).abs() > 0.001 && ui.rect_contains_pointer(avail) {
+    // Exclude the previous frame's scrollbar tracks from gesture activation.
+    let navigation_rect = if view.viewport_screen.is_positive() { avail.intersect(view.viewport_screen) } else { avail };
+    let navigation_enabled = app.dialog.is_none() && app.close_request.is_none() && !app.palette_open && ui.is_enabled() && ui.input(|i| i.focused);
+    if zoom_delta.is_finite() && zoom_delta > 0.0 && zoom_delta != 1.0 && navigation_enabled && ui.rect_contains_pointer(navigation_rect) {
         let z = view.zoom * zoom_delta;
         match ui.input(|i| i.pointer.hover_pos()) {
             Some(p) => view.zoom_at(z, p),
@@ -2166,6 +2183,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         | QuickTool::Snapshot => false,
     };
     let prefs = &app.comment_prefs;
+    let units = app.units;
     let allowed = doc.allows_annotation();
     let comments_hidden = doc.comments_hidden();
     let form = doc.form.clone();
@@ -2189,6 +2207,14 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     };
     let mut open_signature = false;
     let mut hover_text: Option<(Pos2, String)> = None;
+    // A dialog, save prompt or palette covers the page. Hover tips are drawn above those
+    // windows, so a comment under the pointer would otherwise float over the dialog.
+    let page_covered = app.dialog.is_some()
+        || app.close_request.is_some()
+        || app.palette_open
+        || app.password_prompt.is_some()
+        || app.pending_link.is_some()
+        || app.updates.open;
     let mut clicked_link: Option<LinkTarget> = None;
     let mut canvas_action: Option<comments::CanvasAction> = None;
     let mut field_menu: Option<FieldMenu> = None;
@@ -2334,7 +2360,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                         let now = ui.input(|inp| inp.time);
                         let since = *view.waiting_since.entry(i).or_insert(now);
                         let msg = if now - since > 6.0 { "Still rendering — this page is unusually complex…" } else { "Rendering…" };
-                        painter.text(r.center(), Align2::CENTER_CENTER, msg, theme::regular(12.0), t.text_faint);
+                        painter.text(r.center(), Align2::CENTER_CENTER, tl!(msg), theme::regular(12.0), t.text_faint);
                     }
                 }
                 if tiled && r.intersects(visible) {
@@ -2391,7 +2417,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
             // Comments: tools, selection, moving and resizing come before text selection.
             let pcx = comments::PageCx { page: i, xf: &xf, info, tool, prefs, allowed, hidden: comments_hidden };
             if let QuickTool::Measure(measure_tool) = tool {
-                crate::measure_ui::page_input(ui, &resp, doc, view, &pcx, measure_tool);
+                crate::measure_ui::page_input(ui, &resp, doc, view, &pcx, measure_tool, units);
             }
 
             // Form fields take clicks first with the Select tool (as Acrobat fills fields in
@@ -2658,7 +2684,10 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                         view.clicks = release_clicks;
                     }
                     let clicks = if view.clicks > 2 && tool != QuickTool::Select { 1 } else { view.clicks };
-                    if clicks >= 2 && over_text {
+                    // Only on the frame egui reports the multi-click: `view.clicks` outlives it, and
+                    // acting on every frame re-selected the word as soon as a selection was cleared
+                    // (a highlight made by the double-click left its word selected).
+                    if release_clicks > 0 && clicks >= 2 && over_text {
                         if view.selection.is_none() {
                             let span = text.nearest(vx, vy).and_then(|a| match clicks {
                                 2 => text.word_at(a),
@@ -2733,7 +2762,8 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                 }
             }
             // Fill & Sign keeps its placement cursor clear of link/comment hover feedback.
-            if !matches!(tool, QuickTool::Fill(_))
+            if !page_covered
+                && !matches!(tool, QuickTool::Fill(_))
                 && let Some(p) = pointer
             {
                 for l in info.links.iter().filter(|l| l.page == i) {
@@ -2870,6 +2900,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         (page, out.state.offset.y <= MARGIN - GAP + 1.0, out.state.offset.y >= max_y - 1.0)
     });
 
+    view.viewport_screen = out.inner_rect;
     view.auto_scroll.paint(ui, avail);
 
     // Collect all main-page demand, including cached surfaces, for byte admission later.
@@ -3478,12 +3509,14 @@ fn quick_bar(app: &mut PdfCraftApp, area: Rect, ui: &mut egui::Ui) {
                                         ui.painter().rect_filled(row, CornerRadius::same(4), t.hover);
                                     }
                                     icons::paint(ui, Rect::from_min_size(row.min + vec2(8.0, 6.0), vec2(16.0, 16.0)), tool.icon(), 16.0, t.text);
-                                    ui.painter().text(
+                                    let reserve = if on { 28.0 } else { 8.0 };
+                                    crate::widgets::paint_left(
+                                        ui,
                                         row.left_center() + vec2(34.0, 0.0),
-                                        Align2::LEFT_CENTER,
                                         tl!(tool.label()),
                                         theme::regular(13.0),
                                         t.text,
+                                        (row.width() - 34.0 - reserve).max(0.0),
                                     );
                                     if on {
                                         icons::paint(
@@ -3543,12 +3576,14 @@ fn quick_bar(app: &mut PdfCraftApp, area: Rect, ui: &mut egui::Ui) {
                                     ui.painter().rect_filled(row, CornerRadius::same(4), t.hover);
                                 }
                                 icons::paint(ui, Rect::from_min_size(row.min + vec2(8.0, 6.0), vec2(16.0, 16.0)), tool.icon(), 16.0, t.text);
-                                ui.painter().text(
+                                let reserve = if on { 28.0 } else { 8.0 };
+                                crate::widgets::paint_left(
+                                    ui,
                                     row.left_center() + vec2(34.0, 0.0),
-                                    Align2::LEFT_CENTER,
                                     tl!(tool.label()),
                                     theme::regular(13.0),
                                     t.text,
+                                    (row.width() - 34.0 - reserve).max(0.0),
                                 );
                                 if on {
                                     icons::paint(
@@ -3833,7 +3868,17 @@ fn organize_grid(view: &mut DocView, info: &DocInfo, editable: bool, dirty: bool
                     ui.painter().image(tex.id(), pr, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
                 }
                 ui.painter().rect_stroke(pr, CornerRadius::ZERO, Stroke::new(1.0, t.border), egui::StrokeKind::Outside);
-                ui.painter().text(pos2(c.center().x, c.bottom() - 48.0), Align2::CENTER_CENTER, &p.label, theme::medium(12.0), t.text_muted);
+                let label_font = theme::medium(12.0);
+                let label_w = (c.width() - 12.0).max(0.0);
+                let page_label = crate::widgets::fit_line(&p.label, label_w, |s| crate::widgets::text_width(ui, s, &label_font));
+                let label_pos = pos2(c.center().x, c.bottom() - 48.0);
+                ui.painter().with_clip_rect(Rect::from_center_size(label_pos, vec2(label_w, 18.0))).text(
+                    label_pos,
+                    Align2::CENTER_CENTER,
+                    page_label,
+                    label_font,
+                    t.text_muted,
+                );
                 // The checkbox toggles just this page without requiring a modifier. Keep it
                 // outside the page image, including on very tall or wide pages.
                 let mut checked = view.selected.contains(&i);

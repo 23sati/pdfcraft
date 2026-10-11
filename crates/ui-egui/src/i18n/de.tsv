@@ -2152,6 +2152,8 @@ action wizard	Start	Starten
 	Printer properties	Druckereigenschaften
 	Reset to printer defaults	Auf Druckerstandard zurücksetzen
 	This printer offers no settings of its own.	Dieser Drucker bietet keine eigenen Einstellungen.
+	Margins	Ränder
+	For page sizes and margins.	Für Seitengrößen und Ränder.
 	Scroll tabs left	Tabs nach links scrollen
 	Scroll tabs right	Tabs nach rechts scrollen
 
@@ -2223,7 +2225,7 @@ key	Space	Leertaste
 	Inspector	Inspektor
 
 # Architectural print controls (follow-up to #599).
-	PDF page: {w} × {h} in	PDF-Seite: {w} × {h} Zoll
+	PDF page: {size}	PDF-Seite: {size}
 	Match page at 100%	Papier an Seite anpassen, 100%
 	PDF scale: {scale}%	PDF-Maßstab: {scale}%
 	Printer paper and scaling may differ. Check driver settings.	Druckerpapier und Skalierung können abweichen. Treibereinstellungen prüfen.
@@ -2239,6 +2241,8 @@ scroll speed	Fast	Schnell
 	Enhance camera image	Kamerafoto verbessern
 	Drag the corners onto the document's edges, then choose Enhance page.	Ziehen Sie die Ecken auf die Kanten des Dokuments und wählen Sie dann Seite verbessern.
 	Enhance page	Seite verbessern
+	Done adding text	Texteingabe abschließen
+	Discard this text (Esc)	Diesen Text verwerfen (Esc)
 	Clean-up	Bereinigung
 	Original	Original
 	Greyscale	Graustufen

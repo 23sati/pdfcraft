@@ -749,7 +749,7 @@
 	{verb} Header and Footer	{verb} l'en-tête et le pied de page
 	{verb} Watermark	{verb} le filigrane
 	{verb} Background	{verb} l'arrière-plan
-	Margins (in)	Marges (po)
+	Margins	Marges
 	Left Header Text	Texte de l'en-tête gauche
 	Center Header Text	Texte de l'en-tête central
 	Right Header Text	Texte de l'en-tête droit
@@ -2088,6 +2088,7 @@
 	Pinned {folder} to Home	{folder} épinglé à l'Accueil
 	No recent files	Aucun fichier récent
 	Go to page…	Aller à la page…
+	For page sizes and margins.	Pour les tailles de page et les marges.
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Les polices standard ne peuvent pas afficher « {c} » ({code}). Pour l'instant, seuls les caractères d'Europe occidentale peuvent être ajoutés comme texte.
 	Larger pages	Pages plus grandes
 	Smaller pages	Pages plus petites
@@ -2223,7 +2224,7 @@ key	Space	Espace
 	Inspector	Inspecteur
 
 # Architectural print controls (follow-up to #599).
-	PDF page: {w} × {h} in	Page PDF : {w} × {h} po
+	PDF page: {size}	Page PDF : {size}
 	Match page at 100%	Adapter le papier à la page à 100 %
 	PDF scale: {scale}%	Échelle PDF : {scale}%
 	Printer paper and scaling may differ. Check driver settings.	Le papier et l’échelle de l’imprimante peuvent différer. Vérifiez les réglages du pilote.
@@ -2239,6 +2240,8 @@ scroll speed	Fast	Rapide
 	Enhance camera image	Améliorer la photo d'un document
 	Drag the corners onto the document's edges, then choose Enhance page.	Faites glisser les coins sur les bords du document, puis choisissez Améliorer la page.
 	Enhance page	Améliorer la page
+	Done adding text	Terminer l'ajout de texte
+	Discard this text (Esc)	Abandonner ce texte (Échap)
 	Clean-up	Nettoyage
 	Original	Original
 	Greyscale	Niveaux de gris

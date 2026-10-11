@@ -800,6 +800,8 @@ fn preferences_selects_default_workspace_for_next_open() {
     use pdfcraft_ui_egui::Mode;
     let mut h = harness(|app| app.set_option("dialog", "preferences").unwrap());
     h.get_by_label("Default workspace mode");
+    h.get_by_role_and_label(Role::RadioButton, "Read").scroll_to_me();
+    h.run_steps(4);
     h.get_by_role_and_label(Role::RadioButton, "Read").click();
     h.run_steps(2);
     assert_eq!(h.state().default_mode, Mode::Read);
