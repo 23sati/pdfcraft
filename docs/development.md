@@ -25,6 +25,28 @@ the low-disk artifacts, run `cargo clean --profile low-disk`.
 The UI crate and complete desktop/web builds require Rust 1.95 or later, matching the pinned
 `craft-ui` dependency. The workspace's core-crate minimum is unchanged.
 
+## Interface appearance
+
+Display theme saves System, Light or Dark separately from the palette currently drawn. New
+installations still default to Light. System follows native appearance events on macOS and
+Windows. The native window keeps its inherited appearance in every mode; both egui style branches
+use the selected application palette, so desktop changes cannot override a manual choice.
+
+On Linux the native app starts an XDG Settings portal subscription when System is first selected.
+It reads `org.freedesktop.appearance` / `color-scheme`, where numeric `1` requests Dark, `2` requests
+Light, and `0` means no preference. When that states no preference or is missing, it falls back to
+`org.gnome.desktop.interface` / `color-scheme` (`prefer-dark`, `prefer-light`, `default`), which
+XFCE's portal answers instead of the freedesktop namespace; KDE answers only the freedesktop one. The subscription is installed before the initial read. Initial
+results and later `SettingChanged` signals wake an idle window. There is no periodic desktop
+polling, and signals received in a manual mode update the cache without requesting frames.
+
+System falls back to Light if no appearance is available, including an absent portal, an
+unsupported appearance backend, no preference, an unknown value or a failed connection. This
+does not rewrite the saved System choice. The watcher cancels when its window closes; it does not
+reconnect after a session-bus disconnection. Headless UI contexts use their supplied egui input and
+do not contact a desktop session bus. Page and document colours retain their existing behavior.
+
+
 ## Logs
 
 The desktop app writes its `log` records to standard error and to `logs/pdfcraft.log` in its

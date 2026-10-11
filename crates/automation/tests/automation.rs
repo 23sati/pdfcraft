@@ -1728,6 +1728,10 @@ fn enhance_camera_image_finds_the_edges_by_itself() {
     let r = ok(&mut a, "page_enhance_camera", json!({ "doc": photo, "page": 1 }));
     assert_eq!(r["detected"], true);
     assert_eq!(r["undo"], "Enhance camera image");
+    // A clean-up level outside 0–100 is refused before anything changes.
+    let e = a.call("page_enhance_camera", &json!({ "doc": photo, "page": 1, "corners": [0, 0, 100, 0, 100, 100, 0, 100], "level": 101 }));
+    assert!(matches!(&e, Err(ToolError::InvalidArgs(m)) if m.contains("level")), "{e:?}");
+    ok(&mut a, "page_enhance_camera", json!({ "doc": photo, "page": 1, "corners": [0, 0, 100, 0, 100, 100, 0, 100], "level": 80 }));
     // One point per pixel: the corners it used are the sheet's.
     let used: Vec<f64> = r["corners"].as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect();
     for (k, p) in sheet.iter().enumerate() {
@@ -2364,6 +2368,50 @@ fn removing_hidden_information_through_tools() {
     let bytes = std::fs::read(dir.join("clean.pdf")).unwrap();
     assert!(!bytes.windows(11).any(|w| w == b"Secret plan"), "the old revision is gone");
     assert!(matches!(a.call("doc_remove_hidden", &json!({ "doc": doc, "categories": ["nonsense"] })), Err(ToolError::InvalidArgs(_))));
+}
+
+/// A one-page PDF whose text "TOP SECRET" sits under an opaque black rectangle.
+fn faux_redacted_fixture() -> Vec<u8> {
+    let body = "BT /F1 24 Tf 100 700 Td (TOP SECRET) Tj ET\n0 g\n90 688 220 32 re f";
+    let objs: Vec<Vec<u8>> = vec![
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [4 0 R] /Count 1 >>".to_vec(),
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_vec(),
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 3 0 R >> >> >>".to_string().into_bytes(),
+        format!("<< /Length {} >>\nstream\n{body}\nendstream", body.len()).into_bytes(),
+    ];
+    let mut out = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offsets.push(out.len());
+        out.extend_from_slice(format!("{} 0 obj\n", i + 1).as_bytes());
+        out.extend_from_slice(o);
+        out.extend_from_slice(b"\nendobj\n");
+    }
+    let xref = out.len();
+    out.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+    for o in offsets {
+        out.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+    }
+    out.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objs.len() + 1).as_bytes());
+    out
+}
+
+#[test]
+fn auditing_faux_redactions_through_tools() {
+    let dir = workdir("audit");
+    std::fs::write(dir.join("redacted.pdf"), faux_redacted_fixture()).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "redacted.pdf" }))["doc"].as_u64().unwrap();
+    let r = ok(&mut a, "doc_audit_redactions", json!({ "doc": doc }));
+    assert_eq!(r["count"], 1, "{r}");
+    let f = &r["findings"][0];
+    assert_eq!(f["page"], 1);
+    assert_eq!(f["kind"], "covered-text");
+    assert!(f["covered_text"].as_str().unwrap().contains("TOP SECRET"), "{f}");
+    // A clean document audits clean.
+    let clean = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    assert_eq!(ok(&mut a, "doc_audit_redactions", json!({ "doc": clean }))["count"], 0);
 }
 
 #[test]
@@ -4180,4 +4228,52 @@ fn text_extract_with_a_rect_takes_one_column() {
         let e = a.call("text_extract", &json!({ "doc": doc, "rect": bad })).unwrap_err();
         assert!(matches!(e, ToolError::InvalidArgs(_)), "{bad}: {e}");
     }
+}
+
+/// Independent inch/mm dimensions, checked in the saved file through the tool path.
+#[test]
+fn architectural_and_iso_papers_through_tools() {
+    let dir = workdir("plotter-papers");
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    let mm = 72.0 / 25.4;
+    for (name, w, h) in [
+        ("ARCH A", 9.0 * 72.0, 12.0 * 72.0),
+        ("arch b", 12.0 * 72.0, 18.0 * 72.0),
+        ("ARCH C", 18.0 * 72.0, 24.0 * 72.0),
+        ("ARCH D", 24.0 * 72.0, 36.0 * 72.0),
+        ("ARCH E1", 30.0 * 72.0, 42.0 * 72.0),
+        ("ARCH E (36 x 48 in)", 36.0 * 72.0, 48.0 * 72.0),
+        ("ANSI C", 17.0 * 72.0, 22.0 * 72.0),
+        ("ANSI D", 22.0 * 72.0, 34.0 * 72.0),
+        ("ANSI E", 34.0 * 72.0, 44.0 * 72.0),
+        ("A2", 420.0 * mm, 594.0 * mm),
+        ("A1", 594.0 * mm, 841.0 * mm),
+        ("A0", 841.0 * mm, 1189.0 * mm),
+        ("Letter", 612.0, 792.0),
+        ("US Legal", 612.0, 1008.0),
+        ("Tabloid", 792.0, 1224.0),
+    ] {
+        for orientation in ["portrait", "landscape"] {
+            let out = ok(
+                &mut a,
+                "doc_print",
+                json!({"doc": doc, "pages": "1", "paper": name,
+                "layout": "actual", "orientation": orientation, "path": "plot.pdf"}),
+            );
+            assert_eq!(out["sheets"], 1);
+            let bytes = std::fs::read(dir.join("plot.pdf")).unwrap();
+            let saved = pdfcraft_cos::Document::open(std::sync::Arc::new(bytes)).unwrap();
+            let pages = pdfcraft_model::pages(&saved);
+            assert_eq!(pages.len(), 1);
+            let (ew, eh) = if orientation == "landscape" { (h, w) } else { (w, h) };
+            let (aw, ah) = pages[0].display_size(&saved);
+            assert!((aw - ew).abs() < 0.02 && (ah - eh).abs() < 0.02, "{name} {orientation}: {aw} x {ah}");
+        }
+    }
+    let before = std::fs::read(dir.join("plot.pdf")).unwrap();
+    let bad = a.call("doc_print", &json!({"doc": doc, "paper": "ARCH Z", "path": "plot.pdf"}));
+    assert!(matches!(bad, Err(ToolError::InvalidArgs(m)) if m.contains("ARCH E1") && m.contains("A0")));
+    assert_eq!(std::fs::read(dir.join("plot.pdf")).unwrap(), before);
+    assert!(a.call("doc_print", &json!({"doc": doc, "paper": "ARCH D", "path": "../escape.pdf"})).is_err());
 }

@@ -23,8 +23,7 @@ pub enum ThemePreference {
 
 impl ThemePreference {
     /// The colours to draw. `system` is what the operating system says, `None` when it says
-    /// nothing; `fallback` is then what the app last drew, so an unanswering desktop leaves the
-    /// user's choice alone.
+    /// nothing; `fallback` is supplied by the caller. PdfCraft uses Light for an unknown desktop.
     pub fn resolve(self, system: Option<bool>, fallback: ThemeKind) -> ThemeKind {
         match self {
             Self::Light => ThemeKind::Light,
@@ -272,8 +271,10 @@ pub fn semibold(size: f32) -> FontId {
 }
 
 pub fn apply(ctx: &egui::Context, kind: ThemeKind) {
-    // egui must use the same theme for popup/menu styles as our custom chrome.
-    ctx.set_theme(if kind == ThemeKind::Dark { egui::Theme::Dark } else { egui::Theme::Light });
+    // Keep the native window inherited. A concrete egui theme pins macOS's
+    // NSWindow appearance and prevents winit from delivering ThemeChanged.
+    // Our saved choice owns the palette; both egui branches receive it below.
+    ctx.set_theme(egui::ThemePreference::System);
     let t = Tokens::for_kind(kind);
     ctx.data_mut(|d| d.insert_temp(egui::Id::new("pdfcraft-theme"), t));
     let mut v = if t.dark() { Visuals::dark() } else { Visuals::light() };
@@ -326,6 +327,9 @@ pub fn apply(ctx: &egui::Context, kind: ThemeKind) {
         s.text_styles.insert(egui::TextStyle::Heading, semibold(17.0));
         s.interaction.tooltip_delay = 0.35;
     });
+    let style = ctx.global_style();
+    ctx.set_style_of(egui::Theme::Light, style.clone());
+    ctx.set_style_of(egui::Theme::Dark, style);
 }
 
 #[cfg(test)]
