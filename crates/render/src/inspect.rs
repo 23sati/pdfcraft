@@ -921,7 +921,9 @@ impl<'a> Inspector<'a> {
                     page,
                     subtype,
                     author: self.text(d, b"T"),
-                    contents: self.text(d, b"Contents"),
+                    // Acrobat ends lines with CR, which the interface would draw as nothing (keep
+                    // in step with `pdfcraft_annot::summaries`).
+                    contents: self.text(d, b"Contents").map(|s| s.replace("\r\n", "\n").replace('\r', "\n")),
                     modified: self.text(d, b"M").map(|m| pretty_date(&m)),
                     name: self.text(d, b"NM"),
                     in_reply_to,
@@ -2231,6 +2233,35 @@ trailer << /Root 1 0 R >>
         assert_eq!(info.annotations.len(), 1);
         assert_eq!(info.annotations[0].modified.as_deref(), Some(date));
         assert!(info.warnings.is_empty(), "{:?}", info.warnings);
+    }
+
+    #[test]
+    fn carriage_returns_in_comment_text_become_line_breaks() {
+        use lopdf::dictionary;
+
+        let mut doc = Document::with_version("1.7");
+        let pages_id = doc.new_object_id();
+        let annot_id = doc.add_object(dictionary! {
+            "Type" => "Annot",
+            "Subtype" => "Text",
+            "Rect" => vec![10.into(), 10.into(), 30.into(), 30.into()],
+            // Acrobat ends lines in /Contents with CR; the interface only breaks lines at LF.
+            "Contents" => Object::string_literal("one\r\rtwo\r\nthree"),
+        });
+        let page_id = doc.add_object(dictionary! {
+            "Type" => "Page",
+            "Parent" => pages_id,
+            "MediaBox" => vec![0.into(), 0.into(), 200.into(), 300.into()],
+            "Annots" => vec![annot_id.into()],
+        });
+        doc.objects.insert(pages_id, dictionary! { "Type" => "Pages", "Kids" => vec![page_id.into()], "Count" => 1 }.into());
+        let catalog_id = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages_id });
+        doc.trailer.set("Root", catalog_id);
+        let mut bytes = Vec::new();
+        doc.save_to(&mut bytes).expect("write synthetic fixture");
+
+        let info = inspect(Arc::new(bytes), None).expect("opens");
+        assert_eq!(info.annotations[0].contents.as_deref(), Some("one\n\ntwo\nthree"));
     }
 
     #[test]
