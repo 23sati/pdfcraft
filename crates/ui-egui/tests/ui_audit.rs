@@ -113,3 +113,55 @@ fn every_control_is_named_and_big_enough() {
     all.dedup();
     assert!(all.is_empty(), "{} findings:\n{}", all.len(), all.join("\n"));
 }
+
+/// Dialog content keeps at least 16 px from the dialog's left and right edges (egui's own modal
+/// frame left 6 px, which put titles and fields almost on the edge) and no dialog is taller than
+/// the window.
+#[test]
+fn dialogs_have_room_around_their_content() {
+    let mut h = harness(ThemeKind::Light);
+    let screen = egui::vec2(1400.0, 900.0);
+    // What the window shows without a dialog: those nodes are the page behind it.
+    let key = |node: &egui_kittest::Node<'_>| {
+        format!("{:?}{:?}{:?}", node.accesskit_node().role(), node.accesskit_node().label(), node.accesskit_node().bounding_box())
+    };
+    let behind: std::collections::HashSet<String> = h.root().children_recursive().map(|n| key(&n)).collect();
+    for dialog in [Dialog::About, Dialog::Shortcuts, Dialog::Split, Dialog::Protect, Dialog::PageBoxes, Dialog::Preferences] {
+        h.state_mut().dialog = Some(dialog);
+        h.run_steps(8);
+        let area = h.ctx.memory(|m| m.area_rect(egui::Id::new("dialog"))).expect("the dialog is open");
+        assert!(area.height() <= screen.y && area.width() <= screen.x, "{dialog:?} is {:?} in a {screen:?} window", area.size());
+        let mut checked = 0;
+        for node in h.root().children_recursive() {
+            let ak = node.accesskit_node();
+            if !matches!(ak.role(), Role::Label | Role::Button | Role::TextInput | Role::RadioButton | Role::CheckBox | Role::ComboBox | Role::Tab)
+                || ak.is_hidden()
+                || ak.bounding_box().is_none()
+            {
+                continue;
+            }
+            let r = node.rect();
+            if behind.contains(&key(&node)) {
+                continue;
+            }
+            checked += 1;
+            assert!(
+                r.left() - area.left() >= 16.0,
+                "{dialog:?}: {:?} {:?} is {:.0} px from the left edge",
+                ak.role(),
+                ak.label(),
+                r.left() - area.left()
+            );
+            assert!(
+                area.right() - r.right() >= 16.0,
+                "{dialog:?}: {:?} {:?} is {:.0} px from the right edge",
+                ak.role(),
+                ak.label(),
+                area.right() - r.right()
+            );
+        }
+        assert!(checked > 3, "{dialog:?}: only {checked} controls found");
+        h.state_mut().dialog = None;
+        h.run_steps(2);
+    }
+}

@@ -137,9 +137,10 @@ fn drawing_a_signature_creating_an_id_signing_and_trusting() {
     h.get_by_label("Details").click();
     h.run_steps(2);
     h.get_by_label("SHA-256 digest");
-    h.run_steps(2);
+    // The dialog grows and re-centres; click where the button ends up.
+    h.run_steps(5);
     h.get_by_label("Trust").click();
-    h.run_steps(2);
+    h.run_steps(4);
 
     h.get_by_label("This certificate is in your list of trusted certificates.");
     h.run_steps(2);

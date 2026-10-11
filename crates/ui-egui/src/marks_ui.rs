@@ -124,9 +124,9 @@ fn color_button(ui: &mut egui::Ui, c: &mut [f64; 3]) {
 fn preview(ui: &mut egui::Ui, t: &Tokens, size: (f64, f64), draw: impl FnOnce(&egui::Painter, Rect, f32)) {
     let (w, h) = (size.0.max(1.0), size.1.max(1.0));
     let s = (190.0 / w.max(h)) as f32;
-    let (r, _) = ui.allocate_exact_size(vec2(210.0, 210.0), egui::Sense::hover());
-    let page = Rect::from_center_size(r.center(), vec2(w as f32 * s, h as f32 * s));
-    let painter = ui.painter_at(r);
+    // Exactly the page, so a landscape page doesn't leave a blank square above and below it.
+    let (page, _) = ui.allocate_exact_size(vec2(w as f32 * s, h as f32 * s), egui::Sense::hover());
+    let painter = ui.painter_at(page.expand(2.0));
     painter.rect_filled(page, CornerRadius::ZERO, Color32::WHITE);
     painter.rect_stroke(page, CornerRadius::ZERO, Stroke::new(1.0, t.border), egui::StrokeKind::Outside);
     draw(&painter, page, s);
@@ -299,7 +299,7 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens, kind: M
     let hf = d.hf.clone();
     let (wm, bg, fit) = (d.wm.clone(), d.bg.clone(), d.fit);
     let file_name = d.use_file.then(|| d.file.as_ref().map(|f| f.0.clone())).flatten();
-    ui.horizontal(|ui| {
+    ui.horizontal_top(|ui| {
         preview(ui, t, page, |p, r, s| match kind {
             MarkKind::HeaderFooter => {
                 for (k, text) in hf.text.iter().enumerate() {
