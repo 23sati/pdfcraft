@@ -626,6 +626,18 @@ evidence = ["crates/ui-egui/tests/viewer.rs::revert_after_confirming", "crates/e
 notes = "with confirmation; clears undo, as Acrobat"
 
 [[feature]]
+id = "core.reload-changed-files"
+title = "Reload a document when its file changes on disk"
+area = "A"
+tier = "P2"
+milestone = "M4"
+status = "shipped"
+commands = []
+tools = []
+evidence = ["crates/engine/src/tests.rs::reload_reads_the_new_file_into_the_same_document", "crates/ui-egui/tests/reload.rs::a_rebuilt_file_reloads_in_place_keeping_the_page_and_zoom", "crates/ui-egui/tests/reload.rs::a_half_written_file_waits_until_the_pdf_is_whole", "crates/ui-egui/tests/reload.rs::saving_does_not_reload_or_lose_undo", "crates/ui-egui/tests/reload.rs::unsaved_changes_are_kept_until_reload_is_chosen", "crates/ui-egui/tests/reload.rs::a_deleted_file_leaves_the_document_open", "crates/ui-egui/tests/reload.rs::nothing_reloads_with_the_preference_off", "crates/ui-egui/tests/reload.rs::a_shorter_new_version_drops_what_pointed_into_the_old_one"]
+notes = "Desktop, on by default (Preferences ▸ Documents and view, #431), for LaTeX/Typst builds: a worker thread checks each open file's metadata every 250 ms and reads a change once it has settled and ends in %%EOF; a clean document reloads in place (same tab, page, zoom, scroll; old page images stay until new ones are drawn), one with unsaved changes gets a Reload notice; PdfCraft's own saves never reload. Measured on Windows: one check 11 µs per file, reload of a 417-page 0.9 MB pdflatex file 16 ms. Not yet: OS change notifications (polling adds up to 250 ms), the web build; a reload clears undo history, like Revert."
+
+[[feature]]
 id = "core.signed-save-policy"
 title = "Force incremental saves for signed documents"
 area = "A"
@@ -828,7 +840,7 @@ area = "B"
 tier = "P0"
 milestone = "M3"
 status = "shipped"
-commands = ["view.layout.continuous"]
+commands = ["view.continuous"]
 tools = []
 evidence = ["crates/ui-egui/tests/view.rs::continuous_layout_stacks_pages_vertically", "crates/ui-egui/tests/view.rs::page_display_commands_switch_layouts", "crates/ui-egui/tests/view.rs::default_page_display_is_used_for_new_documents", "crates/ui-egui/src/canvas.rs::fit_page_and_height_hold_still_while_mixed_page_sizes_scroll_past"]
 notes = "the default for PDFs that don't ask for a layout (Preferences ▸ Default page display); pages stack with no snapping. Fit page and Fit height fit the largest page, so the zoom holds still across mixed page sizes"
@@ -2430,8 +2442,8 @@ milestone = "M7"
 status = "partial"
 commands = ["edit.watermark"]
 tools = ["doc_watermark"]
-evidence = ["crates/edit/src/tests.rs::watermarks_rotate_fade_and_can_go_behind"]
-notes = "rotation, opacity, behind/on top; no position offsets, scale or print/screen-only variants in the UI yet"
+evidence = ["crates/edit/src/tests.rs::watermarks_rotate_fade_and_can_go_behind", "crates/edit/src/tests.rs::watermark_offset_moves_the_centre_right_and_up", "crates/edit/src/tests.rs::a_watermark_offset_that_is_not_finite_is_refused", "crates/automation/tests/automation.rs::watermarks_move_from_the_page_centre_through_tools", "crates/ui-egui/src/marks_ui.rs::the_watermark_edit_carries_the_offset"]
+notes = "rotation, opacity, behind/on top, and a horizontal/vertical offset from the page centre in points (dialog and offset_x/offset_y); no offset from the page edge or in page units, and no print/screen-only variants yet"
 
 [[feature]]
 id = "edit.background-add"
@@ -2566,8 +2578,8 @@ milestone = "M4"
 status = "shipped"
 commands = ["page.organize"]
 tools = []
-evidence = ["crates/ui-egui/tests/editing.rs::shift_click_selects_a_range_and_moves_it"]
-notes = ""
+evidence = ["crates/ui-egui/tests/editing.rs::shift_click_selects_a_range_and_moves_it", "crates/ui-egui/tests/editing.rs::organize_tool_opens_the_overview_directly_and_can_be_reentered", "crates/ui-egui/tests/control.rs::organize_overview_is_reachable_through_the_control_channel"]
+notes = "Opening the Organize pages tool enters the overview directly. Hovered, focused and selected pages expose individual rotate/delete actions; the toolbar acts on the selection."
 
 [[feature]]
 id = "organize.multi-select-pages"
@@ -2579,7 +2591,7 @@ status = "shipped"
 commands = ["page.organize"]
 tools = []
 evidence = ["crates/ui-egui/tests/editing.rs::command_click_toggles_and_rotation_applies_to_selection", "crates/ui-egui/tests/editing.rs::shift_click_selects_a_range_and_moves_it", "crates/ui-egui/tests/editing.rs::organize_select_all_shortcut_preserves_current_page_and_sets_range_anchor", "crates/ui-egui/tests/control.rs::select_all_key_selects_every_page_in_organize"]
-notes = "Ctrl+A / ⌘A selects every page in the Organize grid, preserving the current page; text inputs and dialogs keep their own keyboard input."
+notes = "Ctrl+A / ⌘A selects every page in the Organize grid, preserving the current page; text inputs and dialogs keep their own keyboard input. Page checkboxes also toggle selection without modifiers (organize_checkboxes_toggle_multiple_pages_without_modifiers)."
 
 [[feature]]
 id = "organize.rotate-pages"
@@ -2590,7 +2602,7 @@ milestone = "M4"
 status = "shipped"
 commands = ["page.rotate", "page.rotate_ccw"]
 tools = ["page_rotate"]
-evidence = ["crates/organize/src/tests.rs::rotate_uses_inherited_rotation_and_round_trips", "crates/ui-egui/tests/editing.rs::command_click_toggles_and_rotation_applies_to_selection"]
+evidence = ["crates/organize/src/tests.rs::rotate_uses_inherited_rotation_and_round_trips", "crates/ui-egui/tests/editing.rs::command_click_toggles_and_rotation_applies_to_selection", "crates/ui-egui/tests/editing.rs::organize_page_actions_rotate_only_the_named_page_and_undo", "crates/ui-egui/tests/editing.rs::organize_local_actions_respect_document_permissions"]
 notes = ""
 
 [[feature]]
@@ -2914,8 +2926,8 @@ milestone = "M4"
 status = "shipped"
 commands = ["page.combine"]
 tools = ["doc_combine"]
-evidence = ["crates/organize/src/tests.rs::combine_concatenates_with_a_bookmark_per_file", "crates/ui-egui/tests/editing.rs::combining_files_opens_a_new_unsaved_tab", "crates/ui-egui/tests/editing.rs::combine_files_opens_in_its_own_tab", "crates/ui-egui/tests/editing.rs::combine_lists_size_and_warns_before_combining", "crates/ui-egui/tests/editing.rs::a_password_protected_file_is_unlocked_with_its_password_and_combined", "crates/ui-egui/tests/editing.rs::a_folder_adds_its_pdfs_in_order_and_optionally_its_subfolders", "crates/ui-egui/tests/ui.rs::pdfs_dropped_on_the_combine_tab_join_its_list", "crates/automation/tests/automation.rs::combine_extract_and_split", "crates/automation/tests/automation.rs::combine_opens_protected_files_with_their_passwords", "crates/organize/src/tests.rs::combine_keeps_pdfx_when_every_source_agrees", "crates/organize/src/tests.rs::combine_claims_no_pdfx_when_the_sources_disagree"]
-notes = "Combine files is its own tab: a table of the files (name, pages, size, modified, warnings) with column sorting, resizing and moving; files, folders (with subfolders) and open documents can be added, or dropped on the tab. Problems show before Combine (password, security settings that withhold page assembly, bad page ranges, duplicates); protected files are unlocked with their open or permissions password (also doc_combine passwords). The result is never encrypted, and is not yet offered for protection in the same step. A PDF/X result (output intent, GTS_PDFXVersion, Trapped, XMP pdfxid) only when every source declares the same version and output intent (#263). When they differ the result claims none, and nothing reports that yet; Acrobat behaviour not observed."
+evidence = ["crates/organize/src/tests.rs::combine_concatenates_with_a_bookmark_per_file", "crates/ui-egui/tests/editing.rs::combining_files_opens_a_new_unsaved_tab", "crates/ui-egui/tests/editing.rs::combine_files_opens_in_its_own_tab", "crates/ui-egui/tests/editing.rs::combine_lists_size_and_warns_before_combining", "crates/ui-egui/tests/editing.rs::a_password_protected_file_is_unlocked_with_its_password_and_combined", "crates/ui-egui/tests/editing.rs::a_folder_adds_its_pdfs_images_and_text_in_order_and_optionally_its_subfolders", "crates/ui-egui/tests/editing.rs::images_and_text_files_join_the_combine_list_as_pdfs", "crates/ui-egui/tests/editing.rs::files_that_cannot_be_read_are_listed_and_left_out_once_the_user_agrees", "crates/ui-egui/tests/ui.rs::pdfs_dropped_on_the_combine_tab_join_its_list", "crates/automation/tests/automation.rs::combine_extract_and_split", "crates/automation/tests/automation.rs::combine_opens_protected_files_with_their_passwords", "crates/automation/tests/automation.rs::combine_takes_images_and_text_files", "crates/engine/src/tests.rs::files_for_combine_are_made_into_pdfs_and_pdfs_pass_through", "crates/organize/src/tests.rs::combine_keeps_pdfx_when_every_source_agrees", "crates/organize/src/tests.rs::combine_claims_no_pdfx_when_the_sources_disagree"]
+notes = "Combine files is its own tab: a table of the files (name, pages, size, modified, warnings) with column sorting, resizing and moving; files, folders (with subfolders) and open documents can be added, or dropped on the tab. Images (PNG, JPEG, TIFF, GIF, BMP, JPEG 2000) and .txt files become PDFs as they are added (#569; also in doc_combine). A file that can't be read stays in the list with why, and Combine asks before leaving it out; Office documents, HTML and other formats are not converted yet. Problems show before Combine (password, security settings that withhold page assembly, bad page ranges, duplicates); protected files are unlocked with their open or permissions password (also doc_combine passwords). The result is never encrypted, and is not yet offered for protection in the same step. A PDF/X result (output intent, GTS_PDFXVersion, Trapped, XMP pdfxid) only when every source declares the same version and output intent (#263). When they differ the result claims none, and nothing reports that yet; Acrobat behaviour not observed."
 
 [[feature]]
 id = "organize.combine-bookmarks"
@@ -5750,6 +5762,18 @@ evidence = ["crates/redact/src/tests.rs::hidden_information_is_counted_and_remov
 notes = "every category, then a full rewrite on save"
 
 [[feature]]
+id = "protect.audit-faux-redactions"
+title = "Audit: detect faux redactions (opaque covers over extractable text, unapplied marks)"
+area = "G"
+tier = "P2"
+milestone = "M8"
+status = "partial"
+commands = []
+tools = ["doc_audit_redactions"]
+evidence = ["crates/audit/src/tests.rs::faux_redaction_is_found", "crates/audit/src/tests.rs::background_before_text_is_not_flagged", "crates/audit/src/tests.rs::light_shading_after_text_is_not_flagged", "crates/audit/src/tests.rs::graphics_state_carries_across_streams", "crates/audit/src/tests.rs::audit_fails_closed_on_undecodable_stream", "crates/audit/src/tests.rs::unapplied_redact_mark_is_found", "crates/automation/tests/automation.rs::auditing_faux_redactions_through_tools"]
+notes = "New pdfcraft-audit crate. A filled rectangle (re + fill, opaque) counts as a cover only when painted after the text it overlaps and dark enough to hide it (WCAG contrast < 3.0); page backgrounds, table shading and highlights are not flagged. Graphics state carries across a page's content streams. Fails closed: undecodable content is an error, never a clean bill. Also flags /Redact annotations never applied. CLI: pdfcraft-cli audit (fails when findings exist)."
+
+[[feature]]
 id = "protect.remove-hidden-on-close"
 title = "Remove hidden information when closing or sending"
 area = "G"
@@ -5941,9 +5965,9 @@ tier = "P1"
 milestone = "M9"
 status = "partial"
 commands = ["sign.digital"]
-tools = []
-evidence = ["crates/ui-egui/tests/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting"]
-notes = "text items (name, date, reason, location, DN, labels); no graphics or saved appearances yet"
+tools = ["sign_document"]
+evidence = ["crates/ui-egui/tests/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting", "crates/ui-egui/tests/signing.rs::the_fill_and_sign_signature_or_an_image_shows_in_a_digital_signature", "crates/sign/tests/pdf.rs::visible_signatures_show_a_drawn_typed_or_image_graphic", "crates/sign/tests/pdf.rs::malformed_signature_graphics_are_refused_not_drawn", "crates/sign/tests/pdf.rs::an_encrypted_documents_signature_graphic_is_encrypted_with_it", "crates/automation/tests/automation.rs::signing_with_an_image_typed_or_drawn_graphic_through_tools"]
+notes = "text items (name, date, reason, location, DN, labels), and a graphic where the large name would be: the saved Fill & Sign signature (drawn, typed or image) or an imported PNG/JPEG (white paper made transparent, as in Fill & Sign), remembered for the next signing; alone it fills the box. Missing: named saved appearances (one remembered choice only), a PDF page as the graphic, the logo/watermark background, drawing a new signature inside the dialog"
 
 [[feature]]
 id = "sign.reason-location"
@@ -6591,11 +6615,11 @@ title = "Enhance camera images (edges, perspective, contrast)"
 area = "I"
 tier = "P1"
 milestone = "M10"
-status = "planned"
-commands = []
-tools = []
-evidence = []
-notes = ""
+status = "partial"
+commands = ["ocr.enhance_camera"]
+tools = ["page_enhance_camera"]
+evidence = ["crates/engine/src/tests.rs::enhance_camera_page_straightens_the_sheet", "crates/automation/tests/automation.rs::enhance_camera_image_through_tools", "crates/ui-egui/tests/camera.rs::dragging_a_corner_then_enhance_page_straightens_the_page", "crates/ui-egui/tests/camera.rs::after_enhance_page_crop_and_organize_take_over", "crates/engine/src/tests.rs::detect_camera_corners_finds_the_sheet_in_user_space", "crates/automation/tests/automation.rs::enhance_camera_image_finds_the_edges_by_itself"]
+notes = "Four corners (any order, a convex quadrilateral) are warped to an upright page at the picture's own resolution, in one undoable step; comments, links and bookmarks stay. Scan & OCR ▸ Enhance camera image shows four corner handles on the current page (Enhance page / Cancel / Esc), then offers rotate either way, Crop pages and Organize pages for the enhanced page; page_enhance_camera does the same headlessly. The corners start on the document's edges when they are found (straight lines with an edge along most of each side, refined by a line fit; tested on synthetic photos with text, wood grain, shadows, strong perspective and a 30° turn), else inset 5%. Missing: turning the result upright (text orientation), rounded-corner cards keep their background in the corners, contrast and background cleanup, document types."
 
 [[feature]]
 id = "ocr.camera-document-type"
@@ -7914,8 +7938,8 @@ milestone = "M10"
 status = "shipped"
 commands = ["print.dialog"]
 tools = ["doc_print"]
-evidence = ["crates/print/src/tests.rs::size_modes"]
-notes = "fit, actual size, shrink oversized, custom %"
+evidence = ["crates/print/src/tests.rs::size_modes", "crates/print/src/tests.rs::architectural_sheets_preserve_full_scale", "crates/automation/tests/automation.rs::architectural_and_iso_papers_through_tools", "crates/ui-egui/tests/print.rs::architectural_page_can_be_matched_at_100_percent"]
+notes = "fit, actual size, shrink oversized, custom %; ARCH A/B/C/D/E1/E, ANSI C/D/E, ISO A0/A1/A2 presets; Match page at 100% matches the current page to a standard sheet. PDF scale shows the previewed source-to-sheet transform, not calibrated physical output; driver substitution/scaling remains possible"
 
 [[feature]]
 id = "print.paper-source-by-size"
@@ -7986,7 +8010,7 @@ milestone = "M10"
 status = "shipped"
 commands = ["print.dialog"]
 tools = ["doc_print"]
-evidence = ["crates/print/src/tests.rs::size_modes"]
+evidence = ["crates/print/src/tests.rs::size_modes", "crates/print/src/tests.rs::architectural_sheets_preserve_full_scale", "crates/automation/tests/automation.rs::architectural_and_iso_papers_through_tools", "crates/ui-egui/tests/print.rs::architectural_page_can_be_matched_at_100_percent"]
 notes = "auto portrait/landscape"
 
 [[feature]]

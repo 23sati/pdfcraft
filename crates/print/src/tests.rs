@@ -78,6 +78,23 @@ fn page_selection() {
 }
 
 #[test]
+fn page_selection_handles_ranges_between_hyphenated_labels() {
+    let labels: Vec<String> = ["A-1", "A-2", "A-3", "B-1", "B-2"].iter().map(|s| s.to_string()).collect();
+    let pages = |range| select_pages(5, Some(range), &labels, Subset::All, false).unwrap();
+    assert_eq!(pages("A-1"), [0], "the complete label takes precedence over a range");
+    assert_eq!(pages("A-1-A-3"), [0, 1, 2]);
+    assert_eq!(pages("A-3-A-1"), [2, 1, 0], "reverse logical ranges");
+    assert_eq!(pages("A-2-"), [1, 2, 3, 4], "an open-ended range starting at a hyphenated label");
+    assert_eq!(pages("-A-2"), [0, 1], "an open-ended range ending at a hyphenated label");
+    assert_eq!(pages("A-2-5"), [1, 2, 3, 4], "a label followed by a numeric endpoint");
+    assert_eq!(pages("B-1-B-2"), [3, 4]);
+    // If an earlier dash yields one known label but an unknown endpoint, continue
+    // checking later dashes instead of rejecting the whole range.
+    let ambiguous: Vec<String> = ["A-1", "A-1-B", "C"].iter().map(|s| s.to_string()).collect();
+    assert_eq!(select_pages(3, Some("A-1-B-C"), &ambiguous, Subset::All, false).unwrap(), [1, 2]);
+}
+
+#[test]
 fn size_modes() {
     let sizes = [(200.0, 300.0), (1000.0, 1500.0)];
     let fit = layout(&sizes, &settings(vec![0, 1], Layout::Size(SizeMode::Fit))).unwrap();
@@ -458,6 +475,19 @@ fn windows_lists_the_printers_the_system_knows() {
     assert!(printers.iter().filter(|p| p.default).count() <= 1, "{printers:?}");
 }
 
+/// Windows: PowerShell is started by its full path under System32, never by its bare name.
+/// Rust resolves a bare name in the app's own folder first, so a `powershell.exe` beside a
+/// portable install would run instead, for every printer list and every job.
+#[cfg(windows)]
+#[test]
+fn windows_starts_powershell_by_its_full_path() {
+    let c = crate::spool::powershell_command("$null");
+    let program = std::path::Path::new(c.get_program());
+    assert!(program.is_absolute(), "{program:?}");
+    assert!(program.ends_with("System32/WindowsPowerShell/v1.0/powershell.exe"), "{program:?}");
+    assert!(program.is_file(), "{program:?}");
+}
+
 /// Windows: the embedded print script is valid PowerShell, checked on every machine — including
 /// runners that have no printer to print to.
 #[cfg(windows)]
@@ -600,4 +630,31 @@ fn a_scaled_appearance_is_not_scaled_twice() {
     let m = appearance_matrix(&doc, &form, [10.0, 10.0, 50.0, 50.0]).unwrap();
     assert!(close(m.0[0], 2.0) && close(m.0[3], 2.0), "{:?}", m.0);
     assert!(close(m.0[4], 10.0) && close(m.0[5], 10.0), "{:?}", m.0);
+}
+
+#[test]
+fn architectural_sheets_preserve_full_scale() {
+    let index = matching_paper((2592.0, 1728.0)).unwrap();
+    assert_eq!(PAPERS[index].0, "ARCH D (24 x 36 in)");
+    assert_eq!(matching_paper((1728.0, 2592.0)), Some(index));
+    assert_eq!(matching_paper((f64::NAN, 2592.0)), None);
+    let s = Settings { pages: vec![0], paper: PAPERS[index].1, layout: Layout::Size(SizeMode::Actual), ..Settings::default() };
+    let sheets = layout(&[(2592.0, 1728.0)], &s).unwrap();
+    assert_eq!(sheets[0].size, (2592.0, 1728.0));
+    assert_eq!(sheets[0].placed[0].matrix.0, [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+    let fit = layout(&[(2592.0, 1728.0)], &Settings { layout: Layout::Size(SizeMode::Fit), ..s }).unwrap();
+    assert!(fit[0].placed[0].matrix.0[0] < 1.0, "Fit adds margins and must not masquerade as full scale");
+}
+
+#[test]
+fn paper_matching_accepts_rounded_metric_sizes_but_not_custom_or_invalid_sizes() {
+    for (i, (_, (w, h))) in PAPERS.iter().enumerate() {
+        assert_eq!(matching_paper((*w, *h)), Some(i));
+        assert_eq!(matching_paper((*h, *w)), Some(i));
+        assert_eq!(matching_paper((w.round(), h.round())), Some(i));
+        assert_eq!(matching_paper((w + 0.51, *h)), None);
+    }
+    for size in [(0.0, 0.0), (-1728.0, 2592.0), (f64::INFINITY, 2592.0), (1728.0, f64::NAN), (1000.0, 1000.0)] {
+        assert_eq!(matching_paper(size), None);
+    }
 }
