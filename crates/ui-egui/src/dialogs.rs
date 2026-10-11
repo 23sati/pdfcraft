@@ -25,6 +25,10 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
         app.view_draft = None;
         return;
     };
+    // Properties ▸ Fonts shows the fonts as they are now, after any content edits.
+    if let (Dialog::Properties(PropsTab::Fonts), Some((_, id))) = (dialog, app.active_ids()) {
+        app.session.refresh_fonts(id);
+    }
     // Seed the editable Description fields from the document when the dialog opens.
     if let (Dialog::Properties(_), Some((_, id))) = (dialog, app.active_ids())
         && app.props_draft.as_ref().is_none_or(|(d, _)| *d != id)
@@ -68,7 +72,7 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
     let t = Tokens::get(ctx);
     let mut close = false;
     let mut next = dialog;
-    let modal = egui::Modal::new(egui::Id::new("dialog")).show(ctx, |ui| {
+    let modal = widgets::show_modal(ctx, "dialog", |ui| {
         ui.set_width(match dialog {
             Dialog::Properties(_) => 640.0,
             Dialog::Print => 820.0,
@@ -76,14 +80,6 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
             Dialog::About => 780.0,
             _ => 520.0,
         });
-        // Dialog controls are outlined (radio buttons, check boxes, combo boxes and number fields
-        // would otherwise blend into the dialog, whose fill matches the theme's field colour).
-        let w = &mut ui.visuals_mut().widgets;
-        w.inactive.bg_stroke = egui::Stroke::new(1.0, t.border);
-        w.inactive.weak_bg_fill = t.field;
-        // Slider rails and check-box interiors use the plain fill.
-        w.inactive.bg_fill = t.hover;
-        w.hovered.bg_stroke = egui::Stroke::new(1.0, t.text_muted);
         match dialog {
             Dialog::CreateImages => {
                 let (go, cancel) = crate::create_ui::image_import_body(ui, app);
@@ -94,7 +90,7 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
             Dialog::Properties(tab) => {
                 ui.label(egui::RichText::new(tl!("Document Properties")).font(theme::semibold(18.0)));
                 ui.add_space(8.0);
-                ui.horizontal(|ui| {
+                ui.horizontal_wrapped(|ui| {
                     for (tb, label) in [
                         (PropsTab::Description, tl!("Description")),
                         (PropsTab::InitialView, tl!("Initial View")),
@@ -108,6 +104,7 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                     }
                 });
                 ui.separator();
+                let units = app.units;
                 let Some((_, id)) = app.active_ids() else { return };
                 let Some(doc) = app.session.get(id) else { return };
                 let i = &doc.info;
@@ -125,14 +122,8 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                                 Some((_, draft)) if doc.allows_modification() => {
                                     for (k, v) in INFO_KEYS.iter().zip(draft.iter_mut()) {
                                         let l = ui.label(egui::RichText::new(tl!(k)).color(t.text_muted));
-                                        ui.add(
-                                            egui::TextEdit::singleline(v)
-                                                .desired_width(420.0)
-                                                .background_color(t.field)
-                                                .margin(egui::Margin::symmetric(6, 4))
-                                                .id_salt(("info", *k)),
-                                        )
-                                        .labelled_by(l.id);
+                                        ui.add(widgets::line(v).desired_width(420.0).background_color(t.field).id_salt(("info", *k)))
+                                            .labelled_by(l.id);
                                         ui.end_row();
                                     }
                                 }
@@ -334,9 +325,9 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                         PropsTab::Advanced => {
                             row(ui, "PDF version", i.pdf_version.clone());
                             row(ui, "Location", crate::bidi::visual(doc.path.as_deref().unwrap_or_default()).into_owned());
-                            row(ui, "File size", format!("{} ({} bytes)", human_size(i.file_size), i.file_size));
+                            row(ui, "File size", format!("{} ({})", human_size(i.file_size), crate::panels::byte_count(i.file_size)));
                             let p = &i.pages[0];
-                            row(ui, "Page size", format!("{:.2} × {:.2} in", p.width / 72.0, p.height / 72.0));
+                            row(ui, "Page size", units.size(f64::from(p.width), f64::from(p.height)));
                             row(ui, "Number of pages", i.pages.len().to_string());
                             row(ui, "Tagged PDF", yes(i.tagged));
                             row(ui, "Form fields", i.fields.len().to_string());
@@ -376,7 +367,7 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                                 let l = ui.label(egui::RichText::new(tl!("Language")).color(t.text_muted));
                                 let mut lang = v.language.clone().unwrap_or_default();
                                 if ui
-                                    .add_enabled(editable, egui::TextEdit::singleline(&mut lang).hint_text(tl!("e.g. en-US")).desired_width(160.0))
+                                    .add_enabled(editable, widgets::line(&mut lang).hint_text(tl!("e.g. en-US")).desired_width(160.0))
                                     .labelled_by(l.id)
                                     .changed()
                                 {
@@ -910,7 +901,9 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 return;
             }
             Dialog::Preferences => {
-                close = crate::js_ui::preferences_body(ui, app, &t);
+                // The settings outgrow a short window: scroll them rather than run off the screen.
+                let max = (ui.ctx().content_rect().height() - 120.0).max(200.0);
+                close = egui::ScrollArea::vertical().max_height(max).show(ui, |ui| crate::js_ui::preferences_body(ui, app, &t)).inner;
                 return;
             }
             Dialog::RecognizeText => {
@@ -959,15 +952,6 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 let d = &mut app.number_draft;
                 d.to = d.to.clamp(1, n);
                 d.from = d.from.clamp(1, d.to);
-                // Editable values get a visible border (the dialog and field fills are alike).
-                let boxed = |ui: &mut egui::Ui, add: &mut dyn FnMut(&mut egui::Ui) -> egui::Response| {
-                    egui::Frame::new()
-                        .stroke(egui::Stroke::new(1.0, t.border))
-                        .corner_radius(egui::CornerRadius::same(5))
-                        .inner_margin(egui::Margin::symmetric(4, 1))
-                        .show(ui, |ui| add(ui))
-                        .inner
-                };
                 egui::Grid::new("number_pages").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
                     ui.label(tl!("Pages"));
                     ui.horizontal(|ui| {
@@ -994,8 +978,7 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                     });
                     ui.end_row();
                     let l = ui.label(tl!("Prefix"));
-                    boxed(ui, &mut |ui| ui.add(egui::TextEdit::singleline(&mut d.prefix).desired_width(160.0).frame(egui::Frame::NONE)))
-                        .labelled_by(l.id);
+                    ui.add(widgets::line(&mut d.prefix).desired_width(160.0)).labelled_by(l.id);
                     ui.end_row();
                     ui.label(tl!("Start"));
                     ui.add(egui::DragValue::new(&mut d.start).range(1..=99_999));
@@ -1095,7 +1078,7 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 // Tabs About · Contributors · Models (craftrules standards/contributors.md).
                 let tab_id = egui::Id::new("about_tab");
                 let mut tab = ui.data_mut(|d| d.get_temp::<u8>(tab_id)).unwrap_or(0);
-                ui.horizontal(|ui| {
+                ui.horizontal_wrapped(|ui| {
                     for (i, label) in ["About", "Contributors", "Models"].into_iter().enumerate() {
                         let i = i as u8;
                         if widgets::mode_tab(ui, tl!(label), tab == i).clicked() {
@@ -1138,7 +1121,7 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 }
             }
         }
-        ui.add_space(12.0);
+        ui.add_space(16.0);
         let changed = draft_changes(app).is_some_and(|c| !c.is_empty());
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             if dialog == Dialog::Recovery {
@@ -1407,7 +1390,7 @@ fn save_prompt(app: &mut PdfCraftApp, ctx: &egui::Context) {
     // the prompt taller than the window (#236); 80 characters wrap to a few lines.
     let shown = shorten_middle(&name, 80);
     let mut choice: Option<Option<bool>> = None;
-    let modal = egui::Modal::new(egui::Id::new("save_prompt")).show(ctx, |ui| {
+    let modal = widgets::show_modal(ctx, "save_prompt", |ui| {
         ui.set_width(420.0);
         ui.horizontal(|ui| {
             ui.add(crate::icons::image("save", 22.0, t.accent));
@@ -1468,7 +1451,7 @@ fn link_prompt(app: &mut PdfCraftApp, ctx: &egui::Context) {
     let email = pending.url.get(..7).is_some_and(|s| s.eq_ignore_ascii_case("mailto:"));
     let (title, open) = if email { (tl!("Write this email?"), tl!("Open email app")) } else { (tl!("Open this web page?"), tl!("Open link")) };
     let mut choice: Option<bool> = None;
-    let modal = egui::Modal::new(egui::Id::new("link_prompt")).show(ctx, |ui| {
+    let modal = widgets::show_modal(ctx, "link_prompt", |ui| {
         ui.set_width(460.0);
         ui.horizontal(|ui| {
             ui.add(crate::icons::image("external-link", 22.0, t.accent));
@@ -1546,7 +1529,7 @@ fn password_modal(
 ) -> Option<PasswordAnswer> {
     let t = Tokens::get(ctx);
     let mut answer = None;
-    let modal = egui::Modal::new(egui::Id::new(id)).show(ctx, |ui| {
+    let modal = widgets::show_modal(ctx, id, |ui| {
         ui.set_width(400.0);
         ui.horizontal(|ui| {
             ui.add(crate::icons::image("lock", 22.0, t.accent));
@@ -1555,7 +1538,7 @@ fn password_modal(
         ui.add_space(6.0);
         ui.add(egui::Label::new(message).wrap());
         ui.add_space(8.0);
-        let r = ui.add(egui::TextEdit::singleline(input).password(true).hint_text(tl!("Password")).desired_width(f32::INFINITY));
+        let r = ui.add(widgets::line(input).password(true).hint_text(tl!("Password")).desired_width(f32::INFINITY));
         // Enter submits. The field keeps focus (we request it every frame), so check the key
         // while it is focused as well as on the frame focus is lost.
         if (r.has_focus() || r.lost_focus()) && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
