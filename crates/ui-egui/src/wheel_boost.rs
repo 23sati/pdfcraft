@@ -92,6 +92,82 @@ pub(crate) fn cap_frame(delta: Vec2) -> Vec2 {
     )
 }
 
+/// One frame of coarse input, in points. Page units are ignored here: one
+/// page is already viewport-sized, so it always takes the egui path at 1.0.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub(crate) struct FrameInput {
+    pub line: Vec2,
+}
+
+/// Folds raw wheel events into the frame total. Pure function of its inputs:
+/// no clock, no context. Point events are ignored here; trackpads take the
+/// precise path. Page events are ignored here; they take the egui path.
+/// Invalid scales contribute nothing.
+pub(crate) fn accumulate(events: &[egui::Event], line_points: f32, single_paging: bool) -> FrameInput {
+    let line_points = sanitize_scale(line_points);
+    let mut out = FrameInput::default();
+    for event in events {
+        let egui::Event::MouseWheel { unit, delta, modifiers, .. } = event else { continue };
+        if modifiers.command || modifiers.ctrl {
+            continue; // Zooming, not scrolling.
+        }
+        if !delta.is_finite() {
+            continue;
+        }
+        if !matches!(unit, egui::MouseWheelUnit::Line) {
+            continue;
+        }
+        // Paging owns vertical motion in single-page view, so vertical input
+        // is not accumulated for scroll.
+        let paging_y = single_paging && !modifiers.shift;
+        if modifiers.shift {
+            // Shift scrolls sideways, matching egui's own wheel handling.
+            let sum = delta.x + delta.y;
+            if !sum.is_finite() || sum == 0.0 {
+                continue;
+            }
+            out.line.x += sum.clamp(-MAX_EVENT_UNITS, MAX_EVENT_UNITS) * line_points;
+        } else {
+            out.line.x += delta.x.clamp(-MAX_EVENT_UNITS, MAX_EVENT_UNITS) * line_points;
+            if !paging_y {
+                out.line.y += delta.y.clamp(-MAX_EVENT_UNITS, MAX_EVENT_UNITS) * line_points;
+            }
+        }
+    }
+    // Keep the total finite no matter how many events arrived; the multiplier
+    // and the frame cap bound the rest.
+    if !out.line.is_finite() {
+        return FrameInput::default();
+    }
+    out.line.x = out.line.x.clamp(-MAX_FRAME_POINTS, MAX_FRAME_POINTS);
+    out.line.y = out.line.y.clamp(-MAX_FRAME_POINTS, MAX_FRAME_POINTS);
+    out
+}
+
+/// Converts the frame total to the extra scroll delta beyond egui's share.
+///
+/// egui always applies the base (`line_points`) through its own smoothing;
+/// this returns only the surplus for a fast spin, so single notches add
+/// exactly zero and feel identical to every other scroll area. At most one
+/// multiplier update per axis, so a batched frame cannot boost itself.
+/// Output is frame-capped.
+pub(crate) fn boost_extra(input: FrameInput, boost_x: &mut WheelBoost, boost_y: &mut WheelBoost, now: f64) -> Vec2 {
+    let mut extra = Vec2::ZERO;
+    if input.line.x != 0.0 && input.line.x.is_finite() {
+        extra.x += input.line.x * (boost_x.multiplier(now, input.line.x) - 1.0);
+    }
+    if input.line.y != 0.0 && input.line.y.is_finite() {
+        extra.y += input.line.y * (boost_y.multiplier(now, input.line.y) - 1.0);
+    }
+    cap_frame(extra)
+}
+
+/// A validated points-per-unit scale. Invalid input maps to zero, so callers
+/// with a broken scale scroll nothing instead of infinitely.
+fn sanitize_scale(points: f32) -> f32 {
+    if points.is_finite() && points > 0.0 { points } else { 0.0 }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -235,5 +311,89 @@ mod tests {
         assert_eq!(cap_frame(vec2(1e9, -1e9)), vec2(MAX_FRAME_POINTS, -MAX_FRAME_POINTS));
         assert_eq!(cap_frame(vec2(f32::NAN, 40.0)), vec2(0.0, 40.0));
         assert_eq!(cap_frame(vec2(40.0, f32::INFINITY)), vec2(40.0, 0.0));
+    }
+
+    fn wheel(unit: egui::MouseWheelUnit, dx: f32, dy: f32) -> egui::Event {
+        egui::Event::MouseWheel { unit, delta: egui::vec2(dx, dy), phase: egui::TouchPhase::Move, modifiers: egui::Modifiers::NONE }
+    }
+
+    fn shifted(unit: egui::MouseWheelUnit, dx: f32, dy: f32) -> egui::Event {
+        egui::Event::MouseWheel { unit, delta: egui::vec2(dx, dy), phase: egui::TouchPhase::Move, modifiers: egui::Modifiers::SHIFT }
+    }
+
+    #[test]
+    fn isolated_notch_adds_no_extra() {
+        use egui::MouseWheelUnit::Line;
+        // One notch at rest adds exactly zero on top of egui's share, at every
+        // configured base.
+        for base in [50.0, 100.0, 200.0, 40.0, 8.0] {
+            let input = accumulate(&[wheel(Line, 0.0, -1.0)], base, false);
+            assert_eq!(input.line, egui::vec2(0.0, -base));
+            let mut bx = WheelBoost::default();
+            let mut by = WheelBoost::default();
+            assert_eq!(boost_extra(input, &mut bx, &mut by, 1.0), egui::Vec2::ZERO);
+        }
+    }
+
+    #[test]
+    fn fast_spin_adds_a_bounded_extra() {
+        use egui::MouseWheelUnit::Line;
+        // Twenty fast frames of one notch: the extra grows past zero but the
+        // frame total (base plus extra) stays capped.
+        let mut bx = WheelBoost::default();
+        let mut by = WheelBoost::default();
+        let mut peak = 0.0f32;
+        for i in 0..20 {
+            let input = accumulate(&[wheel(Line, 0.0, -1.0)], 100.0, false);
+            let extra = boost_extra(input, &mut bx, &mut by, 1.0 + f64::from(i) * 0.02);
+            assert!(extra.y <= 0.0, "extra follows the spin direction, got {extra:?}");
+            peak = peak.min(extra.y);
+        }
+        assert!(peak < 0.0, "a sustained spin must add an extra");
+        assert!(peak >= -MAX_FRAME_POINTS, "extra stays frame-capped, got {peak}");
+    }
+
+    #[test]
+    fn page_and_point_events_accumulate_nothing() {
+        use egui::{MouseWheelUnit::Line, MouseWheelUnit::Page, MouseWheelUnit::Point};
+        // Page units always take the egui path; point units take the precise
+        // path. Neither reaches the boost.
+        let input = accumulate(&[wheel(Page, 0.0, -1.0), wheel(Point, 0.0, -30.0)], 100.0, false);
+        assert_eq!(input, FrameInput::default());
+        // Mixed with a line notch, only the line part accumulates.
+        let input = accumulate(&[wheel(Line, 0.0, -1.0), wheel(Page, 0.0, -1.0)], 100.0, false);
+        assert_eq!(input.line, egui::vec2(0.0, -100.0));
+        let mut bx = WheelBoost::default();
+        let mut by = WheelBoost::default();
+        assert_eq!(boost_extra(input, &mut bx, &mut by, 1.0), egui::Vec2::ZERO);
+    }
+
+    #[test]
+    fn single_paging_drops_vertical_keeps_horizontal() {
+        use egui::MouseWheelUnit::Line;
+        let input = accumulate(&[wheel(Line, 5.0, -1.0)], 100.0, true);
+        assert_eq!(input.line, egui::vec2(500.0, 0.0));
+    }
+
+    #[test]
+    fn shift_merges_into_horizontal() {
+        use egui::MouseWheelUnit::Line;
+        let input = accumulate(&[shifted(Line, 1.0, -2.0)], 100.0, false);
+        assert_eq!(input.line, egui::vec2(-100.0, 0.0));
+    }
+
+    #[test]
+    fn invalid_scales_and_events_contribute_nothing() {
+        use egui::MouseWheelUnit::Line;
+        for bad in [f32::NAN, 0.0, -10.0, f32::INFINITY] {
+            let input = accumulate(&[wheel(Line, 0.0, -1.0)], bad, false);
+            assert_eq!(input.line, egui::Vec2::ZERO, "line scale {bad}");
+        }
+        // Zoom input, trackpad units, and hostile deltas never accumulate.
+        let zoom =
+            egui::Event::MouseWheel { unit: Line, delta: egui::vec2(0.0, -1.0), phase: egui::TouchPhase::Move, modifiers: egui::Modifiers::COMMAND };
+        let key = egui::Event::Key { key: egui::Key::Escape, physical_key: None, pressed: true, repeat: false, modifiers: egui::Modifiers::NONE };
+        let input = accumulate(&[zoom, key, wheel(Line, 0.0, f32::NAN)], 100.0, false);
+        assert_eq!(input, FrameInput::default());
     }
 }
