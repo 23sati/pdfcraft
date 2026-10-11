@@ -18,6 +18,9 @@
 	Preferences	Preferências
 	Preferences…	Preferências…
 	Interface language	Idioma da interface
+	Interface size	Tamanho da interface
+	Auto ({percent}%)	Automático ({percent}%)
+	Auto follows the system's text size. Pages always render at the display's full resolution.	Automático segue o tamanho do texto do sistema. As páginas sempre são exibidas na resolução total da tela.
 	Identity	Identidade
 	Name on new comments	Nome nos novos comentários
 	Open…	Abrir…
@@ -51,6 +54,7 @@
 	Fit visible	Ajustar ao visível
 	Marquee zoom	Zoom por seleção
 	Take a snapshot	Capturar instantâneo
+	Column select	Seleção de coluna
 	Full screen mode	Modo de tela cheia
 	Read mode	Modo de leitura
 	Switch light / dark theme	Alternar tema claro / escuro
@@ -419,6 +423,7 @@
 	Rotation	Rotação
 	Appear behind page	Exibir atrás da página
 	Appear on top of page	Exibir sobre a página
+	Offset from centre	Deslocamento a partir do centro
 	From colour	A partir da cor
 	Page Range Options	Opções de intervalo de páginas
 	Preview: page {p} of {n}	Pré-visualização: página {p} de {n}
@@ -730,6 +735,7 @@
 	Dates	Datas
 	Text in images isn't found; recognise text (OCR) first.	Texto em imagens não é encontrado; reconheça o texto (OCR) primeiro.
 	No matches.	Nenhuma correspondência.
+	Some bookmarks are not shown here: the panel lists a limited number, nested a limited depth.	Alguns marcadores não são mostrados aqui: o painel lista um número limitado, com profundidade limitada.
 	{n} match(es) marked for redaction.	{n} correspondência(s) marcada(s) para ocultação.
 	Multiple words or phrases	Várias palavras ou frases
 	One word or phrase per line	Uma palavra ou frase por linha
@@ -1026,8 +1032,14 @@
 	Open a PDF ({key})	Abrir um PDF ({key})
 	Dark gray theme	Tema cinza escuro
 	Light theme	Tema claro
+	Appearance mode	Modo de aparência
+	Light	Claro
+	Dark	Escuro
+	Active	Ativo
+	Dark theme	Tema escuro
+	Appearance settings…	Configurações de aparência…
 	Print ({key})	Imprimir ({key})
-	Save (M4)	Salvar (M4)
+	Save ({key})	Salvar ({key})
 	Document properties ({key})	Propriedades do documento ({key})
 	Action Wizard…	Assistente de ações…
 	Add Bates numbering…	Adicionar numeração Bates…
@@ -1454,6 +1466,8 @@
 	{file} is too large for a stamp (at most {n} MB)	{file} é muito grande para um carimbo (no máximo {n} MB)
 	Sent to {printer}	Enviado para {printer}
 	Sent to {printer}: {msg}	Enviado para {printer}: {msg}
+	Looking for printers…	Procurando impressoras…
+	Sending to {printer}…	Enviando para {printer}…
 	Choose a folder for the searchable files	Escolha uma pasta para os arquivos pesquisáveis
 	Files are combined in this order. Leave Pages empty to take every page.	Os arquivos são combinados nesta ordem. Deixe Páginas em branco para incluir todas as páginas.
 	Pages of {name} to combine, e.g. 1-3, 6	Páginas de {name} a combinar, ex.: 1-3, 6
@@ -1934,14 +1948,14 @@
 	Add open documents	Adicionar documentos abertos
 	All open documents	Todos os documentos abertos
 	No documents are open	Nenhum documento está aberto
-	Add the PDFs to combine	Adicionar os PDFs para combinar
-	Drop PDFs or folders here, or choose them.	Solte PDFs ou pastas aqui, ou escolha-os.
+	Add the files to combine	Adicionar os arquivos para combinar
+	Drop PDFs, images, text files or folders here, or choose them.	Solte PDFs, imagens, arquivos de texto ou pastas aqui, ou escolha-os.
 	Add folder…	Adicionar pasta…
 	More ways to add files	Mais formas de adicionar arquivos
 	Add folder	Adicionar pasta
-	Every PDF in the folder	Todo PDF da pasta
+	Every PDF, image and text file in the folder	Todo PDF, imagem e arquivo de texto da pasta
 	Add folder and subfolders…	Adicionar pasta e subpastas…
-	Every PDF in the folder and the folders inside it	Todo PDF da pasta e das pastas dentro dela
+	Every PDF, image and text file in the folder and the folders inside it	Todo PDF, imagem e arquivo de texto da pasta e das pastas dentro dela
 	Add folder and subfolders	Adicionar pasta e subpastas
 	PDF, images and text	PDF, imagens e texto
 	Files are combined from top to bottom. Leave Pages empty to take every page.	Os arquivos são combinados de cima para baixo. Deixe Páginas em branco para incluir todas as páginas.
@@ -1960,6 +1974,10 @@
 	Opened, but its security settings don't allow combining. Enter the permissions password.	Aberto, mas as configurações de segurança dele não permitem combinar. Digite a senha de permissões.
 	Its security settings don't allow copying pages	As configurações de segurança dele não permitem copiar páginas
 	Can't be read: {e}	Não é possível ler: {e}
+	Leave out files that can't be read?	Deixar de fora os arquivos que não podem ser lidos?
+	These files can't be read, so they won't be in the combined PDF:	Estes arquivos não podem ser lidos, então não estarão no PDF combinado:
+	Combine the rest	Combinar os demais
+	and {n} more	e mais {n}
 	Unlocked: the combined file won't be password-protected	Desbloqueado: o arquivo combinado não será protegido por senha
 	Protected: the combined file won't keep its security settings	Protegido: o arquivo combinado não manterá as configurações de segurança
 	Unlock {name}	Desbloquear {name}
@@ -2033,7 +2051,7 @@ action wizard	Start	Iniciar
 	A script	Um script
 	About	Sobre
 	Add {what}	Adicionar {what}
-	Added the first {n} PDFs in {folder}	Adicionados os primeiros {n} PDFs de {folder}
+	Added the first {n} files in {folder}	Adicionados os primeiros {n} arquivos de {folder}
 	Align fields	Alinhar campos
 	Another file dialog is still open. Finish with it first.	Outra janela de arquivos ainda está aberta. Conclua-a primeiro.
 	Basic constraints	Restrições básicas
@@ -2074,7 +2092,7 @@ action wizard	Start	Iniciar
 	Model	Modelo
 	Models	Modelos
 	Name (A–Z)	Nome (A–Z)
-	No PDFs found in {folder}	Nenhum PDF encontrado em {folder}
+	No PDFs, images or text files found in {folder}	Nenhum PDF, imagem ou arquivo de texto encontrado em {folder}
 	None of those files can be made into a PDF; use PDFs, images or .txt files	Nenhum desses arquivos pode virar PDF; use PDFs, imagens ou arquivos .txt
 	Opens the printer driver's preferences. They are saved for every print from this computer; the copies, two-sided, grayscale and paper chosen here still apply.	Abre as preferências do driver da impressora. Elas valem para toda impressão deste computador; as cópias, frente e verso, escala de cinza e papel escolhidos aqui continuam valendo.
 	Optimization cancelled	Otimização cancelada
@@ -2144,3 +2162,56 @@ comment menu	Edit	Editar
 	The field {name} no longer exists.	O campo {name} não existe mais.
 	A selected field has no widget on any page, so the fields can't be edited together.	Um campo selecionado não tem widget em nenhuma página, então os campos não podem ser editados juntos.
 	 ({n} at {dpi} dpi, the largest size they can be drawn at)	 ({n} a {dpi} dpi, o maior tamanho em que podem ser desenhadas)
+
+# Multi-object selection and movement (#844)
+@plural	{n} object selected|{n} objects selected	{n} objeto selecionado|{n} objetos selecionados
+	Drag the selection to move it. Esc clears the selection.	Arraste a seleção para movê-la. Esc limpa a seleção.
+	Shift-click to select several objects. Drag empty space to select an area.	Use Shift e clique para selecionar vários objetos. Arraste em um espaço vazio para selecionar uma área.
+	Select at most 1000 objects at a time.	Selecione no máximo 1000 objetos por vez.
+	Finish or discard the text being edited before selecting several objects.	Conclua ou descarte a edição do texto antes de selecionar vários objetos.
+	Move object	Mover objeto
+	Move objects	Mover objetos
+	Vertical text cannot be moved with this selection.	O texto vertical não pode ser movido com esta seleção.
+	Text used as a clipping path cannot be moved with this selection.	O texto usado como caminho de recorte não pode ser movido com esta seleção.
+	These objects could not be moved. Select them again and try a smaller move.	Não foi possível mover estes objetos. Selecione-os novamente e tente um deslocamento menor.
+	This page contains objects that cannot be selected together.	Esta página contém objetos que não podem ser selecionados juntos.
+	Fill colour	Cor de preenchimento
+	No fill	Sem preenchimento
+	Fill colour: none	Cor de preenchimento: nenhuma
+
+# Keyboard key names, distinct from command labels.
+key	Ctrl	Ctrl
+key	Shift	Shift
+key	Delete	Delete
+key	Esc	Esc
+key	Home	Home
+key	End	End
+key	Space	Espaço
+	Grid view	Exibição em grade
+	List view	Exibição em lista
+	Files are combined in the order shown. Drag them to change it.	Os arquivos são combinados na ordem mostrada. Arraste-os para mudá-la.
+	Preview unavailable: {e}	Pré-visualização indisponível: {e}
+	Pages: {k} of {n}	Páginas: {k} de {n}
+	Check the pages	Verifique as páginas
+	Switch to List view to change the pages it takes.	Mude para a exibição em lista para alterar as páginas incluídas.
+	Expand all	Expandir tudo
+	Collapse all	Recolher tudo
+	Remove page	Remover página
+	Remove {n} pages	Remover {n} páginas
+
+# Shared panel docking
+	Reset panel layout	Redefinir disposição dos painéis
+	Float panel	Tornar painel flutuante
+	Move to group	Mover para grupo
+	Panels	Painéis
+	Resize panels	Redimensionar painéis
+	Resize panel window	Redimensionar janela do painel
+	Tools	Ferramentas
+	Inspector	Inspetor
+	Mouse wheel scroll speed	Velocidade de rolagem da roda do mouse
+scroll speed	Slow	Lenta
+scroll speed	Normal	Normal
+scroll speed	Fast	Rápida
+	Enhance camera image	Aprimorar foto da câmera
+	Drag the corners onto the document's edges, then choose Enhance page.	Arraste os cantos até as bordas do documento e escolha Aprimorar página.
+	Enhance page	Aprimorar página
