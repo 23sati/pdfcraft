@@ -1,7 +1,6 @@
 # Where PdfCraft falls short of Acrobat Pro
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** patch (gap 2: hayro patch counts after the native-gradient backport) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (gap 1 closed by #836; fixed issues removed from gaps 3, 6 and 16) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** patch (gap 12: first generated-fixture render comparison against Poppler; Acrobat capture and broader interop remain open) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
 Every known shortfall, one entry each, ranked by what it costs users. This is the work list: agents
 choose from the top unless the owner says otherwise, and prefer these over new P2/P3 checklist
@@ -185,7 +184,10 @@ update the numbers.
   signature validation against Acrobat on synthetic fixtures; an interop suite that opens every
   kind of output we write (encrypted ones above all, after #774) in pdf.js, MuPDF and Poppler as
   oracle processes.
-- **Evidence:** none exists; only text extraction has an oracle (word-F1 0.98 against `pdftotext`).
+- **Evidence:** no Acrobat side-by-side comparison exists yet. Text extraction has an oracle
+  (word-F1 0.98 against `pdftotext`), and `cargo xtask render-oracle` now measures a generated
+  vector-and-text page against Poppler: mean RGB absolute error 0.169/255, with 0.35% of pixels
+  differing by more than 16 levels. This one fixture is diagnostic only; it sets no pass threshold.
   Acrobat captures must stay local in `plan/acrobat/` (clean-room, `AGENTS.md` §1.1).
 - **Impact:** until it exists, every quality number here is a judgement.
 - **Estimate:** counted in gap 2 (≈ 20–30 h of it). **Doc:** [target-app-parity.md](target-app-parity.md).
@@ -287,6 +289,7 @@ update the numbers.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | patch | Gap 12: add the first runtime-generated rendering comparison against Poppler; Acrobat side-by-side, broader fixtures, forms and signatures remain open |
 | 2026-10-11 | patch | Gap 2: 23 hayro-interpret and 10 hayro patches after axial and radial shadings became native gradients (backport of hayro 0.8) |
 | 2026-10-11 | minor | Closed gap 1 (#774, fixed by #836; numbers kept, its interop suite moved to gap 12); gap 6 lists the fixed #799–#821 batch; gap 3 and 16 updated for #844 (same-page move), #740 (column select) and #759 (1:1 touchpad scrolling) |
 | 2026-10-10 | minor | Removed the alpha markers: with the cross-app gate rule, gaps 1 and 8 are partial sub-cases, not blockers; stage alpha |
