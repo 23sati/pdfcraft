@@ -1098,7 +1098,7 @@
 	Dark gray theme	深灰色主题
 	Light theme	浅色主题
 	Print ({key})	打印 ({key})
-	Save (M4)	保存 (M4)
+	Save ({key})	保存 ({key})
 	Document properties ({key})	文档属性 ({key})
 	Action Wizard…	操作向导…
 	Add Bates numbering…	添加贝茨编号…
@@ -2165,3 +2165,10 @@ key	Space	空格
 	Resize panel window	调整面板窗口大小
 	Tools	工具
 	Inspector	检查器
+	Mouse wheel scroll speed	鼠标滚轮滚动速度
+scroll speed	Slow	慢
+scroll speed	Normal	正常
+scroll speed	Fast	快
+	Enhance camera image	增强相机图像
+	Drag the corners onto the document's edges, then choose Enhance page.	将四个角拖到文档边缘，然后选择“增强页面”。
+	Enhance page	增强页面

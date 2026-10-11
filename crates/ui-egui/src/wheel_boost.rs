@@ -8,14 +8,6 @@
 
 use egui::Vec2;
 
-/// Points per wheel line. Matches egui's line scroll speed, which differs by
-/// target (native vs web).
-#[cfg(target_arch = "wasm32")]
-pub(crate) const NOTCH_POINTS: f32 = 8.0;
-/// Points per wheel line. Matches egui's line scroll speed, which differs by
-/// target (native vs web).
-#[cfg(not(target_arch = "wasm32"))]
-pub(crate) const NOTCH_POINTS: f32 = 40.0;
 /// Idle time after which a burst is forgotten, in seconds.
 const RESET_GAP_SECS: f64 = 0.3;
 /// Notch spacing at or below which input counts as a continuous spin, in seconds.
