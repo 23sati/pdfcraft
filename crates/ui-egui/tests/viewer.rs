@@ -794,3 +794,32 @@ fn pages_panel_thumbnails_have_a_context_menu() {
     h.run_steps(3);
     assert_eq!(h.state().page_clipboard.as_ref().map(|c| c.pages.clone()), Some(vec![2]));
 }
+
+#[test]
+fn right_click_on_a_picture_copies_it_at_full_size() {
+    let mut px = image::RgbaImage::from_pixel(40, 30, image::Rgba([10, 200, 30, 255]));
+    px.put_pixel(0, 0, image::Rgba([255, 0, 0, 255]));
+    let mut png = std::io::Cursor::new(Vec::new());
+    image::DynamicImage::ImageRgba8(px.clone()).write_to(&mut png, image::ImageFormat::Png).unwrap();
+    let pdf = pdfcraft_engine::Session::new().create_from_images(&[("p.png".into(), png.into_inner())]).unwrap();
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("pic.pdf", None, pdf.to_vec()).unwrap();
+        app
+    });
+    h.run_steps(4);
+    h.state_mut().system_clipboard = false;
+    let i = h.state().active.unwrap();
+    let at = h.state().views[i].page_screen_rect(0).expect("on screen").center();
+    h.hover_at(at);
+    h.run_steps(1);
+    h.event(egui::Event::PointerButton { pos: at, button: egui::PointerButton::Secondary, pressed: true, modifiers: Default::default() });
+    h.event(egui::Event::PointerButton { pos: at, button: egui::PointerButton::Secondary, pressed: false, modifiers: Default::default() });
+    h.run_steps(2);
+    h.get_by_label("Copy Image").click();
+    h.run_steps(2);
+    let (w, hgt, rgba) = h.state().last_copied_image.clone().expect("the image was copied");
+    assert_eq!((w, hgt), (40, 30));
+    assert_eq!(rgba, px.into_raw(), "the image's own pixels, not a rendering of the page");
+}

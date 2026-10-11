@@ -389,6 +389,9 @@
 	Flip Vertical	垂直翻轉
 	Replace Image…	替換圖片…
 	Save Image As…	圖片另存為…
+	Copy Image	複製圖片
+	The image has been copied ({w} × {h} pixels)	圖片已複製（{w} × {h} 畫素）
+	Couldn't copy the image: {e}	無法複製圖片：{e}
 	Check for updates	檢驗更新
 	No check has run yet.	尚未執行檢驗。
 	Checking for a newer version…	正在檢驗新版本…

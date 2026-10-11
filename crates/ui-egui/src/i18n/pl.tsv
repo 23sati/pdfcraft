@@ -736,6 +736,9 @@
 	Flip Vertical	Odbij w pionie
 	Replace Image…	Zastąp obraz…
 	Save Image As…	Zapisz obraz jako…
+	Copy Image	Kopiuj obraz
+	The image has been copied ({w} × {h} pixels)	Obraz został skopiowany ({w} × {h} pikseli)
+	Couldn't copy the image: {e}	Nie można skopiować obrazu: {e}
 	Check for updates	Sprawdź aktualizacje
 	No check has run yet.	Nie sprawdzono jeszcze aktualizacji.
 	Checking for a newer version…	Sprawdzanie dostępności nowszej wersji…

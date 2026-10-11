@@ -1,0 +1,172 @@
+# Fork only (FrancescoClemeno/pdfcraft): build installers of this fork (upstream PdfCraft plus
+# the fork's changes) and publish them as a GitHub Release, which the app's
+# Help ▸ Check for updates offers. Started by fork-sync.yml when the version changes, or by hand
+# (Actions ▸ Fork release ▸ Run workflow). See docs/fork.md.
+#
+# The builds are not signed with a paid certificate: macOS builds are ad-hoc signed and Windows
+# builds unsigned, so the first launch shows the usual system warning (docs/fork.md).
+name: Fork release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-release
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  PDFCRAFT_BUILD_SHA: ${{ github.sha }}
+
+jobs:
+  version:
+    if: github.repository != 'storytold/pdfcraft'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      date: ${{ steps.v.outputs.date }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        run: |
+          . packaging/env.sh
+          echo "version=$VERSION" >>"$GITHUB_OUTPUT"
+          echo "date=$(date -u +%Y-%m-%d)" >>"$GITHUB_OUTPUT"
+
+  macos:
+    name: macOS universal
+    needs: version
+    runs-on: macos-15
+    env:
+      PDFCRAFT_VERSION: ${{ needs.version.outputs.version }}
+      PDFCRAFT_BUILD_DATE: ${{ needs.version.outputs.date }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out craft-fonts
+        uses: actions/checkout@v4
+        with:
+          repository: storytold/craft-fonts
+          path: craft-fonts
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: fork-release-macos
+      - name: Build and package (ad-hoc signed)
+        env:
+          CRAFT_FONTS_DIR: ${{ github.workspace }}/craft-fonts
+        run: packaging/macos/package.sh --arch universal
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: dist/release/*
+          if-no-files-found: error
+
+  windows:
+    name: Windows x64
+    needs: version
+    runs-on: windows-latest
+    env:
+      PDFCRAFT_VERSION: ${{ needs.version.outputs.version }}
+      PDFCRAFT_BUILD_DATE: ${{ needs.version.outputs.date }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out craft-fonts
+        uses: actions/checkout@v4
+        with:
+          repository: storytold/craft-fonts
+          path: craft-fonts
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: fork-release-windows-x64
+      - name: Install WiX
+        shell: pwsh
+        run: dotnet tool install --global wix --version 5.0.2
+      - name: Build and package (unsigned)
+        shell: pwsh
+        env:
+          CRAFT_FONTS_DIR: ${{ github.workspace }}/craft-fonts
+        run: ./packaging/windows/package.ps1 -Arch x64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows-x64
+          path: dist/release/*
+          if-no-files-found: error
+
+  linux:
+    name: Linux x86_64
+    needs: version
+    runs-on: ubuntu-22.04
+    env:
+      PDFCRAFT_VERSION: ${{ needs.version.outputs.version }}
+      PDFCRAFT_BUILD_DATE: ${{ needs.version.outputs.date }}
+      NFPM_VERSION: 2.47.0
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out craft-fonts
+        uses: actions/checkout@v4
+        with:
+          repository: storytold/craft-fonts
+          path: craft-fonts
+      - name: Install build and packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libxkbcommon-dev libwayland-dev libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev \
+            desktop-file-utils appstream python3-yaml zsync
+          curl -fsSL -o "$RUNNER_TEMP/nfpm.deb" \
+            "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_amd64.deb"
+          sudo dpkg -i "$RUNNER_TEMP/nfpm.deb"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: fork-release-linux-x86_64
+      - name: Build and package (AppImage, deb, rpm, tar.gz)
+        env:
+          CRAFT_FONTS_DIR: ${{ github.workspace }}/craft-fonts
+        run: packaging/linux/package.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-x86_64
+          path: dist/release/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish the fork release
+    needs: [version, macos, windows, linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: artifacts
+          merge-multiple: true
+      - name: Checksums
+        working-directory: artifacts
+        run: sha256sum -- * | tee SHA256SUMS.txt
+      - name: Create or replace the release
+        working-directory: artifacts
+        run: |
+          tag="v$VERSION"
+          notes="PdfCraft $VERSION from storytold/pdfcraft, plus this fork's changes (see docs/fork.md).
+
+          Built from \`${GITHUB_SHA::9}\`. Not signed with a paid certificate: see docs/fork.md for the first launch."
+          # A rebuild of the same version (fork changes, run by hand) replaces the release.
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release delete "$tag" --yes --cleanup-tag
+          fi
+          gh release create "$tag" --title "PdfCraft v$VERSION (fork)" --target "$GITHUB_SHA" --latest --notes "$notes" -- *

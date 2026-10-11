@@ -2990,3 +2990,24 @@ fn recovered_user_passwords_reach_the_renderer_byte_for_byte() {
     assert_eq!(crate::renderer_password(&[0x9A, b'l', 0x9A, b'k', 0xA0]), "ılık€");
     assert_eq!(crate::renderer_password(&[0xC7, b'o', b'k']), "Çok");
 }
+
+#[test]
+fn copy_image_finds_the_image_under_a_point_and_decodes_it_at_full_size() {
+    let mut s = Session::new();
+    let mut px = image::RgbaImage::new(3, 2);
+    px.put_pixel(0, 0, image::Rgba([255, 0, 0, 255]));
+    px.put_pixel(2, 1, image::Rgba([0, 0, 255, 255]));
+    let mut png = std::io::Cursor::new(Vec::new());
+    image::DynamicImage::ImageRgba8(px.clone()).write_to(&mut png, image::ImageFormat::Png).unwrap();
+    let pic = s.create_from_images(&[("p.png".into(), png.into_inner())]).unwrap();
+    let id = s.open("p.pdf", None, pic, None).unwrap();
+    let d = s.get(id).unwrap();
+    let r = d.page_images(0)[0].rect;
+    assert_eq!(d.page_image_at(0, [(r[0] + r[2]) / 2.0, (r[1] + r[3]) / 2.0]), Some(0));
+    assert_eq!(d.page_image_at(0, [r[2] + 10.0, r[3] + 10.0]), None);
+    assert_eq!(d.page_image_at(7, [0.0, 0.0]), None);
+    let (w, h, rgba) = d.page_image_rgba(0, 0).unwrap();
+    assert_eq!((w, h), (3, 2));
+    assert_eq!(rgba, px.into_raw());
+    assert!(d.page_image_rgba(0, 1).is_err());
+}

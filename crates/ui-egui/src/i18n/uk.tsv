@@ -739,6 +739,9 @@
 	Flip Vertical	Віддзеркалити вертикально
 	Replace Image…	Замінити зображення…
 	Save Image As…	Зберегти зображення як…
+	Copy Image	Копіювати зображення
+	The image has been copied ({w} × {h} pixels)	Зображення скопійовано ({w} × {h} пікселів)
+	Couldn't copy the image: {e}	Не вдалося скопіювати зображення: {e}
 	Check for updates	Перевірити оновлення
 	No check has run yet.	Перевірку ще не виконано.
 	Checking for a newer version…	Перевірка наявності новішої версії…

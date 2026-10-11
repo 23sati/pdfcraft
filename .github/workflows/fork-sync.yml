@@ -1,0 +1,91 @@
+# Fork only (FrancescoClemeno/pdfcraft): keep `main` up to date with storytold/pdfcraft while
+# keeping this fork's own changes, then build a fork release when the upstream version changes.
+# See docs/fork.md.
+#
+# Every day it merges upstream `main` into this fork's `main` with a merge commit (never a rebase
+# or force-push, so the fork's commits stay as they are). If the merge conflicts, nothing is
+# pushed and an issue labelled `fork-sync` explains what to resolve.
+#
+# Pushing a merge that changes files under .github/workflows needs a token with the "workflows"
+# permission, which the default GITHUB_TOKEN never has: add a fine-grained personal access token
+# (this repository only; Contents, Workflows and Actions: read and write; Issues: read and write)
+# as the repository secret FORK_SYNC_TOKEN. Without it the sync still works until upstream
+# changes a workflow file.
+name: Fork sync
+
+on:
+  schedule:
+    - cron: "41 4 * * *"
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Also build and publish a fork release now (even if the version did not change)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+  actions: write
+
+concurrency:
+  group: fork-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    # Never runs in the original repository.
+    if: github.repository != 'storytold/pdfcraft'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.FORK_SYNC_TOKEN || github.token }}
+      GH_REPO: ${{ github.repository }}
+      UPSTREAM: https://github.com/storytold/pdfcraft
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.FORK_SYNC_TOKEN || github.token }}
+      - name: Merge upstream main
+        id: merge
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream "$UPSTREAM"
+          git fetch --no-tags upstream main
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "Already up to date with upstream."
+            echo "merged=false" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! git merge --no-edit -m "Merge storytold/pdfcraft main into the fork" upstream/main; then
+            files="$(git diff --name-only --diff-filter=U)"
+            git merge --abort
+            title="Fork sync: merge conflict with storytold/pdfcraft"
+            body="$(printf 'Upstream main (%s) could not be merged automatically. These files conflict:\n\n%s\n\nResolve it locally:\n\n    git remote add upstream %s   # once\n    git fetch upstream\n    git merge upstream/main\n    # fix the files, then commit and push to main\n\nThe next scheduled sync continues from there. See docs/fork.md.' \
+              "$(git rev-parse --short upstream/main)" "$(printf '%s\n' "$files" | sed 's/^/- `/; s/$/`/')" "$UPSTREAM")"
+            gh label create fork-sync --color D93F0B --description "Upstream sync needs attention" 2>/dev/null || true
+            existing="$(gh issue list --label fork-sync --state open --json number --jq '.[0].number')"
+            if [ -n "$existing" ]; then
+              gh issue comment "$existing" --body "$body"
+            else
+              gh issue create --title "$title" --label fork-sync --body "$body"
+            fi
+            echo "::error::Merge conflict with upstream; see the fork-sync issue."
+            exit 1
+          fi
+          git push origin HEAD:main
+          echo "merged=true" >>"$GITHUB_OUTPUT"
+      - name: Start a fork release when the version is new
+        env:
+          FORCE: ${{ inputs.release || false }}
+        run: |
+          . packaging/env.sh
+          tag="v$VERSION"
+          if [ "$FORCE" = true ] || ! gh release view "$tag" >/dev/null 2>&1; then
+            echo "Starting fork release $tag"
+            gh workflow run fork-release.yml --ref main
+          else
+            echo "Release $tag already exists; nothing to build."
+          fi

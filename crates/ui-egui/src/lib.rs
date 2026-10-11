@@ -561,6 +561,9 @@ pub struct PdfCraftApp {
     /// The last snapshot (width, height, RGBA); `system_clipboard` also puts it on the
     /// system clipboard (tests turn that off).
     pub last_snapshot: Option<(u32, u32, pdfcraft_render::Pixels)>,
+    /// The last image copied with Copy Image (width, height, straight RGBA), also put on the
+    /// system clipboard when `system_clipboard` is on.
+    pub last_copied_image: Option<(u32, u32, Vec<u8>)>,
     pub system_clipboard: bool,
     /// Attach file: the file to attach instead of asking (tests, automation).
     pub attach_override: Option<(String, Vec<u8>)>,
@@ -810,6 +813,7 @@ impl PdfCraftApp {
             page_clipboard: None,
             grid_drop: None,
             last_snapshot: None,
+            last_copied_image: None,
             system_clipboard: true,
             attach_override: None,
             duplicate_draft: None,

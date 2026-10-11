@@ -741,6 +741,9 @@
 	Flip Vertical	قلب عمودي
 	Replace Image…	استبدال الصورة…
 	Save Image As…	حفظ الصورة باسم…
+	Copy Image	نسخ الصورة
+	The image has been copied ({w} × {h} pixels)	نُسخت الصورة ({w} × {h} بكسل)
+	Couldn't copy the image: {e}	تعذّر نسخ الصورة: {e}
 	Check for updates	التحقق من التحديثات
 	No check has run yet.	لم يُجرَ أي تحقق بعد.
 	Checking for a newer version…	جارٍ التحقق من وجود إصدار أحدث…

@@ -11,8 +11,9 @@ use egui::{Align, Layout};
 
 use crate::{PdfCraftApp, theme, widgets};
 
-/// Where every PdfCraft release is listed.
-pub const RELEASES_PAGE: &str = "https://github.com/storytold/pdfcraft/releases";
+/// Where every PdfCraft release is listed. This fork (FrancescoClemeno/pdfcraft) publishes its
+/// own builds, which carry its changes on top of storytold/pdfcraft; see docs/fork.md.
+pub const RELEASES_PAGE: &str = "https://github.com/FrancescoClemeno/pdfcraft/releases";
 
 /// The latest published release.
 #[derive(Clone, Debug, PartialEq, Eq)]

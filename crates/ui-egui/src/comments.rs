@@ -1363,6 +1363,8 @@ pub enum CanvasAction {
     OpenComments,
     /// Comment Properties for (page, index).
     Properties(usize, usize),
+    /// Copy Image: image (page, index in `page_images`) to the clipboard.
+    CopyImage(usize, usize),
 }
 
 /// A grid of colour swatches; returns the one clicked.
