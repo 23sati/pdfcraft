@@ -2194,3 +2194,7 @@ key	Space	スペース
 	Resize panel window	パネルウィンドウのサイズを変更
 	Tools	ツール
 	Inspector	インスペクター
+	Select page {label}	ページ {label} を選択
+	Rotate page {label} counterclockwise	ページ {label} を反時計回りに回転
+	Rotate page {label} clockwise	ページ {label} を時計回りに回転
+	Delete page {label}	ページ {label} を削除

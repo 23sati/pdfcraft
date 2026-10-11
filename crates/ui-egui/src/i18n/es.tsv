@@ -2110,3 +2110,7 @@ key	Space	Espacio
 	Resize panel window	Cambiar tamaño de la ventana del panel
 	Tools	Herramientas
 	Inspector	Inspector
+	Select page {label}	Seleccionar la página {label}
+	Rotate page {label} counterclockwise	Girar la página {label} en sentido antihorario
+	Rotate page {label} clockwise	Girar la página {label} en sentido horario
+	Delete page {label}	Eliminar la página {label}

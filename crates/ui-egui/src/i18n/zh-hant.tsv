@@ -2080,3 +2080,7 @@ key	Space	空格
 	Resize panel window	調整面板視窗大小
 	Tools	工具
 	Inspector	檢查器
+	Select page {label}	選取頁面 {label}
+	Rotate page {label} counterclockwise	逆時針旋轉頁面 {label}
+	Rotate page {label} clockwise	順時針旋轉頁面 {label}
+	Delete page {label}	刪除頁面 {label}

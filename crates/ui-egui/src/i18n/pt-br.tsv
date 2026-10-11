@@ -2195,3 +2195,7 @@ key	Space	Espaço
 	Resize panel window	Redimensionar janela do painel
 	Tools	Ferramentas
 	Inspector	Inspetor
+	Select page {label}	Selecionar página {label}
+	Rotate page {label} counterclockwise	Girar página {label} no sentido anti-horário
+	Rotate page {label} clockwise	Girar página {label} no sentido horário
+	Delete page {label}	Excluir página {label}

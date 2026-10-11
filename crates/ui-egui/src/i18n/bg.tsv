@@ -2156,3 +2156,7 @@ key	Space	Интервал
 	Resize panel window	Преоразмери прозореца на панела
 	Tools	Инструменти
 	Inspector	Инспектор
+	Select page {label}	Избиране на страница {label}
+	Rotate page {label} counterclockwise	Завъртане на страница {label} обратно на часовниковата стрелка
+	Rotate page {label} clockwise	Завъртане на страница {label} по часовниковата стрелка
+	Delete page {label}	Изтриване на страница {label}

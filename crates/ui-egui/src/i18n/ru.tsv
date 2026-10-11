@@ -2107,3 +2107,7 @@ key	Space	Пробел
 	Resize panel window	Изменить размер окна панели
 	Tools	Инструменты
 	Inspector	Инспектор
+	Select page {label}	Выбрать страницу {label}
+	Rotate page {label} counterclockwise	Повернуть страницу {label} против часовой стрелки
+	Rotate page {label} clockwise	Повернуть страницу {label} по часовой стрелке
+	Delete page {label}	Удалить страницу {label}

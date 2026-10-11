@@ -2201,3 +2201,7 @@ key	Space	Spazio
 	Panels	Pannelli
 	Resize panels	Ridimensiona pannelli
 	Resize panel window	Ridimensiona finestra pannello
+	Select page {label}	Seleziona pagina {label}
+	Rotate page {label} counterclockwise	Ruota pagina {label} in senso antiorario
+	Rotate page {label} clockwise	Ruota pagina {label} in senso orario
+	Delete page {label}	Elimina pagina {label}

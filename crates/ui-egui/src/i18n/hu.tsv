@@ -2192,3 +2192,7 @@ key	Space	Szóköz
 	Resize panel window	Panelablak átméretezése
 	Tools	Eszközök
 	Inspector	Tulajdonságvizsgáló
+	Select page {label}	{label}. oldal kijelölése
+	Rotate page {label} counterclockwise	{label}. oldal elforgatása az óramutató járásával ellentétesen
+	Rotate page {label} clockwise	{label}. oldal elforgatása az óramutató járásával megegyezően
+	Delete page {label}	{label}. oldal törlése
