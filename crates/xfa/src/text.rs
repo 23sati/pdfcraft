@@ -109,9 +109,24 @@ impl Face {
         match self.family {
             Family::Courier => s.chars().count() as f64 * 0.6 * self.size,
             Family::Helvetica => pdfcraft_fonts::helvetica_width(s, self.size) * if self.bold { 1.04 } else { 1.0 },
-            Family::Times => pdfcraft_fonts::helvetica_width(s, self.size) * if self.bold { 0.96 } else { 0.92 },
+            Family::Times => times_width(s, self.size) * if self.bold { 1.05 } else { 1.0 },
         }
     }
+}
+
+/// Advance widths of Times-Roman for U+0020 to U+007E, in thousandths of the size (the
+/// standard font's published metrics; Times New Roman has the same).
+const TIMES_WIDTHS: [u16; 95] = [
+    250, 333, 408, 500, 500, 833, 778, 180, 333, 333, 500, 564, 250, 333, 250, 278, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 278, 278, 564,
+    564, 564, 444, 921, 722, 667, 667, 722, 611, 556, 722, 722, 333, 389, 722, 611, 889, 722, 722, 556, 722, 667, 556, 611, 722, 722, 944, 722, 722,
+    611, 333, 278, 333, 469, 500, 333, 444, 500, 444, 500, 444, 333, 500, 500, 278, 278, 500, 278, 778, 500, 500, 500, 500, 333, 389, 278, 500, 500,
+    722, 500, 500, 444, 480, 200, 480, 541,
+];
+
+/// Advance of `s` in Times-Roman at `size`. Characters outside ASCII count as an average one.
+fn times_width(s: &str, size: f64) -> f64 {
+    let units: u64 = s.chars().map(|c| (c as usize).checked_sub(0x20).and_then(|i| TIMES_WIDTHS.get(i)).map_or(500, |w| u64::from(*w))).sum();
+    units as f64 * size / 1000.0
 }
 
 /// Default line height: XFA's font leading for the standard faces.
@@ -286,10 +301,12 @@ pub fn measure_height(rich: &RichText, width: f64, para: &Para, base: &Face, emb
     layout(rich, Rect::new(0.0, 0.0, width.max(1.0), 0.0), &p, base, embed).height
 }
 
-/// Plain text as rich text (paragraphs split on line breaks).
+/// Plain text as rich text (paragraphs split on line breaks; a carriage return and line feed
+/// together are one break, as form data often holds them).
 pub fn plain(text: &str) -> RichText {
     RichText {
         paragraphs: text
+            .replace("\r\n", "\n")
             .split(['\n', '\r', '\u{2028}', '\u{2029}'])
             .map(|l| crate::model::Paragraph { runs: vec![Run { text: l.to_string(), ..Run::default() }], h_align: None })
             .collect(),
