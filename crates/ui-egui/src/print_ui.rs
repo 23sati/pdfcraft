@@ -232,6 +232,7 @@ impl PdfCraftApp {
             printer: default,
             current_page: current,
             sheet: 0,
+            paper: self.default_paper.min(PAPERS.len().saturating_sub(1)),
             selected,
             which,
             ..keep
@@ -532,6 +533,7 @@ fn combo<T: PartialEq + Copy>(ui: &mut egui::Ui, id: &str, value: &mut T, choice
 pub(crate) fn body(
     ui: &mut egui::Ui,
     d: &mut PrintDraft,
+    default_paper: &mut usize,
     t: &Tokens,
     sizes: &[(f64, f64)],
     labels: &[String],
@@ -610,9 +612,14 @@ pub(crate) fn body(
                 ui.end_row();
                 ui.label(tl!("Paper:"));
                 let paper_name = PAPERS.get(d.paper).map_or("US Letter", |p| p.0);
-                egui::ComboBox::from_id_salt("paper").selected_text(paper_name).width(260.0).show_ui(ui, |ui| {
-                    for (i, (name, _)) in PAPERS.iter().enumerate() {
-                        ui.selectable_value(&mut d.paper, i, *name);
+                ui.horizontal(|ui| {
+                    egui::ComboBox::from_id_salt("paper").selected_text(paper_name).width(200.0).show_ui(ui, |ui| {
+                        for (i, (name, _)) in PAPERS.iter().enumerate() {
+                            ui.selectable_value(&mut d.paper, i, *name);
+                        }
+                    });
+                    if ui.add_enabled(d.paper != *default_paper, egui::Button::new(tl!("Make default paper size"))).clicked() {
+                        *default_paper = d.paper;
                     }
                 });
                 ui.end_row();
