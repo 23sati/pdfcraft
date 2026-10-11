@@ -927,6 +927,19 @@ impl Protection {
         {
             return bad("this compatibility level supports only plain ASCII passwords; use AES-256 (Acrobat X and later)");
         }
+        // Encryption keys on a password as `effective_password` gives it (AES-256: SASLprep,
+        // which drops soft hyphens and folds compatibility forms; older levels: the first 32
+        // bytes, padded). One that comes out as the empty password opens the file without asking,
+        // and an open password that comes out as the permissions password lifts the restrictions.
+        let effective = |p: &str| pdfcraft_cos::effective_password(self.algorithm, p);
+        let (open, permissions) = (self.open_password.as_deref().map(effective), self.permissions_password.as_deref().map(effective));
+        let empty = effective("");
+        if open.iter().chain(&permissions).any(|p| *p == empty) {
+            return bad("passwords can't be empty or made only of characters that passwords ignore, such as soft hyphens");
+        }
+        if open.is_some() && open == permissions {
+            return bad("the open password and the permissions password must be different (PDF readers treat these two as the same password)");
+        }
         Ok(())
     }
 }
@@ -2029,7 +2042,34 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
                 pdfcraft_cos::Object::Stream(s) => (s.dict.int(b"Width").unwrap_or(1) as u32, s.dict.int(b"Height").unwrap_or(1) as u32),
                 _ => (1, 1),
             };
-            pdfcraft_forms::set_button_icon(doc, name, img, px)?;
+            // An XFA image field keeps the picture in the data too (as Designer saves it), and a
+            // laid-out form shows it from there: so only pictures the layout can show, and only
+            // for image fields (a laid-out one carries its SOM path; a static form's field name
+            // is its path).
+            let is_xfa = pdfcraft_xfa::read_packets(doc).ok().flatten().is_some();
+            let image_field = is_xfa
+                && pdfcraft_forms::fields(doc).iter().any(|f| f.name == *name && f.button == Some(pdfcraft_forms::af::ButtonAction::ImportIcon));
+            if image_field {
+                let Some(content_type) = image_content_type(image) else {
+                    return Err(EditError::Invalid(format!("{name}: an XFA form keeps a PNG, JPEG or GIF picture; choose one of those")));
+                };
+                pdfcraft_forms::set_button_icon(doc, name, img, px)?;
+                let som = pdfcraft_xfa::fields_by_som(doc).into_iter().find(|(_, n)| n == name).map(|(s, _)| s).unwrap_or_else(|| name.clone());
+                let path = match cx.xfa.as_deref() {
+                    Some(tpl) => pdfcraft_xfa::data_path(tpl, &som),
+                    None => pdfcraft_xfa::som_to_path(&som),
+                };
+                let r =
+                    pdfcraft_xfa::write_data_image(doc, &path, content_type, image, cx.xfa_datasets).map_err(|e| EditError::Write(e.to_string()))?;
+                if !r.written && r.warnings.is_empty() {
+                    return Err(EditError::Write(format!("{name}: the picture could not be written into the form's data")));
+                }
+                cx.xfa_datasets = r.stream.or(cx.xfa_datasets);
+                cx.xfa_out.errors.extend(r.warnings);
+                xfa_after_data_change(doc, cx, false)?;
+            } else {
+                pdfcraft_forms::set_button_icon(doc, name, img, px)?;
+            }
         }
         Edit::ResetForm { names } => {
             pdfcraft_forms::reset(doc, names.as_deref())?;
@@ -2174,7 +2214,24 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
             }
         }
         Edit::ImportData { bytes, .. } => {
-            pdfcraft_xfdf::import(doc, bytes)?;
+            // An XFA form takes XFA data files (XDP, datasets, or a data document) as its data;
+            // XFDF, FDF, Acrobat's XML and tables go the usual way.
+            let text = (pdfcraft_xfa::read_packets(doc).ok().flatten().is_some()).then(|| decode_data_file(bytes)).flatten();
+            match text {
+                Some(Ok(text)) if is_xfa_data_file(&text) => {
+                    let expect_root = cx.xfa.as_ref().and_then(|t| t.root.common.name.clone());
+                    let r = pdfcraft_xfa::import_data(doc, &text, expect_root.as_deref(), cx.xfa_datasets)
+                        .map_err(|e| EditError::Write(e.to_string()))?;
+                    cx.xfa_datasets = r.stream.or(cx.xfa_datasets);
+                    cx.xfa_out.errors.extend(r.warnings);
+                    cx.xfa_out.console.push(format!("Imported XFA data: {} node(s)", r.nodes));
+                    xfa_after_data_change(doc, cx, true)?;
+                }
+                Some(Err(why)) => return Err(EditError::Invalid(why)),
+                _ => {
+                    pdfcraft_xfdf::import(doc, bytes)?;
+                }
+            }
         }
         Edit::RemoveHidden { which } => {
             pdfcraft_redact::sanitize::remove_hidden(doc, which)?;
@@ -2506,6 +2563,117 @@ fn note_warnings(list: &mut Vec<String>, new: &[String]) {
             list.push(w.clone());
         }
     }
+}
+
+/// A data file's text: UTF-8 or UTF-16 (by a byte order mark, or how `<` is written), or
+/// Latin-1 when its XML declaration says so. `None`: not text at all (FDF); `Err`: an
+/// encoding this can't read.
+fn decode_data_file(bytes: &[u8]) -> Option<Result<String, String>> {
+    if bytes.starts_with(b"%FDF") {
+        return None;
+    }
+    let declared = |text: &str| -> Option<String> {
+        let head = text.get(..text.len().min(256))?;
+        let decl = head.strip_prefix('\u{feff}').unwrap_or(head).trim_start().strip_prefix("<?xml")?;
+        let decl = decl.split_once("?>")?.0;
+        let enc = decl.split_once("encoding=")?.1;
+        let quote = enc.chars().next()?;
+        Some(enc.get(1..)?.split(quote).next()?.trim().to_ascii_lowercase())
+    };
+    if let Some((text, _)) = pdfcraft_xfa::packets::decode(bytes) {
+        match declared(&text).as_deref() {
+            None | Some("utf-8" | "utf8" | "utf-16" | "utf-16le" | "utf-16be" | "us-ascii" | "ascii") => return Some(Ok(text)),
+            Some("iso-8859-1" | "latin1" | "latin-1" | "windows-1252" | "cp1252") if !bytes.starts_with(&[0xEF, 0xBB, 0xBF]) => {
+                // Each byte is the character it names (the 0x80–0x9F block of Windows-1252
+                // differs, and is rare in form data).
+                return Some(Ok(bytes.iter().map(|b| char::from(*b)).collect()));
+            }
+            Some(other) => return Some(Err(format!("the data file's encoding {other:?} is not supported (UTF-8, UTF-16 and ISO-8859-1 are)"))),
+        }
+    }
+    // Not valid UTF-8/UTF-16: Latin-1 by declaration, else refused.
+    let latin1: String = bytes.iter().map(|b| char::from(*b)).collect();
+    match declared(&latin1).as_deref() {
+        Some("iso-8859-1" | "latin1" | "latin-1" | "windows-1252" | "cp1252") => Some(Ok(latin1)),
+        _ => Some(Err("the data file is not UTF-8, UTF-16 or ISO-8859-1 text".into())),
+    }
+}
+
+/// Is this an XFA data file (an XDP, a datasets document, a data element or a data document),
+/// rather than XFDF, Acrobat's `<fields>` XML or a table? By its root element.
+fn is_xfa_data_file(text: &str) -> bool {
+    let text = text.get(..text.len().min(65_536)).unwrap_or(text);
+    let mut rest = text.trim_start_matches('\u{feff}').trim_start();
+    // Past the XML declaration, comments and processing instructions.
+    let mut guard = 0;
+    while guard < 100 {
+        guard += 1;
+        if let Some(r) = rest.strip_prefix("<?") {
+            rest = r.split_once("?>").map_or("", |(_, r)| r).trim_start();
+        } else if let Some(r) = rest.strip_prefix("<!--") {
+            rest = r.split_once("-->").map_or("", |(_, r)| r).trim_start();
+        } else if let Some(r) = rest.strip_prefix("<!") {
+            rest = r.split_once('>').map_or("", |(_, r)| r).trim_start();
+        } else {
+            break;
+        }
+    }
+    let Some(tag) = rest.strip_prefix('<') else { return false };
+    let name = tag.split(|c: char| c.is_whitespace() || c == '>' || c == '/').next().unwrap_or("");
+    let local = name.rsplit(':').next().unwrap_or(name);
+    !local.is_empty() && !matches!(local, "xfdf" | "fields" | "html" | "body")
+}
+
+/// The content type a picture is saved under, from its bytes: the kinds a laid-out form shows.
+fn image_content_type(bytes: &[u8]) -> Option<&'static str> {
+    match pdfcraft_xfa::image::kind(bytes)? {
+        pdfcraft_xfa::image::Kind::Jpeg => Some("image/jpeg"),
+        pdfcraft_xfa::image::Kind::Png => Some("image/png"),
+        pdfcraft_xfa::image::Kind::Gif => Some("image/gif"),
+    }
+}
+
+/// After the XFA data changed outside the fields (an import, a picture): a laid-out form is
+/// laid out again from the data (then, when `calculate`, its calculations run), and the
+/// fields take the data's values.
+fn xfa_after_data_change(doc: &mut pdfcraft_cos::Document, cx: &mut EditCtx, calculate: bool) -> Result<(), EditError> {
+    if let Some(tpl) = cx.xfa.clone() {
+        let mut run = xfa::XfaRun { page_count: cx.pages, out: &mut cx.xfa_out, datasets: cx.xfa_datasets, ran_away: false };
+        let r = guard(|| xfa::on_data_replaced(doc, &tpl, calculate, &mut run))
+            .unwrap_or_else(|m| Err(format!("laying the form out again failed unexpectedly ({m})")));
+        cx.xfa_datasets = run.datasets;
+        cx.xfa_ran_away |= run.ran_away;
+        if let Err(e) = r {
+            cx.xfa_out.errors.push(e);
+        }
+    }
+    let taken = xfa_values_from_datasets(doc).map_err(EditError::Write)?;
+    if !taken.is_empty() {
+        cx.xfa_out.console.push(format!("{} field value(s) taken from the imported data", taken.len()));
+    }
+    // Not laid out again (a static form, or scripts off): fields the data no longer holds are
+    // emptied, so the data replaced is the data shown.
+    if cx.xfa.is_none() && calculate {
+        let data = xfa_field_data(doc);
+        let present: std::collections::HashSet<String> = pdfcraft_xfa::read_values(doc, &data).into_iter().map(|(n, _)| n).collect();
+        for f in pdfcraft_forms::fields(doc) {
+            if present.contains(&f.name) || f.value.is_empty() {
+                continue;
+            }
+            use pdfcraft_forms::FieldKind as K;
+            let empty = match f.kind {
+                K::Text => FieldValue::Text(String::new()),
+                K::CheckBox => FieldValue::Check(false),
+                K::Radio => FieldValue::Radio(None),
+                K::Combo | K::List => FieldValue::Choice(Vec::new()),
+                K::PushButton | K::Signature => continue,
+            };
+            if let Err(e) = pdfcraft_forms::set_value(doc, &f.name, &empty) {
+                cx.xfa_out.errors.push(format!("{}: not emptied by the import: {e}", f.name));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Give the fields the values the XFA datasets hold (a form filled in another viewer). Returns
@@ -3406,11 +3574,20 @@ impl Session {
                 pdfcraft_cos::Document::open_with_password(doc.bytes.clone(), doc.password.as_deref()).map_err(|e| EditError::Write(e.to_string()))?
             }
         };
+        // An XFA form's data is its datasets, as Acrobat exports it: XML or an XDP.
+        let xfa = doc.info.xfa.is_some();
+        if format == DataFormat::Xdp && !xfa {
+            return Err(EditError::Invalid("XDP holds XFA form data; this document is not an XFA form (use .xml, .csv or .txt)".into()));
+        }
         guard(|| match format {
-            DataFormat::Xfdf => pdfcraft_xfdf::export_xfdf(&cos, comments, fields, &doc.name).into_bytes(),
-            DataFormat::Fdf => pdfcraft_xfdf::export_fdf(&cos, comments, fields, &doc.name),
-            other => pdfcraft_xfdf::export_data(&cos, other).into_bytes(),
+            DataFormat::Xfdf => Ok(pdfcraft_xfdf::export_xfdf(&cos, comments, fields, &doc.name).into_bytes()),
+            DataFormat::Fdf => Ok(pdfcraft_xfdf::export_fdf(&cos, comments, fields, &doc.name)),
+            DataFormat::Xml | DataFormat::Xdp if xfa => {
+                pdfcraft_xfa::export_data(&cos, format == DataFormat::Xdp, &doc.name).map(String::into_bytes).map_err(|e| e.to_string())
+            }
+            other => Ok(pdfcraft_xfdf::export_data(&cos, other).into_bytes()),
         })
+        .map_err(EditError::Write)?
         .map_err(EditError::Write)
     }
 
