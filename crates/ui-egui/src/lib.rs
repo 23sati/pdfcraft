@@ -1173,7 +1173,7 @@ impl PdfCraftApp {
         self.pick(
             pickers::PickFor::Open,
             rfd::AsyncFileDialog::new().add_filter("PDF", &["pdf"]).add_filter(tl!("Images and text (converted to PDF)"), &create_ui::CONVERTIBLE),
-            false,
+            true,
         );
         // Browsers pick files asynchronously; the bytes arrive through `inbox`.
         #[cfg(target_arch = "wasm32")]
