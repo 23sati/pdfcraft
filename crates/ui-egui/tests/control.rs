@@ -1427,3 +1427,84 @@ fn read_mode_retains_existing_rail_click_to_close_policy() {
     assert_eq!(h.state().right, None);
     assert_eq!(h.state().mode, pdfcraft_ui_egui::Mode::Read);
 }
+
+fn navigation_frame(h: &mut Harness<'static, PdfCraftApp>, events: Vec<egui::Event>) {
+    h.input_mut().events.extend(events);
+    h.step();
+}
+
+fn navigation_wheel(h: &mut Harness<'static, PdfCraftApp>, pos: egui::Pos2, delta: f32, ctrl: bool) {
+    let modifiers = egui::Modifiers { ctrl, command: ctrl, ..egui::Modifiers::NONE };
+    navigation_frame(
+        h,
+        vec![
+            egui::Event::ModifiersChanged(modifiers),
+            egui::Event::PointerMoved(pos),
+            egui::Event::MouseWheel { unit: egui::MouseWheelUnit::Point, delta: egui::vec2(0.0, delta), modifiers, phase: egui::TouchPhase::Move },
+        ],
+    );
+    h.run_steps(20);
+    navigation_frame(h, vec![egui::Event::ModifiersChanged(egui::Modifiers::NONE)]);
+}
+
+#[test]
+fn ctrl_wheel_anchors_visible_page_and_plain_wheel_only_scrolls() {
+    for percent in [100, 200, 400] {
+        for fraction in [0.1, 0.5, 0.9] {
+            let (mut h, c) = harness_pages(20);
+            ok(&mut h, &c, "ui.set", json!({"key":"zoom", "value":percent.to_string()}));
+            h.run_steps(4);
+            let viewport = h.state().views[0].viewport_rect();
+            let before = h.state().views[0].page_screen_rect(0).unwrap();
+            let visible = before.intersect(viewport).shrink(15.0);
+            let p = egui::pos2(visible.left() + fraction * visible.width(), visible.top() + fraction * visible.height());
+            let normalised = (p - before.min) / before.size();
+            let old_zoom = h.state().views[0].zoom;
+            navigation_wheel(&mut h, p, 20.0, true);
+            let enlarged = h.state().views[0].page_screen_rect(0).unwrap();
+            let anchored = enlarged.min + normalised * enlarged.size();
+            assert!(h.state().views[0].zoom > old_zoom);
+            assert!((anchored.y - p.y).abs() < 2.0, "percent={percent}, fraction={fraction}");
+            if before.width() > viewport.width() {
+                assert!((anchored.x - p.x).abs() < 2.0);
+            }
+            navigation_wheel(&mut h, p, -20.0, true);
+            assert!((h.state().views[0].zoom - old_zoom).abs() < 0.01);
+            let zoom = h.state().views[0].zoom;
+            let top = h.state().views[0].page_screen_rect(0).unwrap().top();
+            navigation_wheel(&mut h, p, -80.0, false);
+            assert_eq!(h.state().views[0].zoom, zoom);
+            assert!(h.state().views[0].page_screen_rect(0).unwrap().top() < top - 20.0);
+        }
+    }
+}
+
+#[test]
+fn wheel_zoom_is_scoped_to_the_viewport_and_respects_existing_limits() {
+    let (mut h, c) = harness();
+    let outside = egui::pos2(5.0, 5.0);
+    let zoom = h.state().views[0].zoom;
+    navigation_wheel(&mut h, outside, 40.0, true);
+    assert_eq!(h.state().views[0].zoom, zoom);
+    for (percent, delta, expected) in [(6400, 80.0, 64.0), (8, -80.0, 0.08)] {
+        ok(&mut h, &c, "ui.set", json!({"key":"zoom", "value":percent.to_string()}));
+        h.run_steps(4);
+        let p = h.state().views[0].viewport_rect().center();
+        navigation_wheel(&mut h, p, delta, true);
+        assert_eq!(h.state().views[0].zoom, expected);
+    }
+}
+
+#[test]
+fn initial_zoom_option_is_applied_before_the_first_viewport_layout() {
+    for percent in [50, 100, 200, 400] {
+        let h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
+            let mut app = PdfCraftApp::new();
+            app.open_bytes("initial-zoom.pdf", None, fixture(3)).unwrap();
+            app.set_option("zoom", &percent.to_string()).unwrap();
+            assert_eq!(app.views[0].zoom, percent as f32 / 100.0, "initial options must work before the viewport exists");
+            app
+        });
+        assert_eq!(h.state().views[0].zoom, percent as f32 / 100.0);
+    }
+}

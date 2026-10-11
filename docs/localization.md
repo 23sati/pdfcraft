@@ -56,6 +56,18 @@ PdfCraft uses the same system as PhotoCraft (`crates/ui-egui/src/i18n/`):
 - Catalogs are assets: each `.tsv` has an `ATTRIBUTION.toml` entry with `kind = "translation"` and its SHA-256, checked by `cargo xtask assets`.
 - Translations are clean-room: write them from the meaning of the English text, never from another product's string tables.
 
+## Sentences the engine words
+
+Some sentences are not the interface's own. The accessibility checker, the PDF/A verifier, the signature reader, the page-range parser and the edit history all word their own findings, and matching that wording in the UI with a `tl!` literal would break silently whenever the engine changed it. So those layers hand the wording over instead, apart from the document's own words:
+
+- Each of them has a `WORDINGS` constant listing every sentence it can say, as `&'static str` with holes in it (`{n}`, `{p}`, `{}`). The sentence is written once, in the layer that means it.
+- `said(&words)` says one of them: the layer looks its own wording up through the closure it is given, then fills the holes with the document's values — a page number, a font name, what the person typed — in one pass, so a value containing `{n}` is inserted as written.
+- The UI passes `&crate::i18n::words`, which is a catalog lookup, so the sentence reads in the interface language. `in_english` is the same thing in English, and a wording with no entry comes back as it stands, which is the English — a catalog missing one shows an English sentence rather than a gap.
+- The lists are `a11y::{WORDINGS, REPORT_WORDS}`, `preflight::WORDINGS`, `sign::pdf::{WORDINGS, kind::ALL}`, `print::WORDINGS` and the engine's `{EDIT_LABELS, BATCH_LABELS}`. `a11y::report_html` takes a language tag and a `words` closure, so a saved report reads the way the panel read, down to its `lang` attribute.
+- `spanish_covers_what_the_engine_says` requires an entry for every wording in those lists, and `spanish_keeps_the_holes_in_what_the_engine_says` requires each translation to keep the same holes, so the catalog cannot fall behind the engine without a test saying so. Other languages are free to add the entries when they are translated; until then those sentences show in English as before.
+
+Error details that come from the operating system, and faults rather than mistakes (a file that cannot be read, a lock that was poisoned), still carry their own text and are shown as they are.
+
 ## Adding a language
 
 1. Copy the header of `ja.tsv` into `xx.tsv` and translate entries.

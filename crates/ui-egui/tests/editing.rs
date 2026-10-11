@@ -1716,6 +1716,61 @@ fn the_security_notice_wraps_beside_its_buttons_and_lines_up_with_them() {
     }
 }
 
+/// #995, #1077: a file with only a permissions password opens without asking, restricted. Its
+/// notice offers Unlock…, which takes the permissions password and lifts the restrictions.
+#[test]
+fn the_security_notice_unlocks_with_the_permissions_password() {
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(|_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("locked.pdf", None, protected("", "owner", 0b0100)).unwrap();
+        app
+    });
+    h.run_steps(4);
+    h.get_by_label_contains("This document is secured");
+    h.get_by_label("Unlock…").click();
+    h.run_steps(2);
+    h.get_by_label_contains("Enter its permissions password");
+    type_password(&mut h, "wrong");
+    h.get_by_label("Incorrect password. Try again.");
+    type_password(&mut h, "owner");
+    assert!(h.state().unlock_prompt.is_none());
+    assert!(h.query_by_label_contains("This document is secured").is_none(), "the restrictions are lifted");
+    h.state_mut().set_option("dialog", "properties").unwrap();
+    h.run_steps(2);
+    h.get_by_label("Security").click();
+    h.run_steps(3);
+    h.get_by_label("Owner password (no restrictions apply)");
+    assert!(!h.state().session.get(h.state().active_ids().unwrap().1).unwrap().dirty, "unlocking is not an edit");
+}
+
+/// Changing a restricted document's security asks for its permissions password first (Acrobat
+/// does too), then carries on.
+#[test]
+fn remove_security_asks_for_the_permissions_password_first() {
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(|_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("locked.pdf", None, protected("", "owner", 0b0100)).unwrap();
+        app
+    });
+    h.run_steps(4);
+    assert!(h.state_mut().execute("protect.remove"));
+    h.run_steps(2);
+    assert!(h.state().unlock_prompt.is_some(), "asks for the password");
+    // Cancelling changes nothing.
+    h.key_press(Key::Escape);
+    h.run_steps(2);
+    assert!(h.state().unlock_prompt.is_none());
+    let id = h.state().active_ids().unwrap().1;
+    assert!(!h.state().session.get(id).unwrap().dirty);
+    assert!(h.state_mut().execute("protect.remove"));
+    h.run_steps(2);
+    type_password(&mut h, "owner");
+    let doc = h.state().session.get(id).unwrap();
+    assert!(doc.dirty && doc.security_summary().is_none(), "security is removed (written by the next save)");
+}
+
 #[test]
 fn restricted_documents_show_a_notice_and_block_page_changes() {
     let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(|_cc| {

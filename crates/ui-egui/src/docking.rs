@@ -348,7 +348,7 @@ pub fn show(app: &mut crate::PdfCraftApp, ui: &mut egui::Ui) {
     let t = crate::theme::Tokens::get(ui.ctx());
     let mut workspace = std::mem::take(&mut app.docking);
     if let Err(error) = workspace.validate().and_then(|()| sync(&mut workspace, app)) {
-        app.notify(format!("Panel layout could not be restored: {error}"));
+        app.notify_fmt("Panel layout could not be restored: {error}", &[("error", &error)]);
         workspace = Workspace::default();
         let _ = sync(&mut workspace, app);
     }
@@ -411,7 +411,7 @@ pub fn show(app: &mut crate::PdfCraftApp, ui: &mut egui::Ui) {
         if let Err(error) =
             serde_json::to_value(action).map_err(|error| error.to_string()).and_then(|action| command(app, false, &json!({"action": action})))
         {
-            app.notify(format!("Panel move was not applied: {error}"));
+            app.notify_fmt("Panel move was not applied: {error}", &[("error", &error)]);
         }
     }
 }
