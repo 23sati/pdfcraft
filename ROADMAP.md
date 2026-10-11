@@ -2,7 +2,7 @@
 
 **Stage: alpha** · next: beta, ~26% (ready for real work 49% → 75%) and ~400–700 h away
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (cropped-image resize regression and private-document corner gestures in the contributor fork; localized shortcut labels, #496; readiness table with hours per audience; full number as weighted sum 49%; earlier: second look: ready 40% → 47%, mainstream 55% added; core-workflow gate applied → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (document-font selection/subset completion, bounded shaping and range styles, curved/shared image clips with private save/reopen acceptance; cropped-image resize regression and private-document corner gestures in the contributor fork; localized shortcut labels, #496; readiness table with hours per audience; full number as weighted sum 49%; earlier: second look: ready 40% → 47%, mainstream 55% added; core-workflow gate applied → alpha) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
 PdfCraft's one-page summary: how close it is to Adobe Acrobat Pro's offline feature set, and what
 comes next. Adobe's cloud services (Document Cloud, Acrobat Sign requests, shared review, the AI
@@ -132,6 +132,8 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 | 8 | 1.0 polish: performance, right-to-left, missing languages, keyboard-only (M14) | 55–95 |
 
 ## Progress log
+
+- **2026-10-11 (contributor fork, M7):** Full matching font import completes source-subset glyphs; installed/file font selection, TrueType/OpenType-CFF mapping, disjoint range styles, marked paragraph boundaries and single-face contextual shaping/bidi added. Private Chinese keyboard edits on all four pages preserve source anchors and save/reopen renders. Curved clips exclude holes from hit tests; shared path scopes are isolated for image transforms without moving neighbouring paint. No font binary or private fixture is published; release font inputs and readiness estimates unchanged.
 
 - **2026-10-11 (M7, cropped image resize follow-up):** Transform an isolated image's clipping path with its pixels so the visible resize frame and saved artwork agree. Selected corner grips keep control over overlapping text; horizontal/vertical-only shrinking responds without freezing; one drag frame is previewed and one edit is applied on release. Synthetic pointer/tool regressions and private grow/shrink/save/reopen/undo rendering checks cover the regression. Shared clipping scopes containing unrelated painted content are refused. Estimates unchanged.
 
@@ -327,6 +329,7 @@ Newest first: the date, what moved, and the new overall estimate.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Contributor fork: document-font selection and subset completion, CFF, style ranges, contextual/bidi save/reopen and all-page Chinese keyboard acceptance; curve/hole hit testing and shared path-clip isolation. Scope remains bounded; percentages unchanged |
 | 2026-10-10 | minor | Readiness table with hours per audience; full number restated as the additive weighted sum over dimensions (47% → 49%; method aligned with the standard, no new evidence) |
 | 2026-10-10 | minor | Essentials-user score added (≈ 66%) |
 | 2026-10-10 | minor | Gate consistency check: convert and share re-judged partial, not blocking; stage pre-alpha → alpha |

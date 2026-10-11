@@ -94,6 +94,8 @@ impl TextBackground {
 /// A paragraph being edited.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LineEditor {
+    pub selection: Option<std::ops::Range<usize>>,
+    pub font_resource: Option<String>,
     pub page: usize,
     pub block: usize,
     pub text: String,
@@ -104,7 +106,7 @@ pub struct LineEditor {
     source_rect: [f32; 4],
     multiline: bool,
     source: Option<(pdfcraft_engine::TextBlock, Vec<pdfcraft_engine::TextLine>)>,
-    fonts: BTreeMap<String, String>,
+    pub(crate) fonts: BTreeMap<String, String>,
     /// The draft extends outside the source container; its frame follows the live draft bounds.
     pub overflow: bool,
     /// The initial source container width in screen pixels.
@@ -180,7 +182,8 @@ impl LineEditor {
     /// The formatting the panel changed.
     pub fn style(&self) -> pdfcraft_engine::BlockStyle {
         let (l, o) = (&self.look, &self.look0);
-        pdfcraft_engine::BlockStyle {
+        let mut style = pdfcraft_engine::BlockStyle {
+            resource: self.font_resource.clone(),
             family: (l.family != o.family || l.bold != o.bold || l.italic != o.italic).then_some((l.family, l.bold, l.italic)),
             size: (l.size != o.size).then_some(l.size),
             color: (l.color != o.color).then_some(l.color),
@@ -191,11 +194,34 @@ impl LineEditor {
             char_spacing: (self.extras.char_spacing != self.extras0.char_spacing).then_some(self.extras.char_spacing),
             scale: (self.extras.scale != self.extras0.scale).then_some(self.extras.scale),
             ..Default::default()
+        };
+        if let Some(range) = &self.selection
+            && (style.family.is_some()
+                || style.resource.is_some()
+                || style.size.is_some()
+                || style.color.is_some()
+                || style.underline.is_some()
+                || style.char_spacing.is_some()
+                || style.scale.is_some())
+        {
+            style.ranges.push(pdfcraft_engine::RangeStyle {
+                range: range.clone(),
+                family: style.family.take(),
+                resource: style.resource.take(),
+                size: style.size.take(),
+                color: style.color.take(),
+                underline: style.underline.take(),
+                char_spacing: style.char_spacing.take(),
+                scale: style.scale.take(),
+            });
         }
+        style
     }
 
     /// After applying formatting: the paragraph now has it.
     pub fn applied(&mut self) {
+        self.selection = None;
+        self.font_resource = None;
         self.look0 = self.look.clone();
         self.extras0 = self.extras;
         self.original = self.text.clone();
@@ -383,6 +409,12 @@ pub(crate) fn image_input(
     let boxes: Vec<Rect> = images.iter().map(|im| im.visible_rect.map_or(Rect::NOTHING, |r| xf.user_rect(info, page, r.map(|v| v as f32)))).collect();
     let painter = ui.painter();
     let pointer = ui.input(|i| i.pointer.hover_pos());
+    let image_contains = |index: usize, point: Pos2| {
+        let (x, y) = xf.screen_to_view(point);
+        let Some(p) = info.pages.get(page) else { return false };
+        let user = p.view_to_user(x, y);
+        images.get(index).is_some_and(|im| im.contains(user.map(f64::from)))
+    };
     let selected = view.image_selection.as_ref().filter(|s| s.page == page).map(|s| s.index).filter(|i| *i < boxes.len());
     for (i, b) in boxes.iter().enumerate() {
         if !b.is_positive() {
@@ -392,7 +424,7 @@ pub(crate) fn image_input(
         if selected_box && view.image_selection.as_ref().is_some_and(|s| s.drag.is_some()) {
             continue;
         }
-        let hovered = ui.input(|inp| inp.pointer.hover_pos()).is_some_and(|p| b.contains(p));
+        let hovered = ui.input(|inp| inp.pointer.hover_pos()).is_some_and(|p| image_contains(i, p));
         let stroke = if selected_box {
             Stroke::new(1.5, ACCENT)
         } else if hovered {
@@ -434,7 +466,7 @@ pub(crate) fn image_input(
             && let Some(o) = origin
         {
             let corner = corners.iter().position(|c| c.distance(o) < 8.0);
-            if corner.is_some() || b.contains(o) {
+            if corner.is_some() || image_contains(i, o) {
                 let opposite = corner.map(|k| corners[3 - k]);
                 if let Some(s) = view.image_selection.as_mut() {
                     s.drag = Some((o, opposite));
@@ -502,7 +534,7 @@ pub(crate) fn image_input(
         return false;
     }
     let Some(p) = pointer.filter(|p| xf.rect.contains(*p)) else { return false };
-    let Some(hit) = boxes.iter().rposition(|b| b.contains(p)) else { return false };
+    let Some(hit) = boxes.iter().enumerate().rposition(|(i, b)| b.contains(p) && image_contains(i, p)) else { return false };
     if selected != Some(hit) {
         painter.rect_stroke(boxes[hit], CornerRadius::ZERO, Stroke::new(1.5, ACCENT.gamma_multiply(0.7)), egui::StrokeKind::Outside);
     }
@@ -655,6 +687,8 @@ pub(crate) fn page_input(
         let right = xf.rect.right().min(view.viewport_rect().right()) - 6.0;
         let max_width = if l.rows.len() == 1 { (right - boxes[hit].left()).max(boxes[hit].width()) } else { boxes[hit].width() };
         view.line_editor = Some(LineEditor {
+            selection: None,
+            font_resource: None,
             page,
             block: hit,
             text: text.clone(),
@@ -678,7 +712,7 @@ pub(crate) fn page_input(
 }
 
 /// One TextEdit lays out all source runs; its caret and selection span the whole region.
-fn install_source_fonts(ctx: &egui::Context, doc: &pdfcraft_engine::Document, page: usize) -> BTreeMap<String, String> {
+pub(crate) fn install_source_fonts(ctx: &egui::Context, doc: &pdfcraft_engine::Document, page: usize) -> BTreeMap<String, String> {
     let programs = doc.text_editor_fonts(page);
     let mut definitions = ctx.fonts(|f| f.definitions().clone());
     // Only the current editor's document fonts live in the atlas. Never accumulate the
@@ -697,7 +731,13 @@ fn install_source_fonts(ctx: &egui::Context, doc: &pdfcraft_engine::Document, pa
         // document's matching subsets before falling back for newly inserted characters.
         let mut stack = vec![name.clone()];
         stack.extend(
-            programs.iter().filter(|p| p.face == program.face && p.resource != program.resource).filter_map(|p| families.get(&p.resource).cloned()),
+            programs
+                .iter()
+                .filter(|p| {
+                    pdfcraft_fonts::embedding::face_key(&p.face) == pdfcraft_fonts::embedding::face_key(&program.face)
+                        && p.resource != program.resource
+                })
+                .filter_map(|p| families.get(&p.resource).cloned()),
         );
         if let Some(fallback) = definitions.families.get(&FontFamily::Proportional) {
             stack.extend(fallback.iter().cloned());
@@ -921,17 +961,22 @@ pub(crate) fn overlay(ctx: &egui::Context, view: &mut DocView, info: &DocInfo) -
                 let snapshot = ed.clone();
                 let mut layouter =
                     |ui: &egui::Ui, text: &dyn egui::TextBuffer, wrap_width: f32| editor_galley(ui, &snapshot, text.as_str(), scale, wrap_width);
-                let r = ui.add(
-                    egui::TextEdit::multiline(&mut ed.text)
-                        .id(egui::Id::new("edit-text-line-input"))
-                        .font(font.clone())
-                        .margin(egui::Margin::ZERO)
-                        .layouter(&mut layouter)
-                        .text_color(text_color)
-                        .frame(egui::Frame::NONE)
-                        .desired_width(width)
-                        .desired_rows(rows),
-                );
+                let output = egui::TextEdit::multiline(&mut ed.text)
+                    .id(egui::Id::new("edit-text-line-input"))
+                    .font(font.clone())
+                    .margin(egui::Margin::ZERO)
+                    .layouter(&mut layouter)
+                    .text_color(text_color)
+                    .frame(egui::Frame::NONE)
+                    .desired_width(width)
+                    .desired_rows(rows)
+                    .show(ui);
+                if let Some(cursor) = output.cursor_range {
+                    let selected = cursor.as_sorted_char_range();
+                    let byte = |index| ed.text.char_indices().nth(index).map_or(ed.text.len(), |(at, _)| at);
+                    ed.selection = (!selected.is_empty()).then(|| byte(selected.start.into())..byte(selected.end.into()));
+                }
+                let r = output.response;
                 if r.changed() {
                     // The next pass measures the updated draft with the Apply/Save rewrite.
                     ctx.request_repaint();
@@ -979,6 +1024,8 @@ mod tests {
         let source = doc.bytes.clone();
         let generation = doc.edit_generation();
         let ed = LineEditor {
+            selection: None,
+            font_resource: None,
             page: 0,
             block: 0,
             text: block.text.clone(),

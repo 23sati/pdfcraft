@@ -1,6 +1,6 @@
 # Where PdfCraft falls short of Acrobat Pro
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (recorded geometry-based mixed-style regions and real-file validation in the contributor fork; estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (document-font selection/subset completion, bounded shaping and range styles, curved/shared image clips with private save/reopen acceptance; recorded geometry-based mixed-style regions and real-file validation in the contributor fork; estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
 Every known shortfall, one entry each, ranked by what it costs users. This is the work list: agents
 choose from the top unless the owner says otherwise, and prefer these over new P2/P3 checklist
@@ -93,12 +93,14 @@ update the numbers.
   visible text, and `text_edit_layout` measures saved draft bounds without applying them.
   Page/path-clipped artwork bounds and text-first hit testing prevent large cropped images from
   blocking text. A separate private four-page regression opens all 73 detected text regions;
-  rectangular clips are exact while complex paths retain conservative selection bounds.
-  Image resize regressions now transform an isolated crop with its pixels, retain the opposite
-  corner and preserve text beneath a selected grip. Shared clipping scopes with unrelated
-  painted content are refused rather than silently moved.
-  Installed-font selection, unsupported source font programs, arbitrary multi-range style edits and
-  reliable semantic grouping on every PDF remain unresolved. This does not change the readiness estimate.
+  curve/hole hit testing now evaluates clipping paths and fill rules. Shared path clips are
+  replayed privately around one transformed placement, preserving neighbouring paint.
+  Full matching document fonts complete absent subset glyphs; explicit installed/file font
+  selection, TrueType/OpenType-CFF embedding, disjoint style ranges, marked paragraph boundaries
+  and single-face OpenType shaping/bidi have regression coverage. Actual Chinese keyboard
+  insertion/deletion and save/reopen renders are checked on all four private pages.
+  Legacy non-SFNT previews, mixed-font/style contextual runs, structure-tree fidelity and reliable
+  semantic grouping on every untagged PDF remain open. Estimates are unchanged.
 
 - **Missing:** robust in-place editing of text PdfCraft didn't write: subset fonts without the
   needed glyphs, CJK and right-to-left text, rotated text, lists, superscript/subscript, keeping
@@ -319,7 +321,7 @@ update the numbers.
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-11 | minor | Contributor fork: mixed-style visual regions, source-font space reuse and a read-only textless background. Embedded sfnt source faces and Mac subset Unicode mappings keep edit baselines stable; live frames follow Apply/Save geometry as text grows or shrinks. Engine/tool/UI regressions and private all-page checks cover the changes; installed-font selection and unsupported source programs remain open; estimates unchanged |
+| 2026-10-11 | minor | Contributor fork: mixed-style visual regions, source-font space reuse and a read-only textless background. Embedded sfnt source faces and Mac subset Unicode mappings keep edit baselines stable; live frames follow Apply/Save geometry as text grows or shrinks. Engine/tool/UI regressions and private all-page checks cover the changes; full matching font import, CFF, range styles, shaping and private Chinese typing checks added; legacy programs and general fidelity remain open; estimates unchanged |
 | 2026-10-10 | minor | Removed the alpha markers: with the cross-app gate rule, gaps 1 and 8 are partial sub-cases, not blockers; stage alpha |
 | 2026-10-10 | minor | Marked the alpha blockers (gap 1 and the Office part of gap 8) after the core-workflow gate put the stage at pre-alpha |
 | 2026-10-10 | major | Created. Ranked 24 gaps from the 2026-10-10 re-measure, the open GitHub issues and the former ROADMAP.md §Where we're lacking and where we're going (renderer, hardening, fidelity, editing, Pro workflows, 1.0 polish), which this file replaces |

@@ -2109,3 +2109,10 @@ key	Space	Пробел
 	Resize panel window	Изменить размер окна панели
 	Tools	Инструменты
 	Inspector	Инспектор
+
+# Document font selection
+	Finding document fonts…	Поиск шрифтов для документа…
+	Installed fonts…	Установленные шрифты…
+	Keep source fonts	Сохранить исходные шрифты
+	Load font…	Загрузить шрифт…
+	No openly licensed document fonts found. Load a font file.	Шрифты с открытой лицензией не найдены. Загрузите файл шрифта.

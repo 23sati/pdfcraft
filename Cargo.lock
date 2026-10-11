@@ -3676,6 +3676,7 @@ name = "pdfcraft-edit"
 version = "0.6.0"
 dependencies = [
  "hayro-syntax",
+ "kurbo 0.13.1",
  "pdfcraft-annot",
  "pdfcraft-content",
  "pdfcraft-cos",
@@ -3744,6 +3745,7 @@ dependencies = [
  "harfrust",
  "pdfcraft-cos",
  "skrifa 0.44.0",
+ "unicode-bidi",
 ]
 
 [[package]]

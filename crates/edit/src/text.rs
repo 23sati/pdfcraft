@@ -48,6 +48,8 @@ pub struct TextLine {
     ops: Vec<usize>,
     /// Where the line starts: text matrix (text space), the state there, and its `BT`.
     origin: Origin,
+    /// Explicit marked-content scope (when present); distinct scopes must not be guessed into one paragraph.
+    scope: Option<usize>,
 }
 
 impl TextLine {
@@ -90,7 +92,33 @@ pub fn text_editor_fonts(doc: &Document, page: usize) -> Result<Vec<TextEditorFo
             bytes,
         });
     }
+    // The approved full face follows all source subsets in the editor's font stack. It can
+    // display newly inserted glyphs before Apply without changing the source text's face.
+    let source_faces: Vec<_> = result.iter().map(|p| p.face.clone()).collect();
+    for face in source_faces {
+        for full in pdfcraft_fonts::embedding::matching_faces(&face) {
+            if full.bytes.len() > budget || result.iter().any(|p| p.resource == format!("PCApproved{}", full.name())) {
+                continue;
+            }
+            budget -= full.bytes.len();
+            result.push(TextEditorFont { resource: format!("PCApproved{}", full.name()), face: face.clone(), bytes: full.bytes.to_vec() });
+        }
+    }
     Ok(result)
+}
+
+/// Load an explicit full face into this page's resources. Nothing on the page is replaced;
+/// the new resource can complete matching source subsets or be chosen in a text style.
+pub fn register_text_font(doc: &mut Document, page: usize, bytes: &[u8]) -> Result<String, EditError> {
+    pdfcraft_fonts::embedding::validate_document_input(bytes).map_err(EditError::Invalid)?;
+    let (_, postscript) = pdfcraft_fonts::embedding::names(bytes).map_err(EditError::Invalid)?;
+    let p = page_dict(doc, page)?;
+    let mut resources = p.dict.get(b"Resources").and_then(|o| doc.dict(o)).unwrap_or_default();
+    let mut fonts = resources.get(b"Font").and_then(|o| doc.dict(o)).unwrap_or_default();
+    let name = pdfcraft_fonts::embedding::embed(doc, &mut fonts, bytes, &postscript).map_err(EditError::Invalid)?;
+    resources.set(b"Font".to_vec(), Object::Dict(fonts));
+    doc.update_dict(p.obj, |d| d.set(b"Resources".to_vec(), Object::Dict(resources)))?;
+    Ok(name)
 }
 
 /// Read-only draft bounds, measured with the same PDF rewrite used by Apply/Save.
@@ -396,6 +424,7 @@ fn fill_color(fill: &[Op]) -> [f64; 3] {
 /// The text-showing operators of one stream with their text, font, box and baseline.
 struct Shown {
     op: usize,
+    extra_ops: Vec<usize>,
     /// Advance in text space, including spacing and TJ adjustments.
     advance: f64,
     /// The text matrix where it starts (text space), and the state there and at its `BT`.
@@ -416,6 +445,7 @@ struct Shown {
     bold: bool,
     italic: bool,
     decodable: bool,
+    scope: Option<usize>,
 }
 
 /// The graphics state carried from one of a page's content streams to the next: the streams
@@ -424,6 +454,7 @@ struct Shown {
 struct Carry {
     ts: Ts,
     stack: Vec<Ts>,
+    marked: Vec<Option<usize>>,
 }
 
 impl Carry {
@@ -440,7 +471,7 @@ impl Carry {
             rise: 0.0,
             render_mode: 0,
         };
-        Carry { ts, stack: Vec::new() }
+        Carry { ts, stack: Vec::new(), marked: Vec::new() }
     }
 }
 
@@ -454,15 +485,56 @@ fn interpret(
     cache: &mut HashMap<Vec<u8>, Rc<Metrics>>,
     carry: &mut Carry,
     mut invoked: Option<&mut Vec<Invocation>>,
+    logical_text: bool,
 ) -> Vec<Shown> {
-    let mut out = Vec::new();
+    let mut out: Vec<Shown> = Vec::new();
     let mut ts = carry.ts.clone();
     let mut at_bt = (0usize, ts.clone());
     let mut stack: Vec<Ts> = std::mem::take(&mut carry.stack);
     let (mut tm, mut tlm) = (Matrix::IDENTITY, Matrix::IDENTITY);
     let mut bt = 0usize;
+    let mut marked = std::mem::take(&mut carry.marked);
+    let mut actual: Vec<Option<(usize, usize, String)>> = Vec::new();
     for (i, op) in ops.iter().enumerate() {
         match op.op.as_slice() {
+            b"BMC" | b"BDC" => {
+                if marked.len() < 256 {
+                    // Marked text paragraphs/headings are authoritative boundaries. Ignore
+                    // artifacts and inner spans, which inherit their enclosing region.
+                    let region = matches!(op.name(0), Some(b"P" | b"H" | b"H1" | b"H2" | b"H3" | b"H4" | b"H5" | b"H6" | b"LI" | b"TD" | b"TH"));
+                    marked.push(if region { Some(i) } else { marked.last().copied().flatten() });
+                    let logical = op.operands.get(1).and_then(Object::as_dict).and_then(|d| d.get(b"ActualText")).and_then(|s| match s {
+                        Object::String(s) if s.bytes.len() <= 4_000_000 => Some(s.to_text()),
+                        _ => None,
+                    });
+                    actual.push(if logical_text { logical.map(|s| (out.len(), i, s)) } else { None });
+                }
+            }
+            b"EMC" => {
+                marked.pop();
+                if let Some(Some((start, open, logical))) = actual.pop() {
+                    let tail = out.split_off(start.min(out.len()));
+                    let mut items = tail.into_iter();
+                    if let Some(mut first) = items.next() {
+                        for shown in items {
+                            first.extra_ops.push(shown.op);
+                            first.extra_ops.extend(shown.extra_ops);
+                            first.rect = [
+                                first.rect[0].min(shown.rect[0]),
+                                first.rect[1].min(shown.rect[1]),
+                                first.rect[2].max(shown.rect[2]),
+                                first.rect[3].max(shown.rect[3]),
+                            ];
+                        }
+                        first.extra_ops.extend([open, i]);
+                        first.text = logical;
+                        first.start_x = first.rect[0];
+                        first.end_x = first.rect[2];
+                        first.advance = (first.end_x - first.start_x) / first.tm.then(&first.state.ctm).0[0].abs().max(1e-6);
+                        out.push(first);
+                    }
+                }
+            }
             b"q" => stack.push(ts.clone()),
             b"Q" => {
                 if let Some(s) = stack.pop() {
@@ -594,6 +666,7 @@ fn interpret(
                 }
                 out.push(Shown {
                     op: i,
+                    extra_ops: Vec::new(),
                     advance: x_text,
                     tm: Matrix([tm.0[0], tm.0[1], tm.0[2], tm.0[3], tm.0[4] - x_text * tm.0[0], tm.0[5] - x_text * tm.0[1]]),
                     state: ts.clone(),
@@ -612,6 +685,7 @@ fn interpret(
                     bold: m.bold,
                     italic: m.italic,
                     decodable,
+                    scope: marked.last().copied().flatten(),
                 });
             }
             _ => {}
@@ -619,6 +693,7 @@ fn interpret(
     }
     carry.ts = ts;
     carry.stack = stack;
+    carry.marked = marked;
     out
 }
 
@@ -634,7 +709,7 @@ pub fn text_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditErro
     // joined, so an operator whose operands end one piece still has them.
     let pieces = Pieces::join(&content_streams(doc, &p.dict).into_iter().map(|(_, d)| d).collect::<Vec<_>>());
     let ops = pieces.parse().ops;
-    let shown = interpret(doc, &ops, &fonts_res, &mut cache, &mut carry, None);
+    let shown = interpret(doc, &ops, &fonts_res, &mut cache, &mut carry, None, true);
     let mut last: Option<(usize, usize, f64, f64, f64)> = None; // (piece, bt, baseline, end_x, size)
     for s in shown {
         // A line belongs to one stream piece. Within it, PDF producers often put every word
@@ -642,6 +717,7 @@ pub fn text_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditErro
         let si = ops.get(s.op).map_or(0, |op| pieces.pieces_of(op).0);
         let joins = last.is_some_and(|(piece, bt, base, end, size)| {
             piece == si
+                && lines.last().is_some_and(|l| l.scope == s.scope)
                 && (bt == s.bt || lines.last().is_some_and(|l| compatible_word(l, &s)))
                 && (s.text.trim().is_empty() || lines.last().is_some_and(|l| l.font.as_bytes() == s.font.as_slice()))
                 && (s.text.trim().is_empty()
@@ -660,6 +736,7 @@ pub fn text_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditErro
             l.text.push_str(&s.text);
             l.rect = [l.rect[0].min(s.rect[0]), l.rect[1].min(s.rect[1]), l.rect[2].max(s.rect[2]), l.rect[3].max(s.rect[3])];
             l.ops.push(s.op);
+            l.ops.extend(s.extra_ops.iter().copied());
             l.decodable &= s.decodable;
             // Spaces may use a separate subset font; they do not change the visible style.
         } else {
@@ -674,7 +751,8 @@ pub fn text_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditErro
                 color: fill_color(&s.state.fill),
                 decodable: s.decodable,
                 stream: si,
-                ops: vec![s.op],
+                scope: s.scope,
+                ops: std::iter::once(s.op).chain(s.extra_ops.iter().copied()).collect(),
                 origin: Origin {
                     tm: s.tm.0,
                     tlm: s.tlm.0,
@@ -700,7 +778,8 @@ pub fn text_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditErro
 fn compatible_word(line: &TextLine, shown: &Shown) -> bool {
     let same = |a: &[f64], b: &[f64]| a.iter().zip(b).all(|(a, b)| (a - b).abs() < 1e-6);
     let (a, b) = (&line.origin.state, TextState::of(&shown.state));
-    same(&line.origin.tm[..4], &shown.tm.0[..4])
+    line.scope == shown.scope
+        && same(&line.origin.tm[..4], &shown.tm.0[..4])
         && same(&line.origin.ctm, &shown.state.ctm.0)
         && same(&[a.char_spacing, a.word_spacing, a.scale, a.rise], &[b.char_spacing, b.word_spacing, b.scale, b.rise])
         && a.fill.len() == b.fill.len()
@@ -711,7 +790,8 @@ fn compatible_word(line: &TextLine, shown: &Shown) -> bool {
 /// (`bt`, baseline, end x, size).
 fn add_shown(lines: &mut Vec<TextLine>, last: &mut Option<(usize, f64, f64, f64)>, s: Shown, stream: usize) {
     let joins = last.is_some_and(|(bt, base, end, size)| {
-        (bt == s.bt || lines.last().is_some_and(|l| compatible_word(l, &s)))
+        lines.last().is_some_and(|l| l.scope == s.scope)
+            && (bt == s.bt || lines.last().is_some_and(|l| compatible_word(l, &s)))
             && (s.text.trim().is_empty() || lines.last().is_some_and(|l| l.font.as_bytes() == s.font.as_slice()))
             && (s.text.trim().is_empty()
                 || lines.last().is_some_and(|l| {
@@ -729,6 +809,7 @@ fn add_shown(lines: &mut Vec<TextLine>, last: &mut Option<(usize, f64, f64, f64)
         l.text.push_str(&s.text);
         l.rect = [l.rect[0].min(s.rect[0]), l.rect[1].min(s.rect[1]), l.rect[2].max(s.rect[2]), l.rect[3].max(s.rect[3])];
         l.ops.push(s.op);
+        l.ops.extend(s.extra_ops.iter().copied());
         l.decodable &= s.decodable;
     } else {
         lines.push(TextLine {
@@ -742,7 +823,8 @@ fn add_shown(lines: &mut Vec<TextLine>, last: &mut Option<(usize, f64, f64, f64)
             color: fill_color(&s.state.fill),
             decodable: s.decodable,
             stream,
-            ops: vec![s.op],
+            scope: s.scope,
+            ops: std::iter::once(s.op).chain(s.extra_ops.iter().copied()).collect(),
             origin: Origin {
                 tm: s.tm.0,
                 tlm: s.tlm.0,
@@ -831,7 +913,7 @@ fn reading_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditError
         let fonts_res = resources.get(b"Font").map(|f| w.doc.resolve(f)).and_then(|f| f.as_dict().cloned()).unwrap_or_default();
         let mut cache = HashMap::new();
         let mut invoked = Vec::new();
-        let shown = interpret(w.doc, ops, &fonts_res, &mut cache, carry, Some(&mut invoked));
+        let shown = interpret(w.doc, ops, &fonts_res, &mut cache, carry, Some(&mut invoked), true);
         let mut last = None;
         let mut forms = invoked.into_iter().peekable();
         for s in shown {
@@ -850,7 +932,7 @@ fn reading_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditError
         let Some(form) = form_call(w.doc, resources, name, ts.ctm, &w.path, &mut w.visits) else { return };
         let ops = parse(&form.data).ops;
         // The form starts with the graphics state at its `Do`, its own matrix applied.
-        let mut carry = Carry { ts: Ts { ctm: form.ctm, ..ts }, stack: Vec::new() };
+        let mut carry = Carry { ts: Ts { ctm: form.ctm, ..ts }, stack: Vec::new(), marked: Vec::new() };
         let stream = w.next_stream;
         w.next_stream = w.next_stream.saturating_add(1);
         if let Some(r) = form.obj {
@@ -1265,7 +1347,7 @@ pub fn clear_block(doc: &mut Document, page: usize, block: usize) -> Result<(), 
     let streams = content_streams(doc, &p.dict);
     let pieces = Pieces::join(&streams.iter().map(|(_, d)| d.as_slice()).collect::<Vec<_>>());
     let ops = pieces.parse().ops;
-    let shown = interpret(doc, &ops, &fonts, &mut HashMap::new(), &mut Carry::new(), None);
+    let shown = interpret(doc, &ops, &fonts, &mut HashMap::new(), &mut Carry::new(), None, false);
     let mut patches = HashMap::new();
     for s in shown.into_iter().filter(|s| drops.contains(&s.op)) {
         if s.state.render_mode >= 4 {
@@ -1338,6 +1420,10 @@ pub fn replace_block(doc: &mut Document, page: usize, block: usize, text: &str) 
 /// Formatting for a rewritten paragraph (`None` keeps the paragraph's own).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct BlockStyle {
+    /// Disjoint UTF-8 ranges in the replacement, each preserving unspecified source style.
+    pub ranges: Vec<RangeStyle>,
+    /// Explicit page font resource (from register_text_font or the page font inventory).
+    pub resource: Option<String>,
     /// A standard font family, bold, italic.
     pub family: Option<(crate::added::Family, bool, bool)>,
     /// Override weight without choosing a different family (`None` keeps the source weight).
@@ -1360,6 +1446,18 @@ pub struct BlockStyle {
     pub width: Option<f64>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct RangeStyle {
+    pub range: std::ops::Range<usize>,
+    pub family: Option<(crate::added::Family, bool, bool)>,
+    pub resource: Option<String>,
+    pub size: Option<f64>,
+    pub color: Option<[f64; 3]>,
+    pub underline: Option<bool>,
+    pub char_spacing: Option<f64>,
+    pub scale: Option<f64>,
+}
+
 /// Rewrite paragraph `block` with new text (or its own) and formatting, rewrapped to its width.
 pub fn rewrite_block(doc: &mut Document, page: usize, block: usize, text: Option<&str>, style: &BlockStyle) -> Result<LineEdit, EditError> {
     let lines = text_lines(doc, page)?;
@@ -1367,17 +1465,22 @@ pub fn rewrite_block(doc: &mut Document, page: usize, block: usize, text: Option
     let b = blocks.get(block).cloned().ok_or_else(|| EditError::Invalid(format!("page {} has no paragraph {}", page + 1, block + 1)))?;
     let members: Vec<&TextLine> = b.lines.iter().map(|i| &lines[*i]).collect();
     let first = members.first().copied().ok_or_else(|| EditError::Invalid("the paragraph has no source runs".into()))?;
-    if (text.is_some_and(|draft| draft.contains('\n'))
-        || b.rows.iter().any(|row| row.len() > 1)
-        || members.iter().any(|line| line.font != first.font || line.size != first.size || line.color != first.color))
-        && style.family.is_none()
-        && style.bold.is_none()
-    {
-        return rewrite_styled_block(doc, page, &b, &lines, text, style);
-    }
     let p = page_dict(doc, page)?;
     let mut res = p.dict.get(b"Resources").map(|r| doc.resolve(r)).and_then(|r| r.as_dict().cloned()).unwrap_or_default();
     let mut fonts_res = res.get(b"Font").map(|f| doc.resolve(f)).and_then(|f| f.as_dict().cloned()).unwrap_or_default();
+    let registered_face = fonts_res.iter().any(|(name, _)| name.starts_with(b"PCFull"));
+    if !style.ranges.is_empty()
+        || style.resource.is_some()
+        || (text.is_some_and(|draft| {
+            draft.contains('\n') || pdfcraft_fonts::shaping::required(draft) || !pdfcraft_fonts::embedding::matching_faces(&b.base_font).is_empty()
+        }) || registered_face
+            || b.rows.iter().any(|row| row.len() > 1)
+            || members.iter().any(|line| line.font != first.font || line.size != first.size || line.color != first.color))
+            && style.family.is_none()
+            && style.bold.is_none()
+    {
+        return rewrite_styled_block(doc, page, &b, &lines, text, style);
+    }
     let streams = content_streams(doc, &p.dict);
     let pieces = Pieces::join(&streams.iter().map(|(_, d)| d.as_slice()).collect::<Vec<_>>());
     let ops = pieces.parse().ops;
@@ -1690,7 +1793,7 @@ pub(crate) fn translate_blocks(doc: &mut Document, page: usize, indexes: &[usize
     let fonts = res.get(b"Font").map(|r| doc.resolve(r)).and_then(|r| r.as_dict().cloned()).unwrap_or_default();
     let pieces = Pieces::join(&streams.iter().map(|(_, d)| d.as_slice()).collect::<Vec<_>>());
     let ops = pieces.parse().ops;
-    let shown = interpret(doc, &ops, &fonts, &mut HashMap::new(), &mut Carry::new(), None);
+    let shown = interpret(doc, &ops, &fonts, &mut HashMap::new(), &mut Carry::new(), None, false);
     let mut patches = HashMap::new();
     // Keep full precision: a tiny rounded text-space change can be magnified by a CTM,
     // and restoring rise/spacing must not alter following unselected text.

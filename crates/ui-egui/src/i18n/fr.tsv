@@ -2196,3 +2196,10 @@ key	Space	Espace
 	Resize panel window	Redimensionner la fenêtre du panneau
 	Tools	Outils
 	Inspector	Inspecteur
+
+# Document font selection
+	Finding document fonts…	Recherche de polices pour le document…
+	Installed fonts…	Polices installées…
+	Keep source fonts	Conserver les polices originales
+	Load font…	Charger une police…
+	No openly licensed document fonts found. Load a font file.	Aucune police sous licence libre trouvée. Chargez un fichier de police.

@@ -82,6 +82,55 @@ fn tool_table_is_well_formed() {
     }
 }
 
+#[test]
+fn explicit_font_and_disjoint_ranges_save_reopen_through_tools() {
+    let dir = workdir("font-ranges");
+    std::fs::write(dir.join("inter.ttf"), include_bytes!("../../../assets/fonts/Inter-Regular.ttf")).unwrap();
+    let mut a = auto(&dir);
+    std::fs::write(dir.join("broken.otf"), b"not a font").unwrap();
+    let found = ok(&mut a, "text_font_files", json!({}));
+    assert_eq!(found["fonts"].as_array().unwrap().len(), 1);
+    assert_eq!(found["fonts"][0]["font"], "Inter-Regular");
+    assert!(a.call("text_font_files", &json!({"directories":["../outside"]})).is_err());
+    let id = ok(&mut a, "doc_open", json!({"path":"a.pdf"}))["doc"].as_u64().unwrap();
+    let font = ok(&mut a, "text_font_import", json!({"doc":id,"page":1,"path":"inter.ttf"}));
+    let resource = font["resource"].as_str().unwrap();
+    assert_eq!(font["font"], "Inter-Regular");
+    assert_eq!(page_text(&mut a, id), ["Page 1", "Page 2", "Page 3"]);
+    let draft = ok(
+        &mut a,
+        "text_edit_layout",
+        json!({"doc":id,"page":1,"paragraph":1,"text":"Aé ΩЖ","font_resource":resource,"ranges":[{"range":[0,3],"size":16,"color":"#cc0000"},{"range":[4,8],"size":20,"color":"#003399"}]}),
+    );
+    assert!(draft["draft_rect"].is_array());
+    assert_eq!(page_text(&mut a, id), ["Page 1", "Page 2", "Page 3"]);
+    ok(
+        &mut a,
+        "text_edit",
+        json!({"doc":id,"page":1,"paragraph":1,"text":"Aé ΩЖ","font_resource":resource,"ranges":[{"range":[0,3],"size":16,"color":"#cc0000"},{"range":[4,8],"size":20,"color":"#003399"}]}),
+    );
+    let lines = ok(&mut a, "text_lines", json!({"doc":id,"page":1}));
+    assert!(
+        lines["lines"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|l| l["text"].as_str().is_some_and(|s| s.trim_end() == "Aé") && l["size"].as_f64() == Some(16.0)),
+        "{lines}"
+    );
+    let rendered = a.call("page_render", &json!({"doc":id,"page":1,"dpi":72})).unwrap();
+    ok(&mut a, "doc_save", json!({"doc":id,"path":"edited.pdf"}));
+    let reopened = ok(&mut a, "doc_open", json!({"path":"edited.pdf"}))["doc"].as_u64().unwrap();
+    let saved = ok(&mut a, "text_lines", json!({"doc":reopened,"page":1}));
+    assert_eq!(lines, saved);
+    assert_eq!(rendered, a.call("page_render", &json!({"doc":reopened,"page":1,"dpi":72})).unwrap());
+    let before = saved.clone();
+    assert!(a.call("text_edit", &json!({"doc":reopened,"page":1,"paragraph":1,"text":"é test","ranges":[{"range":[1,2],"size":18}]})).is_err());
+    assert_eq!(ok(&mut a, "text_lines", json!({"doc":reopened,"page":1})), before);
+    assert!(a.call("text_font_import", &json!({"doc":id,"page":1,"path":"../outside.ttf"})).is_err());
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
 /// Each of these writes to its required `path` and replaces an existing file there, so the MCP
 /// annotations must not tell clients the call is read-only or harmless (#130).
 #[test]
@@ -4025,7 +4074,7 @@ fn clipped_image_bounds_and_text_edit_save_reopen_through_tools() {
     resources.set(b"XObject".to_vec(), Object::Dict(xo));
     let contents = cos.add(Object::Stream(Stream::flate(
         Dict::new(),
-        b"q 30 170 130 80 re W* n q 800 0 0 900 -300 -400 cm /Im0 Do Q Q BT /F1 12 Tf 30 130 Td (Editable caption) Tj ET",
+        b"q 30 170 130 80 re W* n q 800 0 0 900 -300 -400 cm /Im0 Do Q BT /F1 12 Tf 30 195 Td (Shared caption) Tj ET Q BT /F1 12 Tf 30 130 Td (Editable caption) Tj ET",
     )));
     cos.update_dict(page.obj, |d| {
         d.set(b"Resources".to_vec(), Object::Dict(resources));
@@ -4037,6 +4086,8 @@ fn clipped_image_bounds_and_text_edit_save_reopen_through_tools() {
     let doc = ok(&mut a, "doc_open", json!({"path":"clipped.pdf"}))["doc"].as_u64().unwrap();
     let pixels = a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap();
     let images = ok(&mut a, "page_images", json!({"doc":doc,"page":1}));
+    assert_eq!(ok(&mut a, "image_hit", json!({"doc":doc,"page":1,"point":[50,60]}))["images"], json!([1]));
+    assert_eq!(ok(&mut a, "image_hit", json!({"doc":doc,"page":1,"point":[20,60]}))["images"], json!([]));
     assert_eq!(images["images"][0]["visible_rect"], json!([30.0, 50.0, 160.0, 130.0]));
     assert_eq!(images["images"][0]["rect"], json!([-300.0, -200.0, 500.0, 700.0]), "raw placement remains available for transforms");
     let objects = ok(&mut a, "object_list", json!({"doc":doc,"page":1}));
@@ -4060,10 +4111,10 @@ fn clipped_image_bounds_and_text_edit_save_reopen_through_tools() {
     assert_eq!(a.call("page_render", &json!({"doc":resized_re,"page":1,"dpi":72})).unwrap(), resized_pixels);
     ok(&mut a, "edit_undo", json!({"doc":doc}));
     assert_eq!(a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap(), pixels);
-    ok(&mut a, "text_edit", json!({"doc":doc,"page":1,"paragraph":1,"text":"Edited caption"}));
+    ok(&mut a, "text_edit", json!({"doc":doc,"page":1,"paragraph":2,"text":"Edited caption"}));
     ok(&mut a, "doc_save", json!({"doc":doc,"path":"out/edited.pdf"}));
     let re = ok(&mut a, "doc_open", json!({"path":"out/edited.pdf"}))["doc"].as_u64().unwrap();
-    assert_eq!(ok(&mut a, "text_paragraphs", json!({"doc":re,"page":1}))["paragraphs"][0]["editor_text"], "Edited caption");
+    assert_eq!(ok(&mut a, "text_paragraphs", json!({"doc":re,"page":1}))["paragraphs"][1]["editor_text"], "Edited caption");
     assert_eq!(ok(&mut a, "page_images", json!({"doc":re,"page":1})), images, "image placement and crop survive text editing");
     ok(&mut a, "edit_undo", json!({"doc":doc}));
     assert_eq!(a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap(), pixels);

@@ -2217,3 +2217,10 @@ key	Space	Пробіл
 	Panels	Панелі
 	Resize panels	Змінити розмір панелей
 	Resize panel window	Змінити розмір вікна панелі
+
+# Document font selection
+	Finding document fonts…	Пошук шрифтів для документа…
+	Installed fonts…	Встановлені шрифти…
+	Keep source fonts	Зберегти початкові шрифти
+	Load font…	Завантажити шрифт…
+	No openly licensed document fonts found. Load a font file.	Шрифтів із відкритою ліцензією не знайдено. Завантажте файл шрифту.

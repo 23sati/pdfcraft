@@ -2194,3 +2194,10 @@ key	Space	Szóköz
 	Resize panel window	Panelablak átméretezése
 	Tools	Eszközök
 	Inspector	Tulajdonságvizsgáló
+
+# Document font selection
+	Finding document fonts…	Dokumentumbetűtípusok keresése…
+	Installed fonts…	Telepített betűtípusok…
+	Keep source fonts	Eredeti betűtípusok megtartása
+	Load font…	Betűtípus betöltése…
+	No openly licensed document fonts found. Load a font file.	Nem található nyílt licencű betűtípus. Töltsön be egy betűtípusfájlt.

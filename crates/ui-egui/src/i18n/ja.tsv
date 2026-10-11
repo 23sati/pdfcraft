@@ -2196,3 +2196,10 @@ key	Space	スペース
 	Resize panel window	パネルウィンドウのサイズを変更
 	Tools	ツール
 	Inspector	インスペクター
+
+# Document font selection
+	Finding document fonts…	文書用フォントを検索中…
+	Installed fonts…	インストール済みフォント…
+	Keep source fonts	元のフォントを保持
+	Load font…	フォントを読み込む…
+	No openly licensed document fonts found. Load a font file.	オープンライセンスのフォントが見つかりません。フォントファイルを読み込んでください。

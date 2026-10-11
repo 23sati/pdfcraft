@@ -2216,3 +2216,10 @@ key	Space	مسافة
 	Panels	اللوحات
 	Resize panels	تغيير حجم اللوحات
 	Resize panel window	تغيير حجم نافذة اللوحة
+
+# Document font selection
+	Finding document fonts…	جارٍ البحث عن خطوط المستند…
+	Installed fonts…	الخطوط المثبتة…
+	Keep source fonts	الاحتفاظ بالخطوط الأصلية
+	Load font…	تحميل خط…
+	No openly licensed document fonts found. Load a font file.	لم يُعثر على خطوط ذات ترخيص مفتوح. حمّل ملف خط.

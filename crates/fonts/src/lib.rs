@@ -7,9 +7,11 @@
 
 mod arabic;
 mod craft;
+pub mod embedding;
 mod encodings;
 pub mod pdf;
 mod script;
+pub mod shaping;
 pub use arabic::{ShapedCluster, arabic_glyph, arabic_has, shape_arabic};
 pub use craft::{
     CRAFT_FONTS, CraftFont, SHIPPORI_MINCHO, document_arabic_font, document_japanese_font, document_japanese_font_for_style,

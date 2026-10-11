@@ -2039,6 +2039,37 @@ fn the_format_panel_restyles_the_paragraph_being_edited() {
     assert!(s.views[0].line_editor.as_ref().is_some_and(|e| e.extras.underline));
 }
 
+#[test]
+fn selected_text_formatting_keeps_the_rest_of_the_paragraph_and_reopens() {
+    let mut h = harness(1, |_| {});
+    assert!(h.state_mut().execute("edit.edit_text"));
+    h.run_steps(2);
+    let r = h.state().views[0].page_screen_rect(0).unwrap();
+    let at = egui::pos2(r.left() + 40.0 / 200.0 * r.width(), r.top() + (300.0 - 158.0) / 300.0 * r.height());
+    h.hover_at(at);
+    h.run_steps(1);
+    h.drag_at(at);
+    h.run_steps(1);
+    h.drop_at(at);
+    h.run_steps(4);
+    h.key_press_modifiers(Modifiers::COMMAND, Key::ArrowRight);
+    h.run_steps(1);
+    h.key_press_modifiers(Modifiers::SHIFT, Key::ArrowLeft);
+    h.run_steps(2);
+    assert_eq!(h.state().views[0].line_editor.as_ref().unwrap().selection, Some(5..6));
+    h.get_by_label("B").click();
+    h.run_steps(5);
+    let id = h.state().views[0].id;
+    let doc = h.state().session.get(id).unwrap();
+    let lines = doc.text_lines(0);
+    assert!(lines.iter().any(|l| l.text == "1" && l.base_font == "Helvetica-Bold"), "{lines:?}");
+    assert!(lines.iter().any(|l| l.text.trim_end() == "Page" && l.base_font == "Helvetica"));
+    let saved = h.state_mut().session.save_bytes(id).unwrap();
+    let mut reopen = pdfcraft_engine::Session::new();
+    let rid = reopen.open("saved.pdf", None, saved, None).unwrap();
+    assert_eq!(reopen.get(rid).unwrap().text_lines(0), lines);
+}
+
 /// Drag with the pointer from `from` to `to` in a few steps.
 fn drag(h: &mut Harness<'static, PdfCraftApp>, from: egui::Pos2, to: egui::Pos2) {
     h.hover_at(from);
@@ -2492,11 +2523,15 @@ fn private_document_regions_open_as_one_editor() {
                     _ => None,
                 })
                 .expect("the whole source region is editable");
-            assert!(
-                text_shape.galley.job.sections.iter().all(|section| matches!(&section.format.font_id.family,
-                egui::FontFamily::Name(name) if name.starts_with("pdf-source-"))),
-                "editing uses source faces, not an interface face"
-            );
+            for (section, (_, source)) in text_shape.galley.job.sections.iter().zip(block.edited_spans(&block.editor_text)) {
+                if programs.iter().any(|font| font.resource == source_lines[source].font) {
+                    assert!(
+                        matches!(&section.format.font_id.family,
+                        egui::FontFamily::Name(name) if name.starts_with("pdf-source-")),
+                        "each available embedded source face is used in the editor"
+                    );
+                }
+            }
             assert_eq!(text_shape.galley.rows.len(), block.rows.len(), "source rows stay in place");
             for (row, source_row) in text_shape.galley.rows.iter().zip(&block.rows) {
                 let source = &source_lines[source_row[0]];
@@ -2962,4 +2997,125 @@ fn private_document_cropped_artwork_does_not_block_text() {
     assert!(!dirty(&h));
     assert_eq!(std::fs::read(path).unwrap(), original);
     println!("checked {pages} pages, {checked} text regions, {cropped} clipped image placements");
+}
+
+/// Actual keyboard input into every page of a private Chinese PDF; no private captures.
+#[test]
+#[ignore = "requires a private Chinese PDF and an approved full source font file"]
+fn private_new_chinese_keyboard_input_preserves_font_layout_and_saved_pixels() {
+    use pdfcraft_engine::{Edit, Session};
+    use std::sync::Arc;
+    let path = std::env::var("PDFCRAFT_CHINESE_TEXT_PDF").expect("supply a local PDF path");
+    let font_path = std::env::var("PDFCRAFT_CHINESE_FULL_FONT").expect("supply the full source face");
+    let original = std::fs::read(&path).unwrap();
+    let bytes = original.clone();
+    let font = Arc::new(std::fs::read(font_path).unwrap());
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 1100.0)).build_eframe(move |_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("private.pdf", None, bytes).unwrap();
+        app
+    });
+    h.run_steps(4);
+    assert!(h.state_mut().execute("edit.edit_text"));
+    h.state_mut().views[0].fit = pdfcraft_ui_egui::canvas::Fit::Page;
+    assert!(h.state_mut().execute("view.layout.single"));
+    let id = h.state().views[0].id;
+    let pages = h.state().session.get(id).unwrap().info.pages.len();
+    let all: String = (0..pages).flat_map(|p| h.state().session.get(id).unwrap().text_lines(p)).map(|l| l.text).collect();
+    let new: String = "测试编辑删除龘".chars().filter(|c| !all.contains(*c)).take(4).collect();
+    assert!(new.chars().count() >= 2);
+    let pixels = |bytes: Arc<Vec<u8>>, page| {
+        let mut r = PageRenderer::new(bytes, Default::default());
+        let p = r.render(RenderRequest { page, scale: 1.5, ..Default::default() });
+        assert!(p.error.is_none() && p.warnings.is_empty());
+        p.rgba.to_vec()
+    };
+    for page_index in 0..pages {
+        h.state_mut().views[0].go_to_page(page_index);
+        h.state_mut().session.apply(id, Edit::RegisterTextFont { page: page_index, bytes: font.clone() }).unwrap();
+        h.run_steps(4);
+        let doc = h.state().session.get(id).unwrap();
+        let (index, block) = doc
+            .text_blocks(page_index)
+            .into_iter()
+            .enumerate()
+            .find(|(_, b)| b.rows.len() == 1 && b.editor_text.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c)))
+            .unwrap();
+        let source = doc.text_lines(page_index)[block.lines[0]].clone();
+        let info = doc.info.pages[page_index].clone();
+        let page = h.state().views[0].page_screen_rect(page_index).unwrap();
+        let scale = page.width() / info.width;
+        let v = info.user_to_view((source.rect[0] + 3.0) as f32, ((source.rect[1] + source.rect[3]) / 2.0) as f32);
+        let point = page.min + egui::vec2(v[0], v[1]) * scale;
+        h.hover_at(point);
+        h.run_steps(1);
+        h.drag_at(point);
+        h.run_steps(1);
+        h.drop_at(point);
+        h.run_steps(8);
+        assert_eq!(h.state().views[0].line_editor.as_ref().unwrap().block, index);
+        let draft = format!("{}{new}", block.editor_text);
+        h.key_press_modifiers(Modifiers::COMMAND, Key::A);
+        h.event(egui::Event::Text(draft.clone()));
+        h.run_steps(4);
+        assert_eq!(h.state().views[0].line_editor.as_ref().unwrap().text, draft);
+        let galley = h
+            .output()
+            .shapes
+            .iter()
+            .find_map(|s| match &s.shape {
+                egui::Shape::Text(t) if t.galley.text() == draft => Some(t.galley.clone()),
+                _ => None,
+            })
+            .expect("typed Chinese is in the actual inline editor");
+        assert!(
+            galley
+                .job
+                .sections
+                .iter()
+                .filter(|s| draft
+                    .get(usize::from(s.byte_range.start)..usize::from(s.byte_range.end))
+                    .is_some_and(|text| text.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c))))
+                .all(|s| matches!(&s.format.font_id.family, egui::FontFamily::Name(n) if n.starts_with("pdf-source-")))
+        );
+        h.key_press_modifiers(Modifiers::COMMAND, Key::Enter);
+        h.run_steps(5);
+        assert!(h.state().views[0].line_editor.is_none());
+        let edited = h.state().session.get(id).unwrap();
+        assert!(edited.text_lines(page_index).iter().any(|l| l.text.contains(&new) && l.base_font == "DroidSansFallback"));
+        let first = edited.text_lines(page_index).into_iter().find(|l| l.text.starts_with(source.text.trim())).unwrap();
+        assert!(first.baseline().iter().zip(source.baseline()).all(|(a, b)| (a - b).abs() < 0.01));
+        let current = pixels(edited.display.clone(), page_index);
+        let saved = h.state_mut().session.save_bytes(id).unwrap();
+        let mut reopen = Session::new();
+        let rid = reopen.open("saved.pdf", None, saved, None).unwrap();
+        assert_eq!(pixels(reopen.get(rid).unwrap().display.clone(), page_index), current);
+        // Repeat keyboard input and deletion without recreating the editor via state mutation.
+        h.hover_at(point);
+        h.run_steps(1);
+        h.drag_at(point);
+        h.run_steps(1);
+        h.drop_at(point);
+        h.run_steps(6);
+        assert!(h.state().views[0].line_editor.as_ref().unwrap().text.contains(&new));
+        h.key_press_modifiers(Modifiers::COMMAND, Key::A);
+        let shortened = draft.replace(&new, &new.chars().skip(1).collect::<String>());
+        h.event(egui::Event::Text(shortened.clone()));
+        h.run_steps(3);
+        h.key_press_modifiers(Modifiers::COMMAND, Key::Enter);
+        h.run_steps(4);
+        let current = pixels(h.state().session.get(id).unwrap().display.clone(), page_index);
+        let saved = h.state_mut().session.save_bytes(id).unwrap();
+        let rid = reopen.open("deleted.pdf", None, saved, None).unwrap();
+        assert_eq!(pixels(reopen.get(rid).unwrap().display.clone(), page_index), current);
+        let content = |s: &str| s.chars().filter(|c| !c.is_whitespace()).collect::<String>();
+        assert_eq!(content(&reopen.get(rid).unwrap().text_blocks(page_index)[index].editor_text), content(&shortened));
+        h.state_mut().session.undo(id).unwrap();
+        h.state_mut().session.undo(id).unwrap();
+        h.state_mut().session.undo(id).unwrap();
+        h.run_steps(4);
+    }
+    assert_eq!(std::fs::read(path).unwrap(), original);
+    println!("verified Chinese keyboard insertion/deletion and save/reopen rendering on {pages} pages");
 }

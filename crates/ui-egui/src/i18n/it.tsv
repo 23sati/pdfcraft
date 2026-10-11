@@ -2203,3 +2203,10 @@ key	Space	Spazio
 	Panels	Pannelli
 	Resize panels	Ridimensiona pannelli
 	Resize panel window	Ridimensiona finestra pannello
+
+# Document font selection
+	Finding document fonts…	Ricerca dei caratteri per il documento…
+	Installed fonts…	Caratteri installati…
+	Keep source fonts	Mantieni i caratteri originali
+	Load font…	Carica carattere…
+	No openly licensed document fonts found. Load a font file.	Nessun carattere con licenza aperta trovato. Carica un file di carattere.

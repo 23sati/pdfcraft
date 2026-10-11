@@ -2158,3 +2158,10 @@ key	Space	Интервал
 	Resize panel window	Преоразмери прозореца на панела
 	Tools	Инструменти
 	Inspector	Инспектор
+
+# Document font selection
+	Finding document fonts…	Търсене на шрифтове за документа…
+	Installed fonts…	Инсталирани шрифтове…
+	Keep source fonts	Запазване на оригиналните шрифтове
+	Load font…	Зареждане на шрифт…
+	No openly licensed document fonts found. Load a font file.	Не са открити шрифтове с отворен лиценз. Заредете файл с шрифт.

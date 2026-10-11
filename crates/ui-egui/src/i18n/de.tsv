@@ -2196,3 +2196,10 @@ key	Space	Leertaste
 	Resize panel window	Größe des Bereichsfensters ändern
 	Tools	Werkzeuge
 	Inspector	Inspektor
+
+# Document font selection
+	Finding document fonts…	Dokumentschriftarten werden gesucht…
+	Installed fonts…	Installierte Schriftarten…
+	Keep source fonts	Quellschriftarten beibehalten
+	Load font…	Schriftart laden…
+	No openly licensed document fonts found. Load a font file.	Keine offen lizenzierten Schriftarten gefunden. Laden Sie eine Schriftartdatei.

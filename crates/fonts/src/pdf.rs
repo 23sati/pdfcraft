@@ -57,6 +57,8 @@ pub struct Metrics {
     pub italic: bool,
     /// Bytes per code for writing new text (1 for simple fonts, else the codespace length).
     code_len: usize,
+    /// Valid single-character explicit mappings, preindexed once for large full CJK fonts.
+    explicit_reverse: HashMap<char, u32>,
 }
 
 fn nums(doc: &Document, o: Option<&Object>) -> Vec<f64> {
@@ -522,6 +524,7 @@ impl Metrics {
             bold: false,
             italic: false,
             code_len: 1,
+            explicit_reverse: (32..127u8).map(|c| (char::from(c), u32::from(c))).collect(),
         }
     }
 
@@ -548,6 +551,15 @@ impl Metrics {
             Codes::Ranges(r) => r.last().map_or(2, |x| x.0),
         };
         m.unicode = unicode_map(doc, font, m.composite);
+        let mut reverse = HashMap::new();
+        for (&code, text) in m.unicode.explicit.iter().map(|(c, (_, t))| (c, t)).chain(m.unicode.encoding.iter()) {
+            if let Some(ch) = only_char(text)
+                && m.shows(code, ch)
+            {
+                keep(&mut reverse, ch, code);
+            }
+        }
+        m.explicit_reverse = reverse;
         m
     }
 
@@ -744,20 +756,9 @@ impl Metrics {
         // checked one by one; each range is asked for the wanted characters it can show.
         let wanted: HashSet<char> = text.chars().collect();
         let mut reverse: HashMap<char, u32> = HashMap::new();
-        for (&code, (_, t)) in &self.unicode.explicit {
-            if let Some(c) = only_char(t)
-                && wanted.contains(&c)
-                && self.shows(code, c)
-            {
-                keep(&mut reverse, c, code);
-            }
-        }
-        for (&code, t) in &self.unicode.encoding {
-            if let Some(c) = only_char(t)
-                && wanted.contains(&c)
-                && self.shows(code, c)
-            {
-                keep(&mut reverse, c, code);
+        for &ch in &wanted {
+            if let Some(&code) = self.explicit_reverse.get(&ch) {
+                keep(&mut reverse, ch, code);
             }
         }
         for range in &self.unicode.ranges {

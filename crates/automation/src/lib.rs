@@ -341,6 +341,21 @@ impl Automation {
                     .collect();
                 json!({ "page": page + 1, "count": lines.len(), "lines": lines })
             }
+            "image_hit" => {
+                let page = self.page(&a)?;
+                let point = a
+                    .get("point")
+                    .and_then(Value::as_array)
+                    .filter(|p| p.len() == 2)
+                    .and_then(|p| Some([p.first()?.as_f64()?, p.get(1)?.as_f64()?]))
+                    .filter(|p| p.iter().all(|v| v.is_finite() && v.abs() <= 1e9))
+                    .ok_or_else(|| ToolError::InvalidArgs("point must contain two finite coordinates".into()))?;
+                let doc = self.doc(&a)?;
+                let p = &doc.info.pages[page];
+                let user = p.view_to_user(point[0] as f32, point[1] as f32).map(f64::from);
+                let images: Vec<_> = doc.page_images(page).iter().enumerate().filter(|(_, im)| im.contains(user)).map(|(i, _)| i + 1).collect();
+                json!({"page":page+1,"images":images})
+            }
             "page_images" => {
                 let page = self.page(&a)?;
                 let doc = self.doc(&a)?;
@@ -436,6 +451,50 @@ impl Automation {
                     .collect();
                 json!({ "page": page + 1, "count": blocks.len(), "paragraphs": blocks })
             }
+            "text_font_files" => {
+                let roots = if let Some(paths) = a.get("directories") {
+                    let paths = paths
+                        .as_array()
+                        .filter(|p| p.len() <= 16)
+                        .ok_or_else(|| ToolError::InvalidArgs("directories must be at most 16 paths".into()))?;
+                    paths
+                        .iter()
+                        .map(|p| self.resolve(p.as_str().ok_or_else(|| ToolError::InvalidArgs("directory must be a path".into()))?, false))
+                        .collect::<Result<Vec<_>>>()?
+                } else if let Some(root) = &self.root {
+                    vec![root.clone()]
+                } else {
+                    pdfcraft_engine::text_fonts::installed_directories()
+                };
+                json!({"fonts": pdfcraft_engine::text_fonts::discover(&roots).into_iter().map(|f| json!({"path":f.path,"family":f.family,"font":f.face})).collect::<Vec<_>>()})
+            }
+            "text_font_import" => {
+                let page = self.page(&a)?;
+                let path = self.resolve(a.str("path")?, false)?;
+                let file = std::fs::File::open(&path).map_err(failed)?;
+                use std::io::Read;
+                let mut bytes = Vec::new();
+                file.take((16 << 20) + 1).read_to_end(&mut bytes).map_err(failed)?;
+                if bytes.len() > 16 << 20 {
+                    return Err(ToolError::InvalidArgs("font input exceeds 16 MiB".into()));
+                }
+                let before: Vec<_> = self.doc(&a)?.text_editor_fonts(page).into_iter().map(|f| f.resource).collect();
+                let mut out = self.apply(&a, Edit::RegisterTextFont { page, bytes: Arc::new(bytes) })?;
+                let added = self
+                    .doc(&a)?
+                    .text_editor_fonts(page)
+                    .into_iter()
+                    .find(|f| !before.contains(&f.resource) && !f.resource.starts_with("PCApproved"));
+                if let Some(f) = added {
+                    out["resource"] = json!(f.resource);
+                    out["font"] = json!(f.face);
+                }
+                out
+            }
+            "text_fonts" => {
+                let page = self.page(&a)?;
+                json!({"fonts": self.doc(&a)?.text_editor_fonts(page).into_iter().map(|f| json!({"resource":f.resource,"font":f.face,"full_face":f.resource.starts_with("PCFull"),"preview_only":f.resource.starts_with("PCApproved")})).collect::<Vec<_>>()})
+            }
             "text_edit_layout" => {
                 let page = self.page(&a)?;
                 let doc = self.doc(&a)?;
@@ -446,7 +505,13 @@ impl Automation {
                 }
                 let source = &blocks[k as usize - 1];
                 let text = a.opt_str("text")?.unwrap_or(&source.editor_text);
-                let style = pdfcraft_engine::BlockStyle { size: a.opt_num("size")?, width: a.opt_num("width")?, ..Default::default() };
+                let style = pdfcraft_engine::BlockStyle {
+                    size: a.opt_num("size")?,
+                    width: a.opt_num("width")?,
+                    resource: a.opt_str("font_resource")?.map(str::to_owned),
+                    ranges: parse_style_ranges(a.get("ranges"))?,
+                    ..Default::default()
+                };
                 let layout = doc.text_edit_layout(page, k as usize - 1, text, &style).map_err(failed)?;
                 let info = &doc.info.pages[page];
                 let view_rect = |r: [f64; 4]| {
@@ -468,6 +533,8 @@ impl Automation {
                 let block = self.doc(&a)?.text_blocks(page)[k as usize - 1].clone();
                 let text = a.opt_str("text")?.map(str::to_owned).unwrap_or(block.text);
                 let mut style = pdfcraft_engine::BlockStyle {
+                    ranges: parse_style_ranges(a.get("ranges"))?,
+                    resource: a.opt_str("font_resource")?.map(str::to_owned),
                     bold: a.opt_bool("bold")?,
                     size: a.opt_num("size")?,
                     underline: a.opt_bool("underline")?,
@@ -1708,6 +1775,53 @@ fn foreign_share(path: &Path, root: &Path) -> bool {
 }
 
 // ---- JSON helpers ----------------------------------------------------------------------------
+
+fn parse_style_ranges(value: Option<&Value>) -> Result<Vec<pdfcraft_engine::RangeStyle>> {
+    let Some(value) = value else { return Ok(Vec::new()) };
+    let values = value.as_array().filter(|v| v.len() <= 1024).ok_or_else(|| Args::wrong("ranges", "an array of at most 1024 style objects"))?;
+    values
+        .iter()
+        .map(|v| {
+            let a = Args(v);
+            let bounds = a
+                .get("range")
+                .and_then(Value::as_array)
+                .filter(|v| v.len() == 2)
+                .ok_or_else(|| Args::wrong("range", "[start,end] UTF-8 byte offsets"))?;
+            let start = bounds
+                .first()
+                .and_then(Value::as_u64)
+                .and_then(|n| usize::try_from(n).ok())
+                .ok_or_else(|| Args::wrong("range", "nonnegative byte offsets"))?;
+            let end = bounds
+                .get(1)
+                .and_then(Value::as_u64)
+                .and_then(|n| usize::try_from(n).ok())
+                .ok_or_else(|| Args::wrong("range", "nonnegative byte offsets"))?;
+            let family = a
+                .opt_str("font")?
+                .map(|f| match f {
+                    "helvetica" => Ok(pdfcraft_engine::FontFamily::Helvetica),
+                    "times" => Ok(pdfcraft_engine::FontFamily::Times),
+                    "courier" => Ok(pdfcraft_engine::FontFamily::Courier),
+                    _ => Err(Args::wrong("font", "helvetica, times or courier")),
+                })
+                .transpose()?
+                .map(|f| Ok((f, a.opt_bool("bold")?.unwrap_or(false), a.opt_bool("italic")?.unwrap_or(false))))
+                .transpose()?;
+            Ok(pdfcraft_engine::RangeStyle {
+                range: start..end,
+                family,
+                resource: a.opt_str("font_resource")?.map(str::to_owned),
+                size: a.opt_num("size")?,
+                color: a.opt_str("color")?.map(comments::parse_color).transpose()?,
+                underline: a.opt_bool("underline")?,
+                char_spacing: a.opt_num("char_spacing")?,
+                scale: a.opt_num("scale")?,
+            })
+        })
+        .collect()
+}
 
 /// Typed access to validated arguments.
 struct Args<'a>(&'a Value);

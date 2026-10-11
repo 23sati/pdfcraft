@@ -2220,6 +2220,69 @@ fn rich_region_edits_preserve_styles_positions_and_delete_all_runs_after_reopen(
 }
 
 #[test]
+fn disjoint_style_ranges_preserve_unselected_runs_and_validate_utf8_atomically() {
+    let mut doc = mixed_region_page();
+    let block = text::text_blocks(&doc, 0).unwrap()[1].clone();
+    let a = block.editor_text.find("Plain").unwrap();
+    let b = block.editor_text.find("bold").unwrap();
+    let style = BlockStyle {
+        ranges: vec![
+            RangeStyle {
+                range: a..a + 5,
+                family: None,
+                resource: None,
+                size: Some(15.0),
+                color: Some([0.8, 0.1, 0.2]),
+                underline: Some(true),
+                char_spacing: None,
+                scale: None,
+            },
+            RangeStyle {
+                range: b..b + 4,
+                family: Some((Family::Courier, false, true)),
+                resource: None,
+                size: None,
+                color: None,
+                underline: None,
+                char_spacing: Some(0.2),
+                scale: Some(90.0),
+            },
+        ],
+        width: Some(300.0),
+        ..Default::default()
+    };
+    text::rewrite_block(&mut doc, 0, 1, Some(&block.editor_text), &style).unwrap();
+    doc = reopen(&doc);
+    let lines = text::text_lines(&doc, 0).unwrap();
+    let plain = lines.iter().find(|l| l.text == "Plain").unwrap();
+    assert_eq!((plain.size, plain.color), (15.0, [0.8, 0.1, 0.2]));
+    let bold = lines.iter().find(|l| l.text == "bold").unwrap();
+    assert_eq!(bold.base_font, "Courier-Oblique");
+    let original = mixed_region_page();
+    for word in ["About", "Italic footer"] {
+        let prior = text::text_lines(&original, 0).unwrap().into_iter().find(|l| l.text == word).unwrap();
+        let after = lines.iter().find(|l| l.text == word).unwrap();
+        assert_eq!((after.size, after.color, &after.font, after.baseline()), (prior.size, prior.color, &prior.font, prior.baseline()));
+    }
+    let before = pdfcraft_cos::write_full(&doc, &SaveOptions::default()).unwrap();
+    let invalid = BlockStyle {
+        ranges: vec![RangeStyle {
+            range: 1..2,
+            family: None,
+            resource: None,
+            size: Some(12.0),
+            color: None,
+            underline: None,
+            char_spacing: None,
+            scale: None,
+        }],
+        ..Default::default()
+    };
+    assert!(text::rewrite_block(&mut doc, 0, 1, Some("é bad"), &invalid).is_err());
+    assert_eq!(pdfcraft_cos::write_full(&doc, &SaveOptions::default()).unwrap(), before);
+}
+
+#[test]
 fn centered_mixed_size_title_keeps_three_rows_when_changed() {
     let mut doc = mixed_region_page();
     let title = text::text_blocks(&doc, 0).unwrap()[0].clone();
@@ -2287,7 +2350,7 @@ fn image_clip_path_and_graphics_state_continue_across_content_streams() {
 }
 
 #[test]
-fn cropped_image_resizing_preserves_contents_and_shared_clips_are_refused() {
+fn cropped_image_resizing_preserves_contents_and_isolates_shared_clips() {
     let mut doc = image_page();
     let page = pdfcraft_model::pages(&doc)[0].clone();
     let stream = doc.add(Object::Stream(Stream::flate(
@@ -2313,7 +2376,60 @@ fn cropped_image_resizing_preserves_contents_and_shared_clips_are_refused() {
     )));
     doc.update_dict(page.obj, |d| d.set(b"Contents".to_vec(), Object::Ref(stream))).unwrap();
     let before = images::page_images(&doc, 0).unwrap();
-    let error = images::change_image(&mut doc, 0, 0, &images::ImageChange::Transform([1.2, 0.0, 0.0, 1.2, 0.0, 0.0])).unwrap_err();
-    assert!(error.to_string().contains("shares a clipping path"));
-    assert_eq!(images::page_images(&doc, 0).unwrap(), before, "a shared crop cannot shift unrelated content");
+    let caption = text::text_lines(&doc, 0).unwrap();
+    let transform = [1.2, 0.0, 0.0, 1.2, 0.0, 0.0];
+    images::change_image(&mut doc, 0, 0, &images::ImageChange::Transform(transform)).unwrap();
+    doc = reopen(&doc);
+    let after = images::page_images(&doc, 0).unwrap();
+    assert!(close(after[0].visible_rect.unwrap(), pdfcraft_content::Matrix(transform).bbox(before[0].visible_rect.unwrap())));
+    assert_eq!(after[0].object, before[0].object);
+    assert_eq!(
+        text::text_lines(&doc, 0).unwrap().iter().map(|l| (&l.text, l.rect, l.baseline())).collect::<Vec<_>>(),
+        caption.iter().map(|l| (&l.text, l.rect, l.baseline())).collect::<Vec<_>>()
+    );
+    // A second resize uses the now-private crop, with no additional painted content copied.
+    images::change_image(&mut doc, 0, 0, &images::ImageChange::Transform([0.5, 0.0, 0.0, 0.5, 0.0, 0.0])).unwrap();
+    assert_eq!(text::text_lines(&doc, 0).unwrap().len(), 1);
+}
+
+#[test]
+fn curved_image_clips_have_analytic_bounds_and_holes_do_not_capture_points() {
+    let mut doc = image_page();
+    let page = pdfcraft_model::pages(&doc)[0].obj;
+    let bytes =
+        b"q 0 0 m 0 200 100 200 100 0 c h W n 300 0 0 300 0 0 cm /Im0 Do Q q 100 100 100 100 re 125 125 50 50 re W* n 400 0 0 400 0 0 cm /Im0 Do Q";
+    let content = doc.add(Object::Stream(Stream::flate(Dict::new(), bytes)));
+    doc.update_dict(page, |d| d.set(b"Contents".to_vec(), Object::Ref(content))).unwrap();
+    let images = images::page_images(&doc, 0).unwrap();
+    assert!(close(images[0].visible_rect.unwrap(), [0.0, 0.0, 100.0, 150.0]), "cubic extrema, not controls");
+    assert!(images[0].contains([50.0, 100.0]));
+    assert!(!images[0].contains([2.0, 140.0]), "empty corners of curve bounds are not artwork");
+    assert!(images[1].contains([110.0, 110.0]));
+    assert!(!images[1].contains([150.0, 150.0]), "even-odd hole");
+    images::change_image(&mut doc, 0, 1, &images::ImageChange::Transform([1.2, 0.0, 0.0, 1.2, 10.0, 15.0])).unwrap();
+    let after = images::page_images(&reopen(&doc), 0).unwrap();
+    assert!(!after[1].contains([190.0, 195.0]), "the hole follows its private crop");
+    assert!(after[1].contains([142.0, 147.0]));
+}
+
+#[test]
+fn marked_paragraph_boundaries_and_cross_stream_transforms_survive_rewrite() {
+    let mut doc =
+        text_page("/P << /MCID 0 >> BDC BT /F1 12 Tf 40 500 Td (One) Tj ET EMC /P << /MCID 1 >> BDC BT /F1 12 Tf 40 482 Td (Two) Tj ET EMC");
+    assert_eq!(text::text_blocks(&doc, 0).unwrap().len(), 2, "distinct explicit paragraphs win over nearby geometry");
+    let page = pdfcraft_model::pages(&doc)[0].obj;
+    let parts: [&[u8]; 2] =
+        [b"/P << /MCID 2 >> BDC BT /F1 12 Tf 40 500 Td (First row) Tj ET", b"q 1 0 0 1 10 12 cm BT /F1 12 Tf 30 470 Td (Second row) Tj ET Q EMC"];
+    let refs = parts.iter().map(|p| Object::Ref(doc.add(Object::Stream(Stream::flate(Dict::new(), p))))).collect();
+    doc.update_dict(page, |d| d.set(b"Contents".to_vec(), Object::Array(refs))).unwrap();
+    let block = text::text_blocks(&doc, 0).unwrap();
+    assert_eq!(block.len(), 1, "one marked paragraph across streams and coordinate spaces");
+    assert_eq!(block[0].editor_text, "First row\nSecond row");
+    let original = text::text_lines(&doc, 0).unwrap();
+    text::rewrite_block(&mut doc, 0, 0, Some("First row\nChanged row"), &text::BlockStyle { width: Some(200.0), ..Default::default() }).unwrap();
+    let after = text::text_lines(&reopen(&doc), 0).unwrap();
+    for (a, b) in after.iter().zip(original) {
+        assert!(close(a.rect, b.rect) || a.baseline() == b.baseline());
+    }
+    assert_eq!(after[1].text, "Changed row");
 }
