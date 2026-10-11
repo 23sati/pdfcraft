@@ -2675,8 +2675,15 @@ impl Session {
             Scope::Metadata => return Ok(()),
             Scope::Comments => doc.info.annotations = comment_list(&editor.cos),
             Scope::Form => {
+                // PERF: keystroke path, index once. A linear find per field is O(F^2);
+                // forms reach 10k fields.
+                let mut by_name = std::collections::HashMap::with_capacity(form.len());
+                for x in form.iter() {
+                    // First match wins (do not simplify to collect: it keeps the last).
+                    by_name.entry(x.name.as_str()).or_insert(x);
+                }
                 for f in &mut doc.info.fields {
-                    if let Some(ff) = form.iter().find(|x| x.name == f.name) {
+                    if let Some(ff) = by_name.get(f.name.as_str()) {
                         f.value = match ff.kind {
                             pdfcraft_forms::FieldKind::CheckBox | pdfcraft_forms::FieldKind::Radio => {
                                 Some(ff.value.first().cloned().unwrap_or_else(|| "Off".into()))

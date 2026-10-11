@@ -2303,3 +2303,10 @@ scroll speed	Fast	Rychlá
 	Rotate page {label} counterclockwise	Otočit stránku {label} proti směru hodinových ručiček
 	Rotate page {label} clockwise	Otočit stránku {label} po směru hodinových ručiček
 	Delete page {label}	Odstranit stránku {label}
+
+# Architectural print controls (follow-up to #599).
+	PDF page: {w} × {h} in	Stránka PDF: {w} × {h} palců
+	Match page at 100%	Papír podle stránky, 100 %
+	PDF scale: {scale}%	Měřítko PDF: {scale} %
+	Printer paper and scaling may differ. Check driver settings.	Papír a měřítko tiskárny se mohou lišit. Zkontrolujte nastavení ovladače.
+	Drawing scale changes. Use Actual size for full-scale plans.	Měřítko výkresu se změní. Pro plány ve skutečném měřítku použijte volbu Skutečná velikost.
