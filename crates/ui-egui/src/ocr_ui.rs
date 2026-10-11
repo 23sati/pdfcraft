@@ -28,11 +28,20 @@ pub struct OcrDraft {
     pub language: String,
     /// "Downsample to" resolution.
     pub dpi: u32,
+    /// Also recognize pages that already have text (pictures on them; their text isn't added again).
+    pub text_pages: bool,
 }
 
 impl Default for OcrDraft {
     fn default() -> Self {
-        OcrDraft { pages: OcrPages::All, from: 1, to: 1, language: "en".into(), dpi: 300 }
+        OcrDraft { pages: OcrPages::All, from: 1, to: 1, language: "en".into(), dpi: 300, text_pages: false }
+    }
+}
+
+impl OcrDraft {
+    /// The recognition settings these choices make.
+    pub fn settings(&self) -> OcrSettings {
+        OcrSettings { dpi: self.dpi as f32, language: self.language.clone(), skip_text_pages: !self.text_pages }
     }
 }
 
@@ -110,6 +119,9 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> (boo
             });
             ui.end_row();
         });
+        ui.add_space(4.0);
+        ui.checkbox(&mut d.text_pages, tl!("Also recognize pages that already have text"))
+            .on_hover_text(tl!("Pictures on those pages are recognized too; words already in the page's text are not added again"));
     });
     if !available {
         ui.label(
@@ -152,7 +164,7 @@ impl PdfCraftApp {
             OcrPages::Current => vec![self.views[vi].current],
             OcrPages::Range => (d.from.saturating_sub(1)..d.to).collect(),
         };
-        let settings = OcrSettings { dpi: d.dpi as f32, language: d.language.clone(), ..Default::default() };
+        let settings = d.settings();
         let Some(job) = self.session.ocr_job(id, &pages, settings) else { return };
         let progress = Arc::new(Mutex::new(OcrProgress { total: job.pages.len(), ..Default::default() }));
         let p = progress.clone();
@@ -189,7 +201,7 @@ impl PdfCraftApp {
             return;
         }
         // The settings showing now, not when the folder arrives.
-        let settings = OcrSettings { dpi: self.ocr_draft.dpi as f32, language: self.ocr_draft.language.clone(), ..Default::default() };
+        let settings = self.ocr_draft.settings();
         #[cfg(not(target_arch = "wasm32"))]
         match self.export_dir_override.clone() {
             Some(d) => self.ocr_files_into(files, settings, d.into()),
