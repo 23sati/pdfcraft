@@ -147,6 +147,23 @@ fn system_fallback_fills_missing_scripts() {
     assert!(layout_widths(&mut fonts, ARABIC).iter().all(|w| w.is_finite() && *w > 0.0));
 }
 
+/// Simplified Chinese must use an installed CJK face when no allowed Hans face is bundled.
+#[cfg(target_os = "macos")]
+#[test]
+fn chinese_system_fallback_has_glyphs_on_macos() {
+    if std::env::var_os("PDFCRAFT_SYSTEM_FONTS").is_some_and(|v| v == "0") {
+        eprintln!("skipping chinese_system_fallback_has_glyphs_on_macos: system fallback disabled");
+        return;
+    }
+    let defs = theme::installed_font_definitions(true);
+    assert!(defs.font_data.contains_key(theme::SYSTEM_HANS_FALLBACK), "macOS CJK fallback was not loaded");
+    let mut fonts = Fonts::new(TextOptions::default(), defs);
+    for id in families() {
+        assert!(fonts.has_glyphs(&id, CHINESE), "{id:?} lacks {CHINESE}");
+        assert!(fonts.has_glyphs(&id, ARABIC), "{id:?} lacks {ARABIC}");
+    }
+}
+
 /// Without craft-fonts the interface fonts still install and lay out any text (Japanese falls
 /// back to egui's replacement glyph) without panicking; Latin text is unaffected.
 #[test]
