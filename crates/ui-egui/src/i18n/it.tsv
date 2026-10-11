@@ -2219,6 +2219,10 @@ key	Space	Spazio
 	Panels	Pannelli
 	Resize panels	Ridimensiona pannelli
 	Resize panel window	Ridimensiona finestra pannello
+	Reload documents when their files change on disk	Ricarica i documenti quando i loro file cambiano sul disco
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Questo file è cambiato sul disco. Ricaricalo per vedere la nuova versione; le modifiche non salvate andranno perse.
+	Reload	Ricarica
+	Couldn't reload {name}: {e}	Impossibile ricaricare {name}: {e}
 	Select page {label}	Seleziona pagina {label}
 	Rotate page {label} counterclockwise	Ruota pagina {label} in senso antiorario
 	Rotate page {label} clockwise	Ruota pagina {label} in senso orario
