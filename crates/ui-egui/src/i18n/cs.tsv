@@ -2271,3 +2271,15 @@ certificate	Subject	Subjekt
 	Rendering…	Vykreslování…
 	Still rendering — this page is unusually complex…	Stále se vykresluje – tato stránka je neobvykle složitá…
 	English	Angličtina
+
+# Appearance preferences and the mouse wheel scroll speed (added upstream).
+	Appearance mode	Režim vzhledu
+	Light	Světlý
+	Dark	Tmavý
+	Active	Aktivní
+	Dark theme	Tmavý motiv
+	Appearance settings…	Nastavení vzhledu…
+	Mouse wheel scroll speed	Rychlost posouvání kolečkem myši
+scroll speed	Slow	Pomalá
+scroll speed	Normal	Normální
+scroll speed	Fast	Rychlá
