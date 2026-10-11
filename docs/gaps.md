@@ -94,6 +94,9 @@ update the numbers.
   Page/path-clipped artwork bounds and text-first hit testing prevent large cropped images from
   blocking text. A separate private four-page regression opens all 73 detected text regions;
   rectangular clips are exact while complex paths retain conservative selection bounds.
+  Image resize regressions now transform an isolated crop with its pixels, retain the opposite
+  corner and preserve text beneath a selected grip. Shared clipping scopes with unrelated
+  painted content are refused rather than silently moved.
   Installed-font selection, unsupported source font programs, arbitrary multi-range style edits and
   reliable semantic grouping on every PDF remain unresolved. This does not change the readiness estimate.
 

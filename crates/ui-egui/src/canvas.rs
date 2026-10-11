@@ -2280,7 +2280,9 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                 };
                 crate::redact_ui::page_input(ui, &resp, &xf, i, info, over_text, view)
             };
-            let on_objects = tool == QuickTool::EditText && can_modify && crate::object_ui::page_input(ui, &resp, &xf, i, doc, view);
+            let image_owns_pointer = tool == QuickTool::EditText && crate::edit_text_ui::image_owns_pointer(ui, &xf, i, info, view);
+            let on_objects =
+                !image_owns_pointer && tool == QuickTool::EditText && can_modify && crate::object_ui::page_input(ui, &resp, &xf, i, doc, view);
             let on_content = !on_objects && editing_content && can_modify && {
                 crate::content_ui::page_input(ui, &resp, &xf, i, info, &added, tool == QuickTool::AddText, &text_style, view)
                     || tool == QuickTool::AddText
@@ -2305,8 +2307,9 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                 };
                 // Editable text takes precedence over background/overlapping artwork. Both
                 // inventories are painted every frame, even when text owns the pointer.
-                let text_used = crate::edit_text_ui::page_input(ui, &resp, &xf, i, doc, &lines, view);
-                let image_used = crate::edit_text_ui::image_input(ui, &resp, &xf, i, info, &images, view, &mut image_action, !text_used);
+                let text_used = crate::edit_text_ui::page_input(ui, &resp, &xf, i, doc, &lines, view, !image_owns_pointer);
+                let image_used =
+                    crate::edit_text_ui::image_input(ui, &resp, &xf, i, info, &images, view, &mut image_action, image_owns_pointer || !text_used);
                 text_used || image_used
             };
             let on_link = tool == QuickTool::Link && can_modify && crate::link_ui::page_input(ui, &resp, &xf, i, info, &doc_links, view);

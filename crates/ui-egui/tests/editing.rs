@@ -2679,7 +2679,7 @@ fn clipped_artwork_with_labels() -> Vec<u8> {
     let image = doc.add(Object::Stream(Stream::flate(image, &[220, 235, 245])));
     for page in pdfcraft_model::pages(&doc) {
         let contents = doc.add(Object::Stream(Stream::flate(Dict::new(),
-            b"q 30 170 130 80 re W* n q 800 0 0 900 -300 -400 cm /Im0 Do Q Q BT /F1 12 Tf 30 130 Td (Editable caption) Tj ET BT /F1 12 Tf 40 220 Td (Overlay) Tj ET")));
+            b"q 30 170 130 80 re W* n q 800 0 0 900 -300 -400 cm /Im0 Do Q Q BT /F1 12 Tf 30 130 Td (Editable caption) Tj ET BT /F1 12 Tf 40 220 Td (Overlay) Tj ET BT /F1 9 Tf 154 249 Td (Corner label) Tj ET")));
         let mut resources = doc.resolve(page.dict.get(b"Resources").unwrap()).as_dict().unwrap().clone();
         let mut xo = Dict::new();
         xo.set(b"Im0".to_vec(), Object::Ref(image));
@@ -2742,6 +2742,165 @@ fn cropped_images_do_not_intercept_text_and_stay_inside_each_page() {
         }
     }
     assert!(!dirty(&h));
+}
+
+#[test]
+fn cropped_image_corner_resize_keeps_opposite_corner_and_scales_crop() {
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 1100.0)).build_eframe(|_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("clipped.pdf", None, clipped_artwork_with_labels()).unwrap();
+        app
+    });
+    h.run_steps(4);
+    assert!(h.state_mut().execute("edit.edit_text"));
+    h.state_mut().views[0].fit = pdfcraft_ui_egui::canvas::Fit::Page;
+    assert!(h.state_mut().execute("view.layout.single"));
+    h.run_steps(3);
+    let page = h.state().views[0].page_screen_rect(0).unwrap();
+    let at = |x: f32, y: f32| egui::pos2(page.left() + x / 200.0 * page.width(), page.top() + (300.0 - y) / 300.0 * page.height());
+    let p = at(95.0, 195.0);
+    h.hover_at(p);
+    h.run_steps(1);
+    h.drag_at(p);
+    h.run_steps(1);
+    h.drop_at(p);
+    h.run_steps(3);
+    let id = h.state().views[0].id;
+    assert!(h.state().views[0].image_selection.is_some());
+    let text = |doc: &pdfcraft_engine::Document| {
+        doc.text_lines(0).into_iter().map(|l| (l.text.clone(), l.rect, l.font.clone(), l.size, l.color, l.baseline())).collect::<Vec<_>>()
+    };
+    let original_text = text(h.state().session.get(id).unwrap());
+    // Grow then shrink using the visible top-right grip, never the off-page raw placement.
+    for (factor, right, top, horizontal_only, off_centre) in [
+        (1.15, 179.5, 262.0, false, false),
+        (0.7, 134.65, 234.4, false, false),
+        (0.75, 108.4875, 218.3, true, false),
+        (1.1, 116.33625, 223.13, false, true),
+    ] {
+        let before = h.state().session.get(id).unwrap().page_images(0)[0].visible_rect.unwrap();
+        let grip = at(before[2] as f32, before[3] as f32);
+        let offset = if off_centre { egui::vec2(3.0, -3.0) } else { egui::Vec2::ZERO };
+        let from = grip + offset;
+        let fixed = at(before[0] as f32, before[1] as f32);
+        let desired = fixed + (grip - fixed) * factor + offset;
+        let to = if horizontal_only { egui::pos2(desired.x, from.y) } else { desired };
+        let generation = h.state().session.get(id).unwrap().edit_generation();
+        h.hover_at(from);
+        h.run_steps(1);
+        h.drag_at(from);
+        h.run_steps(1);
+        for k in 1..=5 {
+            h.hover_at(from + (to - from) * (k as f32 / 5.0));
+            h.run_steps(1);
+        }
+        assert_eq!(h.state().session.get(id).unwrap().edit_generation(), generation, "dragging previews without committing every frame");
+        h.drop_at(to);
+        h.run_steps(4);
+        assert!(h.state().views[0].line_editor.is_none(), "a label under a selected image grip cannot take its drag");
+        let after = h.state().session.get(id).unwrap().page_images(0)[0].visible_rect.unwrap();
+        for (actual, expected) in after.into_iter().zip([30.0, 170.0, right, top]) {
+            assert!((actual - expected).abs() < 0.05, "cropped image follows the visible grip: {actual} vs {expected}");
+        }
+        assert_eq!(text(h.state().session.get(id).unwrap()), original_text, "image resizing leaves captions in place");
+    }
+    let saved = h.state().session.save_bytes(id).unwrap();
+    let mut reopened = pdfcraft_engine::Session::new();
+    let re = reopened.open("again.pdf", None, saved, None).unwrap();
+    assert_eq!(reopened.get(re).unwrap().page_images(0), h.state().session.get(id).unwrap().page_images(0));
+}
+
+/// Exercise actual pointer gestures on each cropped placement, without capturing private pixels.
+#[test]
+#[ignore = "requires an explicitly supplied local PDF with cropped artwork"]
+fn private_cropped_image_grips_resize_without_moving_the_opposite_corner() {
+    let path = std::env::var("PDFCRAFT_CLIPPED_ARTWORK_PDF").expect("supply a local PDF path");
+    let original = std::fs::read(&path).unwrap();
+    let bytes = original.clone();
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 1100.0)).build_eframe(move |_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("private.pdf", None, bytes).unwrap();
+        app
+    });
+    h.run_steps(4);
+    assert!(h.state_mut().execute("edit.edit_text"));
+    h.state_mut().views[0].fit = pdfcraft_ui_egui::canvas::Fit::Page;
+    assert!(h.state_mut().execute("view.layout.single"));
+    let id = h.state().views[0].id;
+    let pages = h.state().session.get(id).unwrap().info.pages.len();
+    let mut checked = 0;
+    for page_index in 0..pages {
+        h.state_mut().views[0].go_to_page(page_index);
+        h.run_steps(4);
+        let doc = h.state().session.get(id).unwrap();
+        let info = doc.info.pages[page_index].clone();
+        let images = doc.page_images(page_index);
+        let blocks = doc.text_blocks(page_index);
+        let page = h.state().views[0].page_screen_rect(page_index).unwrap();
+        let at = |x: f64, y: f64| {
+            let v = info.user_to_view(x as f32, y as f32);
+            page.min + egui::vec2(v[0], v[1]) * (page.width() / info.width)
+        };
+        for (index, image) in images.iter().enumerate() {
+            let Some(b) = image.visible_rect else { continue };
+            let blank = (1..10)
+                .flat_map(|x| (1..10).map(move |y| (x, y)))
+                .map(|(x, y)| (b[0] + (b[2] - b[0]) * x as f64 / 10.0, b[1] + (b[3] - b[1]) * y as f64 / 10.0))
+                .find(|(x, y)| !blocks.iter().any(|l| *x >= l.rect[0] && *x <= l.rect[2] && *y >= l.rect[1] && *y <= l.rect[3]))
+                .expect("image has an unlabelled selection point");
+            let corners = [at(b[0], b[3]), at(b[2], b[3]), at(b[0], b[1]), at(b[2], b[1])];
+            for corner in 0..4 {
+                for (factor, axis) in [(0.8, 0), (1.04, 0), (0.8, 1), (0.8, 2)] {
+                    let p = at(blank.0, blank.1);
+                    h.hover_at(p);
+                    h.run_steps(1);
+                    h.drag_at(p);
+                    h.run_steps(1);
+                    h.drop_at(p);
+                    h.run_steps(3);
+                    assert_eq!(h.state().views[0].image_selection.as_ref().map(|s| s.index), Some(index));
+                    let generation = h.state().session.get(id).unwrap().edit_generation();
+                    let from = corners[corner];
+                    let fixed = corners[3 - corner];
+                    let desired = fixed + (from - fixed) * factor;
+                    let to = match axis {
+                        1 => egui::pos2(desired.x, from.y),
+                        2 => egui::pos2(from.x, desired.y),
+                        _ => desired,
+                    };
+                    h.hover_at(from);
+                    h.run_steps(1);
+                    h.drag_at(from);
+                    h.run_steps(1);
+                    for k in 1..=5 {
+                        h.hover_at(from + (to - from) * (k as f32 / 5.0));
+                        h.run_steps(1);
+                        assert_eq!(h.state().session.get(id).unwrap().edit_generation(), generation, "no PDF rewrite on pointer movement");
+                    }
+                    h.drop_at(to);
+                    h.run_steps(4);
+                    let after = h.state().session.get(id).unwrap().page_images(page_index)[index].visible_rect.unwrap();
+                    let actual = egui::Rect::from_two_pos(at(after[0], after[1]), at(after[2], after[3]));
+                    let expected = egui::Rect::from_two_pos(fixed, desired).intersect(page);
+                    assert!(
+                        (actual.min - expected.min).length() < 0.2 && (actual.max - expected.max).length() < 0.2,
+                        "page {}, image {}, corner {corner}: {actual:?} vs {expected:?}",
+                        page_index + 1,
+                        index + 1
+                    );
+                    assert!(h.state().views[0].line_editor.is_none());
+                    h.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+                    h.run_steps(4);
+                    checked += 1;
+                }
+            }
+        }
+    }
+    assert_eq!(h.state().session.get(id).unwrap().bytes.as_slice(), original.as_slice(), "undo restored the source document in memory");
+    assert_eq!(std::fs::read(path).unwrap(), original);
+    println!("verified {checked} real-file corner drag gestures on {pages} pages");
 }
 
 /// Local acceptance check for PDFs containing cropped artwork. No screenshots or source saves.

@@ -1703,10 +1703,15 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
                 .ok_or_else(|| EditError::Edit(pdfcraft_edit::EditError::Invalid(format!("page {} has no image {}", page + 1, index + 1))))?;
             let c = match change {
                 ImageEdit::Move(to) => pdfcraft_edit::ImageChange::Transform(pdfcraft_edit::rect_to_rect(img.rect, *to)),
-                ImageEdit::Rotate(q) => pdfcraft_edit::ImageChange::Transform(pdfcraft_edit::turn_about_centre(img.rect, *q, false, false)),
-                ImageEdit::Flip { horizontal } => {
-                    pdfcraft_edit::ImageChange::Transform(pdfcraft_edit::turn_about_centre(img.rect, 0, *horizontal, !*horizontal))
+                ImageEdit::Rotate(q) => {
+                    pdfcraft_edit::ImageChange::Transform(pdfcraft_edit::turn_about_centre(img.visible_rect.unwrap_or(img.rect), *q, false, false))
                 }
+                ImageEdit::Flip { horizontal } => pdfcraft_edit::ImageChange::Transform(pdfcraft_edit::turn_about_centre(
+                    img.visible_rect.unwrap_or(img.rect),
+                    0,
+                    *horizontal,
+                    !*horizontal,
+                )),
                 ImageEdit::Replace { name, bytes } => {
                     if img.is_form {
                         return Err(EditError::Edit(pdfcraft_edit::EditError::Invalid(

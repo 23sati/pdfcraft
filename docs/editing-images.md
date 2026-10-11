@@ -26,10 +26,15 @@ Selection frames follow the visible portion of artwork after page and path clipp
 editable text takes precedence over overlapping artwork, including labels inside an image's
 visible rectangle. Hidden image placements have no selection frame. Rectangular clips are
 exact; curves and complex paths use conservative bounds, so holes are not excluded from hit
-testing. Moving or resizing an image changes its full placement while its existing clip remains
-fixed; the preview shows that cropped result.
+testing. For an isolated cropped image, moving, resizing, rotating or flipping transforms the
+clipping path together with its full placement: the same visible pixels follow the selection
+frame. Resizing keeps the opposite corner fixed, including horizontal-only or vertical-only
+corner drags; grabbing a grip slightly off-centre does not jump. A selected corner keeps control of its drag
+even over a text label; the drag previews one frame and applies one undoable edit on release.
+If a clipping path is shared with other painted content, the edit is refused with an error
+instead of changing the crop or moving unrelated objects. The page boundary remains fixed.
 
 `page_images` retains `rect` as the full placement rectangle used by `image_edit` and adds
 `visible_rect` for selection (null when fully clipped). `object_list` reports visible artwork
 bounds while keeping the original source indexes. A selection frame does not create, remove
-or enlarge the PDF's clipping path.
+or enlarge the PDF's clipping path; an explicit image transform changes its private crop with it.

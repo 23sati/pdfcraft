@@ -1035,7 +1035,7 @@ pub fn tools() -> Vec<ToolDef> {
             .ro()
             .cmd("edit.edit_text")
             .with(schema(json!({ "doc": doc(), "page": { "type": "integer", "minimum": 1 } }), &["doc", "page"])),
-        t("image_edit", "Edit an image", "Change one of a page's images (number from page_images): action move (rect: new box in top-left-origin points), rotate (quarters clockwise, default 1), flip_horizontal, flip_vertical, replace (path: an image file, drawn in the same place) or delete. Undoable. Form artwork supports move/resize/rotate/flip/delete as a group; replace and image_save only support raster images.")
+        t("image_edit", "Edit an image", "Change one of a page's images (number from page_images): action move (rect: new full placement box in top-left-origin points, based on page_images.rect), rotate (quarters clockwise, default 1), flip_horizontal, flip_vertical, replace (path: an image file, drawn in the same place) or delete. Undoable. An isolated image crop transforms with its pixels; shared clipping scopes with other painted content are refused. Rotation/flip use the visible centre. Form artwork supports move/resize/rotate/flip/delete as a group; replace and image_save only support raster images.")
             .cmd("edit.edit_text")
             .with(schema(
                 json!({

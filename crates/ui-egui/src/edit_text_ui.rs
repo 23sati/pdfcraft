@@ -287,6 +287,20 @@ pub struct ImageSelection {
     drag: Option<(Pos2, Option<Pos2>)>,
 }
 
+/// Once a selected corner is grabbed, text under it cannot take over the gesture. The same
+/// applies after the pointer leaves the image/page while dragging.
+pub(crate) fn image_owns_pointer(ui: &egui::Ui, xf: &PageXform, page: usize, info: &DocInfo, view: &DocView) -> bool {
+    let Some(selection) = view.image_selection.as_ref().filter(|s| s.page == page) else { return false };
+    if selection.drag.is_some() {
+        return true;
+    }
+    let Some(image) = view.edit_images.get(&page).and_then(|(_, images)| images.get(selection.index)) else { return false };
+    let Some(rect) = image.visible_rect else { return false };
+    let b = xf.user_rect(info, page, rect.map(|v| v as f32));
+    let p = ui.input(|i| if i.pointer.primary_down() { i.pointer.press_origin() } else { i.pointer.hover_pos() });
+    p.is_some_and(|p| [b.left_top(), b.right_top(), b.left_bottom(), b.right_bottom()].iter().any(|c| c.distance(p) < 8.0))
+}
+
 /// What a drag on a paragraph box takes hold of.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Grip {
@@ -375,6 +389,9 @@ pub(crate) fn image_input(
             continue;
         }
         let selected_box = selected == Some(i);
+        if selected_box && view.image_selection.as_ref().is_some_and(|s| s.drag.is_some()) {
+            continue;
+        }
         let hovered = ui.input(|inp| inp.pointer.hover_pos()).is_some_and(|p| b.contains(p));
         let stroke = if selected_box {
             Stroke::new(1.5, ACCENT)
@@ -385,22 +402,31 @@ pub(crate) fn image_input(
         };
         if selected_box {
             painter.rect_filled(*b, CornerRadius::ZERO, ACCENT.gamma_multiply(0.04));
+        } else {
+            painter.rect_stroke(*b, CornerRadius::ZERO, stroke, egui::StrokeKind::Outside);
         }
-        painter.rect_stroke(*b, CornerRadius::ZERO, stroke, egui::StrokeKind::Outside);
     }
     // The selected image: frame, corner handles, dragging.
     if let Some(i) = selected.filter(|i| boxes.get(*i).is_some_and(|b| b.is_positive())) {
         let b = boxes[i];
-        painter.rect_stroke(b, CornerRadius::ZERO, Stroke::new(1.5, ACCENT), egui::StrokeKind::Outside);
         let corners = [b.left_top(), b.right_top(), b.left_bottom(), b.right_bottom()];
-        for c in corners {
-            painter.rect(
-                Rect::from_center_size(c, egui::vec2(8.0, 8.0)),
-                CornerRadius::ZERO,
-                Color32::WHITE,
-                Stroke::new(1.0, ACCENT),
-                egui::StrokeKind::Middle,
-            );
+        let handles = |rect: Rect| {
+            for c in [rect.left_top(), rect.right_top(), rect.left_bottom(), rect.right_bottom()] {
+                painter.rect(
+                    Rect::from_center_size(c, egui::vec2(8.0, 8.0)),
+                    CornerRadius::ZERO,
+                    Color32::WHITE,
+                    Stroke::new(1.0, ACCENT),
+                    egui::StrokeKind::Middle,
+                );
+            }
+        };
+        if view.image_selection.as_ref().is_some_and(|s| s.drag.is_none()) {
+            painter.rect_stroke(b, CornerRadius::ZERO, Stroke::new(1.5, ACCENT), egui::StrokeKind::Outside);
+            handles(b);
+        }
+        if allow_interaction && let Some(corner) = pointer.and_then(|p| corners.iter().position(|c| c.distance(p) < 8.0)) {
+            ui.ctx().set_cursor_icon(if matches!(corner, 0 | 3) { egui::CursorIcon::ResizeNwSe } else { egui::CursorIcon::ResizeNeSw });
         }
         let origin = ui.input(|i| i.pointer.press_origin());
         if allow_interaction
@@ -422,25 +448,32 @@ pub(crate) fn image_input(
                 // Resize from the opposite corner, keeping the aspect ratio.
                 Some(fixed) => {
                     let (w0, h0) = (b.width().max(1.0), b.height().max(1.0));
-                    let k = ((p.x - fixed.x).abs() / w0).max((p.y - fixed.y).abs() / h0).max(0.05);
+                    // Use the axis with the larger relative pointer change. Taking the maximum
+                    // absolute size freezes shrinking when the other axis hasn't moved. Measure
+                    // from the press point so grabbing a handle off-centre cannot cause a jump.
+                    let horizontal = (p.x - start.x) * (start.x - fixed.x).signum() / w0;
+                    let vertical = (p.y - start.y) * (start.y - fixed.y).signum() / h0;
+                    let delta = if horizontal.abs() > vertical.abs() { horizontal } else { vertical };
+                    let k = (1.0 + delta).max(0.05);
                     let (w, h) = (w0 * k, h0 * k);
-                    let x = if p.x < fixed.x { fixed.x - w } else { fixed.x };
-                    let y = if p.y < fixed.y { fixed.y - h } else { fixed.y };
+                    let x = if start.x < fixed.x { fixed.x - w } else { fixed.x };
+                    let y = if start.y < fixed.y { fixed.y - h } else { fixed.y };
                     Rect::from_min_size(Pos2::new(x, y), egui::vec2(w, h))
                 }
                 None => b.translate(p - start),
             };
-            // Move/resize the full placement by the change to its visible box. The PDF's
-            // fixed clip stays fixed, so the preview must show the same cropped result.
+            // Move/resize the full placement by the visible frame's change. The engine
+            // transforms an isolated crop together with its image, preserving its contents.
             let raw = images.get(i).map_or(b, |im| xf.user_rect(info, page, im.rect.map(|v| v as f32)));
             let factor = egui::vec2(preview.width() / b.width(), preview.height() / b.height());
             let target = Rect::from_min_max(preview.min + (raw.min - b.min) * factor, preview.min + (raw.max - b.min) * factor);
-            let clip = images.get(i).and_then(|im| im.clip_rect).map_or(xf.rect, |r| xf.user_rect(info, page, r.map(|v| v as f32)));
-            let visible = target.intersect(clip).intersect(xf.rect);
+            let visible = preview.intersect(xf.rect);
             if visible.is_positive() {
-                painter.rect_stroke(visible, CornerRadius::ZERO, Stroke::new(1.0, ACCENT), egui::StrokeKind::Middle);
+                painter.rect_filled(visible, CornerRadius::ZERO, ACCENT.gamma_multiply(0.04));
+                painter.rect_stroke(visible, CornerRadius::ZERO, Stroke::new(1.5, ACCENT), egui::StrokeKind::Outside);
+                handles(preview);
             }
-            if resp.drag_stopped() {
+            if resp.drag_stopped() || !ui.input(|i| i.pointer.primary_down()) {
                 if let Some(s) = view.image_selection.as_mut() {
                     s.drag = None;
                 }
@@ -449,6 +482,11 @@ pub(crate) fn image_input(
                         Some(Edit::EditPageImage { page, index: i, change: pdfcraft_engine::ImageEdit::Move(user_box(xf, info, page, target)) });
                 }
             }
+            ui.ctx().set_cursor_icon(match opposite {
+                Some(fixed) if (start.x - fixed.x) * (start.y - fixed.y) < 0.0 => egui::CursorIcon::ResizeNeSw,
+                Some(_) => egui::CursorIcon::ResizeNwSe,
+                None => egui::CursorIcon::Grabbing,
+            });
             return true;
         }
         if allow_interaction
@@ -468,7 +506,14 @@ pub(crate) fn image_input(
     if selected != Some(hit) {
         painter.rect_stroke(boxes[hit], CornerRadius::ZERO, Stroke::new(1.5, ACCENT.gamma_multiply(0.7)), egui::StrokeKind::Outside);
     }
-    ui.ctx().set_cursor_icon(if selected == Some(hit) { egui::CursorIcon::Move } else { egui::CursorIcon::PointingHand });
+    let Some(b) = boxes.get(hit).copied() else { return false };
+    let corner = [b.left_top(), b.right_top(), b.left_bottom(), b.right_bottom()].iter().position(|c| c.distance(p) < 8.0);
+    ui.ctx().set_cursor_icon(match (selected == Some(hit), corner) {
+        (true, Some(0 | 3)) => egui::CursorIcon::ResizeNwSe,
+        (true, Some(_)) => egui::CursorIcon::ResizeNeSw,
+        (true, None) => egui::CursorIcon::Move,
+        _ => egui::CursorIcon::PointingHand,
+    });
     if resp.clicked() || resp.secondary_clicked() {
         view.image_selection = Some(ImageSelection { page, index: hit, drag: None });
     }
@@ -509,6 +554,7 @@ pub(crate) fn image_input(
 
 /// Lines and their screen boxes for a page; hover outlines, click opens the editor. Returns
 /// `true` when the pointer was used.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn page_input(
     ui: &egui::Ui,
     resp: &egui::Response,
@@ -517,6 +563,7 @@ pub(crate) fn page_input(
     doc: &pdfcraft_engine::Document,
     lines: &[pdfcraft_engine::TextBlock],
     view: &mut DocView,
+    allow_interaction: bool,
 ) -> bool {
     let info = &doc.info;
     let boxes: Vec<Rect> = lines.iter().map(|l| xf.user_rect(info, page, l.rect.map(|v| v as f32)).expand(2.0)).collect();
@@ -526,6 +573,9 @@ pub(crate) fn page_input(
         if active != Some(i) {
             painter.rect_stroke(*b, CornerRadius::same(2), Stroke::new(0.75, ACCENT.gamma_multiply(0.35)), egui::StrokeKind::Outside);
         }
+    }
+    if !allow_interaction {
+        return false;
     }
     // The width handle needs the page upright (or upside down): on a quarter-turned page the
     // screen's horizontal is the paragraph's vertical.

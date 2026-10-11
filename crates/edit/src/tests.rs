@@ -2254,7 +2254,7 @@ fn image_selection_bounds_respect_clips_and_restore_graphics_state() {
     images::change_image(&mut doc, 0, 0, &images::ImageChange::Transform(pdfcraft_content::Matrix::translate(offset[0], offset[1]).0)).unwrap();
     let reopened = reopen(&doc);
     let after = images::page_images(&reopened, 0).unwrap();
-    assert_eq!(after[0].visible_rect, before[0].visible_rect, "moving the image does not move its fixed crop");
+    assert_eq!(after[0].visible_rect, Some([42.0, 64.0, 142.0, 144.0]), "the image's private crop moves with its pixels");
     for (a, b) in after[0].rect.iter().zip(before[0].rect.iter()).enumerate() {
         assert!((b.0 - b.1 - offset[a % 2]).abs() < 0.001);
     }
@@ -2274,4 +2274,46 @@ fn image_clip_path_and_graphics_state_continue_across_content_streams() {
     let images = images::page_images(&doc, 0).unwrap();
     assert_eq!(images[0].visible_rect, Some([20.0, 30.0, 60.0, 80.0]));
     assert_eq!(images[1].visible_rect, Some([100.0, 200.0, 150.0, 250.0]));
+    images::change_image(
+        &mut doc,
+        0,
+        0,
+        &images::ImageChange::Transform(images::rect_to_rect(images[0].visible_rect.unwrap(), [20.0, 30.0, 80.0, 105.0])),
+    )
+    .unwrap();
+    let after = images::page_images(&reopen(&doc), 0).unwrap();
+    assert!(close(after[0].visible_rect.unwrap(), [20.0, 30.0, 80.0, 105.0]));
+    assert_eq!(after[1].matrix, images[1].matrix, "graphics state restored across stream boundaries");
+}
+
+#[test]
+fn cropped_image_resizing_preserves_contents_and_shared_clips_are_refused() {
+    let mut doc = image_page();
+    let page = pdfcraft_model::pages(&doc)[0].clone();
+    let stream = doc.add(Object::Stream(Stream::flate(
+        Dict::new(),
+        b"q 30 170 130 80 re W* n q 800 0 0 900 -300 -400 cm /Im0 Do Q Q BT /F1 12 Tf 30 130 Td (Caption) Tj ET",
+    )));
+    doc.update_dict(page.obj, |d| d.set(b"Contents".to_vec(), Object::Ref(stream))).unwrap();
+    for target in [[30.0, 170.0, 190.0, 270.0], [30.0, 170.0, 110.0, 220.0], [70.0, 210.0, 150.0, 260.0]] {
+        let before = images::page_images(&doc, 0).unwrap()[0].clone();
+        let transform = images::rect_to_rect(before.visible_rect.unwrap(), target);
+        images::change_image(&mut doc, 0, 0, &images::ImageChange::Transform(transform)).unwrap();
+        doc = reopen(&doc);
+        let after = images::page_images(&doc, 0).unwrap()[0].clone();
+        assert!(close(after.visible_rect.unwrap(), target));
+        assert!(close(after.rect, pdfcraft_content::Matrix(transform).bbox(before.rect)), "full pixels use the same crop transform");
+        assert_eq!(after.object, before.object, "pixels are never resampled or replaced");
+        assert_eq!(text::text_lines(&doc, 0).unwrap()[0].baseline(), [30.0, 130.0]);
+    }
+    let page = pdfcraft_model::pages(&doc)[0].clone();
+    let stream = doc.add(Object::Stream(Stream::flate(
+        Dict::new(),
+        b"q 30 170 130 80 re W n q 800 0 0 900 -300 -400 cm /Im0 Do Q BT /F1 12 Tf 40 200 Td (Shared caption) Tj ET Q",
+    )));
+    doc.update_dict(page.obj, |d| d.set(b"Contents".to_vec(), Object::Ref(stream))).unwrap();
+    let before = images::page_images(&doc, 0).unwrap();
+    let error = images::change_image(&mut doc, 0, 0, &images::ImageChange::Transform([1.2, 0.0, 0.0, 1.2, 0.0, 0.0])).unwrap_err();
+    assert!(error.to_string().contains("shares a clipping path"));
+    assert_eq!(images::page_images(&doc, 0).unwrap(), before, "a shared crop cannot shift unrelated content");
 }

@@ -4043,6 +4043,23 @@ fn clipped_image_bounds_and_text_edit_save_reopen_through_tools() {
     let object = objects["objects"].as_array().unwrap().iter().find(|o| o["kind"] == "image").unwrap();
     assert_eq!(object["rect"], images["images"][0]["visible_rect"]);
     assert_eq!(a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap(), pixels, "inventory does not change rendering");
+    let labels = ok(&mut a, "text_paragraphs", json!({"doc":doc,"page":1}));
+    ok(&mut a, "image_edit", json!({"doc":doc,"page":1,"image":1,"action":"move","rect":[-432.0,-300.0,688.0,960.0]}));
+    let resized = ok(&mut a, "page_images", json!({"doc":doc,"page":1}));
+    assert_eq!(
+        resized["images"][0]["visible_rect"],
+        json!([30.0, 50.0, 200.0, 162.0]),
+        "the private crop grows with its pixels while the page boundary stays fixed"
+    );
+    assert_eq!(ok(&mut a, "text_paragraphs", json!({"doc":doc,"page":1})), labels);
+    let resized_pixels = a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap();
+    assert_ne!(resized_pixels, pixels);
+    ok(&mut a, "doc_save", json!({"doc":doc,"path":"out/resized.pdf"}));
+    let resized_re = ok(&mut a, "doc_open", json!({"path":"out/resized.pdf"}))["doc"].as_u64().unwrap();
+    assert_eq!(ok(&mut a, "page_images", json!({"doc":resized_re,"page":1})), resized);
+    assert_eq!(a.call("page_render", &json!({"doc":resized_re,"page":1,"dpi":72})).unwrap(), resized_pixels);
+    ok(&mut a, "edit_undo", json!({"doc":doc}));
+    assert_eq!(a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap(), pixels);
     ok(&mut a, "text_edit", json!({"doc":doc,"page":1,"paragraph":1,"text":"Edited caption"}));
     ok(&mut a, "doc_save", json!({"doc":doc,"path":"out/edited.pdf"}));
     let re = ok(&mut a, "doc_open", json!({"path":"out/edited.pdf"}))["doc"].as_u64().unwrap();
