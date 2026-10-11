@@ -348,6 +348,32 @@ pub struct FontInfo {
     pub encoding: Option<String>,
 }
 
+/// Check that `bytes` still open as the same document: the parser reads them and the page
+/// count matches. Content-only edits skip the full [`inspect`] (seconds on very large files)
+/// but must still catch an edit that produced something the viewer cannot display, so the
+/// caller can roll it back. Never panics: parser crashes are caught and reported.
+pub fn check_pages(bytes: Arc<Vec<u8>>, password: Option<&str>, expected: usize) -> Result<(), OpenError> {
+    let pdf = catch_unwind(AssertUnwindSafe(|| Pdf::new_with_password(bytes, password.unwrap_or(""))))
+        .map_err(|p| OpenError::Invalid(format!("the parser crashed: {}", crate::raster::panic_message(&p))))?
+        .map_err(|e| match e {
+            LoadPdfError::Decryption(DecryptionError::PasswordProtected) => {
+                if password.is_some() {
+                    OpenError::WrongPassword
+                } else {
+                    OpenError::NeedsPassword
+                }
+            }
+            LoadPdfError::Decryption(other) => OpenError::Unsupported(format!("encryption not supported: {other:?}")),
+            LoadPdfError::Invalid => OpenError::Invalid("no readable page tree or cross-reference data was found".into()),
+        })?;
+    let pages = catch_unwind(AssertUnwindSafe(|| pdf.pages().len()))
+        .map_err(|p| OpenError::Invalid(format!("the page tree could not be read: {}", crate::raster::panic_message(&p))))?;
+    if pages != expected {
+        return Err(OpenError::Invalid(format!("the edit changed the page count from {expected} to {pages}")));
+    }
+    Ok(())
+}
+
 /// Inspect a document. Fails only if the renderer itself cannot open the file (or needs a
 /// password). Never panics: parser crashes are caught and reported.
 pub fn inspect(bytes: Arc<Vec<u8>>, password: Option<&str>) -> Result<DocInfo, OpenError> {
@@ -442,6 +468,7 @@ fn inspect_structure(info: &mut DocInfo, fill: impl FnOnce(&mut DocInfo) -> Resu
 
 struct Inspector<'a> {
     doc: &'a dyn Structure,
+    page_ids: Vec<ObjectId>,
     page_index: HashMap<ObjectId, usize>,
     /// Named destinations (`/Names /Dests` tree), keyed by raw string bytes, built once.
     /// Looking each name up by walking the tree was O(links × names): minutes on manuals.
@@ -450,8 +477,9 @@ struct Inspector<'a> {
 
 impl<'a> Inspector<'a> {
     fn new(doc: &'a dyn Structure) -> Self {
-        let page_index = doc.get_pages().into_iter().map(|(n, id)| (id, n as usize - 1)).collect();
-        let mut me = Self { doc, page_index, named: HashMap::new() };
+        let page_ids = doc.page_ids();
+        let page_index = page_ids.iter().copied().enumerate().map(|(index, id)| (id, index)).collect();
+        let mut me = Self { doc, page_ids, page_index, named: HashMap::new() };
         let mut named = HashMap::new();
         if let Some(tree) =
             doc.catalog().ok().and_then(|c| c.get(b"Names").ok()).and_then(|o| me.dict(o)).and_then(|n| n.get(b"Dests").ok()).and_then(|o| me.dict(o))
@@ -499,9 +527,7 @@ impl<'a> Inspector<'a> {
         }
         // Widgets no `/Fields` entry reaches are fields too (Acrobat and the browsers fill them);
         // each is adopted through its topmost unlisted `/Parent`, so a split field stays one.
-        let mut pages: Vec<_> = self.page_index.iter().collect();
-        pages.sort_by_key(|(_, i)| **i);
-        for (&pid, _) in pages {
+        for &pid in &self.page_ids {
             let Ok(page_dict) = self.doc.get_dictionary(pid) else { continue };
             let Ok(Object::Array(annots)) = page_dict.get(b"Annots").map(|o| self.resolve(o)) else { continue };
             for a in annots {
@@ -929,7 +955,9 @@ impl<'a> Inspector<'a> {
                     page,
                     subtype,
                     author: self.text(d, b"T"),
-                    contents: self.text(d, b"Contents"),
+                    // Acrobat ends lines with CR, which the interface would draw as nothing (keep
+                    // in step with `pdfcraft_annot::summaries`).
+                    contents: self.text(d, b"Contents").map(|s| s.replace("\r\n", "\n").replace('\r', "\n")),
                     modified: self.text(d, b"M").map(|m| pretty_date(&m)),
                     name: self.text(d, b"NM"),
                     in_reply_to,
@@ -1165,9 +1193,7 @@ impl<'a> Inspector<'a> {
 
     fn fonts(&self, out: &mut Vec<FontInfo>) {
         let mut seen = HashSet::new();
-        let mut pages: Vec<_> = self.page_index.iter().collect();
-        pages.sort_by_key(|(_, i)| **i);
-        for (&pid, _) in pages {
+        for &pid in &self.page_ids {
             let Ok(fonts) = self.doc.get_page_fonts(pid) else { continue };
             for (_, f) in fonts {
                 let base = f
@@ -2269,6 +2295,35 @@ trailer << /Root 1 0 R >>
         assert_eq!(info.annotations.len(), 1);
         assert_eq!(info.annotations[0].modified.as_deref(), Some(date));
         assert!(info.warnings.is_empty(), "{:?}", info.warnings);
+    }
+
+    #[test]
+    fn carriage_returns_in_comment_text_become_line_breaks() {
+        use lopdf::dictionary;
+
+        let mut doc = Document::with_version("1.7");
+        let pages_id = doc.new_object_id();
+        let annot_id = doc.add_object(dictionary! {
+            "Type" => "Annot",
+            "Subtype" => "Text",
+            "Rect" => vec![10.into(), 10.into(), 30.into(), 30.into()],
+            // Acrobat ends lines in /Contents with CR; the interface only breaks lines at LF.
+            "Contents" => Object::string_literal("one\r\rtwo\r\nthree"),
+        });
+        let page_id = doc.add_object(dictionary! {
+            "Type" => "Page",
+            "Parent" => pages_id,
+            "MediaBox" => vec![0.into(), 0.into(), 200.into(), 300.into()],
+            "Annots" => vec![annot_id.into()],
+        });
+        doc.objects.insert(pages_id, dictionary! { "Type" => "Pages", "Kids" => vec![page_id.into()], "Count" => 1 }.into());
+        let catalog_id = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages_id });
+        doc.trailer.set("Root", catalog_id);
+        let mut bytes = Vec::new();
+        doc.save_to(&mut bytes).expect("write synthetic fixture");
+
+        let info = inspect(Arc::new(bytes), None).expect("opens");
+        assert_eq!(info.annotations[0].contents.as_deref(), Some("one\n\ntwo\nthree"));
     }
 
     #[test]

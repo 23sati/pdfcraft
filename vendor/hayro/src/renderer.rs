@@ -310,6 +310,10 @@ fn control_polygon_length(path: &BezPath) -> (f64, usize) {
 /// Fills are flattened into chords, which stay inside the outline's bounds.
 const DRAW_SLACK: f64 = 0.5;
 
+/// PdfCraft patch: previews skip images below this target area in device pixels: redrawing
+/// them at full detail costs a decode and a resample each for pixels nobody can see.
+const PREVIEW_MIN_IMAGE_AREA: u32 = 16;
+
 thread_local! {
     /// PdfCraft patch: whether [`may_paint_canvas`] may skip paths on this thread. Turned off
     /// only by PdfCraft's regression test, which renders each tile with and without skipping.
@@ -320,6 +324,23 @@ thread_local! {
 #[doc(hidden)]
 pub fn set_skip_offscreen_paths(skip: bool) {
     SKIP_OFFSCREEN_PATHS.with(|s| s.set(skip));
+}
+
+/// PdfCraft patch: whether a device-space box can paint a pixel of a `width` × `height`
+/// canvas. A box whose bounds miss the canvas is skipped without changing a pixel.
+/// Bounds that aren't finite are drawn as before.
+fn paints_canvas(device: Rect, width: u16, height: u16) -> bool {
+    if !SKIP_OFFSCREEN_PATHS.with(std::cell::Cell::get) {
+        return true;
+    }
+    let finite = [device.x0, device.y0, device.x1, device.y1]
+        .iter()
+        .all(|v| v.is_finite());
+    !finite
+        || (device.x0 < f64::from(width)
+            && device.x1 > 0.0
+            && device.y0 < f64::from(height)
+            && device.y1 > 0.0)
 }
 
 /// PdfCraft patch: whether a path drawn with `transform` can paint a pixel of a `width` ×
@@ -338,9 +359,6 @@ fn may_paint_canvas(
     width: u16,
     height: u16,
 ) -> bool {
-    if !SKIP_OFFSCREEN_PATHS.with(std::cell::Cell::get) {
-        return true;
-    }
     let mut points = Rect::new(
         f64::INFINITY,
         f64::INFINITY,
@@ -367,24 +385,34 @@ fn may_paint_canvas(
     let device = transform
         .transform_rect_bbox(points.inflate(grow, grow))
         .inflate(2.0, 2.0);
-    let finite = [device.x0, device.y0, device.x1, device.y1]
-        .iter()
-        .all(|v| v.is_finite());
-    !finite
-        || (device.x0 < f64::from(width)
-            && device.x1 > 0.0
-            && device.y0 < f64::from(height)
-            && device.y1 > 0.0)
+    paints_canvas(device, width, height)
+}
+
+/// PdfCraft patch: whether a `rect` drawn with `transform` can paint a pixel of a `width` ×
+/// `height` canvas. Used for images: decoded data can only shrink against the stream-size box
+/// (subsampled `scale_factors`), so the box over-approximates what is drawn and skipping it
+/// never changes a pixel, while a tile of an image-heavy page no longer decodes, resamples and
+/// rasterizes every image on the page.
+fn may_paint_rect(rect: Rect, transform: Affine, width: u16, height: u16) -> bool {
+    let device = transform
+        .transform_rect_bbox(rect.inflate(DRAW_SLACK, DRAW_SLACK))
+        .inflate(2.0, 2.0);
+    paints_canvas(device, width, height)
 }
 
 pub(crate) struct Renderer {
     pub(crate) ctx: RenderContext,
     pub(crate) inside_pattern: bool,
+    /// Soft masks drawn during this render. PdfCraft note: it belongs to one `Renderer` (one
+    /// render, every nested renderer starting empty) and so to one `preview` setting: a mask
+    /// drawn for a preview, which may leave out tiny images, never reaches a final render.
     pub(crate) soft_mask_cache: HashMap<u128, Mask>,
     pub(crate) outline_cache: Rc<std::cell::RefCell<HashMap<u128, Rc<BezPath>>>>,
     pub(crate) cur_mask: Option<Mask>,
     pub(crate) in_type3_glyph: bool,
     pub(crate) scaler: Scaler,
+    /// PdfCraft patch: low-detail preview render (see `InterpreterSettings::preview`).
+    pub(crate) preview: bool,
     // TODO: Remove this once vello_cpu bug with non-transparent images is fixed
     image_transparency_stack: Vec<bool>,
 }
@@ -402,6 +430,7 @@ impl Renderer {
         height: u16,
         settings: RenderSettings,
         cache: &RenderCache<'_>,
+        preview: bool,
     ) -> Self {
         Self {
             ctx: RenderContext::new_with(width, height, settings),
@@ -411,6 +440,7 @@ impl Renderer {
             cur_mask: None,
             in_type3_glyph: false,
             scaler: Scaler::new(ResamplingFunction::CatmullRom),
+            preview,
             image_transparency_stack: Vec::new(),
         }
     }
@@ -505,6 +535,7 @@ impl Renderer {
                 cur_mask: None,
                 in_type3_glyph: false,
                 scaler: self.scaler,
+                preview: self.preview,
                 image_transparency_stack: Vec::new(),
             };
             let mut mask_pix = Pixmap::new(self.ctx.width(), self.ctx.height());
@@ -1044,6 +1075,7 @@ impl Renderer {
                             outline_cache: self.outline_cache.clone(),
                             in_type3_glyph: false,
                             scaler: self.scaler,
+                            preview: self.preview,
                             image_transparency_stack: Vec::new(),
                         };
                         let mut initial_transform = Affine::scale_non_uniform(xs as f64, ys as f64)
@@ -1218,6 +1250,16 @@ impl Renderer {
 
 impl<'a> Device<'a> for Renderer {
     fn draw_image(&mut self, image: hayro_interpret::Image<'a, '_>, mut transform: Affine) {
+        // PdfCraft patch: see `may_paint_rect`. Checked before decoding: off-canvas images
+        // cost nothing, so a tile no longer decodes every image on its page.
+        if !may_paint_rect(
+            Rect::new(0.0, 0.0, f64::from(image.width()), f64::from(image.height())),
+            transform,
+            self.ctx.width(),
+            self.ctx.height(),
+        ) {
+            return;
+        }
         self.ctx.set_paint_transform(Affine::IDENTITY);
         self.ctx.set_aliasing_threshold(Some(1));
 
@@ -1229,6 +1271,18 @@ impl<'a> Device<'a> for Renderer {
             .to_vec2()
             .length()
             .ceil() as u32;
+
+        // PdfCraft patch: previews skip images that would cover only a few device pixels.
+        // Final renders always draw them. (Measured as axis lengths: the `target_*` above
+        // map a point, so they include the translation and only suit the decode hint.)
+        if self.preview {
+            let c = transform.as_coeffs();
+            let tiny_w = (f64::from(image.width()) * (c[0] * c[0] + c[1] * c[1]).sqrt()).ceil() as u32;
+            let tiny_h = (f64::from(image.height()) * (c[2] * c[2] + c[3] * c[3]).sqrt()).ceil() as u32;
+            if tiny_w.saturating_mul(tiny_h) < PREVIEW_MIN_IMAGE_AREA {
+                return;
+            }
+        }
 
         match image {
             hayro_interpret::Image::Stencil(s) => {
@@ -1315,6 +1369,7 @@ impl<'a> Device<'a> for Renderer {
                                         cur_mask: None,
                                         in_type3_glyph: false,
                                         scaler: self.scaler,
+                                        preview: self.preview,
                                         image_transparency_stack: Vec::new(),
                                     };
                                     let mut sub_pix = Pixmap::new(width, height);
@@ -1399,7 +1454,7 @@ impl<'a> Device<'a> for Renderer {
 
                 self.soft_mask_cache
                     .entry(m.cache_key())
-                    .or_insert_with(|| draw_soft_mask(&m, settings, width, height))
+                    .or_insert_with(|| draw_soft_mask(&m, settings, width, height, self.preview))
                     .clone()
             }),
             None,
@@ -1425,7 +1480,7 @@ impl<'a> Device<'a> for Renderer {
 
             self.soft_mask_cache
                 .entry(m.cache_key())
-                .or_insert_with(|| draw_soft_mask(&m, settings, width, height))
+                .or_insert_with(|| draw_soft_mask(&m, settings, width, height, self.preview))
                 .clone()
         });
         if let Some(mask) = self.cur_mask.clone() {
@@ -1585,7 +1640,7 @@ fn render_shading_texture(
     )
 }
 
-fn draw_soft_mask(mask: &SoftMask<'_>, settings: RenderSettings, width: u16, height: u16) -> Mask {
+fn draw_soft_mask(mask: &SoftMask<'_>, settings: RenderSettings, width: u16, height: u16, preview: bool) -> Mask {
     let mut renderer = Renderer {
         ctx: RenderContext::new_with(width, height, derive_settings(&settings)),
         inside_pattern: false,
@@ -1594,6 +1649,7 @@ fn draw_soft_mask(mask: &SoftMask<'_>, settings: RenderSettings, width: u16, hei
         outline_cache: Rc::new(std::cell::RefCell::new(HashMap::new())),
         in_type3_glyph: false,
         scaler: Scaler::new(ResamplingFunction::CatmullRom),
+        preview,
         image_transparency_stack: Vec::new(),
     };
 

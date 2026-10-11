@@ -5,12 +5,18 @@
 //! its proportions), right-click for rotate, flip, replace, save and delete; Delete removes it.
 
 use egui::{Color32, CornerRadius, FontFamily, FontId, Pos2, Rect, Stroke};
-use pdfcraft_engine::Edit;
+use pdfcraft_engine::{Edit, ObjectKind, ObjectTarget};
 use pdfcraft_render::DocInfo;
 
 use crate::canvas::{DocView, PageXform};
 
 const ACCENT: Color32 = Color32::from_rgb(0x14, 0x73, 0xE6);
+
+/// How many faint Edit-text outlines are drawn per page per frame. CAD plots can draw
+/// ~1000 tiny images on one page; stroking all of them every frame (plus a hover query
+/// per box) stalls the UI. Past this, only the selected and hovered boxes are outlined:
+/// hit-testing still covers every image, so nothing becomes unselectable.
+const MAX_OUTLINES: usize = 250;
 
 /// A paragraph being edited.
 #[derive(Clone, Debug, PartialEq)]
@@ -217,6 +223,8 @@ enum Grip {
 pub struct BlockDrag {
     page: usize,
     block: usize,
+    /// A paragraph index belongs to the document generation where the press was resolved.
+    generation: u64,
     /// Where the drag started (screen).
     start: Pos2,
     grip: Grip,
@@ -283,25 +291,33 @@ pub(crate) fn image_input(
 ) -> bool {
     let boxes: Vec<Rect> = images.iter().map(|im| xf.user_rect(info, page, im.rect.map(|v| v as f32))).collect();
     let painter = ui.painter();
-    for b in &boxes {
-        painter.rect_stroke(*b, CornerRadius::ZERO, Stroke::new(0.75, ACCENT.gamma_multiply(0.35)), egui::StrokeKind::Outside);
-    }
-    let pointer = ui.input(|i| i.pointer.hover_pos());
+    let hover_pos = ui.input(|i| i.pointer.hover_pos());
     let selected = view.image_selection.as_ref().filter(|s| s.page == page).map(|s| s.index).filter(|i| *i < boxes.len());
-    for (i, b) in boxes.iter().enumerate() {
-        let selected_box = selected == Some(i);
-        let hovered = ui.input(|inp| inp.pointer.hover_pos()).is_some_and(|p| b.contains(p));
-        let stroke = if selected_box {
-            Stroke::new(1.5, ACCENT)
-        } else if hovered {
-            Stroke::new(1.5, ACCENT.gamma_multiply(0.7))
-        } else {
-            Stroke::new(0.75, ACCENT.gamma_multiply(0.35))
-        };
-        if selected_box {
-            painter.rect_filled(*b, CornerRadius::ZERO, ACCENT.gamma_multiply(0.04));
+    // Few images: faint outlines for all of them, as before. Many: only the selected and
+    // hovered boxes, so a ~1000-image CAD page stays interactive in Edit text & images.
+    let faint_all = boxes.len() <= MAX_OUTLINES;
+    if faint_all {
+        for b in &boxes {
+            painter.rect_stroke(*b, CornerRadius::ZERO, Stroke::new(0.75, ACCENT.gamma_multiply(0.35)), egui::StrokeKind::Outside);
         }
-        painter.rect_stroke(*b, CornerRadius::ZERO, stroke, egui::StrokeKind::Outside);
+    }
+    let hovered_box = hover_pos.and_then(|p| boxes.iter().rposition(|b| b.contains(p)));
+    if !faint_all {
+        if let Some(i) = selected {
+            painter.rect_stroke(boxes[i], CornerRadius::ZERO, Stroke::new(0.75, ACCENT.gamma_multiply(0.35)), egui::StrokeKind::Outside);
+        }
+        if let Some(h) = hovered_box.filter(|h| Some(*h) != selected) {
+            painter.rect_stroke(boxes[h], CornerRadius::ZERO, Stroke::new(0.75, ACCENT.gamma_multiply(0.35)), egui::StrokeKind::Outside);
+        }
+    }
+    for i in selected.into_iter().chain(hovered_box).collect::<Vec<_>>() {
+        let b = boxes[i];
+        if selected == Some(i) {
+            painter.rect_filled(b, CornerRadius::ZERO, ACCENT.gamma_multiply(0.04));
+            painter.rect_stroke(b, CornerRadius::ZERO, Stroke::new(1.5, ACCENT), egui::StrokeKind::Outside);
+        } else {
+            painter.rect_stroke(b, CornerRadius::ZERO, Stroke::new(1.5, ACCENT.gamma_multiply(0.7)), egui::StrokeKind::Outside);
+        }
     }
     // The selected image: frame, corner handles, dragging.
     if let Some(i) = selected {
@@ -330,7 +346,7 @@ pub(crate) fn image_input(
             }
         }
         if let Some((start, opposite)) = view.image_selection.as_ref().and_then(|s| s.drag)
-            && let Some(p) = pointer
+            && let Some(p) = hover_pos
         {
             let preview = match opposite {
                 // Resize from the opposite corner, keeping the aspect ratio.
@@ -362,7 +378,7 @@ pub(crate) fn image_input(
             return true;
         }
     }
-    let Some(p) = pointer.filter(|p| xf.rect.contains(*p)) else { return false };
+    let Some(p) = hover_pos.filter(|p| xf.rect.contains(*p)) else { return false };
     let Some(hit) = boxes.iter().rposition(|b| b.contains(p)) else { return false };
     if selected != Some(hit) {
         painter.rect_stroke(boxes[hit], CornerRadius::ZERO, Stroke::new(1.5, ACCENT.gamma_multiply(0.7)), egui::StrokeKind::Outside);
@@ -413,10 +429,15 @@ pub(crate) fn page_input(
     resp: &egui::Response,
     xf: &PageXform,
     page: usize,
-    info: &DocInfo,
+    doc: &pdfcraft_engine::Document,
     lines: &[pdfcraft_engine::TextBlock],
     view: &mut DocView,
 ) -> bool {
+    let info = &doc.info;
+    if view.block_drag.is_some_and(|d| d.generation != doc.edit_generation()) {
+        view.block_drag = None;
+        return true;
+    }
     let boxes: Vec<Rect> = lines.iter().map(|l| xf.user_rect(info, page, l.rect.map(|v| v as f32)).expand(2.0)).collect();
     let painter = ui.painter();
     let active = view.line_editor.as_ref().filter(|e| e.page == page).map(|e| e.block);
@@ -456,18 +477,25 @@ pub(crate) fn page_input(
         if resp.drag_stopped() || !ui.input(|i| i.pointer.any_down()) {
             view.block_drag = None;
             let (from, to) = (user_box(xf, info, page, b), user_box(xf, info, page, preview));
-            let style = if resizing {
+            let edit = if resizing {
                 // The new width in user space: the box's change, added to the paragraph's own. A
                 // moved left side (in user space; on an upside-down page that's the screen's right
                 // edge) moves the paragraph with it.
                 let width = (l.rect[2] - l.rect[0]) + (to[2] - to[0]) - (from[2] - from[0]);
                 let shift = to[0] - from[0];
-                pdfcraft_engine::BlockStyle { width: Some(width), offset: (shift != 0.0).then_some([shift, 0.0]), ..Default::default() }
+                let style = pdfcraft_engine::BlockStyle { width: Some(width), offset: (shift != 0.0).then_some([shift, 0.0]), ..Default::default() };
+                Edit::EditTextBlock { page, block: d.block, text: l.text.clone(), style }
             } else {
-                pdfcraft_engine::BlockStyle { offset: Some([to[0] - from[0], to[1] - from[1]]), ..Default::default() }
+                // Translation must keep the selected source operators. Rewriting unchanged text
+                // would also remove unrelated paragraphs that now overlap this one (#594).
+                Edit::MoveObjects {
+                    page,
+                    objects: vec![ObjectTarget { kind: ObjectKind::Text, index: d.block }],
+                    offset: [to[0] - from[0], to[1] - from[1]],
+                }
             };
             if preview != b {
-                view.pending_edit = Some(Edit::EditTextBlock { page, block: d.block, text: l.text.clone(), style });
+                view.pending_edit = Some(edit);
             }
         }
         return true;
@@ -481,7 +509,7 @@ pub(crate) fn page_input(
         && let Some(o) = ui.input(|i| i.pointer.press_origin())
         && let Some((block, grip)) = grab_at(&boxes, o, upright)
     {
-        view.block_drag = Some(BlockDrag { page, block, start: o, grip });
+        view.block_drag = Some(BlockDrag { page, block, generation: doc.edit_generation(), start: o, grip });
         return true;
     }
     let Some(p) = ui.input(|i| i.pointer.hover_pos()).filter(|p| xf.rect.contains(*p)) else { return false };
@@ -561,7 +589,7 @@ pub(crate) fn overlay(ctx: &egui::Context, view: &mut DocView, info: &DocInfo) -
             // banner, #913): then a dark box, with a caret that shows on it.
             let fill = editor_fill(text_color);
             egui::Frame::NONE.fill(fill).stroke(Stroke::new(1.5, ACCENT)).inner_margin(egui::Margin::symmetric(2, 0)).show(ui, |ui| {
-                ui.visuals_mut().text_cursor.stroke.color = if fill == Color32::WHITE { Color32::BLACK } else { Color32::WHITE };
+                ui.visuals_mut().text_cursor.stroke.color = caret_color_on(fill);
                 let rows = ed.text.lines().count().max(1);
                 let r = ui.add(
                     egui::TextEdit::multiline(&mut ed.text)
@@ -601,6 +629,12 @@ pub(crate) fn overlay(ctx: &egui::Context, view: &mut DocView, info: &DocInfo) -
     }
 }
 
+/// Caret colour that stays visible on a field filled with `fill`: black on light fills, white on dark ones.
+pub(crate) fn caret_color_on(fill: Color32) -> Color32 {
+    let luma = 299 * u32::from(fill.r()) + 587 * u32::from(fill.g()) + 114 * u32::from(fill.b());
+    if luma > 127_500 { Color32::BLACK } else { Color32::WHITE }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -616,5 +650,13 @@ mod tests {
         for dark in [Color32::BLACK, Color32::from_rgb(0x1F, 0x2A, 0x6B), Color32::from_rgb(0xC0, 0x00, 0x00), Color32::from_gray(0x60)] {
             assert_eq!(editor_fill(dark), Color32::WHITE, "{dark:?}");
         }
+    }
+
+    #[test]
+    fn caret_contrasts_with_its_fill() {
+        assert_eq!(caret_color_on(Color32::WHITE), Color32::BLACK);
+        assert_eq!(caret_color_on(Color32::from_rgb(0xFF, 0xFF, 0xF4)), Color32::BLACK);
+        assert_eq!(caret_color_on(Color32::BLACK), Color32::WHITE);
+        assert_eq!(caret_color_on(DARK_EDITOR_FILL), Color32::WHITE);
     }
 }

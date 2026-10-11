@@ -347,7 +347,7 @@
 	Centre	居中
 	Align right	右對齊
 	Justify	兩端對齊
-	Standard fonts; text outside Windows-1252 isn't supported yet.	標準字型；尚不支援 Windows-1252 之外的文字。
+	Thai and Arabic use regular fallback fonts when available.	泰語和阿拉伯語使用可用的一般樣式備用字型。
 	Edit image	編輯圖片
 	Rotate counterclockwise	逆時針旋轉
 	Rotate clockwise	順時針旋轉
@@ -418,7 +418,7 @@
 	{verb} Header and Footer	{verb}頁首和頁尾
 	{verb} Watermark	{verb}水印
 	{verb} Background	{verb}背景
-	Margins (in)	邊距（英寸）
+	Margins	邊距
 	Left Header Text	左頁首文字
 	Center Header Text	居中頁首文字
 	Right Header Text	右頁首文字
@@ -1630,7 +1630,12 @@
 	watermark	水印
 	background	背景
 	This document isn't password-protected	本文件未受密碼保護
-	Only the document's owner can change its security (open it with the permissions password)	只有文件所有者才能更改安全性（請使用許可權密碼開啟）
+	Enter permissions password…	輸入許可權密碼…
+	Permissions password	許可權密碼
+	“{name}” has security restrictions. Enter its permissions password to lift them.	“{name}”有安全限制。請輸入其許可權密碼以解除限制。
+	Restrictions lifted	已解除限制
+	Couldn't unlock {name}: {e}	無法解鎖 {name}：{e}
+	This document has no restrictions to lift	此文件沒有可解除的限制
 	The document's security settings don't allow this change	文件安全設定不允許此更改
 	The document's security settings don't allow copying text and images	文件安全設定不允許複製文字和圖片
 	Open a document first	請先開啟文件
@@ -2003,8 +2008,12 @@
 	Choose a PNG or JPEG image (up to 4 MiB). Transparency is preserved.	選擇 PNG 或 JPEG 圖像（最大 4 MiB）。透明度會保留。
 	Couldn't import the signature image: {e}	無法匯入簽名圖像：{e}
 	Go to page…	轉到頁面…
+	For page sizes and margins.	用於頁面尺寸和邊距。
 	Reopen the files that were open when PdfCraft last closed	重新開啟上次關閉 PdfCraft 時開啟的檔案
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	PDF 文字字型無法顯示「{c}」（{code}）。請選擇支援的文字。
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	標準字型無法顯示「{c}」（{code}）。目前只能新增西歐字元作為文字。
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	此欄位的字型無法顯示「{c}」（{code}），PdfCraft 會在該處顯示 ?。值已儲存，其他 PDF 閱讀器會依據該值重新繪製此欄位。
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	PdfCraft 寫入時使用的字型無法顯示「{c}」（{code}），因此它在所有 PDF 閱讀器中都會顯示為 ?。文字已儲存。
 	Open arrow	開口箭頭
 	Closed arrow	閉合箭頭
 	Butt	平頭
@@ -2113,3 +2122,7 @@ scroll speed	Fast	快
 	Enhance camera image	增強相機影像
 	Drag the corners onto the document's edges, then choose Enhance page.	將四個角拖曳到文件邊緣，然後選擇「增強頁面」。
 	Enhance page	增強頁面
+	Clean-up	清理
+	Original	原始
+	Greyscale	灰階
+	Black and white	黑白

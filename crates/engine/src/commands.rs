@@ -36,10 +36,14 @@ pub enum Needs {
     HasRedactions,
     /// The document has page marks of this kind and allows changes.
     Marks(crate::MarkKind),
-    /// The document's security may be changed (owner, or nothing restricted).
+    /// The document's security may be changed (owner, or nothing restricted), or would be
+    /// once its permissions password is entered.
     Security,
-    /// The document is protected and its security may be removed.
+    /// The document is protected and its security may be removed (perhaps after entering
+    /// its permissions password).
     ProtectedSecurity,
+    /// The document's restrictions can be lifted with its permissions password.
+    Unlock,
     /// There is something to undo.
     Undo,
     /// There is something to redo.
@@ -330,6 +334,7 @@ pub const COMMANDS: &[CommandSpec] = &[
     c("edit.background.remove", "Remove background", None, None, Marks(crate::MarkKind::Background), "palette"),
     c("protect.password", "Protect using password…", FILE, None, Security, "lock"),
     c("protect.remove", "Remove security", FILE, None, ProtectedSecurity, "lock-open"),
+    c("protect.unlock", "Enter permissions password…", None, None, Unlock, "lock-open"),
     c("protect.properties", "Security properties…", FILE, None, Document, "shield-check"),
     c("page.organize", "Organize pages", PAGES, None, Document, "layout-grid"),
     c("bookmark.add", "New bookmark", PAGES, Some(Shortcut::cmd("B")), Assembly, "bookmark-plus"),
@@ -380,20 +385,30 @@ pub fn is_enabled(spec: &CommandSpec, session: &Session, active: Option<DocId>) 
         HasComments => doc.is_some_and(|d| d.allows_modification() && !d.info.annotations.is_empty()),
         HasFields => doc.is_some_and(|d| d.allows_modification() && !d.form.is_empty()),
         HasRedactions => doc.is_some_and(|d| d.allows_modification() && d.redaction_marks() > 0),
-        Security => doc.is_some_and(|d| d.allows_security_change()),
-        ProtectedSecurity => doc.is_some_and(|d| d.allows_security_change() && d.security_summary().is_some()),
+        Security => doc.is_some_and(|d| d.allows_security_change() || d.can_unlock()),
+        ProtectedSecurity => doc.is_some_and(|d| (d.allows_security_change() || d.can_unlock()) && d.security_summary().is_some()),
+        Unlock => doc.is_some_and(|d| d.can_unlock()),
         Undo => doc.is_some_and(|d| d.can_undo().is_some()),
         Redo => doc.is_some_and(|d| d.can_redo().is_some()),
     }
 }
 
+/// The edit `spec` names now, with the wording that names it ("Undo {}"), so an interface can say
+/// each part in its own language. `None` for every other command, and when there is nothing to undo.
+pub fn current_edit<'a>(spec: &CommandSpec, session: &'a Session, active: Option<DocId>) -> Option<(&'static str, &'a crate::Label)> {
+    let doc = active.and_then(|id| session.get(id))?;
+    match spec.id {
+        "edit.undo" => doc.undo_label().map(|l| ("Undo {}", l)),
+        "edit.redo" => doc.redo_label().map(|l| ("Redo {}", l)),
+        _ => None,
+    }
+}
+
 /// The label to show for `spec` now ("Undo Rotate page" rather than "Undo").
 pub fn current_label(spec: &CommandSpec, session: &Session, active: Option<DocId>) -> String {
-    let doc = active.and_then(|id| session.get(id));
-    match (spec.id, doc) {
-        ("edit.undo", Some(d)) => d.can_undo().map(|l| format!("Undo {l}")).unwrap_or_else(|| spec.label.into()),
-        ("edit.redo", Some(d)) => d.can_redo().map(|l| format!("Redo {l}")).unwrap_or_else(|| spec.label.into()),
-        _ => spec.label.into(),
+    match current_edit(spec, session, active) {
+        Some((wording, label)) => wording.replacen("{}", label.as_str(), 1),
+        None => spec.label.into(),
     }
 }
 
