@@ -255,8 +255,10 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
     ui.horizontal(|ui| {
         use crate::ui_scale;
         ui.label(tl!("Interface size"));
-        let auto =
-            crate::i18n::fmt(tl!("Auto ({percent}%)"), &[("percent", &ui_scale::percent(ui_scale::factor(None, app.system_text_scale)).to_string())]);
+        // Auto shows the size it draws at: the display's scale times the system's text scale.
+        let native = ui.ctx().native_pixels_per_point().unwrap_or(1.0);
+        let auto_percent = ui_scale::percent(ui_scale::drawn(None, app.system_text_scale, native));
+        let auto = crate::i18n::fmt(tl!("Auto ({percent}%)"), &[("percent", &auto_percent.to_string())]);
         let selected = app.ui_scale.map_or_else(|| auto.clone(), |f| format!("{}%", ui_scale::percent(f)));
         egui::ComboBox::from_id_salt("interface-size").selected_text(selected).show_ui(ui, |ui| {
             if ui.selectable_value(&mut app.ui_scale, None, auto).clicked() {
@@ -303,6 +305,7 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
         for l in crate::canvas::PageLayout::ORDER {
             ui.radio_value(&mut defaults.layout, l, tl!(l.label()));
         }
+        ui.checkbox(&mut defaults.continuous, tl!("Continuous scrolling"));
     });
     ui.horizontal(|ui| {
         use crate::canvas::Fit;
@@ -324,6 +327,9 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
     // The web build has no file paths to reopen.
     #[cfg(not(target_arch = "wasm32"))]
     ui.checkbox(&mut app.reopen_last_session, tl!("Reopen the files that were open when PdfCraft last closed"));
+    // The web build has no files on disk to watch.
+    #[cfg(not(target_arch = "wasm32"))]
+    ui.checkbox(&mut app.reload_changed_files, tl!("Reload documents when their files change on disk"));
     ui.horizontal(|ui| {
         ui.label(tl!("Mouse wheel scroll speed"));
         for speed in crate::scroll_speed::ScrollSpeed::ALL {
