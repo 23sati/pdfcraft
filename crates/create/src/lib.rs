@@ -317,7 +317,7 @@ fn png_image(name: &str, bytes: &[u8]) -> Result<Embedded, CreateError> {
     // The decoded size comes from the header alone, so a file of a few bytes can claim any
     // size: keep the ceiling, and ask for the memory fallibly (a failed allocation would abort
     // the whole app, and no `catch_unwind` stops that).
-    let size = reader.output_buffer_size().filter(|n| *n <= MAX_PNG_DECODED_BYTES).ok_or_else(|| bad("image too large".into()))?;
+    let size = reader.output_buffer_size().filter(|n| *n <= MAX_DECODED_BYTES).ok_or_else(|| bad("image too large".into()))?;
     let mut buf = Vec::new();
     buf.try_reserve_exact(size).map_err(|_| bad("not enough memory for this image".into()))?;
     buf.resize(size, 0);
@@ -400,9 +400,6 @@ fn decoded(name: &str, bytes: &[u8], format: image::ImageFormat) -> Result<Embed
 /// Most decoded bytes one TIFF page or PNG may take: room for the 768 MiB CMYK poster in #665,
 /// twice over.
 const MAX_DECODED_BYTES: usize = 2 << 30;
-
-/// Most decoded bytes one PNG may take: the same ceiling as a TIFF page.
-const MAX_PNG_DECODED_BYTES: usize = MAX_TIFF_DECODED_BYTES;
 
 /// Every page of a TIFF (multi-page scans become multi-page PDFs).
 fn tiff_pages(name: &str, bytes: &[u8]) -> Result<Vec<Embedded>, CreateError> {
