@@ -85,7 +85,7 @@ fn an_item_past_the_old_glyph_limit_gets_a_font_per_240_glyphs() {
     let laid = vec![line((0..n).map(|i| cluster(i as u32 + 1, 0.5)).collect(), false)];
     let mut doc = Document::new_empty();
     let (mut fonts, mut out) = (Dict::new(), Vec::new());
-    let drawn = draw_laid_arabic(&mut doc, &item(), &laid, &Dict::new(), &mut fonts, &mut out, |_| Ok(boxed(0.5)));
+    let drawn = draw_laid_arabic(&mut doc, &item(), &laid, &Dict::new(), &mut fonts, &mut out, |_| Ok(boxed(0.5)), "Arabic");
     assert!(drawn.is_ok(), "{drawn:?}");
     let made = fonts_of(&doc, &fonts);
     let mut expected = vec![GLYPHS_PER_FONT; 16];
@@ -108,9 +108,18 @@ fn an_outline_missing_from_a_later_font_leaves_the_document_unchanged() {
     let before = snapshot(&doc);
     let missing = n as u32;
     let (mut fonts, mut out) = (Dict::new(), Vec::new());
-    let drawn = draw_laid_arabic(&mut doc, &item(), &laid, &Dict::new(), &mut fonts, &mut out, |id| {
-        if id == missing { Err(GlyphError::Missing) } else { Ok(boxed(0.5)) }
-    });
+    let drawn = draw_laid_arabic(
+        &mut doc,
+        &item(),
+        &laid,
+        &Dict::new(),
+        &mut fonts,
+        &mut out,
+        |id| {
+            if id == missing { Err(GlyphError::Missing) } else { Ok(boxed(0.5)) }
+        },
+        "Arabic",
+    );
     assert!(matches!(&drawn, Err(EditError::Invalid(msg)) if msg.contains("can't show")), "{drawn:?}");
     assert_eq!(snapshot(&doc), before);
     assert!(fonts.is_empty() && out.is_empty());
@@ -128,7 +137,7 @@ fn an_item_below_the_old_limit_is_drawn_exactly_as_before() {
     let laid = vec![mixed, rtl];
     let mut doc = Document::new_empty();
     let (mut fonts, mut out) = (Dict::new(), Vec::new());
-    let drawn = draw_laid_arabic(&mut doc, &item(), &laid, &Dict::new(), &mut fonts, &mut out, |id| Ok(boxed(0.5 + f64::from(id) * 0.01)));
+    let drawn = draw_laid_arabic(&mut doc, &item(), &laid, &Dict::new(), &mut fonts, &mut out, |id| Ok(boxed(0.5 + f64::from(id) * 0.01)), "Arabic");
     assert!(drawn.is_ok(), "{drawn:?}");
     assert_eq!(fonts.len(), 1);
     let mut bytes = out.clone();
@@ -145,10 +154,19 @@ fn long_text_with_few_distinct_glyphs_needs_one_font() {
     let reads = Cell::new(0usize);
     let mut doc = Document::new_empty();
     let (mut fonts, mut out) = (Dict::new(), Vec::new());
-    let drawn = draw_laid_arabic(&mut doc, &item(), &laid, &Dict::new(), &mut fonts, &mut out, |_| {
-        reads.set(reads.get() + 1);
-        Ok(boxed(0.5))
-    });
+    let drawn = draw_laid_arabic(
+        &mut doc,
+        &item(),
+        &laid,
+        &Dict::new(),
+        &mut fonts,
+        &mut out,
+        |_| {
+            reads.set(reads.get() + 1);
+            Ok(boxed(0.5))
+        },
+        "Arabic",
+    );
     assert!(drawn.is_ok(), "{drawn:?}");
     assert_eq!(fonts_of(&doc, &fonts).iter().map(|(_, glyphs)| *glyphs).collect::<Vec<_>>(), [3]);
     assert_eq!(reads.get(), 3);
@@ -165,10 +183,19 @@ fn distinct_clusters_past_the_old_limit_share_their_glyph_outlines() {
     let reads = Cell::new(0usize);
     let mut doc = Document::new_empty();
     let (mut fonts, mut out) = (Dict::new(), Vec::new());
-    let drawn = draw_laid_arabic(&mut doc, &item(), &laid, &Dict::new(), &mut fonts, &mut out, |_| {
-        reads.set(reads.get() + 1);
-        Ok(boxed(0.5))
-    });
+    let drawn = draw_laid_arabic(
+        &mut doc,
+        &item(),
+        &laid,
+        &Dict::new(),
+        &mut fonts,
+        &mut out,
+        |_| {
+            reads.set(reads.get() + 1);
+            Ok(boxed(0.5))
+        },
+        "Arabic",
+    );
     assert!(drawn.is_ok(), "{drawn:?}");
     assert_eq!(fonts.len(), 17);
     assert_eq!(reads.get(), 4);
@@ -182,16 +209,25 @@ fn hostile_clusters_draw_empty_or_fail_without_changing_the_document() {
     let laid = vec![line(vec![empty, cluster(1, 0.5)], false)];
     let mut doc = Document::new_empty();
     let (mut fonts, mut out) = (Dict::new(), Vec::new());
-    let drawn = draw_laid_arabic(&mut doc, &item(), &laid, &Dict::new(), &mut fonts, &mut out, |_| Ok(boxed(0.5)));
+    let drawn = draw_laid_arabic(&mut doc, &item(), &laid, &Dict::new(), &mut fonts, &mut out, |_| Ok(boxed(0.5)), "Arabic");
     assert!(drawn.is_ok(), "{drawn:?}");
     assert_eq!(glyphs_shown(&out).len(), 2);
     // A glyph id the face doesn't have fails the item before anything is written.
     let before = snapshot(&doc);
     let laid = vec![line(vec![cluster(1, 0.5), cluster(u32::MAX, 0.5)], false)];
     let (mut fonts, mut out) = (Dict::new(), Vec::new());
-    let drawn = draw_laid_arabic(&mut doc, &item(), &laid, &Dict::new(), &mut fonts, &mut out, |id| {
-        if id == u32::MAX { Err(GlyphError::Missing) } else { Ok(boxed(0.5)) }
-    });
+    let drawn = draw_laid_arabic(
+        &mut doc,
+        &item(),
+        &laid,
+        &Dict::new(),
+        &mut fonts,
+        &mut out,
+        |id| {
+            if id == u32::MAX { Err(GlyphError::Missing) } else { Ok(boxed(0.5)) }
+        },
+        "Arabic",
+    );
     assert!(drawn.is_err());
     assert_eq!(snapshot(&doc), before);
     assert!(fonts.is_empty() && out.is_empty());
@@ -202,7 +238,7 @@ fn a_font_name_the_page_already_uses_is_not_reused() {
     let laid = vec![line(vec![cluster(1, 0.5)], false)];
     let mut doc = Document::new_empty();
     let (mut fonts, mut out) = (Dict::new(), Vec::new());
-    let drawn = draw_laid_arabic(&mut doc, &item(), &laid, &Dict::new(), &mut fonts, &mut out, |_| Ok(boxed(0.5)));
+    let drawn = draw_laid_arabic(&mut doc, &item(), &laid, &Dict::new(), &mut fonts, &mut out, |_| Ok(boxed(0.5)), "Arabic");
     assert!(drawn.is_ok(), "{drawn:?}");
     let first = fonts_of(&doc, &fonts)[0].0.clone();
     // The same item on a page whose resources already use that name.
@@ -210,7 +246,7 @@ fn a_font_name_the_page_already_uses_is_not_reused() {
     taken.set(first.clone(), Object::Null);
     let mut doc = Document::new_empty();
     let (mut fonts, mut out) = (Dict::new(), Vec::new());
-    let drawn = draw_laid_arabic(&mut doc, &item(), &laid, &taken, &mut fonts, &mut out, |_| Ok(boxed(0.5)));
+    let drawn = draw_laid_arabic(&mut doc, &item(), &laid, &taken, &mut fonts, &mut out, |_| Ok(boxed(0.5)), "Arabic");
     assert!(drawn.is_ok(), "{drawn:?}");
     let second = fonts_of(&doc, &fonts)[0].0.clone();
     assert_ne!(second, first);

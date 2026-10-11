@@ -403,11 +403,14 @@ fn draw_arabic(doc: &mut Document, t: &AddedText, taken: &Dict, fonts: &mut Dict
         .into_iter()
         .map(|(line, rtl)| arabic_layout(t, &line, rtl).map(|(pieces, w)| (line, rtl, pieces, w)))
         .collect::<Result<Vec<_>, _>>()?;
-    draw_laid_arabic(doc, t, &laid, taken, fonts, out, arabic_glyph)
+    let family = pdfcraft_fonts::document_arabic_font().map_or("Arabic", |f| f.family);
+    draw_laid_arabic(doc, t, &laid, taken, fonts, out, arabic_glyph, family)
 }
 
 /// [`draw_arabic`] for lines that are already laid out. `outline` is the source of glyph outlines
-/// (the craft-fonts face, or a stand-in in tests).
+/// (the craft-fonts face, or a stand-in in tests); `family` is named in the font descriptor.
+// Eight params: the outline and family are injected so the tests run without craft-fonts.
+#[expect(clippy::too_many_arguments)]
 fn draw_laid_arabic(
     doc: &mut Document,
     t: &AddedText,
@@ -416,6 +419,7 @@ fn draw_laid_arabic(
     fonts: &mut Dict,
     out: &mut Vec<u8>,
     outline: impl Fn(u32) -> Result<GlyphOutline, GlyphError>,
+    family: &str,
 ) -> Result<(), EditError> {
     let r = text_rect(t);
     let latin = font_name(t.family.base_font(t.bold, t.italic));
@@ -445,7 +449,7 @@ fn draw_laid_arabic(
     let mut taken_names: HashSet<Vec<u8>> = taken.iter().chain(fonts.iter()).map(|(name, _)| name.clone()).collect();
     let mut names = Vec::new();
     for chunk in keys.chunks(GLYPHS_PER_FONT) {
-        let font = type3_arabic(doc, chunk, &outlines);
+        let font = type3_arabic(doc, chunk, &outlines, family);
         // A name no font on the page has, so items never replace each other's fonts (object
         // numbers alone don't do: a full save renumbers objects but keeps resource names).
         let mut name = format!("PCAr{}", font.num);
@@ -515,7 +519,8 @@ fn cluster_key(c: &ShapedCluster) -> ClusterKey<'_> {
 }
 
 /// A Type 3 font with `clusters` as codes 1…, each drawn from the Arabic face's glyph `outlines`.
-fn type3_arabic(doc: &mut Document, clusters: &[&ShapedCluster], outlines: &HashMap<u32, GlyphOutline>) -> ObjRef {
+/// `family` is named in the font descriptor.
+fn type3_arabic(doc: &mut Document, clusters: &[&ShapedCluster], outlines: &HashMap<u32, GlyphOutline>, family: &str) -> ObjRef {
     let mut charprocs = Dict::new();
     let mut differences = vec![Object::Int(1)];
     let mut widths = Vec::with_capacity(clusters.len());
@@ -564,7 +569,6 @@ fn type3_arabic(doc: &mut Document, clusters: &[&ShapedCluster], outlines: &Hash
     }
     cmap.push_str("endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n");
     let cmap = doc.add(Object::Stream(Stream::flate(Dict::new(), cmap.as_bytes())));
-    let family = pdfcraft_fonts::document_arabic_font().map_or("Arabic", |f| f.family);
     let mut descriptor = Dict::new();
     descriptor.set(b"Type".to_vec(), Object::name("FontDescriptor"));
     descriptor.set(b"FontName".to_vec(), Object::name(&family.replace(' ', "")));
