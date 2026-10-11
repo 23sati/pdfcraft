@@ -109,4 +109,3 @@ the `lines` directory for the complete-page test. The pinned Fraktur PAGE file i
 public-domain source scan). Follow those repositories' image references; their
 institutional banners are not product assets. Install the optional model before
 running `cargo test -p pdfcraft-engine --test scan_ocr historical`.
-
