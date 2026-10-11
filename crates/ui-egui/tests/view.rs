@@ -376,6 +376,8 @@ fn preferences_set_the_default_zoom() {
     let mut h = harness(&[]);
     assert!(h.state_mut().execute("app.preferences"));
     h.run_steps(3);
+    h.get_by_label("Zoom to page level").scroll_to_me();
+    h.run_steps(4);
     h.get_by_label("Zoom to page level").click();
     h.run_steps(2);
     assert!(h.state_mut().execute("create.blank"));

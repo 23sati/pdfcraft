@@ -1158,3 +1158,26 @@ fn drawings_resize_by_scaling_their_strokes() {
     // Too small to hold the stroke margin.
     assert!(matches!(set_rect(&mut doc, 0, i, [100.0, 400.0, 101.0, 401.0], &meta("")), Err(AnnotError::Invalid(_))));
 }
+
+/// Content edits rebuild the display copy on every commit but leave annotations alone: the
+/// cached appearance is drawn once and reused after that, byte-identical.
+#[test]
+fn cached_appearances_are_reused_while_annotations_are_unchanged() {
+    let mut doc = fixture();
+    let idx = add_annotation(&mut doc, &new(0, Shape::Note { at: [100.0, 700.0], icon: NoteIcon::Comment }), &meta("cache")).expect("adds");
+    // Files carry comments without appearances; strip the created one to simulate that.
+    let page = page_refs(&doc).unwrap()[0];
+    let r = annots(&doc, page)[idx].as_ref().expect("indirect");
+    doc.update_dict(r, |d| {
+        d.remove(b"AP");
+    })
+    .expect("strips");
+    let mut cache = AppearanceCache::default();
+    let first = with_missing_appearances_cached(&doc, &mut cache).expect("builds");
+    assert_eq!((cache.builds(), cache.hits()), (1, 0), "only the note needs an appearance");
+    let second = with_missing_appearances_cached(&doc, &mut cache).expect("reuses");
+    assert_eq!((cache.builds(), cache.hits()), (1, 1), "nothing is redrawn");
+    let [a, b] = [&first, &second].map(|copy| ap_content(copy, &list(copy, 0)[idx]));
+    assert!(!a.is_empty());
+    assert_eq!(a, b, "the reused appearance is byte-identical");
+}
