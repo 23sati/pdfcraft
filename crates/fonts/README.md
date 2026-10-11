@@ -15,7 +15,7 @@ Today it holds what generated appearances need without a font program:
   what can be written instead) where the `?` would be permanent page content, or, for a form
   value or a comment's text, which is stored as typed, draw the `?` and mark the annotation with
   `set_undrawn_mark` (`UNDRAWN_MARK`, read back by `undrawn_mark`) so the edit is reported and
-  flattening refuses. `script_missing` names what the typed-signature script font lacks.
+  flattening refuses. `script_missing` names what the typed-signature script font and its Inter fallback both lack.
 
 It also holds the fonts of the optional [craft-fonts](https://github.com/storytold/craft-fonts)
 build input. `build.rs` embeds them as `CRAFT_FONTS` when the build sets

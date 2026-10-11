@@ -433,6 +433,19 @@ fn real_annotation_flags_do_not_lock_comments() {
 }
 
 #[test]
+fn carriage_returns_in_comment_text_become_line_breaks() {
+    let mut doc = fixture();
+    let page = page_refs(&doc).unwrap()[0];
+    let mut entries = annots(&doc, page);
+    let Object::Dict(annotation) = &mut entries[0] else { panic!("fixture annotation is inline") };
+    // Acrobat ends lines in /Contents with CR; the interface only breaks lines at LF.
+    annotation.set(b"Contents".to_vec(), PdfString::text("one\r\rtwo\r\nthree"));
+    set_annots(&mut doc, page, entries).unwrap();
+
+    assert_eq!(summaries(&doc)[0].contents.as_deref(), Some("one\n\ntwo\nthree"));
+}
+
+#[test]
 fn a_locked_text_box_still_refits_its_text() {
     let mut doc = fixture();
     let t = add_annotation(&mut doc, &new(0, Shape::TextBox { rect: [100.0, 680.0, 304.0, 692.0], font_size: 12.0 }), &meta("t")).unwrap();
@@ -575,10 +588,59 @@ fn links_are_added_edited_listed_and_removed() {
 }
 
 #[test]
+fn link_edit_rejects_non_finite_and_overflowed_rectangles_without_mutating_the_pdf() {
+    use crate::links::{self, LinkAction, LinkStyle};
+    let mut doc = fixture();
+    let original_rect = [10.0, 20.0, 110.0, 70.0];
+    let index = links::add(&mut doc, 0, original_rect, &LinkAction::Uri("https://example.org".into()), &LinkStyle::default()).unwrap();
+    let before = links::list(&doc);
+    let changed_action = LinkAction::Uri("https://other.example".into());
+    for rect in [
+        [f64::NAN, 0.0, 100.0, 30.0],
+        [0.0, 0.0, f64::INFINITY, 30.0],
+        [f64::NEG_INFINITY, 0.0, 100.0, 30.0],
+        [-1e308, 0.0, 1e308, 30.0],
+        [0.0, 0.0, 1.5, 30.0],
+    ] {
+        assert!(links::set(&mut doc, 0, index, Some(rect), Some(&changed_action), None).is_err(), "edit accepted {rect:?}");
+        assert_eq!(links::list(&doc), before, "invalid edit changed an existing link");
+        assert!(links::add(&mut doc, 0, rect, &changed_action, &LinkStyle::default()).is_err(), "add accepted {rect:?}");
+    }
+    // A reversed but otherwise valid rectangle is normalized on edit.
+    links::set(&mut doc, 0, index, Some([110.0, 70.0, 10.0, 20.0]), None, None).unwrap();
+    let edited = links::list(&doc).into_iter().find(|l| l.page == 0 && l.index == index).map(|l| l.rect);
+    assert_eq!(edited, Some(original_rect));
+}
+
+#[test]
 fn urls_are_found_in_text() {
     let t: Vec<char> = "See https://example.org/a?b=1, or www.rust-lang.org. Not a.b or http:/x.".chars().collect();
     let found: Vec<String> = crate::links::find_urls(&t).into_iter().map(|(_, u)| u).collect();
     assert_eq!(found, ["https://example.org/a?b=1", "http://www.rust-lang.org"]);
+}
+
+#[test]
+fn common_email_addresses_become_mailto_links_with_source_character_ranges() {
+    let source = "İ Contact ada.lovelace+forms@example.co.uk, browse HTTPS://EXAMPLE.ORG; or ask admin@example.org.";
+    let chars: Vec<char> = source.chars().collect();
+    let links = crate::links::find_urls(&chars);
+    let found: Vec<(String, String)> = links.into_iter().map(|(range, url)| (chars.get(range).unwrap().iter().collect(), url)).collect();
+    assert_eq!(
+        found,
+        [
+            ("ada.lovelace+forms@example.co.uk".into(), "mailto:ada.lovelace+forms@example.co.uk".into()),
+            ("HTTPS://EXAMPLE.ORG".into(), "HTTPS://EXAMPLE.ORG".into()),
+            ("admin@example.org".into(), "mailto:admin@example.org".into()),
+        ]
+    );
+}
+
+#[test]
+fn malformed_email_addresses_are_not_autolinked() {
+    for invalid in ["a@b", "broken@localhost", "a..b@example.org", "foo@.example.org", "foo@example..org", "foo@example.com@x"] {
+        let input: Vec<char> = invalid.chars().collect();
+        assert!(crate::links::find_urls(&input).is_empty(), "{invalid:?} produced a link");
+    }
 }
 
 #[test]
