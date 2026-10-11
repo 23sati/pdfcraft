@@ -409,13 +409,7 @@ fn command_w_closes_empty_macos_window_but_not_an_empty_windows_window() {
         h.ctx.set_os(os);
         h.run_steps(4);
         assert!(h.state().views.is_empty());
-        h.event(egui::Event::Key {
-            key: Key::W,
-            physical_key: None,
-            pressed: true,
-            repeat: false,
-            modifiers: Modifiers::COMMAND,
-        });
+        h.event(egui::Event::Key { key: Key::W, physical_key: None, pressed: true, repeat: false, modifiers: Modifiers::COMMAND });
         h.step();
         let closes = h.output().viewport_output.values().any(|v| v.commands.iter().any(|c| matches!(c, egui::ViewportCommand::Close)));
         assert_eq!(closes, should_close, "{os:?}: only an empty macOS window should close");
