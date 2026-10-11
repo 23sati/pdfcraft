@@ -2051,10 +2051,20 @@ pub struct Session {
 /// Lay a dynamic XFA form out (pages and fields) and give its widgets appearances.
 fn xfa_layout(doc: &mut pdfcraft_cos::Document) -> Result<XfaLayout, String> {
     let report = pdfcraft_xfa::render_into(doc).map_err(|e| e.to_string())?;
+    xfa_redraw(doc)?;
+    Ok(report)
+}
+
+/// Give the fields of a laid-out XFA form their appearances. A signed signature box keeps the
+/// picture its signer's application drew.
+pub(crate) fn xfa_redraw(doc: &mut pdfcraft_cos::Document) -> Result<(), String> {
     for f in pdfcraft_forms::fields(doc) {
+        if f.kind == pdfcraft_forms::FieldKind::Signature && doc.get(f.obj).as_dict().is_some_and(|d| d.contains(b"V")) {
+            continue;
+        }
         pdfcraft_forms::redraw_field(doc, &f.name).map_err(|e| format!("{}: {e}", f.name))?;
     }
-    Ok(report)
+    Ok(())
 }
 
 /// The form's fields as the XFA data layer wants them.

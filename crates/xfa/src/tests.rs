@@ -1441,6 +1441,26 @@ fn a_text_field_without_a_border_of_its_own_has_no_box() {
 }
 
 #[test]
+fn a_signed_signature_box_shows_the_signature_the_file_holds() {
+    let mut doc = Document::open(Arc::new(crate::fixtures::signed_shell())).unwrap();
+    render_into(&mut doc).unwrap();
+    let catalog = doc.get(doc.root().unwrap());
+    let acro = doc.resolve(catalog.as_dict().unwrap().get(b"AcroForm").unwrap());
+    let fields = doc.resolve(acro.as_dict().unwrap().get(b"Fields").unwrap()).as_array().unwrap().clone();
+    let laid: Vec<_> = fields.iter().map(|f| doc.resolve(f)).filter(|f| f.as_dict().unwrap().contains(SOM_KEY)).collect();
+    let (signed, unsigned) = (laid[0].as_dict().unwrap(), laid[1].as_dict().unwrap());
+    // The signature dictionary and the picture are the file's own objects, not copies.
+    let value = doc.resolve(signed.get(b"V").unwrap());
+    assert_eq!(value.as_dict().unwrap().name(b"Type"), Some(&b"Sig"[..]));
+    assert!(signed.get(b"V").unwrap().as_ref().is_some());
+    let shown = doc.resolve(signed.get(b"AP").unwrap());
+    let picture = doc.resolve(shown.as_dict().unwrap().get(b"N").unwrap());
+    assert!(matches!(&*picture, Object::Stream(s) if s.dict.name(b"Subtype") == Some(&b"Form"[..])));
+    assert_eq!(signed.int(b"Ff").unwrap_or(0) & 1, 1, "a signed box is not signed again");
+    assert!(!unsigned.contains(b"V") && !unsigned.contains(b"AP"));
+}
+
+#[test]
 fn times_text_is_measured_with_times_widths() {
     let face = |typeface: &str| crate::text::Face::of(&Font { typeface: typeface.into(), size: 10.0, ..Font::default() });
     let s = "The quick brown fox jumps over the lazy dog, 1234567890 times.";
