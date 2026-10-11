@@ -831,12 +831,12 @@ fn sign_as(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> bool {
         preview(ui, t, &entry.name, d, graphic.as_ref(), &mut app.sign_graphic_preview);
         ui.horizontal_wrapped(|ui| {
             let a = &mut d.appearance;
-            ui.checkbox(&mut a.name, tl!("Name"));
-            ui.checkbox(&mut a.date, tl!("Date"));
-            ui.checkbox(&mut a.reason, tl!("Reason"));
-            ui.checkbox(&mut a.location, tl!("Location"));
-            ui.checkbox(&mut a.distinguished_name, tl!("Distinguished name"));
-            ui.checkbox(&mut a.labels, tl!("Labels"));
+            ui.add(widgets::checkbox(&mut a.name, tl!("Name")));
+            ui.add(widgets::checkbox(&mut a.date, tl!("Date")));
+            ui.add(widgets::checkbox(&mut a.reason, tl!("Reason")));
+            ui.add(widgets::checkbox(&mut a.location, tl!("Location")));
+            ui.add(widgets::checkbox(&mut a.distinguished_name, tl!("Distinguished name")));
+            ui.add(widgets::checkbox(&mut a.labels, tl!("Labels")));
         });
         // Acrobat: Configure Signature Appearance, Text, Draw or Image.
         ui.horizontal_wrapped(|ui| {

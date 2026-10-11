@@ -2,3 +2,10 @@ allow-unwrap-in-tests = true
 allow-expect-in-tests = true
 allow-panic-in-tests = true
 allow-indexing-slicing-in-tests = true
+
+# With the theme's widget radius egui draws a checkbox's box as a circle, like a radio button.
+disallowed-methods = [
+    { path = "egui::Ui::checkbox", reason = "use checkbox from crates/ui-egui/src/widgets.rs, whose box is a square" },
+    { path = "egui::Checkbox::new", reason = "use checkbox from crates/ui-egui/src/widgets.rs, whose box is a square" },
+    { path = "egui::Checkbox::without_text", reason = "use checkbox_without_text from crates/ui-egui/src/widgets.rs, whose box is a square" },
+]

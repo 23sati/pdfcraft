@@ -3264,8 +3264,8 @@ fn find_bar(view: &mut DocView, pages: usize, area: Rect, ui: &mut egui::Ui, t: 
                         }
                         let opts = icons::button(ui, "settings-2", 26.0, find.case_sensitive || find.whole_words, tl!("Find options"));
                         egui::Popup::menu(&opts).show(|ui| {
-                            let a = ui.checkbox(&mut find.whole_words, tl!("Whole words only")).changed();
-                            let b = ui.checkbox(&mut find.case_sensitive, tl!("Case-sensitive")).changed();
+                            let a = ui.add(widgets::checkbox(&mut find.whole_words, tl!("Whole words only"))).changed();
+                            let b = ui.add(widgets::checkbox(&mut find.case_sensitive, tl!("Case-sensitive"))).changed();
                             if a || b {
                                 // Search again with the new options.
                                 find.case_query.clear();
@@ -3880,7 +3880,7 @@ fn organize_grid(view: &mut DocView, info: &DocInfo, editable: bool, dirty: bool
                 // outside the page image, including on very tall or wide pages.
                 let mut checked = view.selected.contains(&i);
                 let check_rect = Rect::from_min_size(c.min + vec2(8.0, 8.0), Vec2::splat(20.0));
-                let check = ui.push_id(("org-check", i), |ui| ui.put(check_rect, egui::Checkbox::without_text(&mut checked))).inner;
+                let check = ui.push_id(("org-check", i), |ui| ui.put(check_rect, widgets::checkbox_without_text(&mut checked))).inner;
                 let label = crate::i18n::fmt(tl!("Select page {label}"), &[("label", &p.label)]);
                 check.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Checkbox, true, checked, label.clone()));
                 if check.on_hover_text(label).changed() {

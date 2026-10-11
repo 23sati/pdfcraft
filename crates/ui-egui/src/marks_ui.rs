@@ -164,7 +164,7 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens, kind: M
                 ui.label(tl!("Font: Helvetica"));
                 ui.label(tl!("Size"));
                 ui.add(egui::DragValue::new(&mut d.hf.font_size).range(4.0..=72.0).speed(0.5));
-                ui.checkbox(&mut d.hf.underline, tl!("Underline"));
+                ui.add(widgets::checkbox(&mut d.hf.underline, tl!("Underline")));
                 color_button(ui, &mut d.hf.color);
                 ui.add_space(16.0);
                 ui.label(format!("{} ({})", tl!("Margins"), units.label()));
@@ -243,7 +243,7 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens, kind: M
                         );
                     });
                     ui.horizontal(|ui| {
-                        ui.add_enabled_ui(!d.use_file, |ui| ui.checkbox(&mut d.fit, tl!("Fit to page")));
+                        ui.add_enabled_ui(!d.use_file, |ui| ui.add(widgets::checkbox(&mut d.fit, tl!("Fit to page"))));
                         ui.add_enabled_ui(!d.fit, |ui| {
                             ui.label(tl!("Size"));
                             if d.wm.font_size == 0.0 {

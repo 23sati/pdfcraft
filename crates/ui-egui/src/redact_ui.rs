@@ -320,7 +320,7 @@ pub(crate) fn props_body(ui: &mut egui::Ui, d: &mut RedactPrefs, _t: &Tokens) ->
         ui.label(tl!("Redacted area fill colour:"));
         ui.horizontal(|ui| {
             let mut none = d.fill.is_none();
-            if ui.checkbox(&mut none, tl!("No colour")).changed() {
+            if ui.add(widgets::checkbox(&mut none, tl!("No colour"))).changed() {
                 d.fill = if none { None } else { Some([0.0, 0.0, 0.0]) };
             }
         });
@@ -331,7 +331,7 @@ pub(crate) fn props_body(ui: &mut egui::Ui, d: &mut RedactPrefs, _t: &Tokens) ->
         }
         ui.end_row();
         ui.label("");
-        ui.checkbox(&mut d.use_overlay, tl!("Use overlay text"));
+        ui.add(widgets::checkbox(&mut d.use_overlay, tl!("Use overlay text")));
         ui.end_row();
         let on = d.use_overlay;
         let l = ui.add_enabled(on, egui::RadioButton::new(!d.use_code, tl!("Custom text:")));
@@ -361,7 +361,7 @@ pub(crate) fn props_body(ui: &mut egui::Ui, d: &mut RedactPrefs, _t: &Tokens) ->
                 ui.horizontal(|ui| {
                     for &code in row {
                         let mut picked = d.codes.contains(&code);
-                        if ui.add_sized([62.0, 18.0], egui::Checkbox::new(&mut picked, code)).changed() {
+                        if ui.add_sized([62.0, 18.0], widgets::checkbox(&mut picked, code)).changed() {
                             d.codes.retain(|c| *c != code);
                             if picked {
                                 d.codes.push(code);
@@ -386,7 +386,7 @@ pub(crate) fn props_body(ui: &mut egui::Ui, d: &mut RedactPrefs, _t: &Tokens) ->
         ui.add_enabled_ui(on, |ui| {
             ui.horizontal(|ui| {
                 let mut auto = look.size <= 0.0;
-                if ui.checkbox(&mut auto, tl!("Auto-size text to fit redaction region")).changed() {
+                if ui.add(widgets::checkbox(&mut auto, tl!("Auto-size text to fit redaction region"))).changed() {
                     look.size = if auto { 0.0 } else { 10.0 };
                 }
                 if !auto {
@@ -403,7 +403,7 @@ pub(crate) fn props_body(ui: &mut egui::Ui, d: &mut RedactPrefs, _t: &Tokens) ->
         });
         ui.end_row();
         ui.label("");
-        ui.add_enabled(on, egui::Checkbox::new(&mut look.repeat, tl!("Repeat overlay text")));
+        ui.add_enabled(on, widgets::checkbox(&mut look.repeat, tl!("Repeat overlay text")));
         ui.end_row();
         ui.label(tl!("Text alignment:"));
         ui.add_enabled_ui(on, |ui| {
@@ -480,7 +480,7 @@ pub(crate) fn hidden_body(ui: &mut egui::Ui, d: &mut HiddenDraft, t: &Tokens) ->
     for (h, n, on) in d.found.iter_mut() {
         ui.add_enabled_ui(*n > 0, |ui| {
             ui.horizontal(|ui| {
-                ui.checkbox(on, tl!(h.label()));
+                ui.add(widgets::checkbox(on, tl!(h.label())));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.label(egui::RichText::new(if *n == 0 { tl!("None found").to_string() } else { n.to_string() }).color(t.text_muted));
                 });

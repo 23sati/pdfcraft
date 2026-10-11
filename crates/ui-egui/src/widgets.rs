@@ -188,6 +188,48 @@ pub fn menu_item(ui: &mut egui::Ui, label: &str, shortcut: &str) -> Response {
     ui.add(egui::Button::new(label).shortcut_text(shortcut))
 }
 
+/// Corner radius of a checkbox's box. With the widgets' radius (`Tokens::radius`, 6) egui's 14 px
+/// box is a circle, the shape of a radio button, and View ▸ Page display has both.
+const CHECKBOX_RADIUS: u8 = 3;
+
+/// A checkbox whose box is an outlined rounded square, never mistaken for a radio button. The
+/// outline also shows an unticked box on the light theme's white panels. Every checkbox goes
+/// through here: clippy.toml disallows `ui.checkbox` and `egui::Checkbox`.
+pub fn checkbox<'a>(checked: &'a mut bool, atoms: impl egui::IntoAtoms<'a>) -> impl egui::Widget + 'a {
+    #[expect(clippy::disallowed_methods, reason = "the one place that styles the box")]
+    let widget = egui::Checkbox::new(checked, atoms);
+    square_box(widget)
+}
+
+/// [`checkbox`] without a label: the selection box on Organize Pages thumbnails.
+pub fn checkbox_without_text(checked: &mut bool) -> impl egui::Widget + '_ {
+    #[expect(clippy::disallowed_methods, reason = "the one place that styles the box")]
+    let widget = egui::Checkbox::without_text(checked);
+    square_box(widget)
+}
+
+/// egui draws the box with the widgets' visuals and has no checkbox-only style, so the box's
+/// radius and outline are set in a scope around it. Outlines the caller already set (dialogs
+/// darken it on hover) are kept.
+fn square_box<'a>(widget: egui::Checkbox<'a>) -> impl egui::Widget + 'a {
+    move |ui: &mut egui::Ui| {
+        ui.scope(|ui| {
+            let border = Tokens::get(ui.ctx()).border;
+            let w = &mut ui.visuals_mut().widgets;
+            for v in [&mut w.noninteractive, &mut w.inactive, &mut w.hovered, &mut w.active, &mut w.open] {
+                v.corner_radius = CornerRadius::same(CHECKBOX_RADIUS);
+            }
+            for v in [&mut w.inactive, &mut w.hovered] {
+                if v.bg_stroke.is_empty() {
+                    v.bg_stroke = Stroke::new(1.0, border);
+                }
+            }
+            ui.add(widget)
+        })
+        .inner
+    }
+}
+
 pub fn section_title(ui: &mut egui::Ui, text: &str) {
     let t = Tokens::get(ui.ctx());
     ui.add_space(10.0);
@@ -441,6 +483,48 @@ mod tests {
             }
         }
         crate::i18n::set_current(previous);
+    }
+
+    /// View ▸ Page display mixes radio buttons and checkboxes. With the theme's 6 px widget radius
+    /// egui's 14 px checkbox box drew as a circle, and on the light theme an unticked one had no
+    /// visible edge at all.
+    #[test]
+    fn checkboxes_draw_an_outlined_square_not_a_radio_circle() {
+        for kind in [theme::ThemeKind::Light, theme::ThemeKind::Dark] {
+            let ctx = egui::Context::default();
+            theme::apply(&ctx, kind);
+            let side = ctx.global_style().spacing.icon_width;
+            let output = ctx.run_ui(egui::RawInput::default(), |ui| {
+                ui.add(checkbox(&mut false, "Show cover page in two-page view"));
+                ui.radio(false, "Single page");
+            });
+            let boxes: Vec<_> = output
+                .shapes
+                .iter()
+                .filter_map(|s| match &s.shape {
+                    egui::Shape::Rect(r) if (r.rect.width() - side).abs() < 0.5 && (r.rect.height() - side).abs() < 0.5 => Some(r),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(boxes.len(), 1, "{kind:?}: one checkbox box");
+            let r = boxes[0].corner_radius;
+            let radius = r.nw.max(r.ne).max(r.sw).max(r.se);
+            assert!(f32::from(radius) <= side / 4.0, "{kind:?}: a {side} px box with corner radius {radius} looks like a radio button");
+            let edge = boxes[0].stroke;
+            assert!(edge.width >= 1.0 && edge.color != boxes[0].fill, "{kind:?}: an unticked box needs a visible edge, got {edge:?}");
+            let radio = output.shapes.iter().any(|s| matches!(&s.shape, egui::Shape::Circle(c) if (c.radius * 2.0 - side).abs() < 1.0));
+            assert!(radio, "{kind:?}: the radio button stays a circle");
+            output.drop_without_applying_deltas();
+        }
+        // An outline the caller set (dialogs) is kept.
+        let ctx = egui::Context::default();
+        let own = Stroke::new(1.5, Color32::RED);
+        let output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            ui.visuals_mut().widgets.inactive.bg_stroke = own;
+            ui.add(checkbox(&mut true, "Collate"));
+        });
+        assert!(output.shapes.iter().any(|s| matches!(&s.shape, egui::Shape::Rect(r) if r.stroke == own)));
+        output.drop_without_applying_deltas();
     }
 
     fn toast_rect(app: &mut PdfCraftApp, ctx: &egui::Context, width: f32, now: &mut f64) -> Rect {

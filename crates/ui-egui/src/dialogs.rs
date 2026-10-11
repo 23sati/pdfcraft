@@ -219,9 +219,9 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                             ui.label("");
                             ui.add_enabled_ui(editable, |ui| {
                                 ui.vertical(|ui| {
-                                    ui.checkbox(&mut v.fit_window, tl!("Resize window to initial page"));
-                                    ui.checkbox(&mut v.center_window, tl!("Center window on screen"));
-                                    ui.checkbox(&mut v.full_screen, tl!("Open in Full Screen mode"));
+                                    ui.add(widgets::checkbox(&mut v.fit_window, tl!("Resize window to initial page")));
+                                    ui.add(widgets::checkbox(&mut v.center_window, tl!("Center window on screen")));
+                                    ui.add(widgets::checkbox(&mut v.full_screen, tl!("Open in Full Screen mode")));
                                     ui.horizontal(|ui| {
                                         ui.label(tl!("Show:"));
                                         ui.radio_value(&mut v.display_title, false, tl!("File Name"));
@@ -235,9 +235,9 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                             ui.label("");
                             ui.add_enabled_ui(editable, |ui| {
                                 ui.vertical(|ui| {
-                                    ui.checkbox(&mut v.hide_menubar, tl!("Hide menu bar"));
-                                    ui.checkbox(&mut v.hide_toolbar, tl!("Hide toolbars"));
-                                    ui.checkbox(&mut v.hide_window_ui, tl!("Hide window controls"));
+                                    ui.add(widgets::checkbox(&mut v.hide_menubar, tl!("Hide menu bar")));
+                                    ui.add(widgets::checkbox(&mut v.hide_toolbar, tl!("Hide toolbars")));
+                                    ui.add(widgets::checkbox(&mut v.hide_window_ui, tl!("Hide window controls")));
                                 });
                             });
                             ui.end_row();
@@ -566,8 +566,8 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                     let l = ui.label(tl!("File name"));
                     ui.add(egui::TextEdit::singleline(&mut app.extract_draft.name).desired_width(240.0)).labelled_by(l.id);
                 });
-                ui.checkbox(&mut app.extract_draft.delete, tl!("Delete pages after extracting"));
-                ui.checkbox(&mut app.extract_draft.separate, tl!("Extract pages as separate files"));
+                ui.add(widgets::checkbox(&mut app.extract_draft.delete, tl!("Delete pages after extracting")));
+                ui.add(widgets::checkbox(&mut app.extract_draft.separate, tl!("Extract pages as separate files")));
                 ui.add_space(12.0);
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     if widgets::pill_button(ui, tl!("Extract"), true).clicked() {

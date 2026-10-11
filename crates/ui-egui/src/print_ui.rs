@@ -591,8 +591,8 @@ pub(crate) fn body(
                 ui.label(tl!("Copies:"));
                 ui.horizontal(|ui| {
                     ui.add(egui::DragValue::new(&mut d.copies).range(1..=999));
-                    ui.checkbox(&mut d.collate, tl!("Collate"));
-                    ui.checkbox(&mut d.grayscale, tl!("Print in grayscale"));
+                    ui.add(widgets::checkbox(&mut d.collate, tl!("Collate")));
+                    ui.add(widgets::checkbox(&mut d.grayscale, tl!("Print in grayscale")));
                 });
                 ui.end_row();
                 ui.label(tl!("Two-sided:"));
@@ -666,7 +666,7 @@ pub(crate) fn body(
                     &[(Subset::All, tl!("All pages in range")), (Subset::Odd, tl!("Odd pages only")), (Subset::Even, tl!("Even pages only"))],
                     150.0,
                 );
-                ui.checkbox(&mut d.reverse, tl!("Reverse pages"));
+                ui.add(widgets::checkbox(&mut d.reverse, tl!("Reverse pages")));
             });
             ui.add_space(6.0);
             widgets::section_title(ui, tl!("Page Sizing & Handling"));
@@ -705,7 +705,7 @@ pub(crate) fn body(
                         ui.add(egui::DragValue::new(&mut d.poster_scale).range(10.0..=1000.0).suffix(" %"));
                         ui.label(tl!("Overlap:"));
                         ui.add(egui::DragValue::new(&mut d.overlap).range(0.0..=144.0).suffix(" pt"));
-                        ui.checkbox(&mut d.cut_marks, tl!("Cut marks"));
+                        ui.add(widgets::checkbox(&mut d.cut_marks, tl!("Cut marks")));
                     });
                 }
                 Handling::Multiple => {
@@ -728,8 +728,8 @@ pub(crate) fn body(
                         );
                     });
                     ui.horizontal(|ui| {
-                        ui.checkbox(&mut d.border, tl!("Print page border"));
-                        ui.checkbox(&mut d.auto_rotate, tl!("Auto-rotate pages"));
+                        ui.add(widgets::checkbox(&mut d.border, tl!("Print page border")));
+                        ui.add(widgets::checkbox(&mut d.auto_rotate, tl!("Auto-rotate pages")));
                     });
                     if d.order == PageOrder::CutStack {
                         ui.label(tl!(

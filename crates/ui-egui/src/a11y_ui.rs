@@ -83,7 +83,7 @@ pub(crate) fn options_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens)
         ui.add_space(8.0);
     };
     group(ui, "Report Options", &mut |ui| {
-        ui.checkbox(&mut o.create_report, tl!("Create accessibility report"));
+        ui.add(widgets::checkbox(&mut o.create_report, tl!("Create accessibility report")));
     });
     group(ui, "Page Range", &mut |ui| {
         ui.horizontal(|ui| {
@@ -107,7 +107,7 @@ pub(crate) fn options_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens)
         ui.add_space(4.0);
         for r in Rule::ALL.into_iter().filter(|r| r.category() == o.category) {
             let mut checked = o.rules.contains(&r);
-            if ui.checkbox(&mut checked, tl!(r.description())).changed() {
+            if ui.add(widgets::checkbox(&mut checked, tl!(r.description()))).changed() {
                 if checked {
                     o.rules.insert(r);
                 } else {
@@ -126,7 +126,7 @@ pub(crate) fn options_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens)
             }
         });
     });
-    ui.checkbox(&mut o.show_dialog, tl!("Show this dialog when the Checker starts"));
+    ui.add(widgets::checkbox(&mut o.show_dialog, tl!("Show this dialog when the Checker starts")));
     ui.add_space(10.0);
     let (mut start, mut cancel) = (false, false);
     ui.horizontal(|ui| {
@@ -500,7 +500,7 @@ pub(crate) fn alt_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> 
         let l = ui.label(tl!("Alternate text"));
         ui.add(crate::widgets::block(&mut d.texts[i]).desired_rows(3).desired_width(380.0).hint_text(tl!("Describe the figure"))).labelled_by(l.id);
     });
-    ui.checkbox(&mut d.decorative[i], tl!("Decorative figure"));
+    ui.add(widgets::checkbox(&mut d.decorative[i], tl!("Decorative figure")));
     ui.add_space(10.0);
     let (mut save, mut cancel) = (false, false);
     ui.horizontal(|ui| {
