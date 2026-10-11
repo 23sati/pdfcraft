@@ -2214,3 +2214,16 @@ key	Space	مسافة
 	Panels	اللوحات
 	Resize panels	تغيير حجم اللوحات
 	Resize panel window	تغيير حجم نافذة اللوحة
+	Scan and text recognition	المسح والتعرف على النص
+	Searchable Image	صورة قابلة للبحث
+	Corrected scan	مسح مصحح
+	Scan correction	تصحيح المسح
+	Automatically rotate sideways and upside-down pages	تدوير الصفحات الجانبية والمقلوبة تلقائيًا
+	Straighten skewed scans	تقويم الصفحات الممسوحة المائلة
+	Add searchable text	إضافة نص قابل للبحث
+	Uncertain orientations are left unchanged. Deskew fits the full image inside the page.	تبقى الاتجاهات غير المؤكدة دون تغيير. يحافظ التقويم على الصورة كاملة داخل الصفحة.
+	Correct scans	تصحيح الصفحات الممسوحة
+	Scan processing cancelled	أُلغيت معالجة المسح
+	; 1 page skipped	; تم تخطي صفحة واحدة
+	; {n} pages skipped	; تم تخطي {n} صفحات
+	; corrected {n} pages	; تم تصحيح {n} صفحات

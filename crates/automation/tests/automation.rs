@@ -2947,6 +2947,9 @@ fn ocr_tools_make_a_scan_searchable() {
     let mut a = auto(&dir);
     let status = ok(&mut a, "ocr_status", json!({}));
     assert_eq!(status["languages"][0]["code"], "en");
+    for language in ["de", "ja", "fr", "es"] {
+        assert!(status["languages"].as_array().unwrap().iter().any(|l| l["code"] == language));
+    }
     if status["available"] != true {
         eprintln!("skipped: OCR models not installed");
         return;
@@ -2961,6 +2964,27 @@ fn ocr_tools_make_a_scan_searchable() {
     let again = ok(&mut a, "ocr_recognize", json!({ "doc": scan, "pages": [1] }));
     assert!(again["pages"][0]["skipped"].is_string(), "{again}");
     assert!(matches!(a.call("ocr_recognize", &json!({ "doc": scan, "language": "xx" })), Err(ToolError::InvalidArgs(_))));
+}
+
+#[test]
+fn ocr_enhance_corrects_rotation_without_adding_text() {
+    let dir = workdir("ocr-enhance");
+    let mut a = auto(&dir);
+    if ok(&mut a, "ocr_status", json!({}))["available"] != true {
+        return;
+    }
+    let sentence =
+        (0..18).map(|_| "Please read this document with the page upright. The quick brown fox jumps over the lazy dog.\n").collect::<String>();
+    let doc = ok(&mut a, "doc_create", json!({"from":"text","text":sentence}))["doc"].as_u64().unwrap();
+    ok(&mut a, "page_rotate", json!({"doc":doc,"pages":[1],"degrees":180}));
+    ok(&mut a, "doc_export_images", json!({"doc":doc,"folder":"scan","dpi":150,"pages":[1]}));
+    let png = std::fs::read_dir(dir.join("scan")).unwrap().next().unwrap().unwrap().path();
+    let scan = ok(&mut a, "doc_create", json!({"from":"images","paths":[png.to_string_lossy()]}))["doc"].as_u64().unwrap();
+    let corrected = ok(&mut a, "ocr_enhance", json!({"doc":scan,"deskew":false}));
+    assert_eq!(corrected["pages"][0]["rotation"], 180, "{corrected}");
+    assert_eq!(corrected["words"], 0);
+    let read = ok(&mut a, "ocr_recognize", json!({"doc":scan,"auto_rotate":false,"deskew":false}));
+    assert!(read["pages"][0]["text"].as_str().unwrap().contains("Please"), "{read}");
 }
 
 #[test]

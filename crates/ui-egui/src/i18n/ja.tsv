@@ -2194,3 +2194,16 @@ key	Space	スペース
 	Resize panel window	パネルウィンドウのサイズを変更
 	Tools	ツール
 	Inspector	インスペクター
+	Scan and text recognition	スキャンと文字認識
+	Searchable Image	検索可能な画像
+	Corrected scan	補正済みスキャン
+	Scan correction	スキャン補正
+	Automatically rotate sideways and upside-down pages	横向きや上下逆のページを自動回転
+	Straighten skewed scans	スキャンの傾きを補正
+	Add searchable text	検索可能なテキストを追加
+	Uncertain orientations are left unchanged. Deskew fits the full image inside the page.	向きが不確かな場合は変更しません。傾き補正では画像全体をページ内に収めます。
+	Correct scans	スキャンを補正
+	Scan processing cancelled	スキャン処理をキャンセルしました
+	; 1 page skipped	; 1 ページをスキップ
+	; {n} pages skipped	; {n} ページをスキップ
+	; corrected {n} pages	; {n} ページを補正

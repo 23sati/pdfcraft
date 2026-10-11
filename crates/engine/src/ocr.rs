@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex};
 
 use pdfcraft_render::{PageInfo, PageRenderer, RenderConfig, RenderRequest, RequestKind};
 
+pub use pdfcraft_ocr::scan::Correction;
 pub use pdfcraft_ocr::{LANGUAGES, Models, Ocr, OcrError, PlacedWord};
 
 use crate::{DocId, Edit, EditError, Session};
@@ -18,26 +19,44 @@ use crate::{DocId, Edit, EditError, Session};
 pub struct OcrSettings {
     /// Resolution pages are rendered at for recognition (Acrobat's "Downsample to" choices).
     pub dpi: f32,
-    /// Language code from [`LANGUAGES`] (the models read the Latin alphabet, whatever this says).
+    /// Language code from [`LANGUAGES`]; recognized using the multilingual model.
     pub language: String,
     /// Leave pages that already have text alone (Acrobat reports "page contains renderable
     /// text" and skips them).
     pub skip_text_pages: bool,
+    pub auto_rotate: bool,
+    pub deskew: bool,
+    /// Disable to straighten scans without adding a text layer.
+    pub recognize: bool,
 }
 
 impl Default for OcrSettings {
     fn default() -> Self {
-        OcrSettings { dpi: 300.0, language: "en".into(), skip_text_pages: true }
+        OcrSettings { dpi: 300.0, language: "en".into(), skip_text_pages: true, auto_rotate: true, deskew: true, recognize: true }
     }
 }
 
 /// What recognition found on one page.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct OcrPage {
     pub page: usize,
     pub words: Vec<PlacedWord>,
     /// Why the page was not read, if it was skipped.
     pub skipped: Option<String>,
+    pub correction: Correction,
+    /// Snapshot guard: never apply positions to pages changed while recognition was running.
+    source: Arc<Vec<u8>>,
+}
+
+impl std::fmt::Debug for OcrPage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OcrPage")
+            .field("page", &self.page)
+            .field("words", &self.words)
+            .field("skipped", &self.skipped)
+            .field("correction", &self.correction)
+            .finish_non_exhaustive()
+    }
 }
 
 impl OcrPage {
@@ -78,7 +97,28 @@ pub struct OcrJob {
 impl OcrJob {
     /// Read the pages. `progress(done, total)` is called before each page; returning `false`
     /// stops (the pages read so far are returned).
-    pub fn run(self, ocr: &Ocr, mut progress: impl FnMut(usize, usize) -> bool) -> Vec<OcrPage> {
+    pub fn run(self, ocr: &Ocr, progress: impl FnMut(usize, usize) -> bool) -> Vec<OcrPage> {
+        let failure = |why: &str| {
+            self.pages
+                .iter()
+                .map(|&page| OcrPage {
+                    page,
+                    words: Vec::new(),
+                    skipped: Some(why.into()),
+                    correction: Correction::default(),
+                    source: self.bytes.clone(),
+                })
+                .collect()
+        };
+        if !self.settings.dpi.is_finite() || !(72.0..=600.0).contains(&self.settings.dpi) || !LANGUAGES.iter().any(|l| l.0 == self.settings.language)
+        {
+            return failure("invalid OCR language or resolution");
+        }
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.run_inner(ocr, progress)))
+            .unwrap_or_else(|_| failure("scan processing failed safely; the document was not changed"))
+    }
+
+    fn run_inner(&self, ocr: &Ocr, mut progress: impl FnMut(usize, usize) -> bool) -> Vec<OcrPage> {
         let config = RenderConfig { password: self.password.as_deref().map(Arc::from), ..Default::default() };
         let mut r = PageRenderer::new(self.bytes.clone(), config);
         let mut out = Vec::new();
@@ -88,7 +128,13 @@ impl OcrJob {
                 break;
             }
             let Some(info) = self.infos.get(page) else { continue };
-            let skip = |why: &str| OcrPage { page, words: Vec::new(), skipped: Some(why.into()) };
+            let skip = |why: &str| OcrPage {
+                page,
+                words: Vec::new(),
+                skipped: Some(why.into()),
+                correction: Correction::default(),
+                source: self.bytes.clone(),
+            };
             if self.settings.skip_text_pages {
                 let t = r.render(RenderRequest { page, kind: RequestKind::Text, scale: 1.0, ..Default::default() });
                 if t.text.as_ref().is_some_and(|t| !t.plain_text().trim().is_empty()) {
@@ -105,7 +151,30 @@ impl OcrJob {
                 out.push(skip(&e));
                 continue;
             }
-            let lines = match ocr.recognize(&shot.rgba, shot.width, shot.height) {
+            let Some(rgba) = image::RgbaImage::from_raw(shot.width, shot.height, shot.rgba.to_vec()) else {
+                out.push(skip("invalid rendered image"));
+                continue;
+            };
+            let rgb = image::DynamicImage::ImageRgba8(rgba).to_rgb8();
+            let rotation = if self.settings.auto_rotate {
+                match ocr.orientation(&rgb) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        out.push(skip(&e.to_string()));
+                        continue;
+                    }
+                }
+            } else {
+                0
+            };
+            let mut correction = Correction { rotation, deskew: 0.0 };
+            let turned = correction.apply(&rgb);
+            if self.settings.deskew {
+                correction.deskew = pdfcraft_ocr::scan::deskew(&turned);
+            }
+            let corrected = Correction { rotation: 0, ..correction }.apply(&turned);
+            let result = if self.settings.recognize { ocr.recognize_language(&corrected, &self.settings.language) } else { Ok(Vec::new()) };
+            let lines = match result {
                 Ok(l) => l,
                 Err(e) => {
                     out.push(skip(&e.to_string()));
@@ -114,11 +183,12 @@ impl OcrJob {
             };
             let scale = shot.width as f32 / info.width.max(1e-3);
             let to_user = |x: f32, y: f32| {
-                let [u, v] = info.view_to_user(x / scale, y / scale);
+                let [x, y] = correction.to_source(x as f64, y as f64, shot.width as f64, shot.height as f64);
+                let [u, v] = info.view_to_user(x as f32 / scale, y as f32 / scale);
                 [u as f64, v as f64]
             };
             let words = lines.iter().flat_map(|l| &l.words).map(|w| PlacedWord::place(w, to_user)).collect();
-            out.push(OcrPage { page, words, skipped: None });
+            out.push(OcrPage { page, words, skipped: None, correction, source: self.bytes.clone() });
         }
         progress(total, total);
         out
@@ -152,17 +222,42 @@ impl Session {
 
     /// Add the words found by [`OcrJob::run`] as one undoable step. Returns the number of words.
     pub fn apply_ocr(&mut self, id: DocId, found: &[OcrPage]) -> Result<usize, EditError> {
-        let edits: Vec<Edit> =
-            found.iter().filter(|p| !p.words.is_empty()).map(|p| Edit::AddOcrText { page: p.page, words: p.words.clone() }).collect();
+        let doc = self.get(id).ok_or_else(|| EditError::Invalid("no such document".into()))?;
+        if found.iter().any(|p| !Arc::ptr_eq(&p.source, &doc.bytes) && p.source.as_ref() != doc.bytes.as_ref()) {
+            return Err(EditError::Invalid("the document changed during scan processing; run it again".into()));
+        }
+        let mut edits = Vec::new();
+        for p in found.iter().filter(|p| p.skipped.is_none()) {
+            if !p.words.is_empty() {
+                edits.push(Edit::AddOcrText { page: p.page, words: p.words.clone() });
+            }
+            if p.correction.rotation != 0 {
+                edits.push(Edit::RotatePages { pages: vec![p.page], degrees: i64::from(p.correction.rotation) });
+            }
+            if p.correction.deskew.abs() >= 0.05 {
+                edits.push(Edit::DeskewPage { page: p.page, degrees: p.correction.deskew });
+            }
+        }
         let words = found.iter().map(|p| p.words.len()).sum();
         if !edits.is_empty() {
-            self.apply(id, Edit::Batch { label: "Recognize text".into(), edits })?;
+            self.apply(id, Edit::Batch { label: if words > 0 { "Recognize text" } else { "Straighten scanned pages" }.into(), edits })?;
         }
         Ok(words)
     }
 
     /// Recognise text on `pages` and add it, in one call (the CLI and agents use this).
     pub fn recognize_text(&mut self, id: DocId, pages: &[usize], settings: OcrSettings) -> Result<Vec<OcrPage>, String> {
+        if !settings.dpi.is_finite() || !(72.0..=600.0).contains(&settings.dpi) {
+            return Err("OCR resolution must be between 72 and 600 dpi".into());
+        }
+        if !LANGUAGES.iter().any(|l| l.0 == settings.language) {
+            return Err(format!("unsupported language: {}", settings.language));
+        }
+        if let Some(doc) = self.get(id)
+            && pages.iter().any(|&p| p >= doc.info.pages.len())
+        {
+            return Err("OCR page does not exist".into());
+        }
         let job = self.ocr_job(id, pages, settings).ok_or("no such document")?;
         if let Some(why) = self.get(id).and_then(|d| d.read_only_reason.clone()) {
             return Err(why);
@@ -205,7 +300,8 @@ pub fn recognize_file(
     }
     let job = s.ocr_job(id, &[], settings).ok_or("the document could not be read")?;
     let pages = job.run(ocr, progress);
-    if s.apply_ocr(id, &pages).map_err(|e| e.to_string())? == 0 {
+    let words = s.apply_ocr(id, &pages).map_err(|e| e.to_string())?;
+    if words == 0 && !pages.iter().any(|p| p.correction.changed() && p.skipped.is_none()) {
         return Ok(FileResult { bytes, pages });
     }
     Ok(FileResult { bytes: s.save_bytes(id).map_err(|e| e.to_string())?, pages })

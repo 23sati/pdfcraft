@@ -2195,3 +2195,16 @@ key	Space	Espaço
 	Resize panel window	Redimensionar janela do painel
 	Tools	Ferramentas
 	Inspector	Inspetor
+	Scan and text recognition	Digitalização e reconhecimento de texto
+	Searchable Image	Imagem pesquisável
+	Corrected scan	Digitalização corrigida
+	Scan correction	Correção de digitalização
+	Automatically rotate sideways and upside-down pages	Girar automaticamente páginas de lado ou de cabeça para baixo
+	Straighten skewed scans	Endireitar digitalizações inclinadas
+	Add searchable text	Adicionar texto pesquisável
+	Uncertain orientations are left unchanged. Deskew fits the full image inside the page.	Orientações incertas permanecem inalteradas. Ao endireitar, toda a imagem cabe na página.
+	Correct scans	Corrigir digitalizações
+	Scan processing cancelled	Processamento das digitalizações cancelado
+	; 1 page skipped	; 1 página ignorada
+	; {n} pages skipped	; {n} páginas ignoradas
+	; corrected {n} pages	; {n} páginas corrigidas

@@ -2194,3 +2194,16 @@ key	Space	Leertaste
 	Resize panel window	Größe des Bereichsfensters ändern
 	Tools	Werkzeuge
 	Inspector	Inspektor
+	Scan and text recognition	Scan und Texterkennung
+	Searchable Image	Durchsuchbares Bild
+	Corrected scan	Korrigierter Scan
+	Scan correction	Scan korrigieren
+	Automatically rotate sideways and upside-down pages	Seitlich oder kopfstehend gescannte Seiten automatisch drehen
+	Straighten skewed scans	Schief eingescannte Seiten geraderichten
+	Add searchable text	Durchsuchbaren Text hinzufügen
+	Uncertain orientations are left unchanged. Deskew fits the full image inside the page.	Unsichere Ausrichtungen bleiben unverändert. Beim Geraderichten bleibt das gesamte Bild innerhalb der Seite.
+	Correct scans	Scans korrigieren
+	Scan processing cancelled	Scan-Verarbeitung abgebrochen
+	; 1 page skipped	; 1 Seite übersprungen
+	; {n} pages skipped	; {n} Seiten übersprungen
+	; corrected {n} pages	; {n} Seiten korrigiert

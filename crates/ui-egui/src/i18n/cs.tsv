@@ -182,3 +182,16 @@ key	Space	Mezerník
 	Resize panel window	Změnit velikost okna panelu
 	Tools	Nástroje
 	Inspector	Inspektor
+	Scan and text recognition	Skenování a rozpoznávání textu
+	Searchable Image	Prohledávatelný obrázek
+	Corrected scan	Opravený sken
+	Scan correction	Oprava skenu
+	Automatically rotate sideways and upside-down pages	Automaticky otáčet stránky na boku a vzhůru nohama
+	Straighten skewed scans	Narovnat šikmé skeny
+	Add searchable text	Přidat prohledávatelný text
+	Uncertain orientations are left unchanged. Deskew fits the full image inside the page.	Nejistá orientace zůstane beze změny. Narovnání zachová celý obrázek uvnitř stránky.
+	Correct scans	Opravit skeny
+	Scan processing cancelled	Zpracování skenů zrušeno
+	; 1 page skipped	; přeskočena 1 stránka
+	; {n} pages skipped	; přeskočeno stránek: {n}
+	; corrected {n} pages	; opraveno stránek: {n}

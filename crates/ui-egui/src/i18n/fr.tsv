@@ -2194,3 +2194,16 @@ key	Space	Espace
 	Resize panel window	Redimensionner la fenêtre du panneau
 	Tools	Outils
 	Inspector	Inspecteur
+	Scan and text recognition	Numérisation et reconnaissance de texte
+	Searchable Image	Image consultable
+	Corrected scan	Numérisation corrigée
+	Scan correction	Correction de numérisation
+	Automatically rotate sideways and upside-down pages	Pivoter automatiquement les pages de côté ou à l’envers
+	Straighten skewed scans	Redresser les pages numérisées de travers
+	Add searchable text	Ajouter du texte consultable
+	Uncertain orientations are left unchanged. Deskew fits the full image inside the page.	Les orientations incertaines restent inchangées. Le redressement conserve toute l’image dans la page.
+	Correct scans	Corriger les numérisations
+	Scan processing cancelled	Traitement des numérisations annulé
+	; 1 page skipped	; 1 page ignorée
+	; {n} pages skipped	; {n} pages ignorées
+	; corrected {n} pages	; {n} pages corrigées

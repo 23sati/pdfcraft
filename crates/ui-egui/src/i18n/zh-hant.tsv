@@ -2080,3 +2080,16 @@ key	Space	空格
 	Resize panel window	調整面板視窗大小
 	Tools	工具
 	Inspector	檢查器
+	Scan and text recognition	掃描與文字辨識
+	Searchable Image	可搜尋的影像
+	Corrected scan	已校正的掃描件
+	Scan correction	掃描校正
+	Automatically rotate sideways and upside-down pages	自動旋轉側向和倒置的頁面
+	Straighten skewed scans	校正掃描件傾斜
+	Add searchable text	新增可搜尋文字
+	Uncertain orientations are left unchanged. Deskew fits the full image inside the page.	方向不確定時保持不變。傾斜校正會將整個影像保留在頁面內。
+	Correct scans	校正掃描件
+	Scan processing cancelled	掃描處理已取消
+	; 1 page skipped	; 已略過 1 頁
+	; {n} pages skipped	; 已略過 {n} 頁
+	; corrected {n} pages	; 已校正 {n} 頁

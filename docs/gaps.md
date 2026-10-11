@@ -134,18 +134,16 @@ update the numbers.
   (`AGENTS.md` §4).
 - **Estimate:** 45–80 h (≈ 0.2–0.4 h per issue). **Doc:** this file.
 
-### 7. OCR reads only unaccented Latin
+### 7. OCR still has language and scan-cleanup gaps
 
-- **Missing:** every other script and accented Latin; editable-text output; deskew, rotation,
-  despeckle, background and camera clean-up; MRC compression; pluggable engines; OCR in the
-  browser; scanner input.
-- **Evidence:** `ocr.ocr-languages` partial ("the models read only the Latin alphabet without
-  accents"); 19 of 26 OCR features planned; [#744](https://github.com/storytold/pdfcraft/issues/744)
-  (Dutch). Acrobat ships on-device recognition for dozens of languages.
-- **Impact:** scanned documents are a core Pro workflow outside English.
-- **Estimate:** 40–75 h, partly blocked on openly licensed models. **Doc:**
-  [file-format-parity.md](file-format-parity.md).
-
+- **Now available:** English, German, French, Spanish and horizontal Japanese, Unicode search/copy,
+  automatic quarter-turn correction and deskew up to 12 degrees, including correction without OCR.
+- **Missing:** additional language choices, vertical Japanese, editable-text output, deskew on pages
+  with annotations, despeckle, background/camera cleanup, MRC compression, browser OCR and scanner input.
+- **Evidence:** `crates/engine/tests/scan_ocr.rs` and the OCR automation/UI tests; model tests require
+  `cargo xtask models`, Japanese fixture generation requires the release `CRAFT_FONTS_DIR` input.
+- **Impact:** scanned documents remain a core Pro workflow with wider language and layout demands.
+- **Estimate:** previous 40–75 h estimate needs reassessment after this narrower feature slice.
 ### 8. Office export weak, Office import absent
 
 - **Missing:** Word export that keeps layout; Excel and PowerPoint export; creating PDFs from Office,
