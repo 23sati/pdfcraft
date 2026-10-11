@@ -1076,6 +1076,10 @@ impl Automation {
                     }
                     (None, None) => return Err(ToolError::InvalidArgs("text needs `text` or `path`".into())),
                 };
+                // The page font is Helvetica/WinAnsi: refuse what it would silently turn into `?`.
+                if let Some(c) = pdfcraft_engine::first_undrawable_plain(&text) {
+                    return Err(ToolError::InvalidArgs(pdfcraft_engine::undrawable_message(c)));
+                }
                 (format!("{title}.pdf"), self.session.create_from_text(&title, &text).map_err(failed)?)
             }
             other => return Err(ToolError::InvalidArgs(format!("unknown source {other:?}"))),

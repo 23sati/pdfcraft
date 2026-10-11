@@ -387,10 +387,18 @@ pub(crate) fn drawable<'a>(lines: impl IntoIterator<Item = &'a str>) -> Result<(
 
 /// The refusal for page text with `c`, which nothing here can draw.
 pub(crate) fn undrawable(c: char) -> EditError {
-    EditError::Invalid(format!(
-        "the standard fonts can't draw \"{c}\" (U+{:04X}); only Western European characters can be added as text for now",
-        u32::from(c)
-    ))
+    EditError::Invalid(undrawable_message(c))
+}
+
+/// The wording of the refusal for text with `c`, which the standard fonts can't draw.
+pub fn undrawable_message(c: char) -> String {
+    format!("the standard fonts can't draw \"{c}\" (U+{:04X}); only Western European characters can be added as text for now", u32::from(c))
+}
+
+/// The first character of plain `text` that Helvetica/WinAnsi can't draw (line and page breaks
+/// and tabs are layout, not glyphs).
+pub fn first_undrawable_plain(text: &str) -> Option<char> {
+    text.chars().find(|c| !matches!(c, '\r' | '\n' | '\t' | '\u{c}') && !pdfcraft_fonts::win_ansi_encodable(*c))
 }
 
 fn text_op(x: f64, y: f64, text: &str) -> Vec<u8> {
