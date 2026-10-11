@@ -818,12 +818,19 @@ fn redraws(glyphs: &[&TextGlyph], a: Run, b: Run) -> bool {
         })
 }
 
+fn within_position_tolerance(a: f32, b: f32, tolerance: f32) -> bool {
+    (a - b).abs().partial_cmp(&tolerance) == Some(std::cmp::Ordering::Less)
+}
+
 /// Whether `next` restarts `start` after the run has advanced by a glyph height. The fixed prefix
 /// bounds this check and requires more than a single backward adjustment to split a run.
 fn restarts_run(glyphs: &[&TextGlyph], start: usize, next: usize, progress: f32) -> bool {
     let (Some(first), Some(candidate)) = (glyphs.get(start), glyphs.get(next)) else { return false };
     let tol = REDRAW_POSITION_TOLERANCE * (candidate.rect[3] - candidate.rect[1]).max(0.1);
-    if (first.rect[0] - candidate.rect[0]).abs() >= tol || (first.rect[1] - candidate.rect[1]).abs() >= tol || first.text != candidate.text {
+    if first.text != candidate.text
+        || !within_position_tolerance(first.rect[0], candidate.rect[0], tol)
+        || !within_position_tolerance(first.rect[1], candidate.rect[1], tol)
+    {
         return false;
     }
     let h = (first.rect[3] - first.rect[1]).max(0.1);
@@ -835,7 +842,7 @@ fn restarts_run(glyphs: &[&TextGlyph], start: usize, next: usize, progress: f32)
             return false;
         };
         let tol = REDRAW_POSITION_TOLERANCE * (b.rect[3] - b.rect[1]).max(0.1);
-        if a.text != b.text || (a.rect[0] - b.rect[0]).abs() >= tol || (a.rect[1] - b.rect[1]).abs() >= tol {
+        if a.text != b.text || !within_position_tolerance(a.rect[0], b.rect[0], tol) || !within_position_tolerance(a.rect[1], b.rect[1], tol) {
             return false;
         }
     }
@@ -1673,6 +1680,16 @@ mod tests {
         word(&mut far, "abc", 12.01, 10.0, 6.0);
         let far: Vec<&TextGlyph> = far.iter().collect();
         assert!(!restarts_run(&far, 0, 3, 10.01));
+    }
+
+    #[test]
+    fn reset_prefix_rejects_non_finite_positions() {
+        let mut glyphs = Vec::new();
+        word(&mut glyphs, "abc", 10.0, 10.0, 6.0);
+        word(&mut glyphs, "abc", 10.0, 10.0, 6.0);
+        glyphs[3].rect[0] = f32::NAN;
+        let glyphs: Vec<&TextGlyph> = glyphs.iter().collect();
+        assert!(!restarts_run(&glyphs, 0, 3, 10.01));
     }
 
     #[test]
