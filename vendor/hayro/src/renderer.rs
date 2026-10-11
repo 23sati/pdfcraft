@@ -14,9 +14,10 @@ use std::collections::HashMap;
 use std::mem::size_of;
 use std::rc::Rc;
 use std::sync::Arc;
+use vello_cpu::color::DynamicColor;
 use vello_cpu::color::palette::css::BLACK;
 use vello_cpu::color::{AlphaColor, PremulRgba8, Srgb};
-use vello_cpu::peniko::{Compose, Fill, ImageQuality, ImageSampler, Mix};
+use vello_cpu::peniko::{ColorStop, Compose, Fill, Gradient, ImageQuality, ImageSampler, Mix};
 use vello_cpu::{
     Image, ImageSource, Mask, PaintType, Pixmap, RenderContext, RenderSettings, peniko,
 };
@@ -861,6 +862,20 @@ impl Renderer {
                         // PdfCraft patch: mesh shadings are sampled only inside `bbox` (and a
                         // pixel around it: texels at a fractional edge look one pixel further).
                         let encoded = s.encode_within(Some(bbox.inflate(1.0, 1.0)));
+
+                        // PdfCraft patch (backport of hayro 0.8): axial and radial shadings
+                        // become native gradients instead of a texture sampled pixel by pixel.
+                        // Upstream also shifts by half a pixel for vello_cpu 0.3; 0.0.8 already
+                        // evaluates gradients at pixel centres, like the texture below.
+                        if let Some(native) =
+                            encoded.as_svg_gradient(bbox, NATIVE_GRADIENT_TOLERANCE)
+                        {
+                            self.ctx
+                                .set_paint_transform(path_transform.inverse() * native.transform);
+                            self.ctx.set_paint(native_gradient(native));
+                            return clip_path;
+                        }
+
                         let (image, width, height, transform, may_have_transparency) =
                             render_shading_texture(bbox, &encoded);
                         let may_have_transparency =
@@ -1395,6 +1410,37 @@ impl<'a> Device<'a> for Renderer {
     fn set_blend_mode(&mut self, blend_mode: BlendMode) {
         self.ctx.set_blend_mode(convert_blend_mode(blend_mode));
     }
+}
+
+/// PdfCraft patch (backport of hayro 0.8): largest per-channel error allowed when approximating
+/// a shading function by gradient stops.
+const NATIVE_GRADIENT_TOLERANCE: f32 = 0.01;
+
+/// PdfCraft patch (backport of hayro 0.8): a `vello_cpu` gradient for an approximated shading.
+fn native_gradient(native: hayro_interpret::gradient::SvgGradient) -> PaintType {
+    use hayro_interpret::gradient::SvgGradientKind;
+
+    let stops = native
+        .stops
+        .iter()
+        .map(|stop| ColorStop {
+            offset: stop.offset,
+            color: DynamicColor::from_alpha_color(AlphaColor::<Srgb>::new(stop.color)),
+        })
+        .collect::<Vec<_>>();
+
+    match native.kind {
+        SvgGradientKind::Linear { start, end } => Gradient::new_linear(start, end),
+        SvgGradientKind::Radial {
+            start_center,
+            start_radius,
+            end_center,
+            end_radius,
+        } => Gradient::new_two_point_radial(start_center, start_radius, end_center, end_radius),
+    }
+    .with_extend(peniko::Extend::Pad)
+    .with_stops(stops.as_slice())
+    .into()
 }
 
 // TODO: Deduplicate with hayro-svg?
