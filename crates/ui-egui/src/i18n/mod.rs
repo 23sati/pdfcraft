@@ -267,7 +267,7 @@ pub fn normalize_pref(pref: &str) -> Option<&'static str> {
 /// Candidate language codes for a locale tag, most specific first: `zh_TW.UTF-8` →
 /// `zh-tw`, `zh-hant`, `zh`.
 fn candidates(tag: &str) -> Vec<String> {
-    let base = tag.split(['.', '@']).next().unwrap_or("").replace('_', "-").to_ascii_lowercase();
+    let base = tag.trim().split(['.', '@']).next().unwrap_or("").replace('_', "-").to_ascii_lowercase();
     let parts: Vec<&str> = base.split('-').filter(|p| !p.is_empty()).collect();
     let Some(&primary) = parts.first() else { return Vec::new() };
     let mut out = Vec::new();
@@ -308,58 +308,33 @@ pub fn system_lang() -> Lang {
     *SYSTEM.get_or_init(detect_system_lang)
 }
 
+/// Resolve only the primary locale. An unsupported primary language falls back to English,
+/// even when a later language in the system preference list is supported. The same resolver
+/// is used by native apps and browser/mobile webviews.
+pub fn primary_language<'a>(mut locales: impl Iterator<Item = &'a str>) -> Lang {
+    locales.next().and_then(lang_from_tag).unwrap_or(Lang::EN)
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 fn detect_system_lang() -> Lang {
-    for var in ["LC_ALL", "LC_MESSAGES", "LANG"] {
-        if let Some(l) = std::env::var(var).ok().and_then(|v| language_override(&v)) {
-            return l;
-        }
-    }
-    // Apps started from the Finder don't inherit LANG: use the macOS preferred-languages list.
-    // The absolute path keeps a `defaults` earlier on PATH from running; any failure means English.
-    #[cfg(target_os = "macos")]
-    if let Ok(out) = std::process::Command::new("/usr/bin/defaults").args(["read", "-g", "AppleLanguages"]).output()
-        && out.status.success()
-        && let Some(l) = first_supported(&String::from_utf8_lossy(&out.stdout))
-    {
-        return l;
-    }
-    #[cfg(target_os = "windows")]
-    if let Some(l) = windows_ui_language().as_deref().and_then(first_supported) {
-        return l;
-    }
-    Lang::EN
-}
-
-/// A named locale can override the display language. On Windows, the neutral
-/// C/POSIX locale inherited from a launcher says nothing about the user's UI language.
-#[cfg(not(target_arch = "wasm32"))]
-fn language_override(tag: &str) -> Option<Lang> {
-    let tag = tag.trim();
-    if cfg!(target_os = "windows") && matches!(candidates(tag).first().map(String::as_str), Some("c" | "posix")) {
-        return None;
-    }
-    lang_from_tag(tag)
-}
-
-/// The Windows display languages in preference order, one tag per line, queried once when Auto
-/// first resolves. `sys-locale` asks Windows directly (`GetUserPreferredUILanguages`), so no
-/// process is started.
-#[cfg(target_os = "windows")]
-fn windows_ui_language() -> Option<String> {
-    let tags: Vec<String> = sys_locale::get_locales().collect();
-    (!tags.is_empty()).then(|| tags.join("\n"))
-}
-
-/// The first supported language in a macOS `defaults read` list or Windows UI-culture output.
-#[cfg_attr(not(any(target_os = "macos", target_os = "windows")), allow(dead_code))]
-fn first_supported(list: &str) -> Option<Lang> {
-    list.split(['(', ')', ',', '"', '\n']).map(str::trim).filter(|s| !s.is_empty()).find_map(lang_from_tag)
+    // OS display-language API on Windows/Apple, locale settings on Unix. Only the first
+    // preference is considered; no subprocess or secondary-language scan.
+    let primary = sys_locale::get_locale();
+    primary_language(primary.as_deref().into_iter())
 }
 
 #[cfg(target_arch = "wasm32")]
 fn detect_system_lang() -> Lang {
-    Lang::EN
+    // Mobile's webview uses the same browser API. No window/locale means English,
+    // including workers or a browser that withholds language information.
+    let primary = web_sys::window().and_then(|window| window.navigator().languages().get(0).as_string());
+    primary_language(primary.as_deref().into_iter())
+}
+
+#[cfg(test)]
+fn test_primary_list(list: &str) -> Option<Lang> {
+    let primary = list.split(['(', ')', ',', '"', '\n']).map(str::trim).find(|s| !s.is_empty())?;
+    Some(primary_language(std::iter::once(primary)))
 }
 
 thread_local! {
@@ -554,49 +529,33 @@ mod tests {
 
     #[test]
     fn macos_language_list_is_parsed() {
-        assert_eq!(first_supported("(\n    \"ja-JP\",\n    \"en-US\"\n)\n"), Some(JA()));
-        assert_eq!(first_supported("(\n    \"fr-FR\",\n    \"en-US\"\n)\n"), Lang::from_code("fr"));
-        assert_eq!(first_supported("("), None);
+        assert_eq!(test_primary_list("(\n    \"ja-JP\",\n    \"en-US\"\n)\n"), Some(JA()));
+        assert_eq!(test_primary_list("(\n    \"fr-FR\",\n    \"en-US\"\n)\n"), Lang::from_code("fr"));
+        assert_eq!(test_primary_list("("), None);
     }
 
     #[test]
     fn windows_display_language_resolves_chinese_scripts() {
         for tag in ["zh-CN", "zh-SG", "zh-Hans", "zh-Hans-CN"] {
-            assert_eq!(first_supported(&format!("{tag}\r\n")), Lang::from_code("zh-hans"));
+            assert_eq!(test_primary_list(&format!("{tag}\r\n")), Lang::from_code("zh-hans"));
         }
         for tag in ["zh-TW", "zh-HK", "zh-MO", "zh-Hant", "zh-Hant-HK"] {
-            assert_eq!(first_supported(&format!("{tag}\r\n")), Lang::from_code("zh-hant"));
+            assert_eq!(test_primary_list(&format!("{tag}\r\n")), Lang::from_code("zh-hant"));
         }
-        assert_eq!(first_supported("en-US\r\n"), Some(Lang::EN));
-        assert_eq!(first_supported("fr-FR\r\n"), Lang::from_code("fr"));
-        assert_eq!(first_supported("\r\n"), None);
+        assert_eq!(test_primary_list("en-US\r\n"), Some(Lang::EN));
+        assert_eq!(test_primary_list("fr-FR\r\n"), Lang::from_code("fr"));
+        assert_eq!(test_primary_list("\r\n"), None);
     }
 
-    #[cfg(target_os = "windows")]
     #[test]
-    fn neutral_locale_does_not_override_display_language() {
-        let fr = Lang::from_code("fr").unwrap();
-        for tag in ["C", "C.UTF-8", "POSIX", "posix.UTF-8", "", "  C.UTF-8  ", "unsupported"] {
-            assert_eq!(language_override(tag), None, "{tag}");
-            assert_eq!(language_override(tag).or_else(|| first_supported("unsupported-XY\nfr-FR\nen-US")), Some(fr));
+    fn auto_uses_the_primary_language_or_english_only() {
+        for tags in [vec!["unsupported-XY", "fr-FR"], vec!["", "de-AT"], vec!["sv-SE", "ja-JP"], vec![]] {
+            assert_eq!(primary_language(tags.into_iter()), Lang::EN);
         }
-        assert_eq!(["C.UTF-8", "POSIX", "fr_FR.UTF-8"].into_iter().find_map(language_override), Some(fr));
-        assert_eq!(language_override("fr_FR.UTF-8"), Some(fr));
-        assert_eq!(language_override("en_US.UTF-8"), Some(Lang::EN));
-        assert_eq!(language_override("ja_JP.UTF-8"), Some(JA()));
-    }
-
-    #[cfg(target_os = "windows")]
-    #[test]
-    fn windows_display_language_query_returns_a_locale_tag() {
-        // One tag per line, as `first_supported` reads them: a machine with several display
-        // languages reports them all, so each line is checked rather than the list as a whole.
-        let list = windows_ui_language().expect("Windows should report a display language");
-        let tags: Vec<&str> = list.lines().map(str::trim).filter(|t| !t.is_empty()).collect();
-        assert!(!tags.is_empty(), "no display language in {list:?}");
-        for tag in tags {
-            assert!(tag.split('-').all(|part| !part.is_empty() && part.bytes().all(|b| b.is_ascii_alphanumeric())), "not a locale tag: {tag:?}");
-        }
+        assert_eq!(primary_language(["de-AT", "fr-FR"].into_iter()), Lang::from_code("de").unwrap());
+        assert_eq!(primary_language(["fr-CA", "de-DE"].into_iter()), Lang::from_code("fr").unwrap());
+        assert_eq!(primary_language(["en-US", "ja-JP"].into_iter()), Lang::EN);
+        assert_eq!(primary_language(["C.UTF-8", "de-DE"].into_iter()), Lang::EN);
     }
 
     #[test]
@@ -1063,7 +1022,7 @@ mod tests {
         assert_eq!(normalize_pref("ES"), Some("es"));
         assert_eq!(lang_from_tag("es_ES.UTF-8"), Some(es));
         assert_eq!(lang_from_tag("es-MX"), Some(es));
-        assert_eq!(first_supported("es-ES\r\nen-US"), Some(es));
+        assert_eq!(test_primary_list("es-ES\r\nen-US"), Some(es));
         assert_eq!(tr(es, "File"), "Archivo");
         assert_eq!(tr(es, "Save as…"), "Guardar como…");
         assert_eq!(tr(es, "Informe del usuario.pdf"), "Informe del usuario.pdf");
@@ -1101,7 +1060,7 @@ mod tests {
         assert_eq!(te.name(), "తెలుగు");
         assert_eq!(normalize_pref("TE"), Some("te"));
         assert_eq!(lang_from_tag("te_IN.UTF-8"), Some(te));
-        assert_eq!(first_supported("te-IN\r\nen-US"), Some(te));
+        assert_eq!(test_primary_list("te-IN\r\nen-US"), Some(te));
         assert_eq!(tr(te, "File"), "ఫైల్");
         assert_eq!(tr(te, "Save as…"), "వేరే పేరుతో సేవ్ చేయి…");
         assert_eq!(tr(te, "నివేదిక.pdf"), "నివేదిక.pdf");
@@ -1376,7 +1335,7 @@ mod tests {
         assert_eq!(normalize_pref("FR"), Some("fr"));
         assert_eq!(lang_from_tag("fr_FR.UTF-8"), Some(fr));
         assert_eq!(lang_from_tag("fr-CA"), Some(fr));
-        assert_eq!(first_supported("fr-FR\r\nen-US"), Some(fr));
+        assert_eq!(test_primary_list("fr-FR\r\nen-US"), Some(fr));
         assert_eq!(tr(fr, "File"), "Fichier");
         assert_eq!(tr(fr, "Save as…"), "Enregistrer sous…");
         assert_eq!(tr(fr, "Bookmarks"), "Signets");
@@ -1482,7 +1441,7 @@ mod tests {
         assert_eq!(lang_from_tag("de_DE.UTF-8"), Some(de));
         assert_eq!(lang_from_tag("de-AT"), Some(de));
         assert_eq!(lang_from_tag("de_CH"), Some(de));
-        assert_eq!(first_supported("de-DE\r\nen-US"), Some(de));
+        assert_eq!(test_primary_list("de-DE\r\nen-US"), Some(de));
         assert_eq!(tr(de, "File"), "Datei");
         assert_eq!(tr(de, "Save as…"), "Speichern unter…");
         assert_eq!(tr(de, "Bookmarks"), "Lesezeichen");
@@ -1608,7 +1567,7 @@ mod tests {
         assert_eq!(normalize_pref("RU"), Some("ru"));
         assert_eq!(lang_from_tag("ru_RU.UTF-8"), Some(ru));
         assert_eq!(lang_from_tag("ru-BY"), Some(ru));
-        assert_eq!(first_supported("ru-RU\r\nen-US"), Some(ru));
+        assert_eq!(test_primary_list("ru-RU\r\nen-US"), Some(ru));
         assert_eq!(tr(ru, "File"), "Файл");
         assert_eq!(tr(ru, "Save as…"), "Сохранить как…");
         assert_eq!(tr(ru, "Bookmarks"), "Закладки");
@@ -1719,7 +1678,7 @@ mod tests {
         assert_eq!(normalize_pref("BG"), Some("bg"));
         assert_eq!(lang_from_tag("bg_BG.UTF-8"), Some(bg));
         assert_eq!(lang_from_tag("bg-BG"), Some(bg));
-        assert_eq!(first_supported("bg-BG\r\nen-US"), Some(bg));
+        assert_eq!(test_primary_list("bg-BG\r\nen-US"), Some(bg));
         assert_eq!(tr(bg, "File"), "Файл");
         assert_eq!(tr(bg, "Save as…"), "Запиши като…");
         assert_eq!(tr(bg, "Bookmarks"), "Отметки");
@@ -1822,7 +1781,7 @@ mod tests {
         assert_eq!(normalize_pref("HU"), Some("hu"));
         assert_eq!(lang_from_tag("hu_HU.UTF-8"), Some(hu));
         assert_eq!(lang_from_tag("hu-HU"), Some(hu));
-        assert_eq!(first_supported("hu-HU\r\nen-US"), Some(hu));
+        assert_eq!(test_primary_list("hu-HU\r\nen-US"), Some(hu));
         assert_eq!(tr(hu, "File"), "Fájl");
         assert_eq!(tr(hu, "Save as…"), "Mentés másként…");
         assert_eq!(tr(hu, "Bookmarks"), "Könyvjelzők");
@@ -1938,8 +1897,8 @@ mod tests {
         for tag in ["uk", "uk-UA", "uk_UA.UTF-8", "UK-ua", "uk_UA@variant"] {
             assert_eq!(lang_from_tag(tag), Some(uk), "{tag}");
         }
-        assert_eq!(first_supported("uk-UA\r\nen-US"), Some(uk));
-        assert_eq!(first_supported("(\n    \"uk-UA\",\n    \"en-US\"\n)\n"), Some(uk));
+        assert_eq!(test_primary_list("uk-UA\r\nen-US"), Some(uk));
+        assert_eq!(test_primary_list("(\n    \"uk-UA\",\n    \"en-US\"\n)\n"), Some(uk));
         assert_eq!(tr(uk, "File"), "Файл");
         assert_eq!(tr(uk, "Save as…"), "Зберегти як…");
         assert_eq!(tr(uk, "Bookmarks"), "Закладки");
@@ -2158,7 +2117,7 @@ mod tests {
         for tag in ["ar", "ar-MA", "ar_EG.UTF-8", "AR-sa", "ar_DZ@variant"] {
             assert_eq!(lang_from_tag(tag), Some(ar), "{tag}");
         }
-        assert_eq!(first_supported("ar-MA\r\nen-US"), Some(ar));
+        assert_eq!(test_primary_list("ar-MA\r\nen-US"), Some(ar));
         assert_eq!(tr(ar, "File"), "ملف");
         assert_eq!(tr(ar, "Bookmarks"), "المرجعية الإشارات");
         assert_eq!(tr_ctx(ar, "comment menu", "Edit"), "تحرير");
