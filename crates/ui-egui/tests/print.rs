@@ -311,3 +311,60 @@ fn a_printer_without_two_sided_printing_points_to_its_properties() {
     h.run_steps(2);
     h.get_by_label_contains(note);
 }
+
+#[test]
+fn default_paper_size_can_be_configured_and_persisted() {
+    let mut h = harness();
+    assert!(h.state_mut().execute("print.dialog"));
+    h.run_steps(3);
+    assert_eq!(h.state().print_draft.paper, 0);
+    h.get_by_value("US Letter");
+
+    // "Make default paper size" is disabled when the current paper is already the default.
+    assert!(h.get_by_label("Make default paper size").accesskit_node().is_disabled());
+
+    // Switch to A4.
+    h.get_by_value("US Letter").click();
+    h.run_steps(2);
+    h.get_by_label("A4").click();
+    h.run_steps(2);
+    assert_eq!(h.state().print_draft.paper, 4);
+    h.get_by_value("A4");
+
+    // "Make default paper size" is now enabled.
+    assert!(!h.get_by_label("Make default paper size").accesskit_node().is_disabled());
+    h.get_by_label("Make default paper size").click();
+    h.run_steps(2);
+    assert_eq!(h.state().default_paper, 4);
+    assert!(h.get_by_label("Make default paper size").accesskit_node().is_disabled());
+
+    // Persist settings.
+    let json = h.state().persist();
+    assert!(json.contains(r#""default_paper":4"#));
+
+    // Close the dialog and reopen: A4 is the default paper.
+    h.state_mut().dialog = None;
+    h.run_steps(2);
+    assert!(h.state_mut().execute("print.dialog"));
+    h.run_steps(3);
+    assert_eq!(h.state().print_draft.paper, 4);
+    h.get_by_value("A4");
+
+    // Restore into a fresh app survives restart.
+    let mut app2 = PdfCraftApp::new();
+    assert_eq!(app2.default_paper, 0);
+    app2.restore(&json);
+    assert_eq!(app2.default_paper, 4);
+    app2.open_bytes("form.pdf", None, include_bytes!("data/form.pdf").to_vec()).unwrap();
+    app2.open_print();
+    assert_eq!(app2.print_draft.paper, 4);
+
+    // Untrusted settings safety: out-of-range value keeps safe default.
+    let mut app3 = PdfCraftApp::new();
+    app3.restore(r#"{"default_paper": 9999}"#);
+    assert_eq!(app3.default_paper, 0);
+    app3.restore(r#"{"default_paper": "InvalidPaper"}"#);
+    assert_eq!(app3.default_paper, 0);
+    app3.restore(r#"{"default_paper": "A4"}"#);
+    assert_eq!(app3.default_paper, 4);
+}

@@ -683,6 +683,7 @@ pub struct PdfCraftApp {
     pub redact_search: RedactSearchDraft,
     pub hidden_draft: HiddenDraft,
     pub print_draft: PrintDraft,
+    pub default_paper: usize,
     pub link_draft: Option<LinkDraft>,
     /// The style new text gets (Edit a PDF ▸ Format text).
     pub text_style: pdfcraft_engine::AddedText,
@@ -915,6 +916,7 @@ impl PdfCraftApp {
             redact_search: RedactSearchDraft::default(),
             hidden_draft: HiddenDraft::default(),
             print_draft: PrintDraft::default(),
+            default_paper: 0,
             link_draft: None,
             text_style: content_ui::default_style(),
             replace_draft: None,
@@ -1663,6 +1665,7 @@ impl PdfCraftApp {
             "combine_view": self.combine_view.as_str(),
             "combine_zoom": self.combine_zoom,
             "comments_panel_closed": self.comments_panel_closed,
+            "default_paper": self.default_paper,
         })
         .to_string()
     }
@@ -1720,6 +1723,18 @@ impl PdfCraftApp {
         }
         if let Some(closed) = v["comments_panel_closed"].as_bool() {
             self.comments_panel_closed = closed;
+        }
+        // Settings are untrusted: an out-of-range paper keeps the default.
+        if let Some(paper) = v["default_paper"].as_u64()
+            && (paper as usize) < pdfcraft_engine::print::PAPERS.len()
+        {
+            self.default_paper = paper as usize;
+            self.print_draft.paper = self.default_paper;
+        } else if let Some(name) = v["default_paper"].as_str()
+            && let Some(idx) = pdfcraft_engine::print::PAPERS.iter().position(|(n, _)| *n == name)
+        {
+            self.default_paper = idx;
+            self.print_draft.paper = self.default_paper;
         }
         if let Some(defaults) = v["default_zoom"].as_str().and_then(|zoom| self.view_defaults.with_zoom(zoom)) {
             self.view_defaults = defaults;
@@ -1906,6 +1921,21 @@ impl PdfCraftApp {
                 }
             }
             ("tools", _) => self.all_tools_expanded = value != "collapsed",
+            ("default-paper" | "default_paper", _) => {
+                if let Ok(idx) = value.parse::<usize>()
+                    && idx < pdfcraft_engine::print::PAPERS.len()
+                {
+                    self.default_paper = idx;
+                    self.print_draft.paper = idx;
+                    return Ok(());
+                }
+                if let Some(idx) = pdfcraft_engine::print::PAPERS.iter().position(|(n, _)| n.eq_ignore_ascii_case(value)) {
+                    self.default_paper = idx;
+                    self.print_draft.paper = idx;
+                    return Ok(());
+                }
+                return Err(format!("unknown paper size {value}"));
+            }
             ("palette", _) => {
                 self.palette_open = true;
                 self.palette_query = value.to_string();

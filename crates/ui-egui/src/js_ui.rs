@@ -345,6 +345,17 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
         }
     });
     ui.label(egui::RichText::new(tl!("For page sizes and margins.")).small().color(t.text_muted));
+    ui.horizontal(|ui| {
+        ui.label(tl!("Default paper size"));
+        let paper_name = pdfcraft_engine::print::PAPERS.get(app.default_paper).map_or("US Letter", |p| p.0);
+        egui::ComboBox::from_id_salt("default-paper-size").selected_text(paper_name).width(200.0).show_ui(ui, |ui| {
+            for (i, (name, _)) in pdfcraft_engine::print::PAPERS.iter().enumerate() {
+                if ui.selectable_value(&mut app.default_paper, i, *name).clicked() {
+                    app.print_draft.paper = app.default_paper;
+                }
+            }
+        });
+    });
     // The web build has no file paths to reopen.
     #[cfg(not(target_arch = "wasm32"))]
     ui.add(widgets::checkbox(&mut app.reopen_last_session, tl!("Reopen the files that were open when PdfCraft last closed")));
