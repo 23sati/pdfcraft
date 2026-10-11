@@ -533,6 +533,20 @@ fn combine_reports_renamed_fields_and_can_merge() {
     assert!(merged.renamed_fields.is_empty(), "merge renames nothing");
 }
 
+/// The Combine tab's pre-flight over byte sources: what combining them, in order, would rename
+/// in each. A file that cannot be opened previews as nothing (its row already shows the problem).
+#[test]
+fn combine_field_conflicts_previews_over_bytes() {
+    let s = Session::new().with_clock(|| 1_700_000_000);
+    let sources: Vec<CombineSource> = vec![
+        ("a.pdf".into(), Arc::new(form_with_field("Text1")), None),
+        ("b.pdf".into(), Arc::new(form_with_field("Text1")), None),
+        ("junk.pdf".into(), Arc::new(b"nope".to_vec()), None),
+    ];
+    let preview = s.combine_field_conflicts(&sources, &[]);
+    assert_eq!(preview, vec![vec![], vec![("Text1".to_string(), "Text1-1".to_string())], vec![]]);
+}
+
 /// A minimal baseline JPEG (headers only; the data is embedded as is).
 fn jpeg_bytes() -> Vec<u8> {
     let mut v = vec![0xFF, 0xD8];

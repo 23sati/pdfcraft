@@ -3017,6 +3017,20 @@ impl Session {
         self.write_new(&out)
     }
 
+    /// The pre-flight over byte sources: what combining them, in order, would rename in each one
+    /// (whole files; page ranges are the combine's to apply). A source that cannot be opened
+    /// previews as nothing — its row already says why it cannot be combined.
+    pub fn combine_field_conflicts(&self, sources: &[CombineSource], passwords: &[Option<&str>]) -> Vec<Vec<(String, String)>> {
+        let docs: Vec<Option<pdfcraft_cos::Document>> =
+            sources.iter().enumerate().map(|(i, (n, b, _))| open_source_with(n, b, passwords.get(i).copied().flatten()).ok()).collect();
+        let refs: Vec<&pdfcraft_cos::Document> = docs.iter().filter_map(|d| d.as_ref()).collect();
+        let mut opened = pdfcraft_organize::combine_field_conflicts(&refs).into_iter();
+        // One preview per source, in step with it: a file that cannot be opened has none.
+        docs.iter()
+            .map(|d| if d.is_some() { opened.next().unwrap_or_default() } else { Default::default() })
+            .collect()
+    }
+
     /// [`Self::combine_unlocked`] reporting what the conflict resolution renamed.
     pub fn combine_unlocked_reporting(
         &self,

@@ -520,6 +520,21 @@ pub fn field_name_conflicts(dst: &Document, src: &Document) -> Vec<(String, Stri
     plan_renames(src, &roots, &mut taken).into_iter().map(|(_, _, old, new)| (old, new)).collect()
 }
 
+/// What combining `sources`, in order, would rename in each one: the whole list is simulated
+/// with the same first-free-variant rule the combine uses, so a later file's preview sees the
+/// earlier files' renames. Unreadable structure previews as nothing (the combine itself will
+/// say why it fails); non-colliding names still count as taken for the files after them.
+pub fn combine_field_conflicts(sources: &[&Document]) -> Vec<Vec<(String, String)>> {
+    let mut taken = std::collections::HashSet::new();
+    sources
+        .iter()
+        .map(|src| match field_roots(src) {
+            Ok(roots) => plan_renames(src, &roots, &mut taken).into_iter().map(|(_, _, old, new)| (old, new)).collect(),
+            Err(_) => Vec::new(),
+        })
+        .collect()
+}
+
 /// Walk field trees `roots` in `doc` and plan the renames that would keep every name separate
 /// from `taken`: each node's fully-qualified name joins `taken` (so a later field of the same
 /// import collides with an earlier one), and a node already taken is renamed to the first free

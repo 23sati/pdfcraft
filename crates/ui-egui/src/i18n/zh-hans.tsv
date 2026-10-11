@@ -2077,6 +2077,7 @@
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	XFA 表单：字段与 XFA 数据保持同步，以便其他阅读器显示您填写的内容。
 @plural	{n} page|{n} pages	{n} 页
 @plural	{n} field|{n} fields	{n} 个字段
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} 个字段名与之前的文件冲突，将被重命名: {list}
 	Created a PDF from {n} files	已从 {n} 个文件创建 PDF
 	PDF, images and text	PDF、图像和文本
 	Insert a file before page {label}	在第 {label} 页之前插入文件

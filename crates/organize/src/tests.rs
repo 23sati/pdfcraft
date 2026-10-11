@@ -1956,3 +1956,17 @@ fn combine_grouped_renames_colliding_field_names() {
         "the grouped file is copied once; only b's colliding field renames"
     );
 }
+
+/// The pre-flight scan over a whole combine list: what each file's fields would be renamed,
+/// in order, exactly as the combine would rename them — the Combine tab shows this before
+/// anything is combined.
+#[test]
+fn combine_field_conflicts_previews_each_file_in_order() {
+    let a = doc_with_field("Text1");
+    let b = doc_with_field("Text1");
+    let c = doc_with_fields(&["Text1", "Other"]);
+    let preview = combine_field_conflicts(&[&a, &b, &c]);
+    assert_eq!(preview[0], [], "the first file collides with nothing");
+    assert_eq!(preview[1], [("Text1".to_string(), "Text1-1".to_string())]);
+    assert_eq!(preview[2], [("Text1".to_string(), "Text1-2".to_string())], "the cascade continues past the earlier rename");
+}
