@@ -2234,3 +2234,11 @@ scroll speed	Fast	سريعة
 	Enhance camera image	تحسين صورة الكاميرا
 	Drag the corners onto the document's edges, then choose Enhance page.	اسحب الزوايا إلى حواف المستند، ثم اختر تحسين الصفحة.
 	Enhance page	تحسين الصفحة
+# HTML form submission
+	Form values to send: {count}	قيم النموذج المراد إرسالها: {count}
+	Only send if you trust this document and destination. The form values leave this computer.	أرسل فقط إذا كنت تثق بهذا المستند والوجهة. ستغادر قيم النموذج هذا الكمبيوتر.
+	Form submission is not available in the browser.	إرسال النماذج غير متاح في المتصفح.
+	Couldn't send the form: {error}	تعذر إرسال النموذج: {error}
+	Form sent to {url} (HTTP {status}).	أُرسل النموذج إلى {url} (HTTP {status}).
+	This form's submission format or field selection is not supported yet.	تنسيق إرسال هذا النموذج أو اختيار حقوله غير مدعوم بعد.
+	Scripted submission to {u} is not supported yet.	الإرسال بواسطة برنامج نصي إلى {u} غير مدعوم بعد.

@@ -2221,3 +2221,11 @@ scroll speed	Fast	Veloce
 	Enhance camera image	Migliora foto della fotocamera
 	Drag the corners onto the document's edges, then choose Enhance page.	Trascina gli angoli sui bordi del documento, poi scegli Migliora la pagina.
 	Enhance page	Migliora la pagina
+# HTML form submission
+	Form values to send: {count}	Valori del modulo da inviare: {count}
+	Only send if you trust this document and destination. The form values leave this computer.	Invia i dati solo se ti fidi del documento e della destinazione. I valori del modulo lasceranno questo computer.
+	Form submission is not available in the browser.	L’invio dei moduli non è disponibile nel browser.
+	Couldn't send the form: {error}	Impossibile inviare il modulo: {error}
+	Form sent to {url} (HTTP {status}).	Modulo inviato a {url} (HTTP {status}).
+	This form's submission format or field selection is not supported yet.	Il formato di invio o la selezione dei campi di questo modulo non è ancora supportata.
+	Scripted submission to {u} is not supported yet.	L’invio tramite script a {u} non è ancora supportato.

@@ -2127,3 +2127,11 @@ scroll speed	Fast	Высокая
 	Enhance camera image	Улучшить снимок с камеры
 	Drag the corners onto the document's edges, then choose Enhance page.	Перетащите углы к краям документа, затем выберите «Улучшить страницу».
 	Enhance page	Улучшить страницу
+# HTML form submission
+	Form values to send: {count}	Значения формы для отправки: {count}
+	Only send if you trust this document and destination. The form values leave this computer.	Отправляйте данные, только если доверяете документу и адресу назначения. Значения формы покинут этот компьютер.
+	Form submission is not available in the browser.	Отправка форм в браузере недоступна.
+	Couldn't send the form: {error}	Не удалось отправить форму: {error}
+	Form sent to {url} (HTTP {status}).	Форма отправлена по адресу {url} (HTTP {status}).
+	This form's submission format or field selection is not supported yet.	Формат отправки или выбор полей этой формы пока не поддерживается.
+	Scripted submission to {u} is not supported yet.	Отправка по сценарию на {u} пока не поддерживается.

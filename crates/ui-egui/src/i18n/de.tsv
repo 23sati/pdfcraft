@@ -2214,3 +2214,11 @@ scroll speed	Fast	Schnell
 	Enhance camera image	Kamerafoto verbessern
 	Drag the corners onto the document's edges, then choose Enhance page.	Ziehen Sie die Ecken auf die Kanten des Dokuments und wählen Sie dann Seite verbessern.
 	Enhance page	Seite verbessern
+# HTML form submission
+	Form values to send: {count}	Zu sendende Formularwerte: {count}
+	Only send if you trust this document and destination. The form values leave this computer.	Nur senden, wenn Sie diesem Dokument und dem Ziel vertrauen. Die Formularwerte verlassen diesen Computer.
+	Form submission is not available in the browser.	Das Senden von Formularen ist im Browser nicht verfügbar.
+	Couldn't send the form: {error}	Das Formular konnte nicht gesendet werden: {error}
+	Form sent to {url} (HTTP {status}).	Formular an {url} gesendet (HTTP {status}).
+	This form's submission format or field selection is not supported yet.	Das Übermittlungsformat oder die Feldauswahl dieses Formulars wird noch nicht unterstützt.
+	Scripted submission to {u} is not supported yet.	Das skriptgesteuerte Senden an {u} wird noch nicht unterstützt.

@@ -2214,3 +2214,11 @@ scroll speed	Fast	速い
 	Enhance camera image	カメラ画像を補正
 	Drag the corners onto the document's edges, then choose Enhance page.	四隅を文書の端までドラッグしてから、「ページを補正」を選択します。
 	Enhance page	ページを補正
+# HTML form submission
+	Form values to send: {count}	送信するフォームの値: {count} 件
+	Only send if you trust this document and destination. The form values leave this computer.	この文書と送信先を信頼できる場合だけ送信してください。フォームの値はこのコンピューターから外部に送られます。
+	Form submission is not available in the browser.	ブラウザーではフォームを送信できません。
+	Couldn't send the form: {error}	フォームを送信できませんでした: {error}
+	Form sent to {url} (HTTP {status}).	フォームを {url} に送信しました (HTTP {status})。
+	This form's submission format or field selection is not supported yet.	このフォームの送信形式またはフィールドの選択にはまだ対応していません。
+	Scripted submission to {u} is not supported yet.	スクリプトによる {u} への送信にはまだ対応していません。

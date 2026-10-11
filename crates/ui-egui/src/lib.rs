@@ -660,6 +660,10 @@ pub struct PdfCraftApp {
     pub last_opened_url: Option<String>,
     /// A document asked to open this address; the user hasn't answered yet (#90, #91).
     pub pending_link: Option<PendingLink>,
+    /// An HTML SubmitForm action waits here until the user approves sending its current values.
+    pub pending_submission: Option<PendingSubmission>,
+    #[cfg(not(target_arch = "wasm32"))]
+    submission_results: SubmissionInbox,
 }
 
 /// Where in a document a request to open an address came from.
@@ -689,6 +693,17 @@ pub struct PendingLink {
     pub url: String,
     pub origin: LinkOrigin,
 }
+
+/// A snapshot of form values waiting for an explicit destination approval.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PendingSubmission {
+    pub url: String,
+    pub body: Vec<u8>,
+    pub values: usize,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+type SubmissionInbox = std::sync::Arc<std::sync::Mutex<Vec<Result<(String, u16), String>>>>;
 
 /// Settings for the Number pages dialog.
 #[derive(Clone, Debug, PartialEq)]
@@ -860,6 +875,9 @@ impl PdfCraftApp {
             bookmark_rename: None,
             last_opened_url: None,
             pending_link: None,
+            pending_submission: None,
+            #[cfg(not(target_arch = "wasm32"))]
+            submission_results: Default::default(),
             protect_draft: Default::default(),
             boxes_draft: Default::default(),
             marks_draft: Default::default(),
@@ -1263,7 +1281,13 @@ impl PdfCraftApp {
     /// A dialog or prompt is open over the window: the keyboard is its own, and nothing may act
     /// on the document underneath it.
     pub(crate) fn modal_open(&self) -> bool {
-        self.dialog.is_some() || self.close_request.is_some() || self.password_prompt.is_some() || self.pending_link.is_some() || self.updates.open
+        self.dialog.is_some()
+            || self.close_request.is_some()
+            || self.password_prompt.is_some()
+            || self.owner_password_prompt.is_some()
+            || self.pending_link.is_some()
+            || self.pending_submission.is_some()
+            || self.updates.open
     }
 
     /// Enable the UI control channel on `ctx` (opt-in; see [`control`]). Returns a client that
@@ -1313,6 +1337,62 @@ impl PdfCraftApp {
         {
             self.open_url(&p.url);
         }
+    }
+
+    /// A document button requests an HTML form POST. Commit any field being typed before
+    /// preparing the payload, and show the exact destination before anything is sent.
+    pub fn request_form_submission(&mut self, id: DocId, url: &str) {
+        #[cfg(target_arch = "wasm32")]
+        {
+            let _ = (id, url);
+            self.notify_tr("Form submission is not available in the browser.");
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            if self.pending_submission.is_some() {
+                return;
+            }
+            if let Err(e) = pdfcraft_platform::form_submit::HtmlFormDestination::new(url) {
+                self.notify_error(e);
+                return;
+            }
+            if !self.commit_typing_in(id) {
+                return;
+            }
+            match self.session.html_form(id) {
+                Ok(form) => self.pending_submission = Some(PendingSubmission { url: url.into(), body: form.body, values: form.fields }),
+                Err(e) => self.notify_error(e),
+            }
+        }
+    }
+
+    /// Answer the form submission prompt. A worker posts the approved snapshot so the UI never
+    /// waits on a remote server; the destination is validated again before it runs.
+    pub fn resolve_pending_submission(&mut self, send: bool) {
+        let Some(pending) = self.pending_submission.take() else { return };
+        if !send {
+            return;
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let results = self.submission_results.clone();
+            let ctx = self.ctx.clone();
+            if let Err(e) = std::thread::Builder::new().name("form-submission".into()).spawn(move || {
+                let result = pdfcraft_platform::form_submit::HtmlFormDestination::new(&pending.url)
+                    .and_then(|destination| destination.post(&pending.body))
+                    .map(|status| (pending.url, status));
+                if let Ok(mut results) = results.lock() {
+                    results.push(result);
+                }
+                if let Some(ctx) = ctx {
+                    ctx.request_repaint();
+                }
+            }) {
+                self.notify_fmt("Couldn't send the form: {error}", &[("error", &e.to_string())]);
+            }
+        }
+        #[cfg(target_arch = "wasm32")]
+        let _ = pending;
     }
 
     pub fn notify(&mut self, msg: impl Into<String>) {
@@ -2038,6 +2118,16 @@ impl eframe::App for PdfCraftApp {
 
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.ctx = Some(ctx.clone());
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let results = self.submission_results.lock().map(|mut q| std::mem::take(&mut *q)).unwrap_or_default();
+            for result in results {
+                match result {
+                    Ok((url, status)) => self.notify_fmt("Form sent to {url} (HTTP {status}).", &[("url", &url), ("status", &status.to_string())]),
+                    Err(error) => self.notify_fmt("Couldn't send the form: {error}", &[("error", &error)]),
+                }
+            }
+        }
         self.dialog_epoch();
         // Notices raised outside `ui` (opened files, OS events, the control channel) translate too.
         let lang = i18n::Lang::from_pref(&self.language);
@@ -2098,6 +2188,7 @@ impl eframe::App for PdfCraftApp {
             && self.dialog.is_none()
             && self.close_request.is_none()
             && self.pending_link.is_none()
+            && self.pending_submission.is_none()
         {
             let startup = self.startup_inbox.lock().map(|mut q| std::mem::take(&mut *q)).unwrap_or_default();
             for (name, bytes) in startup {

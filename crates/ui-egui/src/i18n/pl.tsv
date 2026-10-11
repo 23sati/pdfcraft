@@ -2208,3 +2208,11 @@ scroll speed	Fast	Szybka
 	Enhance camera image	Popraw zdjęcie z aparatu
 	Drag the corners onto the document's edges, then choose Enhance page.	Przeciągnij narożniki na krawędzie dokumentu, a następnie wybierz Popraw stronę.
 	Enhance page	Popraw stronę
+# HTML form submission
+	Form values to send: {count}	Wartości formularza do wysłania: {count}
+	Only send if you trust this document and destination. The form values leave this computer.	Wyślij dane tylko wtedy, gdy ufasz temu dokumentowi i odbiorcy. Wartości formularza opuszczą ten komputer.
+	Form submission is not available in the browser.	Wysyłanie formularzy nie jest dostępne w przeglądarce.
+	Couldn't send the form: {error}	Nie można wysłać formularza: {error}
+	Form sent to {url} (HTTP {status}).	Formularz wysłano do {url} (HTTP {status}).
+	This form's submission format or field selection is not supported yet.	Format wysyłania lub wybór pól tego formularza nie jest jeszcze obsługiwany.
+	Scripted submission to {u} is not supported yet.	Wysyłanie przez skrypt do {u} nie jest jeszcze obsługiwane.
