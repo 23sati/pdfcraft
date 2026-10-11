@@ -1724,7 +1724,12 @@
 	watermark	透かし
 	background	背景
 	This document isn't password-protected	この文書はパスワード保護されていません
-	Only the document's owner can change its security (open it with the permissions password)	文書の所有者のみセキュリティを変更できます（権限パスワードで開いてください）
+	Enter permissions password…	権限パスワードを入力…
+	Permissions password	権限パスワード
+	“{name}” has security restrictions. Enter its permissions password to lift them.	「{name}」にはセキュリティの制限があります。制限を解除するには権限パスワードを入力してください。
+	Restrictions lifted	制限を解除しました
+	Couldn't unlock {name}: {e}	{name} のロックを解除できませんでした: {e}
+	This document has no restrictions to lift	この文書には解除する制限がありません
 	The document's security settings don't allow this change	文書のセキュリティ設定により、この変更は許可されていません
 	The document's security settings don't allow copying text and images	文書のセキュリティ設定により、テキストと画像のコピーは許可されていません
 	Open a document first	先に文書を開いてください

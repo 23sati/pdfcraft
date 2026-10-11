@@ -1643,7 +1643,12 @@
 	watermark	filigrane
 	background	arrière-plan
 	This document isn't password-protected	Ce document n'est pas protégé par mot de passe
-	Only the document's owner can change its security (open it with the permissions password)	Seul le propriétaire du document peut modifier sa protection (ouvrez-le avec le mot de passe d'autorisations)
+	Enter permissions password…	Saisir le mot de passe d'autorisations…
+	Permissions password	Mot de passe d'autorisations
+	“{name}” has security restrictions. Enter its permissions password to lift them.	«{name}» comporte des restrictions de sécurité. Saisissez son mot de passe d'autorisations pour les lever.
+	Restrictions lifted	Restrictions levées
+	Couldn't unlock {name}: {e}	Impossible de déverrouiller {name} : {e}
+	This document has no restrictions to lift	Ce document n'a aucune restriction à lever
 	The document's security settings don't allow this change	Les paramètres de protection du document n'autorisent pas cette modification
 	The document's security settings don't allow copying text and images	Les paramètres de protection du document n'autorisent pas la copie de texte et d'images
 	Open a document first	Ouvrez d'abord un document

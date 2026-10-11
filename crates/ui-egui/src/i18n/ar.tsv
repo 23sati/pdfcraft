@@ -1713,7 +1713,12 @@
 	watermark	علامة مائية
 	background	خلفية
 	This document isn't password-protected	هذا المستند غير محمي بكلمة مرور
-	Only the document's owner can change its security (open it with the permissions password)	مالك المستند وحده يستطيع تغيير أمانه (افتحه بكلمة مرور الأذونات)
+	Enter permissions password…	أدخل كلمة مرور الأذونات…
+	Permissions password	كلمة مرور الأذونات
+	“{name}” has security restrictions. Enter its permissions password to lift them.	«{name}» عليه قيود أمان. أدخل كلمة مرور الأذونات الخاصة به لرفعها.
+	Restrictions lifted	رُفعت القيود
+	Couldn't unlock {name}: {e}	تعذّر إلغاء قفل {name}: {e}
+	This document has no restrictions to lift	لا توجد في هذا المستند قيود لرفعها
 	The document's security settings don't allow this change	إعدادات أمان المستند لا تسمح بهذا التغيير
 	The document's security settings don't allow copying text and images	إعدادات أمان المستند لا تسمح بنسخ النصوص والصور
 	Open a document first	افتح مستندًا أولًا
