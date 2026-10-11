@@ -1569,6 +1569,8 @@
 	{file} is too large for a stamp (at most {n} MB)	{file} es demasiado grande para un sello (como máximo {n} MB)
 	Sent to {printer}	Enviado a {printer}
 	Sent to {printer}: {msg}	Enviado a {printer}: {msg}
+	Looking for printers…	Buscando impresoras…
+	Sending to {printer}…	Enviando a {printer}…
 	Choose a folder for the searchable files	Elige una carpeta para los archivos con búsqueda
 	Files are combined from top to bottom. Leave Pages empty to take every page.	Los archivos se combinan de arriba abajo. Deja Páginas vacío para incluir todas las páginas.
 	Unlock…	Desbloquear…
@@ -2123,3 +2125,6 @@ key	Space	Espacio
 	; 1 page skipped	; 1 página omitida
 	; {n} pages skipped	; {n} páginas omitidas
 	; corrected {n} pages	; {n} páginas corregidas
+	Crop scanner borders to the paper edge	Recortar los bordes del escaneo hasta el papel
+	Safety margin (pt)	Margen de seguridad (pt)
+	Only clear paper edges are cropped. Indistinguishable white borders are kept.	Solo se recortan los bordes claros del papel. Se conservan los bordes blancos indistinguibles.

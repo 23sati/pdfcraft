@@ -7,6 +7,79 @@ use pdfcraft_engine::{
 fn render(session: &Session, id: pdfcraft_engine::DocId) -> Vec<u8> {
     Exporter::new(session.get(id).unwrap()).png(0, 150.0).unwrap()
 }
+
+#[test]
+fn crop_scanner_borders_preserves_pixels_rotation_text_and_undo() {
+    if !ocr::available() {
+        return;
+    }
+    for rotation in [0, 90, 180, 270] {
+        let mut s = Session::new();
+        let image = image::RgbImage::from_fn(600, 800, |x, y| {
+            if (120..560).contains(&x) && (50..690).contains(&y) { image::Rgb([235, 235, 235]) } else { image::Rgb([25, 25, 25]) }
+        });
+        let mut png = std::io::Cursor::new(Vec::new());
+        image.write_to(&mut png, image::ImageFormat::Png).unwrap();
+        let pdf = s.create_from_images(&[("paper.png".into(), png.into_inner())]).unwrap();
+        let id = s.open("scan.pdf", None, pdf, None).unwrap();
+        // An existing off-origin CropBox and /Rotate must not shift or mirror the crop.
+        let info = s.get(id).unwrap().info.pages[0].clone();
+        s.apply(
+            id,
+            Edit::SetPageBox {
+                pages: vec![0],
+                which: pdfcraft_engine::PageBox::Crop,
+                spec: pdfcraft_engine::BoxSpec::Rect([8.0, 9.0, info.width as f64 - 7.0, info.height as f64 - 8.0]),
+            },
+        )
+        .unwrap();
+        s.apply(id, Edit::RotatePages { pages: vec![0], degrees: rotation }).unwrap();
+        s.apply(
+            id,
+            Edit::AddOcrText {
+                page: 0,
+                words: vec![PlacedWord { text: "Kept text".into(), origin: [150.0, 150.0], across: [100.0, 0.0], up: [0.0, 20.0] }],
+            },
+        )
+        .unwrap();
+        let before = s.get(id).unwrap().bytes.clone();
+        let settings = OcrSettings {
+            auto_crop: true,
+            crop_margin: 0.0,
+            recognize: false,
+            auto_rotate: false,
+            deskew: false,
+            skip_text_pages: false,
+            ..Default::default()
+        };
+        let found = s.recognize_text(id, &[], settings.clone()).unwrap();
+        assert!(found[0].crop.is_some(), "{rotation}: {found:?}");
+        let after = s.get(id).unwrap().info.pages[0].clone();
+        let (w, h) = if rotation % 180 == 0 { (440.0, 640.0) } else { (640.0, 440.0) };
+        let unit = info.width as f64 / 600.0;
+        assert!((after.width as f64 - w * unit).abs() < 12.0, "{rotation}: {after:?}");
+        assert!((after.height as f64 - h * unit).abs() < 12.0);
+        assert!(text(&s, id).contains("Kept text"));
+        let saved = s.save_bytes(id).unwrap();
+        let reopened = s.open("cropped.pdf", None, saved, None).unwrap();
+        assert_eq!(after.width, s.get(reopened).unwrap().info.pages[0].width);
+        assert_eq!(render(&s, id), render(&s, reopened));
+        s.undo(id).unwrap();
+        assert_eq!(before, s.get(id).unwrap().bytes);
+        s.redo(id).unwrap();
+        assert_eq!(after.width, s.get(id).unwrap().info.pages[0].width);
+        // Correction-only file processing must save the crop even with zero recognized words.
+        let file = ocr::recognize_file("scan.pdf", before.clone(), None, settings, &ocr::engine().unwrap(), |_, _| true).unwrap();
+        assert_ne!(file.bytes, before);
+        assert_eq!(file.words(), 0);
+        let crop_only = s.open("file.pdf", None, file.bytes, None).unwrap();
+        assert_eq!(after.width, s.get(crop_only).unwrap().info.pages[0].width);
+        // A margin is validated instead of silently clamped, and refusal leaves the PDF alone.
+        for margin in [-1.0, 21.0, f64::NAN] {
+            assert!(s.recognize_text(id, &[], OcrSettings { crop_margin: margin, ..Default::default() }).is_err());
+        }
+    }
+}
 fn text(session: &Session, id: pdfcraft_engine::DocId) -> String {
     Exporter::new(session.get(id).unwrap()).text(0).unwrap()
 }
@@ -155,14 +228,27 @@ fn scan_rotation_and_deskew_keep_searchable_text_aligned() {
     }
     let sentence = (0..12).map(|_| "Straight searchable lines stay aligned with the scan.\n").collect::<String>();
     let (mut s, id) = scan(&sentence, 90, 4.0);
-    let found = s.recognize_text(id, &[], OcrSettings::default()).unwrap();
+    let original = image::load_from_memory(&render(&s, id)).unwrap().to_rgb8();
+    let mut bordered = image::RgbImage::from_pixel(original.width() + 280, original.height() + 200, image::Rgb([25; 3]));
+    image::imageops::replace(&mut bordered, &original, 180, 80);
+    let mut png = std::io::Cursor::new(Vec::new());
+    bordered.write_to(&mut png, image::ImageFormat::Png).unwrap();
+    let pdf = s.create_from_images(&[("bordered.png".into(), png.into_inner())]).unwrap();
+    let id = s.open("bordered.pdf", None, pdf, None).unwrap();
+    let found = s.recognize_text(id, &[], OcrSettings { auto_crop: true, ..Default::default() }).unwrap();
+    assert!(found[0].crop.is_some());
     assert_eq!(found[0].correction.rotation, 270);
     assert!((found[0].correction.deskew + 4.0).abs() < 0.3, "{found:?}");
     assert!(text(&s, id).to_lowercase().contains("searchable"));
     let bytes = s.save_bytes(id).unwrap();
     let reopened = s.open("result.pdf", None, bytes, None).unwrap();
     let img = image::load_from_memory(&render(&s, reopened)).unwrap().to_rgb8();
-    assert!(pdfcraft_ocr::scan::deskew(&img).abs() < 0.2);
+    assert!(
+        pdfcraft_ocr::scan::deskew(&img).abs() < 0.2,
+        "remaining angle {}, correction {:?}",
+        pdfcraft_ocr::scan::deskew(&img),
+        found[0].correction
+    );
     // The extracted words must lie along horizontal lines after both PDF transformations.
     let doc = s.get(reopened).unwrap();
     let mut renderer = pdfcraft_render::PageRenderer::new(doc.bytes.clone(), doc.export_source().config);

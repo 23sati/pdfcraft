@@ -195,3 +195,6 @@ key	Space	Mezerník
 	; 1 page skipped	; přeskočena 1 stránka
 	; {n} pages skipped	; přeskočeno stránek: {n}
 	; corrected {n} pages	; opraveno stránek: {n}
+	Crop scanner borders to the paper edge	Oříznout okraje skenu k hraně papíru
+	Safety margin (pt)	Ochranný okraj (b.)
+	Only clear paper edges are cropped. Indistinguishable white borders are kept.	Oříznou se pouze zřetelné hrany papíru. Nerozlišitelné bílé okraje zůstanou zachovány.

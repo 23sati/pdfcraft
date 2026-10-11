@@ -359,6 +359,7 @@ impl PdfCraftApp {
             }
             "ocr.enhance" => {
                 self.ocr_draft.recognize = false;
+                self.ocr_draft.auto_crop = true;
                 self.dialog = Some(Dialog::RecognizeText);
             }
             "tools.js_console" => self.dialog = Some(Dialog::JsConsole),

@@ -26,13 +26,26 @@ pub struct OcrSettings {
     pub skip_text_pages: bool,
     pub auto_rotate: bool,
     pub deskew: bool,
+    /// Detect the paper edge before alignment/OCR. Opt-in for ordinary recognition.
+    pub auto_crop: bool,
+    /// Extra paper-edge padding, in displayed PDF points (0..20).
+    pub crop_margin: f64,
     /// Disable to straighten scans without adding a text layer.
     pub recognize: bool,
 }
 
 impl Default for OcrSettings {
     fn default() -> Self {
-        OcrSettings { dpi: 300.0, language: "en".into(), skip_text_pages: true, auto_rotate: true, deskew: true, recognize: true }
+        OcrSettings {
+            dpi: 300.0,
+            language: "en".into(),
+            skip_text_pages: true,
+            auto_rotate: true,
+            deskew: true,
+            auto_crop: false,
+            crop_margin: 2.0,
+            recognize: true,
+        }
     }
 }
 
@@ -44,6 +57,8 @@ pub struct OcrPage {
     /// Why the page was not read, if it was skipped.
     pub skipped: Option<String>,
     pub correction: Correction,
+    /// Detected crop in original PDF user space, before rotation and deskew; None if uncertain.
+    pub crop: Option<[f64; 4]>,
     /// Snapshot guard: never apply positions to pages changed while recognition was running.
     source: Arc<Vec<u8>>,
 }
@@ -55,11 +70,15 @@ impl std::fmt::Debug for OcrPage {
             .field("words", &self.words)
             .field("skipped", &self.skipped)
             .field("correction", &self.correction)
+            .field("crop", &self.crop)
             .finish_non_exhaustive()
     }
 }
 
 impl OcrPage {
+    pub fn changed(&self) -> bool {
+        self.correction.changed() || self.crop.is_some()
+    }
     pub fn text(&self) -> String {
         self.words.iter().map(|w| w.text.as_str()).collect::<Vec<_>>().join(" ")
     }
@@ -106,13 +125,18 @@ impl OcrJob {
                     words: Vec::new(),
                     skipped: Some(why.into()),
                     correction: Correction::default(),
+                    crop: None,
                     source: self.bytes.clone(),
                 })
                 .collect()
         };
-        if !self.settings.dpi.is_finite() || !(72.0..=600.0).contains(&self.settings.dpi) || !LANGUAGES.iter().any(|l| l.0 == self.settings.language)
+        if !self.settings.dpi.is_finite()
+            || !(72.0..=600.0).contains(&self.settings.dpi)
+            || !LANGUAGES.iter().any(|l| l.0 == self.settings.language)
+            || !self.settings.crop_margin.is_finite()
+            || !(0.0..=20.0).contains(&self.settings.crop_margin)
         {
-            return failure("invalid OCR language or resolution");
+            return failure("invalid OCR language, resolution or crop margin (0..20 pt)");
         }
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.run_inner(ocr, progress)))
             .unwrap_or_else(|_| failure("scan processing failed safely; the document was not changed"))
@@ -133,6 +157,7 @@ impl OcrJob {
                 words: Vec::new(),
                 skipped: Some(why.into()),
                 correction: Correction::default(),
+                crop: None,
                 source: self.bytes.clone(),
             };
             if self.settings.skip_text_pages {
@@ -156,6 +181,27 @@ impl OcrJob {
                 continue;
             };
             let rgb = image::DynamicImage::ImageRgba8(rgba).to_rgb8();
+            let to_pdf = |x: f64, y: f64| {
+                info.view_to_user(x as f32 * info.width / shot.width as f32, y as f32 * info.height / shot.height as f32).map(f64::from)
+            };
+            let bounds = self
+                .settings
+                .auto_crop
+                .then(|| pdfcraft_ocr::crop::paper_bounds(&rgb))
+                .flatten()
+                .map(|[l, t, r, b]| {
+                    let mx = (self.settings.crop_margin * shot.width as f64 / info.width as f64).ceil() as u32;
+                    let my = (self.settings.crop_margin * shot.height as f64 / info.height as f64).ceil() as u32;
+                    [l.saturating_sub(mx), t.saturating_sub(my), r.saturating_add(mx).min(shot.width), b.saturating_add(my).min(shot.height)]
+                })
+                .filter(|b| *b != [0, 0, shot.width, shot.height]);
+            let crop = bounds.map(|[l, t, r, b]| {
+                let a = to_pdf(l as f64, t as f64);
+                let b = to_pdf(r as f64, b as f64);
+                [a[0].min(b[0]), a[1].min(b[1]), a[0].max(b[0]), a[1].max(b[1])]
+            });
+            let [left, top, right, bottom] = bounds.unwrap_or([0, 0, shot.width, shot.height]);
+            let rgb = image::imageops::crop_imm(&rgb, left, top, right - left, bottom - top).to_image();
             let rotation = if self.settings.auto_rotate {
                 match ocr.orientation(&rgb) {
                     Ok(r) => r,
@@ -181,14 +227,12 @@ impl OcrJob {
                     continue;
                 }
             };
-            let scale = shot.width as f32 / info.width.max(1e-3);
             let to_user = |x: f32, y: f32| {
-                let [x, y] = correction.to_source(x as f64, y as f64, shot.width as f64, shot.height as f64);
-                let [u, v] = info.view_to_user(x as f32 / scale, y as f32 / scale);
-                [u as f64, v as f64]
+                let [x, y] = correction.to_source(x as f64, y as f64, rgb.width() as f64, rgb.height() as f64);
+                to_pdf(x + left as f64, y + top as f64)
             };
             let words = lines.iter().flat_map(|l| &l.words).map(|w| PlacedWord::place(w, to_user)).collect();
-            out.push(OcrPage { page, words, skipped: None, correction, source: self.bytes.clone() });
+            out.push(OcrPage { page, words, skipped: None, correction, crop, source: self.bytes.clone() });
         }
         progress(total, total);
         out
@@ -231,6 +275,9 @@ impl Session {
             if !p.words.is_empty() {
                 edits.push(Edit::AddOcrText { page: p.page, words: p.words.clone() });
             }
+            if let Some(rect) = p.crop {
+                edits.push(Edit::SetPageBox { pages: vec![p.page], which: crate::PageBox::Crop, spec: crate::BoxSpec::Rect(rect) });
+            }
             if p.correction.rotation != 0 {
                 edits.push(Edit::RotatePages { pages: vec![p.page], degrees: i64::from(p.correction.rotation) });
             }
@@ -240,7 +287,7 @@ impl Session {
         }
         let words = found.iter().map(|p| p.words.len()).sum();
         if !edits.is_empty() {
-            self.apply(id, Edit::Batch { label: if words > 0 { "Recognize text" } else { "Straighten scanned pages" }.into(), edits })?;
+            self.apply(id, Edit::Batch { label: if words > 0 { "Recognize text" } else { "Correct scans" }.into(), edits })?;
         }
         Ok(words)
     }
@@ -252,6 +299,9 @@ impl Session {
         }
         if !LANGUAGES.iter().any(|l| l.0 == settings.language) {
             return Err(format!("unsupported language: {}", settings.language));
+        }
+        if !settings.crop_margin.is_finite() || !(0.0..=20.0).contains(&settings.crop_margin) {
+            return Err("crop margin must be between 0 and 20 pt".into());
         }
         if let Some(doc) = self.get(id)
             && pages.iter().any(|&p| p >= doc.info.pages.len())
@@ -301,7 +351,7 @@ pub fn recognize_file(
     let job = s.ocr_job(id, &[], settings).ok_or("the document could not be read")?;
     let pages = job.run(ocr, progress);
     let words = s.apply_ocr(id, &pages).map_err(|e| e.to_string())?;
-    if words == 0 && !pages.iter().any(|p| p.correction.changed() && p.skipped.is_none()) {
+    if words == 0 && !pages.iter().any(|p| p.changed() && p.skipped.is_none()) {
         return Ok(FileResult { bytes, pages });
     }
     Ok(FileResult { bytes: s.save_bytes(id).map_err(|e| e.to_string())?, pages })

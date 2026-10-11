@@ -156,6 +156,15 @@ impl Automation {
         if let Some(v) = a.opt_bool("deskew")? {
             settings.deskew = v;
         }
+        if let Some(v) = a.opt_bool("auto_crop")? {
+            settings.auto_crop = v;
+        }
+        if let Some(v) = a.opt_num("crop_margin")? {
+            if !v.is_finite() || !(0.0..=20.0).contains(&v) {
+                return Err(ToolError::InvalidArgs("crop_margin must be between 0 and 20 pt".into()));
+            }
+            settings.crop_margin = v;
+        }
         if let Some(v) = a.opt_bool("recognize")? {
             settings.recognize = v;
         }
@@ -203,6 +212,8 @@ impl Automation {
         let mut settings = self.ocr_settings(a)?;
         if correction_only {
             settings.recognize = false;
+            settings.auto_crop = a.opt_bool("auto_crop")?.unwrap_or(true);
+            settings.skip_text_pages = a.opt_bool("skip_text_pages")?.unwrap_or(false);
         }
         let pages = if a.opt_ints("pages")?.is_some() { self.pages(a, "pages")? } else { Vec::new() };
         let id = self.doc(a)?.id;
@@ -211,7 +222,7 @@ impl Automation {
             .iter()
             .map(|p| match &p.skipped {
                 Some(why) => json!({ "page": p.page + 1, "skipped": why }),
-                None => json!({ "page": p.page + 1, "words": p.words.len(), "text": p.text(), "rotation":p.correction.rotation,"deskew":p.correction.deskew }),
+                None => json!({ "page": p.page + 1, "words": p.words.len(), "text": p.text(), "rotation":p.correction.rotation,"deskew":p.correction.deskew,"crop_box":p.crop }),
             })
             .collect();
         Ok(json!({ "words": found.iter().map(|p| p.words.len()).sum::<usize>(), "pages": list }))

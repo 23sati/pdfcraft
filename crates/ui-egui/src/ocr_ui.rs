@@ -30,12 +30,25 @@ pub struct OcrDraft {
     pub dpi: u32,
     pub auto_rotate: bool,
     pub deskew: bool,
+    pub auto_crop: bool,
+    pub crop_margin: f64,
     pub recognize: bool,
 }
 
 impl Default for OcrDraft {
     fn default() -> Self {
-        OcrDraft { pages: OcrPages::All, from: 1, to: 1, language: "en".into(), dpi: 300, auto_rotate: true, deskew: true, recognize: true }
+        OcrDraft {
+            pages: OcrPages::All,
+            from: 1,
+            to: 1,
+            language: "en".into(),
+            dpi: 300,
+            auto_rotate: true,
+            deskew: true,
+            auto_crop: false,
+            crop_margin: 2.0,
+            recognize: true,
+        }
     }
 }
 
@@ -101,7 +114,7 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> (boo
             ui.label(tl!("Output"));
             ui.label(if !d.recognize {
                 tl!("Corrected scan")
-            } else if d.auto_rotate || d.deskew {
+            } else if d.auto_rotate || d.deskew || d.auto_crop {
                 tl!("Searchable Image")
             } else {
                 tl!("Searchable Image (Exact)")
@@ -119,6 +132,16 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> (boo
     group(ui, "Scan correction", &mut |ui| {
         ui.checkbox(&mut d.auto_rotate, tl!("Automatically rotate sideways and upside-down pages"));
         ui.checkbox(&mut d.deskew, tl!("Straighten skewed scans"));
+        ui.checkbox(&mut d.auto_crop, tl!("Crop scanner borders to the paper edge"));
+        ui.add_enabled_ui(d.auto_crop, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(tl!("Safety margin (pt)"));
+                ui.add(egui::DragValue::new(&mut d.crop_margin).range(0.0..=20.0).speed(0.5));
+            });
+        });
+        ui.label(
+            egui::RichText::new(tl!("Only clear paper edges are cropped. Indistinguishable white borders are kept.")).small().color(t.text_muted),
+        );
         ui.checkbox(&mut d.recognize, tl!("Add searchable text"));
         ui.label(
             egui::RichText::new(tl!("Uncertain orientations are left unchanged. Deskew fits the full image inside the page."))
@@ -178,8 +201,10 @@ impl PdfCraftApp {
             language: d.language.clone(),
             auto_rotate: d.auto_rotate,
             deskew: d.deskew,
+            auto_crop: d.auto_crop,
+            crop_margin: d.crop_margin,
+            skip_text_pages: d.recognize,
             recognize: d.recognize,
-            ..Default::default()
         };
         let Some(job) = self.session.ocr_job(id, &pages, settings) else { return };
         let progress = Arc::new(Mutex::new(OcrProgress { total: job.pages.len(), ..Default::default() }));
@@ -223,8 +248,10 @@ impl PdfCraftApp {
             language: d.language.clone(),
             auto_rotate: d.auto_rotate,
             deskew: d.deskew,
+            auto_crop: d.auto_crop,
+            crop_margin: d.crop_margin,
+            skip_text_pages: d.recognize,
             recognize: d.recognize,
-            ..Default::default()
         };
         #[cfg(not(target_arch = "wasm32"))]
         match self.export_dir_override.clone() {
@@ -369,7 +396,7 @@ impl PdfCraftApp {
         };
         let read = found.iter().filter(|p| p.skipped.is_none()).count();
         let skipped = found.len() - read;
-        let corrected = found.iter().filter(|p| p.skipped.is_none() && p.correction.changed()).count();
+        let corrected = found.iter().filter(|p| p.skipped.is_none() && p.changed()).count();
         match self.session.apply_ocr(doc, &found) {
             Ok(words) => {
                 if let Some(info) = self.session.get(doc).map(|d| d.info.clone())

@@ -1566,6 +1566,8 @@
 	{file} is too large for a stamp (at most {n} MB)	{file} أكبر من أن يكون ختمًا ({n} ميغابايت على الأكثر)
 	Sent to {printer}	أُرسل إلى {printer}
 	Sent to {printer}: {msg}	أُرسل إلى {printer}: {msg}
+	Looking for printers…	جارٍ البحث عن الطابعات…
+	Sending to {printer}…	جارٍ الإرسال إلى {printer}…
 	Choose a folder for the searchable files	اختر مجلدًا للملفات القابلة للبحث
 	Files are combined from top to bottom. Leave Pages empty to take every page.	تُدمج الملفات من الأعلى إلى الأسفل. اترك «الصفحات» فارغًا لأخذ كل الصفحات.
 	Unlock…	إلغاء القفل…
@@ -2227,3 +2229,6 @@ key	Space	مسافة
 	; 1 page skipped	; تم تخطي صفحة واحدة
 	; {n} pages skipped	; تم تخطي {n} صفحات
 	; corrected {n} pages	; تم تصحيح {n} صفحات
+	Crop scanner borders to the paper edge	قص حواف المسح حتى حافة الورق
+	Safety margin (pt)	هامش الأمان (نقطة)
+	Only clear paper edges are cropped. Indistinguishable white borders are kept.	يتم قص حواف الورق الواضحة فقط. تُحفظ الحواف البيضاء التي لا يمكن تمييزها.

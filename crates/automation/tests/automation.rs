@@ -2967,6 +2967,33 @@ fn ocr_tools_make_a_scan_searchable() {
 }
 
 #[test]
+fn ocr_enhance_crops_paper_edges_with_margin_and_undo() {
+    let dir = workdir("ocr-crop");
+    let mut a = auto(&dir);
+    if ok(&mut a, "ocr_status", json!({}))["available"] != true {
+        return;
+    }
+    let image = image::RgbImage::from_fn(800, 600, |x, y| image::Rgb(if (180..800).contains(&x) && y < 490 { [235; 3] } else { [25; 3] }));
+    image.save(dir.join("scan.png")).unwrap();
+    let doc = ok(&mut a, "doc_create", json!({"from":"images","paths":["scan.png"]}))["doc"].as_u64().unwrap();
+    let no_crop = ok(&mut a, "ocr_enhance", json!({"doc":doc,"auto_crop":false,"auto_rotate":false,"deskew":false}));
+    assert!(no_crop["pages"][0]["crop_box"].is_null());
+    let cropped = ok(&mut a, "ocr_enhance", json!({"doc":doc,"crop_margin":0,"auto_rotate":false,"deskew":false}));
+    let rect = cropped["pages"][0]["crop_box"].as_array().unwrap();
+    assert!(rect[0].as_f64().unwrap() > 100.0);
+    assert_eq!(cropped["words"], 0);
+    ok(&mut a, "doc_save", json!({"doc":doc,"path":"cropped.pdf"}));
+    assert_eq!(ok(&mut a, "edit_undo", json!({"doc":doc}))["undone"], "Correct scans");
+    let padded = ok(&mut a, "ocr_enhance", json!({"doc":doc,"crop_margin":10,"auto_rotate":false,"deskew":false}));
+    let padded_rect = padded["pages"][0]["crop_box"].as_array().unwrap();
+    assert!((rect[0].as_f64().unwrap() - padded_rect[0].as_f64().unwrap() - 10.0).abs() < 1.0);
+    assert!((rect[1].as_f64().unwrap() - padded_rect[1].as_f64().unwrap() - 10.0).abs() < 1.0);
+    for margin in [-1, 21] {
+        assert!(matches!(a.call("ocr_enhance", &json!({"doc":doc,"crop_margin":margin})), Err(ToolError::InvalidArgs(_))));
+    }
+}
+
+#[test]
 fn ocr_enhance_corrects_rotation_without_adding_text() {
     let dir = workdir("ocr-enhance");
     let mut a = auto(&dir);

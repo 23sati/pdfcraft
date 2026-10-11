@@ -79,10 +79,38 @@ pub fn deskew(image: &RgbImage) -> f64 {
         image.clone()
     };
     let (w, h) = small.dimensions();
-    let points: Vec<(f64, f64)> = small
-        .enumerate_pixels()
-        .filter(|(_, _, p)| p.0.iter().copied().map(u32::from).sum::<u32>() < 420)
-        .map(|(x, y, _)| (x as f64 - w as f64 / 2.0, y as f64 - h as f64 / 2.0))
+    // Remove edge-connected dark scanner frames from the ANALYSIS mask, including
+    // their slanted portions after correction. Cropping/rotation retain all pixels.
+    // The mask is bounded by the 1000-pixel analysis size, as is the flood-fill stack.
+    let (mx, my) = (w / 50, h / 50);
+    let mut ink: Vec<bool> = small.pixels().map(|p| p.0.iter().copied().map(u32::from).sum::<u32>() < 420).collect();
+    let mut stack = Vec::new();
+    for (x, y, _) in small.enumerate_pixels() {
+        if (x < mx || x >= w - mx || y < my || y >= h - my)
+            && let Some(dark) = ink.get_mut((y * w + x) as usize)
+            && *dark
+        {
+            *dark = false;
+            stack.push((x, y));
+        }
+    }
+    while let Some((x, y)) = stack.pop() {
+        for ny in y.saturating_sub(1)..=(y + 1).min(h - 1) {
+            for nx in x.saturating_sub(1)..=(x + 1).min(w - 1) {
+                if let Some(dark) = ink.get_mut((ny * w + nx) as usize)
+                    && *dark
+                {
+                    *dark = false;
+                    stack.push((nx, ny));
+                }
+            }
+        }
+    }
+    let points: Vec<(f64, f64)> = ink
+        .iter()
+        .enumerate()
+        .filter(|(_, dark)| **dark)
+        .map(|(i, _)| ((i as u32 % w) as f64 - w as f64 / 2.0, (i as u32 / w) as f64 - h as f64 / 2.0))
         .collect();
     let fraction = points.len() as f64 / (w as f64 * h as f64).max(1.0);
     if points.len() < 100 || !(0.002..0.35).contains(&fraction) {
@@ -141,8 +169,16 @@ mod tests {
             if (80..520).contains(&x) && (80..720).contains(&y) && y % 40 < 4 && x % 30 < 22 { Rgb([0; 3]) } else { Rgb([255; 3]) }
         });
         for angle in [-5.0, 3.0] {
-            let tilted = Correction { rotation: 0, deskew: angle }.apply(&image);
+            let mut tilted = Correction { rotation: 0, deskew: angle }.apply(&image);
             assert!((deskew(&tilted) + angle).abs() < 0.2, "{}", deskew(&tilted));
+            for (x, y, pixel) in tilted.enumerate_pixels_mut() {
+                if x < 5 || y < 5 || x >= 595 || y >= 795 {
+                    *pixel = Rgb([25; 3]);
+                }
+            }
+            assert!((deskew(&tilted) + angle).abs() < 0.2, "scanner frame: {}", deskew(&tilted));
+            let corrected = Correction { rotation: 0, deskew: -angle }.apply(&tilted);
+            assert!(deskew(&corrected).abs() < 0.2, "rotated scanner frame: {}", deskew(&corrected));
         }
         assert_eq!(Correction { rotation: 90, deskew: 0.0 }.to_source(0.0, 0.0, 600.0, 800.0), [0.0, 800.0]);
     }

@@ -1554,6 +1554,8 @@
 	{file} is too large for a stamp (at most {n} MB)	{file} est trop volumineux pour un tampon ({n} Mo au plus)
 	Sent to {printer}	Envoyé à {printer}
 	Sent to {printer}: {msg}	Envoyé à {printer} : {msg}
+	Looking for printers…	Recherche des imprimantes…
+	Sending to {printer}…	Envoi à {printer}…
 	Choose a folder for the searchable files	Choisissez un dossier pour les fichiers recherchables
 	Files are combined in this order. Leave Pages empty to take every page.	Les fichiers sont combinés dans cet ordre. Laissez Pages vide pour prendre toutes les pages.
 	Pages of {name} to combine, e.g. 1-3, 6	Pages de {name} à combiner, p. ex. 1-3, 6
@@ -2207,3 +2209,6 @@ key	Space	Espace
 	; 1 page skipped	; 1 page ignorée
 	; {n} pages skipped	; {n} pages ignorées
 	; corrected {n} pages	; {n} pages corrigées
+	Crop scanner borders to the paper edge	Rogner les bordures du scan au bord du papier
+	Safety margin (pt)	Marge de sécurité (pt)
+	Only clear paper edges are cropped. Indistinguishable white borders are kept.	Seuls les bords nets du papier sont rognés. Les bordures blanches indiscernables sont conservées.

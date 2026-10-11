@@ -59,6 +59,11 @@ fn enhance_scan_dialog_offers_correction_without_recognition() {
     h.run_steps(2);
     h.get_by_label("Correct scans");
     assert!(!h.state().ocr_draft.recognize);
+    assert!(h.state().ocr_draft.auto_crop);
+    h.get_by_label("Safety margin (pt)");
+    h.get_by_label("Crop scanner borders to the paper edge").click();
+    h.run_steps(2);
+    assert!(!h.state().ocr_draft.auto_crop);
     h.get_by_label("Add searchable text").click();
     h.run_steps(2);
     assert!(h.state().ocr_draft.recognize);
