@@ -1651,16 +1651,11 @@ key	Space	Mezerník
 	Opened, but its security settings don't allow combining. Enter the permissions password.	Otevřeno, ale nastavení zabezpečení nedovoluje slučování. Zadejte heslo oprávnění.
 	Unlocked: the combined file won't be password-protected	Odemčeno: sloučený soubor nebude chráněný heslem
 	Unlocked {n} of {m} files	Odemčeno souborů: {n} z {m}
-	Drop PDFs or folders here, or choose them.	Přetáhněte sem soubory PDF nebo složky, případně je vyberte.
 	Add folder…	Přidat složku…
 	Add folder and subfolders…	Přidat složku a podsložky…
 	More ways to add files	Další způsoby přidání souborů
-	Every PDF in the folder	Všechny soubory PDF ve složce
-	Every PDF in the folder and the folders inside it	Všechny soubory PDF ve složce a ve složkách v ní
 	Add folder	Přidat složku
 	Add folder and subfolders	Přidat složku a podsložky
-	No PDFs found in {folder}	Ve složce {folder} nebyly nalezeny žádné soubory PDF
-	Added the first {n} PDFs in {folder}	Přidáno prvních {n} souborů PDF ze složky {folder}
 	Click to sort, drag to move the column. Drag its edge to resize it.	Kliknutím seřadíte, tažením přesunete sloupec. Velikost změníte tažením za jeho okraj.
 	Reset columns	Obnovit sloupce
 	Remove {n} files	Odebrat soubory ({n})
@@ -1678,7 +1673,6 @@ key	Space	Mezerník
 	{n} files need attention	Soubory vyžadující pozornost: {n}
 	{name} can't be combined: {why}	{name} nelze sloučit: {why}
 	Check the pages of {name}: {why}	Zkontrolujte stránky souboru {name}: {why}
-	Add the PDFs to combine	Přidejte soubory PDF ke sloučení
 	File name	Název souboru
 	Warnings	Upozornění
 	Drag to reorder	Přetažením změníte pořadí
@@ -2226,3 +2220,13 @@ certificate	Subject	Subjekt
 	Creator	Aplikace
 	Producer	Producent PDF
 	Offset from centre	Posun od středu
+	Add the files to combine	Přidejte soubory ke sloučení
+	Added the first {n} files in {folder}	Přidáno prvních {n} souborů ze složky {folder}
+	Combine the rest	Sloučit zbývající
+	Drop PDFs, images, text files or folders here, or choose them.	Přetáhněte sem soubory PDF, obrázky, textové soubory nebo složky, případně je vyberte.
+	Every PDF, image and text file in the folder	Všechny soubory PDF, obrázky a textové soubory ve složce
+	Every PDF, image and text file in the folder and the folders inside it	Všechny soubory PDF, obrázky a textové soubory ve složce a ve složkách v ní
+	Leave out files that can't be read?	Vynechat soubory, které nelze přečíst?
+	No PDFs, images or text files found in {folder}	Ve složce {folder} nebyly nalezeny žádné soubory PDF, obrázky ani textové soubory
+	These files can't be read, so they won't be in the combined PDF:	Tyto soubory nelze přečíst, a proto nebudou ve sloučeném PDF:
+	and {n} more	a dalších {n}
