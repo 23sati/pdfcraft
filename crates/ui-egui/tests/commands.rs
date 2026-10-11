@@ -378,6 +378,24 @@ fn view_menu_and_tooltips_write_shortcuts_for_the_platform() {
 }
 
 #[test]
+fn the_top_bar_save_button_names_its_shortcut_not_a_milestone() {
+    // #962: on Windows the Save button's tooltip and accessibility name read "Save (M4)",
+    // an internal milestone tag, while Print and Document properties named their shortcuts.
+    let mut h = harness();
+    h.ctx.set_os(OperatingSystem::Windows);
+    h.run_steps(2);
+    h.get_by_label("Save (Ctrl+S)");
+    h.get_by_label("Print (Ctrl+P)");
+    assert_eq!(h.query_all_by_label_contains("(M4)").count(), 0, "no milestone tag in the top bar");
+    assert_eq!(h.query_all_by_label_contains("⌘").count(), 0, "no ⌘ outside macOS");
+
+    let mut h = harness();
+    h.ctx.set_os(OperatingSystem::Mac);
+    h.run_steps(2);
+    h.get_by_label("Save (⌘S)");
+}
+
+#[test]
 fn full_screen_toggles_by_shortcut_and_command_and_escape_leaves() {
     let mut h = harness();
     h.key_press_modifiers(Modifiers::COMMAND, Key::L);

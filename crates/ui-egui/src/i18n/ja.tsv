@@ -115,7 +115,7 @@
 	Convert	変換
 	E-Sign	電子署名
 	Print ({key})	印刷（{key}）
-	Save (M4)	保存（M4）
+	Save ({key})	保存（{key}）
 	Document properties ({key})	文書のプロパティ（{key}）
 	Find tools and commands	ツールとコマンドを検索
 	Fit to height	高さに合わせる

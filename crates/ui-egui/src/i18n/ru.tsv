@@ -109,7 +109,7 @@
 	Convert	Конвертация
 	E-Sign	Электронная подпись
 	Print ({key})	Печать ({key})
-	Save (M4)	Сохранить (M4)
+	Save ({key})	Сохранить ({key})
 	Document properties ({key})	Свойства документа ({key})
 	Find tools and commands	Найти инструменты и команды
 	Fit to height	По высоте
