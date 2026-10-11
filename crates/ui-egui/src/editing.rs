@@ -182,22 +182,26 @@ impl PdfCraftApp {
             let want = if k + 1 == done.steps { "Enhance camera image" } else { "Rotate page" };
             label.as_deref() == Some(want)
         };
-        // Check the whole run before undoing any of it.
-        let mut probe_ok = ours(&self.session, 0);
-        if probe_ok && done.steps > 1 {
-            // Only the top label can be read without undoing; the counted steps were ours.
-            probe_ok = self.session.get(id).and_then(|d| d.can_undo()) == Some("Rotate page");
-        }
-        if !probe_ok {
-            if let Some(d) = self.views.get_mut(i).and_then(|v| v.camera_done.as_mut()) {
+        // Undo the run this tool applied, checking each step's label first. If the run was
+        // broken (another edit came in between), redo what was undone and leave the page alone:
+        // enhancing a page that is still straightened would warp it a second time.
+        let restore = |app: &mut Self| {
+            if let Some(d) = app.views.get_mut(i).and_then(|v| v.camera_done.as_mut()) {
                 (d.look, d.level) = d.applied;
             }
-            return;
+        };
+        let mut undone = 0;
+        while undone < done.steps && ours(&self.session, undone) && self.session.undo(id).is_ok() {
+            undone += 1;
         }
-        for k in 0..done.steps {
-            if !ours(&self.session, k) || self.session.undo(id).is_err() {
-                break;
+        if undone < done.steps {
+            for _ in 0..undone {
+                if self.session.redo(id).is_err() {
+                    break;
+                }
             }
+            restore(self);
+            return;
         }
         let result = self.session.enhance_camera_page_at(id, done.page, done.corners, done.look, done.level).and_then(|()| {
             let turn = done.turns.rem_euclid(360);

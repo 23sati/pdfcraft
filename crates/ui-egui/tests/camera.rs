@@ -175,3 +175,42 @@ fn cancel_and_escape_leave_the_page_alone() {
     assert_eq!(size(&h, 0), (300.0, 400.0));
     assert_eq!(undo_label(&h), None);
 }
+
+/// A turn made outside the tool after the enhancement breaks its run in the history: changing the
+/// level then leaves the page and the history as they are instead of enhancing the straightened
+/// page a second time.
+#[test]
+fn the_level_leaves_the_page_alone_when_another_edit_came_in_between() {
+    let mut h = harness();
+    assert!(h.state_mut().execute("ocr.enhance_camera"));
+    h.run_steps(3);
+    h.get_by_label("Enhance page").click();
+    h.run_steps(4);
+    h.get_by_label("Rotate clockwise").click();
+    h.run_steps(4);
+    // Another "Rotate page" from outside the tool, with the same history label.
+    {
+        let s = h.state_mut();
+        let id = s.views[0].id;
+        s.session.apply(id, pdfcraft_engine::Edit::RotatePages { pages: vec![0], degrees: 90 }).unwrap();
+    }
+    h.run_steps(2);
+    let before = size(&h, 0);
+    let applied = h.state().views[0].camera_done.unwrap().applied;
+
+    let view = &mut h.state_mut().views[0];
+    if let Some(d) = view.camera_done.as_mut() {
+        d.level = 100;
+    }
+    view.pending_action = Some(pdfcraft_ui_egui::canvas::ViewAction::CameraLevel);
+    h.run_steps(4);
+    assert_eq!(size(&h, 0), before, "the page is not warped again");
+    let done = h.state().views[0].camera_done.unwrap();
+    assert_eq!((done.level, done.applied), (applied.1, applied), "the slider goes back");
+    let s = h.state_mut();
+    let id = s.views[0].id;
+    assert_eq!(s.session.undo(id).unwrap(), "Rotate page");
+    assert_eq!(s.session.undo(id).unwrap(), "Rotate page");
+    assert_eq!(s.session.undo(id).unwrap(), "Enhance camera image");
+    assert_eq!(s.session.get(id).unwrap().can_undo(), None);
+}
