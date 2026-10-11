@@ -875,6 +875,16 @@ pub fn tools() -> Vec<ToolDef> {
         t("accessibility_set_alt", "Set alternate text", "Set a figure's alternate text (alt; empty or omitted clears it), or mark it decorative (decorative: true: its content becomes an artifact and the figure leaves the tags). figure is a number from accessibility_figures. Returns the figures. Undoable.")
             .cmd("a11y.alt_text")
             .with(schema(json!({ "doc": doc(), "figure": { "type": "integer", "minimum": 1 }, "alt": { "type": "string" }, "decorative": { "type": "boolean" } }), &["doc", "figure"])),
+        t("accessibility_tags", "List structure tags", "List reachable indirect structure tags in document order with PDF object number, generation, page, type, title, actual text, alternate text and language. Inline tag dictionaries have no stable object reference and are not listed.")
+            .ro()
+            .with(schema(json!({ "doc": doc() }), &["doc"])),
+        t("accessibility_set_tag_property", "Edit tag property", "Set or clear one property of a reachable indirect structure tag. Use object and generation from accessibility_tags. Properties: type, title, actual_text, alternate_text, language. Empty or omitted value clears text properties; type requires a nonempty PDF name. Undoable.")
+            .with(schema(json!({
+                "doc": doc(), "object": { "type": "integer", "minimum": 1 },
+                "generation": { "type": "integer", "minimum": 0, "maximum": 65535 },
+                "property": { "type": "string", "enum": ["type", "title", "actual_text", "alternate_text", "language"] },
+                "value": { "type": "string" },
+            }), &["doc", "object", "generation", "property"])),
         t("form_merge_data", "Merge data files into spreadsheet", "Collect the field values of form data files (FDF, XFDF) or filled-in PDF forms into one CSV file at path: a column per field name, a row per file. Returns the row and column counts.")
             .cmd("form.merge_data")
             .with(schema(json!({ "paths": { "type": "array", "items": { "type": "string" }, "minItems": 1 }, "path": { "type": "string" } }), &["paths", "path"])),

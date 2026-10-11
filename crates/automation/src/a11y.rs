@@ -135,6 +135,40 @@ impl Automation {
         self.session.apply(id, edit).map_err(failed)?;
         self.accessibility_figures(a)
     }
+
+    pub(crate) fn accessibility_tags(&self, a: &Args) -> Result<Value> {
+        let tags: Vec<Value> = self
+            .doc(a)?
+            .tags()
+            .into_iter()
+            .map(|t| {
+                json!({
+                    "object": t.object.num, "generation": t.object.generation, "type": t.kind,
+                    "title": t.title, "actual_text": t.actual_text, "alternate_text": t.alt,
+                    "language": t.language, "page": t.page.map(|p| p + 1),
+                })
+            })
+            .collect();
+        Ok(json!({ "count": tags.len(), "tags": tags }))
+    }
+
+    pub(crate) fn accessibility_set_tag_property(&mut self, a: &Args) -> Result<Value> {
+        let object = u32::try_from(a.int("object")?).map_err(|_| ToolError::InvalidArgs("object must be a positive tag object number".into()))?;
+        if object == 0 {
+            return Err(ToolError::InvalidArgs("object must be a positive tag object number".into()));
+        }
+        let generation = u16::try_from(a.int("generation")?)
+            .map_err(|_| ToolError::InvalidArgs("generation must be a PDF object generation from accessibility_tags".into()))?;
+        let property_id = a.str("property")?;
+        let property = pdfcraft_engine::a11y::TagProperty::from_id(property_id)
+            .ok_or_else(|| ToolError::InvalidArgs(format!("unknown tag property {property_id:?}")))?;
+        let value = a.opt_str("value")?.map(str::to_owned);
+        let id = self.doc(a)?.id;
+        self.session
+            .apply(id, pdfcraft_engine::Edit::SetTagProperty { object: pdfcraft_cos::ObjRef::new(object, generation), property, value })
+            .map_err(failed)?;
+        self.accessibility_tags(a)
+    }
 }
 
 impl Automation {

@@ -8839,11 +8839,11 @@ title = "Tag properties (type, title, actual text, alternate text, language)"
 area = "M"
 tier = "P1"
 milestone = "M12"
-status = "planned"
+status = "partial"
 commands = []
-tools = []
-evidence = []
-notes = ""
+tools = ["accessibility_tags", "accessibility_set_tag_property"]
+evidence = ["crates/a11y/src/tests.rs::reachable_tag_properties_round_trip_and_reject_unrelated_objects", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools"]
+notes = "The engine and headless tools list reachable indirect tags and edit type, title, actual text, alternate text and language with undo. An on-screen tag properties editor and inline tag dictionary support remain planned with the Tags Panel (#982)."
 
 [[feature]]
 id = "a11y.role-map"

@@ -17,10 +17,12 @@ mod content;
 mod headings;
 mod report;
 mod structure;
+mod tags;
 
 pub use alt::{AltError, Figure, figures, mark_decorative, set_alt};
 pub use headings::{Heading, headings};
 pub use report::{REPORT_WORDS, report_html};
+pub use tags::{TagError, TagInfo, TagProperty, set_tag_property, tags};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Category {

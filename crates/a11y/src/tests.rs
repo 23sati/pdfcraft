@@ -164,6 +164,38 @@ fn structure_doc(objects: &[String]) -> Document {
     pdf(&objs, "")
 }
 
+#[test]
+fn reachable_tag_properties_round_trip_and_reject_unrelated_objects() {
+    let mut doc =
+        structure_doc(&["<< /S /Document /K [4 0 R] >>".into(), "<< /S /Figure /T (Old) /Alt (A chart) >>".into(), "<< /S /Figure >>".into()]);
+    let tag = pdfcraft_cos::ObjRef::new(4, 0);
+    let listed = tags(&doc);
+    assert_eq!(listed.len(), 2);
+    assert_eq!(listed[1].object, tag);
+    assert_eq!(listed[1].title.as_deref(), Some("Old"));
+    for (property, value) in [
+        (TagProperty::Type, "P"),
+        (TagProperty::Title, "Figure title"),
+        (TagProperty::ActualText, " Revenue increased "),
+        (TagProperty::AlternateText, "A rising chart"),
+        (TagProperty::Language, "en-GB"),
+    ] {
+        set_tag_property(&mut doc, tag, property, Some(value)).unwrap();
+    }
+    let edited = &tags(&doc)[1];
+    assert_eq!(edited.kind, "P");
+    assert_eq!(edited.title.as_deref(), Some("Figure title"));
+    assert_eq!(edited.actual_text.as_deref(), Some(" Revenue increased "));
+    assert_eq!(edited.alt.as_deref(), Some("A rising chart"));
+    assert_eq!(edited.language.as_deref(), Some("en-GB"));
+    set_tag_property(&mut doc, tag, TagProperty::Title, None).unwrap();
+    assert_eq!(tags(&doc)[1].title, None);
+    assert!(matches!(set_tag_property(&mut doc, tag, TagProperty::Type, None), Err(TagError::InvalidType)));
+    assert!(matches!(set_tag_property(&mut doc, tag, TagProperty::Type, Some("bad type")), Err(TagError::InvalidType)));
+    assert!(matches!(set_tag_property(&mut doc, pdfcraft_cos::ObjRef::new(5, 0), TagProperty::Title, Some("No")), Err(TagError::NotATag(_))));
+    assert!(matches!(set_tag_property(&mut doc, pdfcraft_cos::ObjRef::new(4, 1), TagProperty::Title, Some("No")), Err(TagError::NotATag(_))));
+}
+
 fn checked(doc: &Document, rules: &[Rule]) -> Report {
     check(doc, &Options { rules: rules.iter().copied().collect(), pages: None })
 }

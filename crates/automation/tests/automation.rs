@@ -1565,6 +1565,29 @@ trailer << /Root 1 0 R >>
     )
     .unwrap();
     let fd = ok(&mut a, "doc_open", json!({ "path": "figures.pdf" }))["doc"].as_u64().unwrap();
+    let tags = ok(&mut a, "accessibility_tags", json!({ "doc": fd }));
+    assert_eq!(tags["count"], 3);
+    assert_eq!(tags["tags"][1]["object"], 7);
+    assert_eq!(tags["tags"][1]["type"], "Figure");
+    let changed = ok(
+        &mut a,
+        "accessibility_set_tag_property",
+        json!({
+            "doc": fd, "object": 7, "generation": 0, "property": "title", "value": "First shape"
+        }),
+    );
+    assert_eq!(changed["tags"][1]["title"], "First shape");
+    assert_eq!(ok(&mut a, "edit_undo", json!({ "doc": fd }))["undone"], "Change tag properties");
+    assert_eq!(ok(&mut a, "accessibility_tags", json!({ "doc": fd }))["tags"][1]["title"], Value::Null);
+    assert!(matches!(
+        a.call(
+            "accessibility_set_tag_property",
+            &json!({
+                "doc": fd, "object": 7, "generation": 1, "property": "title", "value": "Wrong generation"
+            })
+        ),
+        Err(ToolError::Failed(_))
+    ));
     let figs = ok(&mut a, "accessibility_figures", json!({ "doc": fd }));
     assert_eq!(figs["count"], 2);
     assert_eq!(figs["figures"][0]["rect"], json!([10.0, 30.0, 50.0, 50.0]), "top-left-origin points");
