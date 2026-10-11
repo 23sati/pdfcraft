@@ -2178,7 +2178,7 @@ key	Space	Интервал
 	Inspector	Инспектор
 
 # Architectural print controls (follow-up to #599).
-	PDF page: {w} × {h} in	PDF страница: {w} × {h} инча
+	PDF page: {size}	PDF страница: {size}
 	Match page at 100%	Хартия по страницата, мащаб 100%
 	PDF scale: {scale}%	Мащаб на PDF: {scale}%
 	Printer paper and scaling may differ. Check driver settings.	Хартията и мащабът на принтера може да се различават. Проверете настройките на драйвера.

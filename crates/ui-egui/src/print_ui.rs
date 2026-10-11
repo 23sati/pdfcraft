@@ -623,7 +623,7 @@ pub(crate) fn body(
             }
             if let Some(&source) = sizes.get(d.current_page) {
                 ui.horizontal_wrapped(|ui| {
-                    ui.label(crate::i18n::fmt(tl!("PDF page: {w} × {h} in"), &[("w", &format!("{:.2}", source.0 / 72.0)), ("h", &format!("{:.2}", source.1 / 72.0))]));
+                    ui.label(crate::i18n::fmt(tl!("PDF page: {size}"), &[("size", &d.units.size(source.0, source.1))]));
                     let matched = print::matching_paper(source);
                     if ui.add_enabled(matched.is_some(), egui::Button::new(tl!("Match page at 100%"))).clicked()
                         && let Some(paper) = matched

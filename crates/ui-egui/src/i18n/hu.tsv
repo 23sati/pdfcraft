@@ -2214,7 +2214,7 @@ key	Space	Szóköz
 	Inspector	Tulajdonságvizsgáló
 
 # Architectural print controls (follow-up to #599).
-	PDF page: {w} × {h} in	PDF-oldal: {w} × {h} hüvelyk
+	PDF page: {size}	PDF-oldal: {size}
 	Match page at 100%	Papír illesztése az oldalhoz, 100%
 	PDF scale: {scale}%	PDF-méretarány: {scale}%
 	Printer paper and scaling may differ. Check driver settings.	A nyomtató papírja és méretezése eltérhet. Ellenőrizze az illesztőprogram beállításait.
