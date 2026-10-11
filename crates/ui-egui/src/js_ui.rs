@@ -230,7 +230,7 @@ pub(crate) fn document_js_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
     close
 }
 
-/// Preferences: interface language, identity and JavaScript. Returns `true` to close.
+/// Preferences: interface language and size, appearance, identity and JavaScript. Returns `true` to close.
 pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> bool {
     ui.label(egui::RichText::new(tl!("Preferences")).font(theme::semibold(18.0)));
     ui.horizontal(|ui| {
@@ -279,6 +279,8 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
             .color(t.text_muted),
     );
     ui.add_space(8.0);
+    crate::appearance::preferences_section(ui, app, t);
+    ui.add_space(8.0);
     ui.label(egui::RichText::new(tl!("Documents and view")).font(theme::semibold(13.0)));
     ui.horizontal(|ui| {
         ui.label(tl!("Default workspace mode"));
@@ -324,6 +326,12 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
     // The web build has no file paths to reopen.
     #[cfg(not(target_arch = "wasm32"))]
     ui.checkbox(&mut app.reopen_last_session, tl!("Reopen the files that were open when PdfCraft last closed"));
+    ui.horizontal(|ui| {
+        ui.label(tl!("Mouse wheel scroll speed"));
+        for speed in crate::scroll_speed::ScrollSpeed::ALL {
+            ui.radio_value(&mut app.scroll_speed, speed, tl_ctx!("scroll speed", speed.label()));
+        }
+    });
     ui.add_space(8.0);
     // Identity: the author of new comments (Acrobat: Preferences ▸ Identity).
     ui.label(egui::RichText::new(tl!("Identity")).font(theme::semibold(13.0)));
