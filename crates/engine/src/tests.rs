@@ -2488,6 +2488,26 @@ BT /F1 11 Tf 0 g 72 650 Td (Black body text that is long enough to be the body s
 }
 
 #[test]
+fn office_export_positions_follow_the_displayed_crop_rotation_and_units() {
+    use pdfcraft_cos::{Document as CosDocument, ObjRef, Object, SaveOptions, write_full};
+    let mut pdf = CosDocument::open(Arc::new(fixture(1))).unwrap();
+    let mut page = pdf.get(ObjRef::new(4, 0)).as_dict().unwrap().clone();
+    page.set("CropBox", Object::Array([10, 20, 190, 280].map(Object::Int).to_vec()));
+    page.set("Rotate", Object::Int(90));
+    page.set("UserUnit", Object::Int(2));
+    pdf.set(ObjRef::new(4, 0), page);
+    let mut session = Session::new();
+    let id = session.open("turned.pdf", None, Arc::new(write_full(&pdf, &SaveOptions::default()).unwrap()), None).unwrap();
+    let doc = session.get(id).unwrap();
+    let pages = doc.export_pages();
+    let b = &pages[0].blocks[0];
+    assert!((b.rotation + 90.0).abs() < 0.01, "clockwise page rotation: {b:?}");
+    assert!((b.rect[0] - 248.0).abs() < 0.01, "crop and UserUnit applied: {b:?}");
+    assert_eq!(b.size, 48.0);
+    assert_eq!((pages[0].width, pages[0].height), (520.0, 360.0));
+}
+
+#[test]
 fn guard_turns_a_panic_into_an_error() {
     assert_eq!(guard(|| 7), Ok(7));
     assert_eq!(guard(|| -> u8 { panic!("boom") }), Err("boom".to_string()));

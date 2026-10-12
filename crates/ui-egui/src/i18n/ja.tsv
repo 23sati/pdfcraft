@@ -698,6 +698,14 @@
 	of the following fields:	対象フィールド:
 	Simplified field notation:	簡易フィールド表記:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	フィールド名と + - * / および括弧を使用できます。名前に含まれる空白の前には \\ を付けてください。
+
+# Document font selection
+	Finding document fonts…	文書用フォントを検索中…
+	Installed fonts…	インストール済みフォント…
+	Keep source fonts	元のフォントを保持
+	Load font…	フォントを読み込む…
+	No openly licensed document fonts found. Load a font file.	オープンライセンスのフォントが見つかりません。フォントファイルを読み込んでください。
+
 	Format text	テキストの書式
 	Bold	太字
 	Italic	斜体
@@ -1902,6 +1910,7 @@
 	Delete document JavaScript	文書の JavaScript を削除
 	Edit document JavaScript	文書の JavaScript を編集
 	Edit text	テキストを編集
+	Load document font	文書フォントを読み込む
 	Move image	画像を移動
 	Rotate image	画像を回転
 	Flip image	画像を反転

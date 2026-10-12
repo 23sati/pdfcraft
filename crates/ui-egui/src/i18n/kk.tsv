@@ -658,6 +658,11 @@
 	of the following fields:	келесі өрістердің:
 	Simplified field notation:	Жеңілдетілген өріс жазылуы:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Құрамында + - * / және жақшалар бар өріс атаулары; атаудағы бос орынның алдында \\ қойыңыз.
+	Finding document fonts…	Құжат қаріптері ізделуде…
+	Installed fonts…	Орнатылған қаріптер…
+	Keep source fonts	Бастапқы қаріптерді сақтау
+	Load font…	Қаріпті жүктеу…
+	No openly licensed document fonts found. Load a font file.	Ашық лицензиялы құжат қаріптері табылмады. Қаріп файлын жүктеңіз.
 	Format text	Мәтінді пішімдеу
 	Bold	Жуан
 	Italic	Көлбеу
@@ -1820,6 +1825,7 @@
 	Delete document JavaScript	Құжаттың JavaScript-ін жою
 	Edit document JavaScript	Құжаттың JavaScript-ін түзету
 	Edit text	Мәтінді түзету
+	Load document font	Құжат қаріпін жүктеу
 	Move image	Кескінді жылжыту
 	Rotate image	Кескінді бұру
 	Flip image	Кескінді аудару

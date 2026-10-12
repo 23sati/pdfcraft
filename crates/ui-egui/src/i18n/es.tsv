@@ -694,6 +694,11 @@
 	of the following fields:	de los campos siguientes:
 	Simplified field notation:	Notación de campos simplificada:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Nombres de campo con + - * / y paréntesis; pon \\ antes de los espacios en los nombres.
+	Finding document fonts…	Buscando fuentes del documento…
+	Installed fonts…	Fuentes instaladas…
+	Keep source fonts	Conservar las fuentes originales
+	Load font…	Cargar fuente…
+	No openly licensed document fonts found. Load a font file.	No se encontraron fuentes de documento con licencia abierta. Cargue un archivo de fuente.
 	Format text	Dar formato al texto
 	Bold	Negrita
 	Italic	Cursiva
@@ -1908,6 +1913,7 @@ action wizard	Start	Iniciar
 	Delete document JavaScript	Eliminar JavaScript del documento
 	Edit document JavaScript	Editar JavaScript del documento
 	Edit text	Editar texto
+	Load document font	Cargar fuente del documento
 	Move image	Mover imagen
 	Rotate image	Girar imagen
 	Flip image	Voltear imagen

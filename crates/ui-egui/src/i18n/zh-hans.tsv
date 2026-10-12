@@ -384,6 +384,14 @@
 	of the following fields:	以下字段的：
 	Simplified field notation:	简化字段表示法：
 	Field names with + - * / and parentheses; put \\ before spaces in names.	字段名支持 + - * / 和括号；名称中的空格前加 \\。
+
+# Document font selection
+	Finding document fonts…	正在查找文档字体…
+	Installed fonts…	已安装字体…
+	Keep source fonts	保留原始字体
+	Load font…	加载字体…
+	No openly licensed document fonts found. Load a font file.	未找到采用开放许可证的字体。请加载字体文件。
+
 	Format text	设置文本格式
 	Bold	粗体
 	Italic	斜体
@@ -1946,6 +1954,7 @@
 	Edit document JavaScript	编辑文档 JavaScript
 	Edit script of {name}	编辑 {name} 的脚本
 	Edit text	编辑文本
+	Load document font	加载文档字体
 	Embedded files must be PDF/A files themselves (use PDF/A-3 for others)	嵌入文件本身必须符合 PDF/A 标准（其他类型的文件请使用 PDF/A-3）
 	Erase	擦除
 	Fill & Sign: change initials	填写与签名：更改姓名首字母

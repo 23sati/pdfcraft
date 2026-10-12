@@ -70,3 +70,9 @@ Font files are never
 committed here (`AGENTS.md` §1.4; team members: [craftrules `standards/fonts.md`](https://github.com/storytold/craftrules/blob/main/standards/fonts.md), internal).
 
 The full font subsystem (parsing, shaping, subsetting and embedding) arrives with M2.2/M7.
+
+
+Document font inputs use `embedding`: bounded static TrueType/OpenType-CFF validation,
+exact program preservation, Unicode/CID/GID mapping and full-face subset completion.
+`shaping` uses the same program with harfrust and UAX #9; source UI fallback fonts are
+never exported. See [existing-text editing](../../docs/editing-existing-text.md).

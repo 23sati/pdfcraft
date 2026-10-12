@@ -671,6 +671,14 @@
 	of the following fields:	des champs suivants :
 	Simplified field notation:	Notation de champs simplifiée :
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Noms de champs avec + - * / et parenthèses ; placez \\ devant les espaces dans les noms.
+
+# Document font selection
+	Finding document fonts…	Recherche de polices pour le document…
+	Installed fonts…	Polices installées…
+	Keep source fonts	Conserver les polices originales
+	Load font…	Charger une police…
+	No openly licensed document fonts found. Load a font file.	Aucune police sous licence libre trouvée. Chargez un fichier de police.
+
 	Format text	Mettre le texte en forme
 	Bold	Gras
 	Italic	Italique
@@ -1821,6 +1829,7 @@
 	Delete document JavaScript	Supprimer le JavaScript du document
 	Edit document JavaScript	Modifier le JavaScript du document
 	Edit text	Modifier le texte
+	Load document font	Charger la police du document
 	Move image	Déplacer l'image
 	Rotate image	Pivoter l'image
 	Flip image	Retourner l'image

@@ -668,6 +668,7 @@
 	Edit image	Uredi sliko
 	Edit script of {name}	Uredi skript: {name}
 	Edit text	Uredi besedilo
+	Load document font	Naloži pisavo dokumenta
 	Edit text & images	Uredi besedilo in slike
 	Edit text…	Uredi besedilo…
 	Editing	Urejanje
@@ -843,6 +844,11 @@
 	Form fields panel	Razdelek s polji obrazca
 	Form fill-in and digital signatures	Izpolnjevanje obrazcev in digitalni podpisi
 	Format	Oblika
+	Finding document fonts…	Iskanje pisav dokumenta…
+	Installed fonts…	Nameščene pisave…
+	Keep source fonts	Ohrani izvirne pisave
+	Load font…	Naloži pisavo…
+	No openly licensed document fonts found. Load a font file.	Ni najdenih pisav dokumenta z odprto licenco. Naložite datoteko pisave.
 	Format text	Oblikuj besedilo
 	Format:	Oblika:
 	Forms	Obrazci

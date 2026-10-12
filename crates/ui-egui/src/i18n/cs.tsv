@@ -775,6 +775,11 @@ key	Space	Mezerník
 	of the following fields:	následujících polí:
 	Simplified field notation:	Zjednodušený zápis polí:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Názvy polí s + - * / a závorkami; mezery v názvech uvozujte znakem \\.
+	Finding document fonts…	Hledání písem dokumentu…
+	Installed fonts…	Nainstalovaná písma…
+	Keep source fonts	Zachovat zdrojová písma
+	Load font…	Načíst písmo…
+	No openly licensed document fonts found. Load a font file.	Nebyla nalezena žádná otevřeně licencovaná písma dokumentu. Načtěte soubor písma.
 	Format text	Formát textu
 	Bold	Tučné
 	Italic	Kurzíva
@@ -1941,6 +1946,7 @@ key	Space	Mezerník
 	Delete document JavaScript	Odstranit JavaScript dokumentu
 	Edit document JavaScript	Upravit JavaScript dokumentu
 	Edit text	Upravit text
+	Load document font	Načíst písmo dokumentu
 	Move image	Přesunout obrázek
 	Rotate image	Otočit obrázek
 	Flip image	Převrátit obrázek
