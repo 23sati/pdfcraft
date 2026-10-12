@@ -42,6 +42,7 @@
 	Create PDF from file…	Δημιουργία PDF από αρχείο…
 	Create PDF from images…	Δημιουργία PDF από εικόνες…
 	Create PDF from multiple files…	Δημιουργία PDF από πολλά αρχεία…
+	Create separate PDFs…	Δημιουργία ξεχωριστών PDF…
 	Create PDF from clipboard	Δημιουργία PDF από το πρόχειρο
 	Combine files…	Συνένωση αρχείων…
 	Save	Αποθήκευση
@@ -181,6 +182,7 @@
 	Details	Λεπτομέρειες
 	More	Περισσότερα
 	Edit text	Επεξεργασία κειμένου
+	Load document font	Φόρτωση γραμματοσειράς εγγράφου
 	Add text	Προσθήκη κειμένου
 	Edit image	Επεξεργασία εικόνας
 	Add image	Προσθήκη εικόνας
@@ -1304,6 +1306,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	Αλλαγή {key}
 	Insert pages from {name}	Εισαγωγή σελίδων από {name}
+	Insert pages from {name} — 1 field renamed	Εισαγωγή σελίδων από {name} — μετονομάστηκε 1 πεδίο
+	Insert pages from {name} — fields renamed	Εισαγωγή σελίδων από {name} — μετονομάστηκαν πεδία
 	Fill in {name}	Συμπλήρωση του {name}
 	Set the image of {name}	Ορισμός εικόνας του {name}
 	Edit script of {name}	Επεξεργασία δέσμης ενεργειών του {name}
@@ -1689,6 +1693,7 @@
 	Create from	Δημιουργία από
 	Single file	Ένα αρχείο
 	Multiple files	Πολλά αρχεία
+	Separate PDFs	Ξεχωριστά PDF
 	Clipboard	Πρόχειρο
 	Blank page	Κενή σελίδα
 	Combine files	Συνδυασμός αρχείων
@@ -1985,6 +1990,11 @@
 	of the following fields:	των παρακάτω πεδίων:
 	Simplified field notation:	Απλοποιημένη σύνταξη πεδίων:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Ονόματα πεδίων με + - * / και παρενθέσεις· προσθέστε \\ πριν από τα κενά των ονομάτων.
+	Finding document fonts…	Αναζήτηση γραμματοσειρών εγγράφου…
+	Installed fonts…	Εγκατεστημένες γραμματοσειρές…
+	Keep source fonts	Διατήρηση αρχικών γραμματοσειρών
+	Load font…	Φόρτωση γραμματοσειράς…
+	No openly licensed document fonts found. Load a font file.	Δεν βρέθηκαν γραμματοσειρές εγγράφου με ανοιχτή άδεια. Φορτώστε ένα αρχείο γραμματοσειράς.
 	Format text	Μορφοποίηση κειμένου
 	Centre	Κεντράρισμα
 	Thai and Arabic use regular fallback fonts when available.	Τα ταϊλανδικά και τα αραβικά χρησιμοποιούν κανονικές εναλλακτικές γραμματοσειρές, όταν είναι διαθέσιμες.
@@ -2275,3 +2285,17 @@ scroll speed	Fast	Γρήγορη
 	Tools panel side	Πλευρά πλαισίου εργαλείων
 	Add comment	Προσθήκη σχολίου
 	Change tag properties	Αλλαγή ιδιοτήτων ετικέτας
+	Left out: {names}	Παραλείφθηκαν: {names}
+	already a PDF	είναι ήδη PDF
+	no unused output name	δεν υπάρχει διαθέσιμο όνομα εξόδου
+	no output folder was chosen	δεν επιλέχθηκε φάκελος εξόδου
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	Λήφθηκε {n} PDF|Λήφθηκαν {n} PDF
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} όνομα πεδίου συγκρούεται με προηγούμενα αρχεία και θα μετονομαστεί: {list}|{n} ονόματα πεδίων συγκρούονται με προηγούμενα αρχεία και θα μετονομαστούν: {list}
+	Scan	Σάρωση
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Υπογράψτε σε ένα λευκό φύλλο χαρτιού και φωτογραφίστε το σε έντονο, ομοιόμορφο φως (χρησιμοποιήστε το φλας). Επιλέξτε τη φωτογραφία ή αφήστε την εδώ: το PdfCraft βρίσκει την υπογραφή και αφαιρεί το χαρτί.
+	Choose photo…	Επιλογή φωτογραφίας…
+	No photo chosen	Δεν επιλέχθηκε φωτογραφία
+	Photo	Φωτογραφία
+	Ink sensitivity	Ευαισθησία μελανιού
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Δεν βρέθηκε υπογραφή στο πλαίσιο. Μετακινήστε το πλαίσιο πάνω από την υπογραφή ή αυξήστε την ευαισθησία μελανιού.
+	Couldn't use the photo: {e}	Δεν ήταν δυνατή η χρήση της φωτογραφίας: {e}
