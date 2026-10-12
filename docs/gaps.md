@@ -53,8 +53,8 @@ update the numbers.
 
 - **Missing:** our own renderer (M2: `model` crate, font engine, DisplayList devices, ADR-0004), or
   an owner decision to adopt another engine; and any measurement of rendering against Acrobat.
-- **Evidence:** pages are drawn by vendored `hayro` 0.7 with 23 local patches to `hayro-interpret`,
-  10 to `hayro`, 3 to `hayro-jbig2` and 13 to `hayro-syntax` (`vendor/README.md`); `lopdf` still
+- **Evidence:** pages are drawn by vendored `hayro` 0.7 with 26 local patches to `hayro-interpret`,
+  15 to `hayro`, 3 to `hayro-jbig2` and 17 to `hayro-syntax` (`vendor/README.md`); `lopdf` still
   backs document inspection. All 7 rendering P0 features are `partial`. User reports: TikZ pattern
   fills drawn wrong ([#794](https://github.com/storytold/pdfcraft/issues/794)), blurry text at
   1080p/1440p ([#730](https://github.com/storytold/pdfcraft/issues/730)), fixed zoom sizes differ

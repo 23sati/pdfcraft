@@ -49,6 +49,10 @@ fn fixture() -> Vec<u8> {
 }
 
 fn remote_fixture(file: &str, destination: &str) -> Vec<u8> {
+    // canonicalize() uses a Windows device prefix; a PDF file specification uses the ordinary drive path.
+    #[cfg(windows)]
+    let file = file.strip_prefix(r"\\?\").filter(|path| path.as_bytes().get(1) == Some(&b':')).unwrap_or(file);
+    let file = file.replace('\\', "\\\\").replace('(', "\\(").replace(')', "\\)");
     let objs = [
         "<< /Type /Catalog /Pages 2 0 R >>".to_string(),
         "<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 300 400] >>".to_string(),
@@ -208,6 +212,8 @@ fn a_gotor_link_to_a_directory_or_device_is_refused_without_reading_it() {
     let dir = std::env::temp_dir().join(format!("pdfcraft-ui-gotor-not-a-file-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("folder.pdf")).unwrap();
+    // Only Unix adds a target (a device), so elsewhere the list is never changed.
+    #[cfg_attr(not(unix), allow(unused_mut))]
     let mut targets = vec!["folder.pdf"];
     #[cfg(unix)]
     {

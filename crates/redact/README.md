@@ -33,8 +33,8 @@ A verification pass re-reads each redacted page and fails the operation if any g
 image is still under an area. Content that can't be decoded makes the operation fail rather than
 leave it unredacted.
 
-Affected structure elements and their ancestors lose alternate text, replacement text,
-expansions and titles. Unchanged sibling descriptions remain.
+Structure cleanup resolves named MCIDs and indirect content references. Form content
+references are updated to the cleaned copy. Affected structure elements and their ancestors lose alternate text, replacement text, expansions and titles; unchanged sibling descriptions remain.
 
 ## Remove hidden information / Sanitize
 
