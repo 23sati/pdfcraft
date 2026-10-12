@@ -8813,11 +8813,11 @@ title = "Automatically tag a document"
 area = "M"
 tier = "P1"
 milestone = "M12"
-status = "planned"
+status = "partial"
 commands = []
-tools = []
-evidence = []
-notes = ""
+tools = ["accessibility_autotag_preview"]
+evidence = ["crates/automation/tests/automation.rs::autotag_preview_proposes_text_without_changing_the_pdf"]
+notes = "Preview proposes paragraph or heading roles for bounded visible text blocks on one page and flags them for review. It does not write tags, mark content, build a parent tree or classify images, tables, lists and annotations."
 
 [[feature]]
 id = "a11y.autotag-fields"

@@ -111,6 +111,36 @@ fn auto(dir: &Path) -> Automation {
     Automation::new().with_root(dir).unwrap().with_clock(|| 1_700_000_000)
 }
 
+#[test]
+fn autotag_preview_proposes_text_without_changing_the_pdf() {
+    let dir = workdir("autotag-preview");
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    let before = std::fs::read(dir.join("a.pdf")).unwrap();
+
+    let preview = ok(&mut a, "accessibility_autotag_preview", json!({ "doc": doc, "page": 1 }));
+    assert_eq!(preview["page"], 1);
+    assert_eq!(preview["candidates"][0]["type"], "P");
+    assert_eq!(preview["candidates"][0]["text"], "Page 1");
+    assert_eq!(preview["candidates"][0]["needs_review"], true);
+    assert_eq!(preview["unclassified_images"], 0);
+    assert_eq!(preview["unclassified_text_blocks"], 0);
+    assert_eq!(preview["existing_structure"], false);
+    assert_eq!(std::fs::read(dir.join("a.pdf")).unwrap(), before);
+    assert!(matches!(
+        a.call("accessibility_autotag_preview", &json!({ "doc": doc, "page": 4 })),
+        Err(ToolError::InvalidArgs(_) | ToolError::Failed(_))
+    ));
+
+    let blank = ok(&mut a, "doc_create", json!({ "from": "blank", "width": 300, "height": 400 }))["doc"].as_u64().unwrap();
+    ok(&mut a, "page_add_text", json!({ "doc": blank, "page": 1, "text": "Annual report", "at": [20, 25], "size": 24 }));
+    ok(&mut a, "page_add_text", json!({ "doc": blank, "page": 1, "text": "First paragraph", "at": [20, 100], "size": 12 }));
+    ok(&mut a, "page_add_text", json!({ "doc": blank, "page": 1, "text": "Second paragraph", "at": [20, 140], "size": 12 }));
+    let preview = ok(&mut a, "accessibility_autotag_preview", json!({ "doc": blank, "page": 1 }));
+    assert!(preview["candidates"].as_array().unwrap().iter().any(|c| c["text"] == "Annual report" && c["type"] == "H1"));
+    assert!(preview["candidates"].as_array().unwrap().iter().any(|c| c["text"] == "First paragraph" && c["type"] == "P"));
+}
+
 /// A one-page PDF whose form holds one text field named `name`.
 fn form_pdf(name: &str) -> Vec<u8> {
     let objs: Vec<String> = vec![
