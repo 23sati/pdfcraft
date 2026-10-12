@@ -62,16 +62,19 @@ impl TrueTypeFont {
                 "unable to load TrueType font {}, falling back to {}",
                 fallback_query
                     .post_script_name
-                    .unwrap_or("(no name)".to_string()),
+                    .as_deref()
+                    .unwrap_or("(no name)"),
                 standard_font.as_str()
             );
 
             Some(Self {
                 cache_key,
-                kind: Kind::Standard(StandardKind::new_with_standard(
+                // PdfCraft patch: asked of the resolver by name first (`new_with_query`).
+                kind: Kind::Standard(StandardKind::new_with_query(
                     dict,
                     standard_font,
                     true,
+                    Some(&fallback_query),
                     font_resolver,
                 )?),
                 to_unicode: to_unicode.clone(),

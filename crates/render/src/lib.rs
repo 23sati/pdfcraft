@@ -9,6 +9,7 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
 mod inspect;
+pub mod installed_fonts;
 mod pixels;
 mod raster;
 mod structure;

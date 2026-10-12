@@ -36,16 +36,19 @@ impl Type1Font {
                 "unable to load font {}, falling back to {}",
                 fallback_query
                     .post_script_name
-                    .unwrap_or("(no name)".to_string()),
+                    .as_deref()
+                    .unwrap_or("(no name)"),
                 standard_font.as_str()
             );
 
             Some(Self(
                 cache_key,
-                Kind::Standard(StandardKind::new_with_standard(
+                // PdfCraft patch: asked of the resolver by name first (`new_with_query`).
+                Kind::Standard(StandardKind::new_with_query(
                     dict,
                     standard_font,
                     true,
+                    Some(&fallback_query),
                     resolver,
                 )?),
                 to_unicode.clone(),

@@ -167,6 +167,10 @@ fn main() -> eframe::Result {
         }
     }
     let integrated = cfg!(target_os = "macos");
+    // Fonts a document names but doesn't embed are drawn with the font installed under that name
+    // (`pdfcraft_render::installed_fonts`); `PDFCRAFT_SYSTEM_FONTS=0` keeps every render to the
+    // embedded substitutes, as it does for the interface font (`cargo xtask screenshots` sets it).
+    pdfcraft_render::installed_fonts::set_enabled(!std::env::var_os("PDFCRAFT_SYSTEM_FONTS").is_some_and(|v| v == "0"));
     migrate_legacy_folders();
     // The log file lives in the settings folder; opened after the arguments (so `--version` leaves
     // no file behind) and after the PrintCraft migration (which a fresh folder would block).

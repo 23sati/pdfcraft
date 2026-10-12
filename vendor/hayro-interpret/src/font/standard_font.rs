@@ -3,8 +3,8 @@ use crate::font::blob::{CffFontBlob, OpenTypeFontBlob};
 use crate::font::generated::{glyph_names, metrics, standard, symbol, zapf_dings};
 use crate::font::true_type::{Width, read_encoding, read_widths};
 use crate::font::{
-    Encoding, FontData, FontQuery, glyph_name_to_unicode, normalized_glyph_name, stretch_glyph,
-    strip_subset_prefix,
+    Encoding, FallbackFontQuery, FontData, FontQuery, glyph_name_to_unicode,
+    normalized_glyph_name, stretch_glyph, strip_subset_prefix,
 };
 use hayro_syntax::object::Dict;
 use hayro_syntax::object::Name;
@@ -372,6 +372,22 @@ impl StandardKind {
         fallback: bool,
         resolver: &FontResolverFn,
     ) -> Option<Self> {
+        Self::new_with_query(dict, base_font, fallback, None, resolver)
+    }
+
+    /// PdfCraft patch: a simple font that isn't embedded and isn't one of the standard 14 (or
+    /// an alias of one) is asked of the resolver by name, as `FontQuery::Fallback`, before its
+    /// standard-14 stand-in `base_font` is: a resolver that reads fonts installed on the
+    /// machine can then answer with the font the document names. The default resolver answers
+    /// such a query with `pick_standard_font`'s data, which is `base_font`'s, so nothing changes
+    /// for it. CID fonts already took this path (`cid.rs`).
+    pub(crate) fn new_with_query(
+        dict: &Dict<'_>,
+        base_font: StandardFont,
+        fallback: bool,
+        query: Option<&FallbackFontQuery>,
+        resolver: &FontResolverFn,
+    ) -> Option<Self> {
         let descriptor = dict.get::<Dict<'_>>(FONT_DESC).unwrap_or_default();
         let (widths, missing_width) = read_widths(dict, &descriptor)?;
 
@@ -382,7 +398,9 @@ impl StandardKind {
             encoding = Encoding::BuiltIn;
         }
 
-        let (blob, index) = resolver(&FontQuery::Standard(base_font))?;
+        let (blob, index) = query
+            .and_then(|q| resolver(&FontQuery::Fallback(q.clone())))
+            .or_else(|| resolver(&FontQuery::Standard(base_font)))?;
         let base_font_blob = StandardFontBlob::from_data(blob, index)?;
 
         Some(Self {

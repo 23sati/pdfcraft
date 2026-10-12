@@ -69,7 +69,12 @@ impl RenderConfig {
         InterpreterSettings {
             ocg_overrides: self.layers.clone(),
             hide_comments: self.hide_comments,
-            font_resolver: Arc::new(move |query| japanese_fallback(query).or_else(|| standard(query))),
+            // A font the document doesn't embed: a Japanese face from craft-fonts for an Adobe-Japan1
+            // CID font, else the font installed under that name (desktop app only), else hayro's
+            // standard 14.
+            font_resolver: Arc::new(move |query| {
+                japanese_fallback(query).or_else(|| crate::installed_fonts::resolve(query)).or_else(|| standard(query))
+            }),
             ..InterpreterSettings::default()
         }
     }
@@ -5169,6 +5174,54 @@ trailer << /Root 1 0 R >>
             // 日本 at 40 pt covers a few hundred dark pixels; a blank or missing-glyph run doesn't.
             assert!(inked > 300, "{base_font}: 日本 is drawn ({inked} dark pixels)");
         }
+    }
+
+    /// A letter set in a font the PDF names but doesn't embed (`CenturyGothic`, a descriptor
+    /// whose serif flag is set) was drawn in Times: hayro picks a standard-14 stand-in from the
+    /// flags and never learns the name. With installed fonts on (the desktop app), the font
+    /// installed under that name draws it (vendored hayro patch 25 asks the resolver by name).
+    /// Off, or with no such font installed, the render is exactly what it was.
+    #[test]
+    fn installed_fonts_stand_in_for_simple_fonts_a_document_does_not_embed() {
+        let content = "BT /F1 36 Tf 4 20 Td (Hello) Tj ET";
+        let pdf = format!(
+            "%PDF-1.7
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 120 60] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj
+4 0 obj << /Length {} >> stream
+{content}
+endstream endobj
+5 0 obj << /Type /Font /Subtype /TrueType /BaseFont /Inter-Regular /Encoding /WinAnsiEncoding /FontDescriptor 6 0 R >> endobj
+6 0 obj << /Type /FontDescriptor /FontName /Inter-Regular /Flags 34 /FontBBox [0 -200 1000 900] /ItalicAngle 0 /Ascent 900 /Descent -200 /CapHeight 700 /StemV 80 >> endobj
+trailer << /Root 1 0 R >>
+%%EOF",
+            content.len()
+        );
+        let render = || {
+            let mut r = PageRenderer::new(Arc::new(pdf.clone().into_bytes()), RenderConfig::default());
+            let p = r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, scale: 1.0, ..Default::default() });
+            assert!(p.error.is_none(), "{:?}", p.error);
+            p.rgba
+        };
+        let inked = |rgba: &[u8]| rgba.as_chunks::<4>().0.iter().filter(|c| c[0] < 128).count();
+        crate::installed_fonts::set_enabled(false);
+        let standard = render();
+        assert!(inked(&standard) > 100, "the standard-14 stand-in draws Hello");
+
+        let assets = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../assets/fonts");
+        crate::installed_fonts::set_directories(vec![assets]);
+        crate::installed_fonts::set_enabled(true);
+        let installed = render();
+        assert!(inked(&installed) > 100, "the installed font draws Hello");
+        assert_ne!(installed, standard, "Inter, not Times, draws a font named Inter-Regular");
+
+        let empty = std::env::temp_dir().join(format!("pdfcraft-no-fonts-{}", std::process::id()));
+        std::fs::create_dir_all(&empty).unwrap();
+        crate::installed_fonts::set_directories(vec![empty.clone()]);
+        assert_eq!(render(), standard, "no installed font: the render is what it was");
+        crate::installed_fonts::set_enabled(false);
+        let _ = std::fs::remove_dir_all(&empty);
     }
 
     /// Half-width katakana are common in Japanese documents set in a non-embedded Mincho font
