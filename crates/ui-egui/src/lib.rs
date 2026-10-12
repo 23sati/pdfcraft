@@ -404,6 +404,8 @@ pub struct PasswordPrompt {
     then: Option<&'static str>,
     /// A link destination to apply after the linked PDF is unlocked.
     after_open: Option<pdfcraft_render::RemoteDestination>,
+    /// A launch-time display override, applied only after this PDF is unlocked.
+    display_override: Option<(canvas::PageLayout, bool)>,
 }
 
 /// Asks for the permissions password of an open document whose security restricts it, which
@@ -1056,6 +1058,7 @@ impl PdfCraftApp {
                     recovered: None,
                     then: None,
                     after_open: None,
+                    display_override: None,
                 });
                 return Ok(());
             }
@@ -1268,6 +1271,11 @@ impl PdfCraftApp {
                 if let Some(destination) = after_open {
                     self.apply_remote_destination(destination);
                 }
+                if let Some((layout, continuous)) = p.display_override
+                    && let Some(view) = self.views.last_mut()
+                {
+                    view.set_display(layout, continuous);
+                }
                 if let Some(meta) = &p.recovered {
                     self.finish_recovery(meta);
                 }
@@ -1282,6 +1290,7 @@ impl PdfCraftApp {
                     prompt.recovered = p.recovered;
                     prompt.then = p.then;
                     prompt.after_open = after_open;
+                    prompt.display_override = p.display_override;
                 }
             }
         }
@@ -1398,6 +1407,22 @@ impl PdfCraftApp {
                 }
             }
             Err(e) => self.notify_fmt("Couldn't read {name}: {e}", &[("name", &name), ("e", &e.to_string())]),
+        }
+    }
+
+    /// Open one native file with a transient display override, including after a password prompt.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn open_path_with_display(&mut self, path: &str, layout: canvas::PageLayout, continuous: bool) {
+        let tabs = self.views.len();
+        self.open_path(path);
+        if self.views.len() > tabs {
+            if let Some(view) = self.views.last_mut() {
+                view.set_display(layout, continuous);
+            }
+        } else if let Some(prompt) = self.password_prompt.as_mut()
+            && prompt.path.as_deref() == Some(path)
+        {
+            prompt.display_override = Some((layout, continuous));
         }
     }
 
