@@ -1,6 +1,8 @@
 //! PdfCraft desktop app.
 //!
 //! Usage: `pdfcraft [options] [files…]`
+//! `--two-paged` opens each command-line PDF in noncontinuous two-page view, without changing defaults.
+//! An explicit `--layout` takes precedence for the active document, regardless of argument order.
 //! `--create-images [images…]` stages the images in one PDF and asks for the page DPI.
 //!
 //! View options (applied after the files open; also the seed of the UI control channel):
@@ -37,6 +39,7 @@ mod logging;
 mod motion;
 mod reopen;
 mod single_instance;
+mod startup;
 mod text_scale;
 mod updates;
 #[cfg(test)]
@@ -146,28 +149,13 @@ fn main() -> eframe::Result {
             let _ = std::io::Write::write_fmt(&mut std::io::stderr(), format_args!("pdfcraft: {report}\n"));
         }
     }));
-    let mut files = Vec::new();
-    let mut options: Vec<(String, String)> = Vec::new();
-    let mut control_file: Option<String> = None;
-    let mut create_images = false;
-    let mut new_window = false;
-    let mut args = std::env::args().skip(1);
-    while let Some(a) = args.next() {
-        match a.as_str() {
-            "--version" => {
-                println!("pdfcraft {}", env!("CARGO_PKG_VERSION"));
-                return Ok(());
-            }
-            "--control" => control_file = args.next(),
-            "--create-images" => create_images = true,
-            "--new-window" => new_window = true,
-            flag if flag.starts_with("--") => {
-                let value = args.next().unwrap_or_default();
-                options.push((flag.trim_start_matches("--").to_string(), value));
-            }
-            _ => files.push(path_from_arg(a)),
-        }
+    let startup = startup::Arguments::parse(std::env::args().skip(1));
+    if startup.version {
+        println!("pdfcraft {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
     }
+    let may_hand_off = startup.may_hand_off();
+    let startup::Arguments { files, options, control_file, create_images, two_paged, .. } = startup;
     let integrated = cfg!(target_os = "macos");
     migrate_legacy_folders();
     // The log file lives in the settings folder; opened after the arguments (so `--version` leaves
@@ -183,14 +171,13 @@ fn main() -> eframe::Result {
     // Windows: a launch that only names files (an Outlook attachment, an Explorer double-click)
     // hands them to the PdfCraft already running and exits (#282, #317). Any option means the
     // caller wants this launch's own window.
-    let may_hand_off = !new_window && !files.is_empty() && options.is_empty() && control_file.is_none() && !create_images;
     let instance = match single_instance::claim(&single_instance::absolute(&files), may_hand_off) {
         single_instance::Claim::HandedOff => return Ok(()),
         single_instance::Claim::Primary(server) => Some(server),
         single_instance::Claim::Alone => None,
     };
     let choice = renderer_choice(std::env::var("PDFCRAFT_RENDERER").ok().as_deref());
-    let launch = Launch { files, options, control_file, create_images, integrated };
+    let launch = Launch { files, options, control_file, create_images, integrated, two_paged };
     // Finder, Open With and the Dock deliver files as Apple events, not arguments; catch the one
     // that launched us as well as later ones. Lives until the event loop returns.
     #[cfg(target_os = "macos")]
@@ -291,6 +278,7 @@ struct Launch {
     control_file: Option<String>,
     create_images: bool,
     integrated: bool,
+    two_paged: bool,
 }
 
 fn app_creator<'a>(
@@ -299,7 +287,7 @@ fn app_creator<'a>(
     instance: Option<&'a single_instance::Server>,
     #[cfg(target_os = "macos")] apple_events: &'a apple_events::AppleEvents,
 ) -> eframe::AppCreator<'a> {
-    let Launch { files, options, control_file, create_images, integrated } = launch;
+    let Launch { files, options, control_file, create_images, integrated, two_paged } = launch;
     Box::new(move |cc| {
         started.set(true);
         let mut app = PdfCraftApp::new();
@@ -366,9 +354,7 @@ fn app_creator<'a>(
             // With the preference on, last session's files come back first; files named on
             // the command line open after them, in front (#442).
             app.reopen_last_files(&files);
-            for f in files {
-                app.open_path(&f);
-            }
+            startup::open_files(&mut app, &files, two_paged);
         }
         for (k, v) in options {
             if let Err(e) = app.set_option(&k, &v) {
