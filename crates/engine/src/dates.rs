@@ -56,7 +56,7 @@ const AR_DAYS: [&str; 7] = ["الأحد", "الاثنين", "الثلاثاء", 
 
 /// The languages month and weekday names can be written in (Preferences ▸ Date format ▸ Language):
 /// the interface languages, in the same order and with the same names.
-pub static DATE_LANGUAGES: [DateLanguage; 21] = [
+pub static DATE_LANGUAGES: [DateLanguage; 22] = [
     DateLanguage {
         code: "en",
         name: "English",
@@ -65,6 +65,28 @@ pub static DATE_LANGUAGES: [DateLanguage; 21] = [
         months_short: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
         days: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
         days_short: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+    },
+    DateLanguage {
+        code: "lt",
+        name: "Lietuvių",
+        months: ["sausis", "vasaris", "kovas", "balandis", "gegužė", "birželis", "liepa", "rugpjūtis", "rugsėjis", "spalis", "lapkritis", "gruodis"],
+        months_with_day: Some([
+            "sausio",
+            "vasario",
+            "kovo",
+            "balandžio",
+            "gegužės",
+            "birželio",
+            "liepos",
+            "rugpjūčio",
+            "rugsėjo",
+            "spalio",
+            "lapkričio",
+            "gruodžio",
+        ]),
+        months_short: ["saus.", "vas.", "kov.", "bal.", "geg.", "birž.", "liep.", "rugpj.", "rugs.", "spal.", "lapkr.", "gruod."],
+        days: ["sekmadienis", "pirmadienis", "antradienis", "trečiadienis", "ketvirtadienis", "penktadienis", "šeštadienis"],
+        days_short: ["sk", "pr", "an", "tr", "kt", "pn", "št"],
     },
     DateLanguage {
         code: "ja",
@@ -651,6 +673,9 @@ mod tests {
         assert_eq!(s.today_text(Some("dddd d mmmm"), Some("de")).as_deref(), Ok("Dienstag 14 November"));
         assert!(s.set_date_language(Some("xx")).unwrap_err().contains("zh-hant"), "only the interface languages");
         assert_eq!(s.date_language(), Some("pt-br"), "an unknown language keeps the previous one");
+        s.set_date_language(Some("LT")).unwrap();
+        assert_eq!(s.date_language(), Some("lt"));
+        assert_eq!(s.today_text(Some("dddd d mmmm"), None).as_deref(), Ok("antradienis 14 lapkričio"));
         s.set_date_language(Some("IT")).unwrap();
         assert_eq!(s.date_language(), Some("it"));
         assert_eq!(s.today_text_for_pdf(None, None).as_deref(), Ok("martedì 14 novembre"), "Italian names and accents can be written into a PDF");

@@ -60,8 +60,9 @@ none has translated help.
 | Hungarian | `hu` | 2,126 (99.2%) | partial | yes |
 | Ukrainian | `uk` | 2,142 (100%) | partial | yes |
 | Italian | `it` | 2,130 (99.4%) | partial | yes |
+| Lithuanian | `lt` | 2,572 entries; covers scanned literal lookups, commands/tools, reviewed contextual labels and all keys in the other bundled catalogs; password-dialog UI regression | partial; some engine-generated messages remain English; terminology needs native-speaker review against the VLKK Terminų bankas | no |
 
-**8 other languages** ship (15 catalogs plus English, 16 interface languages in Preferences).
+**9 other languages** ship (16 catalogs plus English, 17 interface languages in Preferences).
 Acrobat languages PdfCraft lacks: Danish, Dutch, Finnish, Norwegian, Polish, Swedish, Turkish,
 Hebrew.
 

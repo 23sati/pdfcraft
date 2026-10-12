@@ -220,6 +220,17 @@ usage = "Turkish UI strings, compiled in by crates/ui-egui/src/i18n/mod.rs"
 sha256 = "f1ded17cdf0c3fe53f4af77b91319913122ea4e3df2f7be0123def1e753de49b"
 
 [[asset]]
+path = "crates/ui-egui/src/i18n/lt.tsv"
+title = "Lithuanian interface translation catalog"
+author = "PdfCraft contributors"
+source = "Contributor-original: clean-room draft translations of PdfCraft's English UI labels and user-facing messages; Lithuanian terminology pending native-speaker review against Lietuvos Respublikos terminų bankas"
+licence = "MIT OR Apache-2.0"
+licence_file = "LICENSE-MIT"
+kind = "translation"
+usage = "Lithuanian UI strings, compiled in by crates/ui-egui/src/i18n/mod.rs"
+sha256 = "96400b6959c60bf848ac1436c25bd7873645ece73c419e449727417e596a1f8d"
+
+[[asset]]
 path = "assets/icons/accessibility.svg"
 title = "Lucide icon \"accessibility\""
 author = "Lucide Contributors (portions Cole Bemis, Feather)"
