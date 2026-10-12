@@ -36,13 +36,42 @@ fn fixture(n: usize) -> Vec<u8> {
 }
 
 /// A fresh directory with `a.pdf` (3 pages) and `b.pdf` (2 pages).
+#[track_caller]
 fn workdir(test: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("pdfcraft-automation-{test}-{}", std::process::id()));
+    let caller = std::panic::Location::caller();
+    let dir = std::env::temp_dir().join(format!("pdfcraft-automation-{test}-{}-{}-{}", std::process::id(), caller.line(), caller.column(),));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("a.pdf"), fixture(3)).unwrap();
     std::fs::write(dir.join("b.pdf"), fixture(2)).unwrap();
     dir
+}
+
+#[test]
+fn workdir_call_sites_do_not_delete_each_other() {
+    let first = workdir("same-tag");
+    let sentinel = first.join("sentinel");
+    std::fs::write(&sentinel, b"first call site").unwrap();
+
+    let second = workdir("same-tag");
+    let paths_differ = first != second;
+    let sentinel_bytes = std::fs::read(&sentinel).ok();
+    let first_a = std::fs::read(first.join("a.pdf")).ok();
+    let first_b = std::fs::read(first.join("b.pdf")).ok();
+    let second_a = std::fs::read(second.join("a.pdf")).ok();
+    let second_b = std::fs::read(second.join("b.pdf")).ok();
+
+    let _ = std::fs::remove_dir_all(&first);
+    if paths_differ {
+        let _ = std::fs::remove_dir_all(&second);
+    }
+
+    assert!(paths_differ, "distinct call sites shared {first:?}");
+    assert_eq!(sentinel_bytes.as_deref(), Some(&b"first call site"[..]));
+    assert_eq!(first_a, Some(fixture(3)));
+    assert_eq!(first_b, Some(fixture(2)));
+    assert_eq!(second_a, Some(fixture(3)));
+    assert_eq!(second_b, Some(fixture(2)));
 }
 
 fn auto(dir: &Path) -> Automation {
@@ -70,6 +99,19 @@ fn form_pdf(name: &str) -> Vec<u8> {
     }
     bytes.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objs.len() + 1).as_bytes());
     bytes
+}
+
+#[test]
+fn accessibility_check_locates_field_description_on_page() {
+    let dir = workdir("accessibility-field-location");
+    std::fs::write(dir.join("field.pdf"), form_pdf("name")).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "field.pdf" }))["doc"].as_u64().unwrap();
+    let report = ok(&mut a, "accessibility_check", json!({ "doc": doc, "rules": ["field-descriptions"] }));
+    let rule = report["results"].as_array().unwrap().iter().find(|r| r["rule"] == "field-descriptions").unwrap();
+    assert_eq!(rule["status"], "failed");
+    assert_eq!(rule["findings"][0]["page"], 1);
+    assert_eq!(rule["findings"][0]["bbox_user_space"], json!([60.0, 60.0, 200.0, 80.0]));
 }
 
 fn ok(a: &mut Automation, tool: &str, args: Value) -> Value {
@@ -1705,8 +1747,10 @@ trailer << /Root 1 0 R >>
     let figures_rule = findings["results"].as_array().unwrap().iter().find(|x| x["rule"] == "figures-alt-text").unwrap();
     assert_eq!(figures_rule["findings"][0]["object"], 7);
     assert_eq!(figures_rule["findings"][0]["object_generation"], 0);
+    assert_eq!(figures_rule["findings"][0]["bbox_user_space"], json!([10.0, 150.0, 50.0, 170.0]));
     assert_eq!(figures_rule["findings"][1]["object"], 8);
     assert_eq!(figures_rule["findings"][1]["object_generation"], 0);
+    assert_eq!(figures_rule["findings"][1]["bbox_user_space"], json!([100.0, 100.0, 150.0, 130.0]));
     let figs = ok(&mut a, "accessibility_figures", json!({ "doc": fd }));
     assert_eq!(figs["count"], 2);
     assert_eq!(figs["figures"][0]["rect"], json!([10.0, 30.0, 50.0, 50.0]), "top-left-origin points");

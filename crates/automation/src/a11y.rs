@@ -41,6 +41,7 @@ pub(crate) fn report_json(r: &Report) -> Value {
                         "page": f.page.map(|p| p + 1),
                         "object": f.object.map(|r| r.num),
                         "object_generation": f.object.map(|r| r.generation),
+                        "bbox_user_space": f.bbox,
                         "message": f.message,
                     })
                 })

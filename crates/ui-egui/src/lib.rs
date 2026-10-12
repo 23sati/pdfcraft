@@ -82,6 +82,7 @@ mod home;
 mod icon_data;
 pub mod icons;
 pub mod last_session;
+mod page_selection_ui;
 mod pageboxes;
 mod palette;
 mod panels;
@@ -1999,9 +2000,9 @@ impl PdfCraftApp {
             }
             ("fields", Some(v)) => v.highlight_fields = value != "off",
             ("select", Some(v)) => {
-                // `--select 2,3,5` (1-based) selects pages in the organize grid.
-                let pages: Result<Vec<usize>, _> = value.split(',').map(|p| p.trim().parse::<usize>().map(|n| n.saturating_sub(1))).collect();
-                v.select_pages(&pages.map_err(|_| "select: comma-separated page numbers")?);
+                // The same physical page ranges as the Organize Pages selection field.
+                let pages = crate::page_selection_ui::parse(value, v.page_count()).map_err(|e| e.to_string())?;
+                v.select_pages(&pages);
             }
             ("notice", Some(v)) => v.notice_dismissed = value == "off",
             ("quick", _) => {

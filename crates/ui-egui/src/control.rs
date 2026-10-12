@@ -29,6 +29,9 @@
 //! - `ui.type {text}`, `ui.key {key, modifiers?}`: keyboard input to the focused widget / app.
 //! - `ui.command {id}`: run a registry command (as the menu would). `ui.commands` lists them.
 //! - `ui.set {key, value}`: view options (`--page`, `--zoom`, …), plus persistent preferences.
+//!   `select` accepts physical page numbers and ranges such as `1,12,16-18`; blank clears the
+//!   explicit selection. This is the same bounded parser as the Organize Pages field; invalid
+//!   input leaves the previous selection unchanged. `ui.state.active.selected_pages` reports it.
 //!   `default-mode=all|read|edit|convert|sign` applies to future PDF opens; `mode` overrides it
 //!   for this session without changing the saved preference. `ui.state.default_mode` reports it.
 //!   `theme=light|dark|system` changes the saved theme preference; `ui.state.theme_preference`
