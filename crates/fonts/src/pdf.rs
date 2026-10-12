@@ -55,6 +55,9 @@ pub struct Metrics {
     /// font name and, when present, `/FontDescriptor` flags/weight/angle.
     pub bold: bool,
     pub italic: bool,
+    /// Whether this font draws Indic text in visual order (pre-base vowel signs before their
+    /// consonant): a known legacy Indic font whose Unicode mapping is Indic. See [`legacy_indic_font`].
+    pub visual_order: bool,
     /// Bytes per code for writing new text (1 for simple fonts, else the codespace length).
     code_len: usize,
     /// Valid single-character explicit mappings, preindexed once for large full CJK fonts.
@@ -69,6 +72,16 @@ fn nums(doc: &Document, o: Option<&Object>) -> Vec<f64> {
 
 fn dict(doc: &Document, o: Option<&Object>) -> Option<Dict> {
     o.and_then(|o| doc.resolve(o).as_dict().cloned())
+}
+
+/// Whether `base_font` (subset tag allowed) names a legacy Indic font family that is laid out in
+/// visual order (Kruti Dev, DevLys, Chanakya, Shusha, Shivaji, Walkman, Akruti, APS-DV, DV-TT…).
+fn legacy_indic_font(base_font: &str) -> bool {
+    let name =
+        base_font.split_once('+').filter(|(tag, _)| tag.len() == 6 && tag.bytes().all(|b| b.is_ascii_uppercase())).map_or(base_font, |(_, n)| n);
+    let name = name.to_ascii_lowercase();
+    ["kruti", "devlys", "chanakya", "shusha", "shivaji", "walkman", "akruti"].iter().any(|n| name.contains(n))
+        || ["aps-", "dv-"].iter().any(|p| name.starts_with(p))
 }
 
 /// A source PDF's sfnt program for an in-memory editor. Never a bundled font or an export
@@ -523,6 +536,7 @@ impl Metrics {
             subset: false,
             bold: false,
             italic: false,
+            visual_order: false,
             code_len: 1,
             explicit_reverse: (32..127u8).map(|c| (char::from(c), u32::from(c))).collect(),
         }
@@ -560,6 +574,14 @@ impl Metrics {
             }
         }
         m.explicit_reverse = reverse;
+        // Only a font known to be laid out in visual order counts: a missing GSUB proves nothing
+        // (bare CFF and subset fonts often drop it), and the font program is never decoded here.
+        if legacy_indic_font(&m.base_font) {
+            let indic = |c: char| matches!(u32::from(c), 0x0900..=0x0D7F);
+            m.visual_order = m.unicode.explicit.values().any(|(_, t)| t.chars().any(indic))
+                || m.unicode.encoding.values().any(|t| t.chars().any(indic))
+                || m.unicode.ranges.iter().any(|r| r.units.iter().any(|&u| matches!(u, 0x0900..=0x0D7F)));
+        }
         m
     }
 
