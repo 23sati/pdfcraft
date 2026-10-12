@@ -43,7 +43,7 @@ jobs:
       date: ${{ steps.v.outputs.date }}
       prerelease: ${{ steps.v.outputs.prerelease }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - id: v
         name: Resolve version
         run: |
@@ -71,7 +71,7 @@ jobs:
       PDFCRAFT_VERSION: ${{ needs.version.outputs.version }}
       PDFCRAFT_BUILD_DATE: ${{ needs.version.outputs.date }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       # The craft-fonts build input (Japanese fonts): every release embeds it. Bump deliberately.
       - name: Check out craft-fonts
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -132,7 +132,7 @@ jobs:
       PDFCRAFT_VERSION: ${{ needs.version.outputs.version }}
       PDFCRAFT_BUILD_DATE: ${{ needs.version.outputs.date }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       # The craft-fonts build input (Japanese fonts): every release embeds it. Bump deliberately.
       - name: Check out craft-fonts
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -198,7 +198,7 @@ jobs:
       PDFCRAFT_BUILD_DATE: ${{ needs.version.outputs.date }}
       NFPM_VERSION: 2.47.0
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       # The craft-fonts build input (Japanese fonts): every release embeds it. Bump deliberately.
       - name: Check out craft-fonts
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -273,7 +273,7 @@ jobs:
       PDFCRAFT_VERSION: ${{ needs.version.outputs.version }}
       PDFCRAFT_BUILD_DATE: ${{ needs.version.outputs.date }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       # The craft-fonts build input (Japanese fonts): every release embeds it. Bump deliberately.
       - name: Check out craft-fonts
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -362,7 +362,7 @@ jobs:
       PDFCRAFT_VERSION: ${{ needs.version.outputs.version }}
       PDFCRAFT_BUILD_DATE: ${{ needs.version.outputs.date }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: actions/download-artifact@v4
         with:
           name: release-linux-${{ matrix.arch }}
@@ -395,7 +395,7 @@ jobs:
       PDFCRAFT_BUILD_DATE: ${{ needs.version.outputs.date }}
       VERSION_OVERRIDE: ${{ inputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       # The craft-fonts build input (Japanese fonts): every release embeds it. Bump deliberately.
       - name: Check out craft-fonts
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -441,7 +441,7 @@ jobs:
       PDFCRAFT_BUILD_DATE: ${{ needs.version.outputs.date }}
       TRUNK_VERSION: 0.21.14
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       # The craft-fonts build input (Japanese fonts): every release embeds it. Bump deliberately.
       - name: Check out craft-fonts
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0

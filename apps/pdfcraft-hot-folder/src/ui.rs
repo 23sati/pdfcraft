@@ -547,6 +547,10 @@ impl HotFolderApp {
                         if let Some(output) = &status.last_output {
                             ui.label(output.display().to_string());
                         }
+                        if let Some(summary) = &status.last_optimization {
+                            ui.label(format!("{}: {} → {} {}", t("PDF optimization"), summary.bytes_before, summary.bytes_after, t("bytes")));
+                            ui.label(format!("{}: {} / {}", t("PDFs reduced"), summary.changed, summary.documents));
+                        }
                         if let Some(error) = &status.error {
                             ui.collapsing(t("Error details"), |ui| {
                                 ui.label(error);
@@ -729,7 +733,11 @@ fn output_steps(ui: &mut egui::Ui, plan: &mut output::OutputPlan, language: Lang
                         let shown = if analysis { output::Format::Analysis } else { step.format };
                         egui::ComboBox::from_id_salt("format").selected_text(t(shown.label())).show_ui(ui, |ui| {
                             for format in output::Format::ALL {
-                                ui.selectable_value(&mut step.format, *format, t(format.label()));
+                                if ui.selectable_value(&mut step.format, *format, t(format.label())).changed()
+                                    && !matches!(step.format, output::Format::Pdf | output::Format::ImagePdf)
+                                {
+                                    step.optimization.mode = output::optimization::Mode::Off;
+                                }
                             }
                         });
                     });
@@ -764,6 +772,9 @@ fn output_steps(ui: &mut egui::Ui, plan: &mut output::OutputPlan, language: Lang
                         ui.add(egui::DragValue::new(&mut step.jpeg_quality).range(1..=100));
                     });
                 }
+                if !analysis && matches!(step.format, output::Format::Pdf | output::Format::ImagePdf) {
+                    pdf_optimization(ui, &mut step.optimization, language);
+                }
                 ui.separator();
             });
         }
@@ -772,6 +783,72 @@ fn output_steps(ui: &mut egui::Ui, plan: &mut output::OutputPlan, language: Lang
         }
         if ui.add_enabled(plan.steps.len() < 16, egui::Button::new(t("Add saving step"))).clicked() {
             plan.steps.push(output::SaveStep::default());
+        }
+    });
+}
+
+fn pdf_optimization(ui: &mut egui::Ui, settings: &mut output::optimization::Settings, language: Language) {
+    use output::optimization::Mode;
+    let t = |key| language.t(key);
+    let label = |mode| match mode {
+        Mode::Off => t("Off"),
+        Mode::Lossless => t("Lossless PDF optimization"),
+        Mode::Reduce => t("Reduce PDF size (150 ppi, JPEG 60)"),
+        Mode::Custom => t("Custom PDF optimization"),
+    };
+    ui.label(t("PDF optimization"));
+    egui::ComboBox::from_id_salt("pdf-optimization").selected_text(label(settings.mode)).show_ui(ui, |ui| {
+        for mode in [Mode::Off, Mode::Lossless, Mode::Reduce, Mode::Custom] {
+            ui.selectable_value(&mut settings.mode, mode, label(mode));
+        }
+    });
+    if settings.enabled() {
+        ui.weak(t("Only a smaller PDF replaces the processed copy. Signed PDFs are refused. Original-file actions still apply."));
+        match settings.mode {
+            Mode::Lossless => {
+                ui.weak(t("Keeps image quality, text, tags and forms. OCR and other task processing are separate settings."));
+            }
+            Mode::Reduce | Mode::Custom => {
+                ui.weak(t("Downsampling and JPEG compression can lose image detail. Review the output quality."));
+            }
+            Mode::Off => {}
+        }
+    }
+    if settings.mode == Mode::Custom {
+        optimization_images(ui, &mut settings.color, language, "color", t("Color images"));
+        optimization_images(ui, &mut settings.gray, language, "gray", t("Grayscale images"));
+    }
+}
+
+fn optimization_images(ui: &mut egui::Ui, settings: &mut output::optimization::Images, language: Language, id: &str, title: &str) {
+    use output::optimization::Compression;
+    let t = |key| language.t(key);
+    ui.push_id(id, |ui| {
+        ui.label(title);
+        ui.checkbox(&mut settings.downsample, t("Downsample images"));
+        ui.add_enabled_ui(settings.downsample, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(t("Target resolution (ppi)"));
+                ui.add(egui::DragValue::new(&mut settings.ppi).range(9.0..=2400.0));
+                ui.label(t("Only above (ppi)"));
+                ui.add(egui::DragValue::new(&mut settings.above_ppi).range(9.0..=2400.0));
+            });
+        });
+        let label = |compression| match compression {
+            Compression::Retain => t("Retain existing compression"),
+            Compression::Zip => t("ZIP (lossless encoding)"),
+            Compression::Jpeg => "JPEG",
+        };
+        egui::ComboBox::from_id_salt("compression").selected_text(label(settings.compression)).show_ui(ui, |ui| {
+            for compression in [Compression::Retain, Compression::Zip, Compression::Jpeg] {
+                ui.selectable_value(&mut settings.compression, compression, label(compression));
+            }
+        });
+        if settings.compression == Compression::Jpeg {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(t("JPEG quality"));
+                ui.add(egui::DragValue::new(&mut settings.quality).range(1..=100));
+            });
         }
     });
 }
@@ -975,6 +1052,74 @@ mod tests {
         hf::save_config(&path, &hf::Config::default(), None).unwrap();
         assert!(app.save().unwrap_err().contains("Reload"));
         assert!(hf::load_config(&path).unwrap().tasks.is_empty());
+    }
+
+    #[test]
+    fn hot_folder_optimization_ui_persists_choices_and_clears_them_for_non_pdf_outputs() {
+        let dir = tempfile::tempdir().unwrap();
+        for folder in ["in", "out"] {
+            std::fs::create_dir(dir.path().join(folder)).unwrap();
+        }
+        let path = dir.path().join("tasks.json");
+        let mut h = Harness::builder().with_size(egui::vec2(900.0, 780.0)).build_eframe(|cc| {
+            install_fonts(&cc.egui_ctx);
+            let mut app = HotFolderApp::new(path.clone());
+            app.language = Language(0);
+            app.inline = true;
+            app.new_task(false);
+            app.config.tasks[0].input = dir.path().join("in");
+            app.config.tasks[0].output = dir.path().join("out");
+            app
+        });
+        h.run_steps(10);
+        h.get_by_label("Output saving steps").scroll_to_me();
+        h.run_steps(10);
+        h.get_by_label("Output saving steps").click();
+        h.run_steps(10);
+        h.get_by_value("Off").scroll_to_me();
+        h.run_steps(10);
+        h.get_by_value("Off").click();
+        h.run_steps(3);
+        h.get_by_label("Lossless PDF optimization").click();
+        h.run_steps(10);
+        h.get_by_label("Save").scroll_to_me();
+        h.run_steps(20);
+        assert!(h.ctx.content_rect().contains_rect(h.get_by_label("Save").rect()), "Save must be visible before clicking");
+        h.get_by_label("Save").click();
+        h.run_steps(3);
+        assert!(h.state().error.is_none(), "{:?}", h.state().error);
+        let saved = hf::load_config(&path).unwrap();
+        assert_eq!(saved.tasks[0].output_plan.steps[0].optimization.mode, output::optimization::Mode::Lossless);
+        assert_eq!(saved.tasks[0].originals, hf::Originals::Keep);
+        assert!(!saved.tasks[0].enabled);
+
+        h.get_by_value("Lossless PDF optimization").scroll_to_me();
+        h.run_steps(10);
+        h.get_by_value("Lossless PDF optimization").click();
+        h.run_steps(3);
+        h.get_by_label("Custom PDF optimization").click();
+        h.run_steps(10);
+        for label in ["Color images", "Grayscale images"] {
+            h.get_by_label(label).scroll_to_me();
+            h.run_steps(10);
+            let viewport = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(900.0, 780.0));
+            assert!(viewport.contains_rect(h.get_by_label(label).rect()), "{label} must be reachable");
+        }
+        h.get_by_value("PDF (processed document)").scroll_to_me();
+        h.run_steps(10);
+        h.get_by_value("PDF (processed document)").click();
+        h.run_steps(3);
+        h.get_by_label("Plain text (TXT)").click();
+        h.run_steps(3);
+        h.get_by_label("Save").scroll_to_me();
+        h.run_steps(20);
+        assert!(h.ctx.content_rect().contains_rect(h.get_by_label("Save").rect()), "Save must be visible before clicking");
+        h.get_by_label("Save").click();
+        h.run_steps(3);
+        assert!(h.state().error.is_none(), "{:?}", h.state().error);
+        let saved = hf::load_config(&path).unwrap();
+        assert_eq!(saved.tasks[0].output_plan.steps[0].format, output::Format::Txt);
+        assert_eq!(saved.tasks[0].output_plan.steps[0].optimization.mode, output::optimization::Mode::Off);
     }
 
     #[test]

@@ -3980,6 +3980,8 @@ dependencies = [
  "serde_json",
  "uds_windows",
  "ureq",
+ "wayland-client",
+ "wayland-protocols",
  "winresource",
  "winsafe",
 ]
@@ -4002,6 +4004,17 @@ dependencies = [
  "hayro-syntax",
  "pdfcraft-cos",
  "pdfcraft-fonts",
+ "pdfcraft-model",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "pdfcraft-audit"
+version = "0.6.0"
+dependencies = [
+ "pdfcraft-content",
+ "pdfcraft-cos",
+ "pdfcraft-edit",
  "pdfcraft-model",
  "thiserror 2.0.21",
 ]
@@ -4031,6 +4044,7 @@ name = "pdfcraft-cli"
 version = "0.6.0"
 dependencies = [
  "base64 0.22.1",
+ "pdfcraft-audit",
  "pdfcraft-automation",
  "pdfcraft-cos",
  "pdfcraft-engine",
@@ -4115,6 +4129,7 @@ dependencies = [
  "keyring",
  "pdfcraft-a11y",
  "pdfcraft-annot",
+ "pdfcraft-audit",
  "pdfcraft-compare",
  "pdfcraft-content",
  "pdfcraft-cos",
@@ -4123,6 +4138,7 @@ dependencies = [
  "pdfcraft-export",
  "pdfcraft-fonts",
  "pdfcraft-forms",
+ "pdfcraft-geom",
  "pdfcraft-js",
  "pdfcraft-measure",
  "pdfcraft-model",
@@ -4295,6 +4311,8 @@ dependencies = [
 name = "pdfcraft-platform"
 version = "0.6.0"
 dependencies = [
+ "async-channel",
+ "futures-lite",
  "zbus 5.19.0",
 ]
 

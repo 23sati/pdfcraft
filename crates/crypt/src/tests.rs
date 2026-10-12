@@ -70,6 +70,29 @@ fn created_encryption_authenticates_owner_and_user() {
 }
 
 #[test]
+fn the_owner_password_upgrades_a_user_session() {
+    for alg in ALL {
+        let d = new(alg, "", "secret", 0b0100).dict().clone();
+        let user = SecurityHandler::open(d, ID, None).unwrap();
+        assert!(!user.permissions().modify(), "{alg:?}");
+        // The (empty) user password and wrong ones don't unlock anything.
+        assert_eq!(user.authenticate_owner(ID, "").unwrap_err(), CryptError::WrongPassword, "{alg:?}");
+        assert_eq!(user.authenticate_owner(ID, "nope").unwrap_err(), CryptError::WrongPassword, "{alg:?}");
+        let owner = user.authenticate_owner(ID, "secret").unwrap();
+        assert_eq!(owner.auth(), Auth::Owner, "{alg:?}");
+        assert_eq!(owner.file_key(), user.file_key(), "{alg:?}");
+        assert!(owner.permissions().modify(), "{alg:?}");
+    }
+    // A separate open password is not the permissions password.
+    for alg in ALL {
+        let d = new(alg, "open", "perms", 0b0100).dict().clone();
+        let user = SecurityHandler::open(d, ID, Some("open")).unwrap();
+        assert_eq!(user.authenticate_owner(ID, "open").unwrap_err(), CryptError::WrongPassword, "{alg:?}");
+        assert_eq!(user.authenticate_owner(ID, "perms").unwrap().auth(), Auth::Owner, "{alg:?}");
+    }
+}
+
+#[test]
 fn empty_user_password_opens_without_asking() {
     for alg in ALL {
         let d = new(alg, "", "secret", -1).dict().clone();

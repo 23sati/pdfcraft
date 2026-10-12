@@ -406,6 +406,17 @@ pub fn tr(lang: Lang, s: &str) -> &str {
     lang.catalog().plain(s).unwrap_or(s)
 }
 
+/// How the layers below say their own sentences in the current language.
+///
+/// The checker, the preflight profiles and the signature panel hand over a whole English wording
+/// — holes and all — and the document's own words apart from it, so this is all they need of us:
+/// `f.said(&i18n::words)` says the sentence here, and `in_english` says it in English. An unknown
+/// wording comes back as it stands, which is the English, so a catalog that is missing one is a
+/// sentence in English rather than a gap.
+pub fn words(wording: &str) -> String {
+    t(wording).to_owned()
+}
+
 /// Like [`tr`], for an English string that needs a disambiguating `context`.
 pub fn tr_ctx<'a>(lang: Lang, context: &str, s: &'a str) -> &'a str {
     lang.catalog().contextual(context, s).unwrap_or_else(|| tr(lang, s))
@@ -461,7 +472,23 @@ pub fn action_label(text: &str) -> String {
     {
         return fmt(t("Change {key}"), &[("key", t(key))]);
     }
+    if let Some(n) = text.strip_prefix("Delete ").and_then(|rest| rest.strip_suffix(" fields")).and_then(|n| n.parse::<u64>().ok()) {
+        return trn(current(), n, "Delete {n} field", "Delete {n} fields");
+    }
     t(text).to_owned()
+}
+
+/// A history label in the current language, out of the engine's own two parts: the wording is
+/// looked up whole and the document's own word goes into its `{}` afterwards, so a file or field
+/// name is never read as part of the wording. This is exact where [`action_label`] has to guess
+/// from the English text, and is what the engine's own labels go through.
+pub fn edit_label(label: &pdfcraft_engine::Label) -> String {
+    // A batch's wording is only the hole: it carries its name as text, which from below L7 is one
+    // of `BATCH_LABELS` and so is looked up too.
+    if let Some(name) = label.value.as_deref().filter(|_| label.wording == "{batch}") {
+        return t(name).to_owned();
+    }
+    label.said(t(label.wording))
 }
 
 /// A command label such as "Undo Insert pages from a.pdf" in the current language. A catalog
@@ -736,7 +763,7 @@ mod tests {
         let error = pdfcraft_engine::ocr::OcrError::NoModels.to_string();
         let notice = "Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.";
         assert!(include_str!("../ocr_ui.rs").contains(notice), "keep in step with ocr_ui.rs");
-        for code in ["bg", "de", "es", "fr", "hu", "ja", "ru", "te", "uk", "zh-hans", "zh-hant"] {
+        for code in ["bg", "cs", "de", "es", "fr", "hu", "ja", "ru", "te", "uk", "zh-hans", "zh-hant"] {
             let lang = Lang::from_code(code).expect("registered");
             assert!(has(lang, notice) && has(lang, &error), "{code}");
         }
@@ -799,7 +826,7 @@ mod tests {
             labels.insert(label.to_string());
         }
         assert!(labels.len() > 20 && labels.contains("Comb of characters"), "the scan found the dialog's labels: {labels:?}");
-        for code in ["bg", "de", "es", "fr", "hu", "it", "ja", "pt-br", "ru", "te", "uk", "zh-hans", "zh-hant"] {
+        for code in ["bg", "cs", "de", "es", "fr", "hu", "it", "ja", "pt-br", "ru", "te", "uk", "zh-hans", "zh-hant"] {
             let lang = Lang::from_code(code).expect("registered");
             let missing: Vec<_> = labels.iter().filter(|l| !has(lang, l)).collect();
             assert!(missing.is_empty(), "{code} lacks Shared Field Properties labels: {missing:#?}");
@@ -1095,6 +1122,57 @@ mod tests {
         }
     }
 
+    /// Spanish says everything the layers below word for themselves: what the accessibility
+    /// checker finds and what its saved report calls things, what the PDF/A verifier reports, what
+    /// a signature's details say and the changes they name, what can be wrong with the pages to
+    /// print, and what an edit is called in the history.
+    ///
+    /// These lists are the whole point of the engine handing the wording over apart from the
+    /// document's own words: a catalog that covers them says those sentences in its own language.
+    /// A sentence missing here is a sentence in English on a Spanish screen.
+    #[test]
+    fn spanish_covers_what_the_engine_says() {
+        let es = Lang::from_code("es").expect("es registered");
+        let lists: [(&str, &[&str]); 8] = [
+            ("accessibility finding", pdfcraft_engine::a11y::WORDINGS),
+            ("accessibility report", pdfcraft_engine::a11y::REPORT_WORDS),
+            ("PDF/A problem", pdfcraft_engine::pdfa::WORDINGS),
+            ("signature detail", pdfcraft_engine::sign::pdf::WORDINGS),
+            ("change after signing", pdfcraft_engine::sign::pdf::kind::ALL),
+            ("pages to print", pdfcraft_engine::print::WORDINGS),
+            ("edit label", pdfcraft_engine::EDIT_LABELS),
+            ("batch label", pdfcraft_engine::BATCH_LABELS),
+        ];
+        for (what, list) in lists {
+            assert!(!list.is_empty(), "no {what} wordings to cover");
+            for wording in list {
+                assert!(has(es, wording), "missing {what}: {wording}");
+            }
+        }
+    }
+
+    /// Each of those sentences keeps its holes when it is said in Spanish, so the document's own
+    /// words still have somewhere to go: a translation that drops `{p}` or `{}` would read as a
+    /// sentence about nothing in particular.
+    #[test]
+    fn spanish_keeps_the_holes_in_what_the_engine_says() {
+        let es = Lang::from_code("es").expect("es registered");
+        let lists: [&[&str]; 4] = [
+            pdfcraft_engine::a11y::WORDINGS,
+            pdfcraft_engine::pdfa::WORDINGS,
+            pdfcraft_engine::sign::pdf::WORDINGS,
+            pdfcraft_engine::print::WORDINGS,
+        ];
+        for wording in lists.into_iter().flatten() {
+            let said = tr(es, wording);
+            // `{}` is one hole; `{name}` holes are named, and each name must survive by itself.
+            assert_eq!(wording.matches("{}").count(), said.matches("{}").count(), "the Spanish of {wording:?} loses a hole: {said:?}");
+            for hole in wording.split('{').skip(1).filter_map(|rest| rest.split_once('}')).map(|(name, _)| name).filter(|n| !n.is_empty()) {
+                assert!(said.contains(&format!("{{{hole}}}")), "the Spanish of {wording:?} loses {{{hole}}}: {said:?}");
+            }
+        }
+    }
+
     #[test]
     fn telugu_is_registered() {
         let te = Lang::from_code("te").expect("te registered");
@@ -1200,13 +1278,38 @@ mod tests {
             assert!(has(cs, menu), "Czech lacks the menu title {menu:?}");
             assert!(has(cs, spec.label), "Czech lacks the {menu} menu label {:?} ({})", spec.label, spec.id);
         }
-        const KEEP_AS_IS: &[&str] = &["OK"];
-        let (entries, _) = parse_entries(cs.0.source, cs.0.plural_forms());
+        // Spelled the same in Czech: product and format names, abbreviations, key caps, words
+        // Czech shares with English, and templates with no English words.
+        const KEEP_AS_IS: &[&str] = &[
+            "OK",
+            "PDF/A…",
+            "Microsoft Word (.docx)",
+            "PostScript / EPS",
+            "Home / End",
+            "JavaScript",
+            "ZIP",
+            "Text",
+            "Index",
+            "Metadata",
+            "Model",
+            "{field}: {e}",
+            "{0}: {1}",
+            "{month} {y}",
+            "+LOC",
+            "−LOC",
+            "ΔLOC",
+            "+Bin",
+            "−Bin",
+        ];
+        let (entries, errors) = parse_entries(cs.0.source, cs.0.plural_forms());
+        assert!(errors.is_empty(), "{errors:?}");
+        // The code joins some labels with a space at either end: keep exactly the source's.
+        let edges = |s: &str| (s.len() - s.trim_start().len(), s.len() - s.trim_end().len());
         for e in &entries {
             let key_cap = e.context == "key" && KEY_CAP_NAMES.contains(&e.source.as_str());
             assert!(e.source != e.translation || KEEP_AS_IS.contains(&e.source.as_str()) || key_cap, "{:?} is untranslated", e.source);
             assert!(!e.translation.contains("..."), "use … rather than three dots: {:?}", e.translation);
-            assert_eq!(e.translation.trim(), e.translation, "stray whitespace: {:?}", e.translation);
+            assert_eq!(edges(&e.translation), edges(&e.source), "stray whitespace: {:?}", e.translation);
         }
         let mut app = crate::PdfCraftApp::default();
         app.set_option("language", "cs").unwrap();
@@ -1215,6 +1318,62 @@ mod tests {
         let mut restored = crate::PdfCraftApp::default();
         restored.restore(&app.persist());
         assert_eq!(restored.language, "cs");
+    }
+
+    /// Czech translates every registered command, menu and All tools label.
+    #[test]
+    fn czech_covers_commands_and_catalogue() {
+        let cs = Lang::from_code("cs").expect("cs registered");
+        for command in pdfcraft_engine::commands::COMMANDS {
+            assert!(has(cs, command.label), "missing command: {}", command.label);
+            if let Some(menu) = command.menu {
+                assert!(has(cs, menu), "missing menu: {menu}");
+            }
+        }
+        for group in pdfcraft_engine::catalog::TOOL_GROUPS {
+            assert!(has(cs, group.label), "missing group: {}", group.label);
+            for section in group.sections {
+                assert!(has(cs, section.title), "missing section: {}", section.title);
+                for item in section.items {
+                    assert!(has(cs, item.label), "missing item: {}", item.label);
+                }
+            }
+        }
+    }
+
+    /// Czech translates every `tl!("…")` literal in the UI source.
+    #[test]
+    fn czech_covers_ui_literals() {
+        let cs = Lang::from_code("cs").expect("cs registered");
+        let literals = ui_literals();
+        assert!(literals.len() > 900, "source scan found only {} literals", literals.len());
+        let missing: Vec<_> = literals.iter().filter(|label| !has(cs, label)).collect();
+        assert!(missing.is_empty(), "untranslated Czech UI literals: {missing:#?}");
+    }
+
+    /// Czech counts take three forms (1; 2–4; 0 and 5+), dates use the genitive month after the
+    /// day, and history labels keep captured names.
+    #[test]
+    fn czech_plurals_dates_and_history_labels() {
+        let cs = Lang::from_code("cs").expect("cs registered");
+        assert_eq!(trn(cs, 1, "{n} page", "{n} pages"), "1 stránka");
+        assert_eq!(trn(cs, 3, "{n} page", "{n} pages"), "3 stránky");
+        assert_eq!(trn(cs, 5, "{n} page", "{n} pages"), "5 stránek");
+        assert_eq!(trn(cs, 0, "{n} field", "{n} fields"), "0 polí");
+        assert_eq!(trn(cs, 1, "{n} byte", "{n} bytes"), "1 bajt");
+        assert_eq!(trn(cs, 512, "{n} byte", "{n} bytes"), "512 bajtů");
+        assert_eq!(trn(cs, 3, "{n} image optimized", "{n} images optimized"), "3 obrázky optimalizovány");
+        assert_eq!(tr(cs, "October"), "Říjen");
+        let month = tr_ctx(cs, "calendar date", "October");
+        assert_eq!(fmt(tr(cs, "{month} {day}, {y}"), &[("month", month), ("day", "9"), ("y", "2026")]), "9. října 2026");
+        set_current(cs);
+        assert_eq!(command_label("Undo Insert pages from Zpráva {n}.pdf"), "Zpět: Vložit stránky ze souboru Zpráva {n}.pdf");
+        assert_eq!(command_label("Redo Fill in Kontakt {key}"), "Znovu: Vyplnit Kontakt {key}");
+        assert_eq!(action_label("Change Title"), "Změnit: Název");
+        assert_eq!(action_label("Delete 3 fields"), "Odstranit 3 pole");
+        assert_eq!(action_label("Delete 12 fields"), "Odstranit 12 polí");
+        assert_eq!(fmt(t("{n} pages selected"), &[("n", "3")]), "Vybráno stránek: 3");
+        set_current(Lang::EN);
     }
 
     #[test]
@@ -1367,6 +1526,32 @@ mod tests {
         for command in pdfcraft_engine::commands::COMMANDS {
             assert!(has(zh, command.label), "missing command: {}", command.label);
         }
+    }
+
+    /// Report statuses and rule descriptions must retain their meaning in Taiwan Chinese.
+    #[test]
+    fn traditional_chinese_accessibility_meaning() {
+        use pdfcraft_engine::a11y::{Rule, Status};
+        let zh = Lang::from_code("zh-hant").expect("zh-hant registered");
+        assert_eq!(tr(zh, Status::Passed.label()), "通過");
+        assert_eq!(tr(zh, Status::Failed.label()), "未通過");
+        assert_eq!(tr(zh, Rule::Scripts.description()), "沒有妨礙無障礙操作的指令碼");
+        assert_eq!(tr(zh, Rule::TableRows.name()), "列");
+        assert_eq!(tr(zh, Rule::TableRows.explanation()), "表格列應直接位於表格或其表頭、主體、表尾內。請修正表格標記。");
+        assert_eq!(tr(zh, Rule::TableRegularity.description()), "表格每列的欄數必須相同，每欄的列數也必須相同");
+        assert_eq!(tr(zh, Rule::TableCells.explanation()), "表格儲存格應位於列內。請修正表格標記。");
+        assert_eq!(tr(zh, Rule::TableHeaders.explanation()), "表頭儲存格（TH）讓聽者知道每欄或每列的內容。請標記表頭儲存格。");
+    }
+
+    /// A choice in a form is an item, not a project; field notices preserve user-supplied names.
+    #[test]
+    fn traditional_chinese_form_vocabulary() {
+        let zh = Lang::from_code("zh-hant").expect("zh-hant registered");
+        assert_eq!(tr(zh, "Item:"), "項目：");
+        assert_eq!(tr(zh, "Item List"), "項目清單");
+        assert_eq!(tr(zh, "Sort items"), "排序項目");
+        assert_eq!(tr(zh, "Read Only"), "唯讀");
+        assert_eq!(fmt(tr(zh, "{name} is read-only"), &[("name", "Field{n}")]), "Field{n} 為唯讀");
     }
 
     #[test]

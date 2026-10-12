@@ -2,6 +2,12 @@
 
 **Status: implemented native workflow, with isolated task workers and durable restart recovery. Platform package acceptance is documented separately. Proprietary ABBYY task/project formats are not compatible.**
 
+**Optimization release dependency:** the new PDF optimization choices use the shared full-save
+writer. Its generation-identity correction is tracked independently in
+[#1143](https://github.com/storytold/pdfcraft/pull/1143), which remains open at this integration
+snapshot. That correction must be integrated and verified before unattended PDF optimization
+is release-qualified. This Hot Folder change does not claim to fix the writer defect.
+
 The optional standalone application processes folders without keeping the PdfCraft editor open.
 It shares OCR, orientation correction, deskew and paper-edge detection with the engine. Its
 interface follows the primary system language when English, German, French, Dutch, Spanish,
@@ -33,6 +39,17 @@ independently from the system language, using the shared OCR language list.
   Receipts retain the hashes of the actual staged export bytes. Missing or replaced outputs stop
   source cleanup, including recovery after a crash; older receipts without proofs cannot authorize
   deletion. Unix publication synchronizes containing directories before originals are changed.
+- PDF saving steps can optionally optimize the final PDF after OCR, corrections and grouping.
+  The default is **Off**. Lossless retains image encoding/quality, text, tags, forms and links;
+  Reduce uses the shared 150 ppi/JPEG quality 60 profile; Custom exposes separate color/grayscale
+  resolution thresholds, Retain/ZIP/JPEG compression and JPEG quality. Downsampling and JPEG
+  re-encoding may lose image detail. Only a strictly smaller result replaces the processed PDF
+  bytes; equal/larger candidates are discarded. Existing input files are never overwritten.
+  Signed inputs are refused before page selection, rasterization or grouping can remove their
+  signatures. Cancellation or optimization failure publishes no partial optimization result and
+  never authorizes source cleanup. Explicit Keep/Move/Delete policies still apply after all
+  outputs and receipts succeed. Image-only PDF and rasterizing scan settings are separate,
+  potentially destructive conversions; choosing Lossless does not undo those earlier choices.
 - Select one-based page ranges and save recognition-area templates in task JSON. Regions use
   displayed top-left percentages, include or exclude OCR words, and leave visible content intact.
   Optional grayscale, inversion, brightness, contrast, black/white threshold, median noise reduction
@@ -82,6 +99,39 @@ service administration; mutations are refused in a filesystem-confined `--root` 
 `hot_folder_project` writes an ordered open manifest without replacing existing files.
 `hot_folder_source` provides credential status/removal, FTP password storage from a named environment
 variable, Outlook device sign-in and folder listing. Secrets never appear in tool results or task JSON.
+
+Each PDF `output_plan.steps` entry accepts an `optimization` object. It is omitted or
+`{"mode":"off"}` for the original behavior. Modes are `off`, `lossless`, `reduce` and `custom`.
+For example, a task can retain an optimized PDF and a separate text export:
+
+```json
+{
+  "output_plan": {
+    "steps": [
+      { "format": "pdf", "optimization": { "mode": "lossless" } },
+      { "format": "txt" }
+    ]
+  }
+}
+```
+
+Custom settings use `color` and `gray`, each accepting `downsample` (boolean), `ppi`,
+`above_ppi`, `compression` (`retain`, `zip`, `jpeg`) and `quality` (1–100). Resolution must
+be finite, 9–2400 ppi, with `above_ppi >= ppi`. Defaults are 150 ppi above 225 ppi,
+JPEG quality 60. Retain keeps the existing image encoding, while generic lossless stream
+cleanup remains enabled. With downsampling on, Retain keeps the compression family
+(resampled JPEG uses quality 80); choose ZIP for
+lossless encoding of resampled pixels or JPEG for an explicit quality setting. Custom otherwise uses the lossless cleanup
+policy, retaining optional structures and links. Optimizing non-PDF saving steps is rejected.
+Analyze-only mode bypasses optimization as it does the other processing settings.
+
+`hot_folder_poll` and `hot_folder_status` expose `tasks[task_id].last_optimization` for the
+last successful publication batch: `documents`, `changed`, `bytes_before`, `bytes_after`.
+The standalone UI shows the same actual sizes. Counts exclude steps with optimization off;
+unchanged candidates have equal before/after values. Engine `hot_folder_output::save` also
+returns per-file `optimizations`, including the final collision-safe path and image counts.
+These figures compare against the processed PDF immediately before optimization, not the
+original scan or Office/image source. Blank-page archives are kept without this optimization.
 
 ## Remote credentials and mail handling
 

@@ -115,6 +115,8 @@ pub struct TaskStatus {
     pub retry_count: u32,
     /// Stable output name timestamp across a killed/retried publication.
     pub attempt_started_at: Option<u64>,
+    /// Actual PDF optimization sizes from the last successful publication batch.
+    pub last_optimization: Option<output::optimization::Summary>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -1074,6 +1076,7 @@ fn step(task: &Task, state: &mut State, current: u64, config_path: &Path, root: 
         for step in &mut plan.steps {
             if task.analysis_only {
                 step.format = output::Format::Analysis;
+                step.optimization = Default::default();
             }
             if step.format == output::Format::Epub && step.language == "und" {
                 step.language = task.settings.language.clone();
@@ -1108,6 +1111,7 @@ fn step(task: &Task, state: &mut State, current: u64, config_path: &Path, root: 
                     result.outputs.extend(saved.outputs);
                     result.proofs.extend(saved.proofs);
                     result.warnings.extend(saved.warnings);
+                    result.optimizations.extend(saved.optimizations);
                 }
                 Err(error) => {
                     for path in result.outputs.into_iter().chain(error.outputs) {
@@ -1175,6 +1179,7 @@ fn step(task: &Task, state: &mut State, current: u64, config_path: &Path, root: 
     }
     let status = state.tasks.entry(task.id.clone()).or_default();
     status.last_output = result.outputs.first().cloned();
+    status.last_optimization = output::optimization::Summary::from_reports(&result.optimizations);
     status.completed = status.completed.saturating_add(prepared.len() as u64);
     status.error = None;
     status.waiting = status.waiting.saturating_sub(prepared.len());
@@ -1249,6 +1254,9 @@ fn prepare(
                 .map_err(|e| e.to_string())?
         };
         return Ok(preprocess::BlankResult { document: Some(selected), blank_pages: None });
+    }
+    if task.output_plan.steps.iter().any(|step| step.optimization.enabled()) {
+        output::optimization::reject_signed(pdf.clone())?;
     }
     let pdf = preprocess::prepare_bounded(pdf, &task.preprocessing, f64::from(task.settings.dpi), budget, timestamp, should_stop)?;
     let split = if task.remove_blank_pages {
@@ -1465,7 +1473,11 @@ mod tests {
         task.settings.auto_rotate = false;
         task.settings.deskew = false;
         task.output_plan.steps = vec![
-            output::SaveStep { grouping: output::Grouping::All, ..Default::default() },
+            output::SaveStep {
+                grouping: output::Grouping::All,
+                optimization: output::optimization::Settings { mode: output::optimization::Mode::Lossless, ..Default::default() },
+                ..Default::default()
+            },
             output::SaveStep { format: output::Format::Txt, grouping: output::Grouping::All, ..Default::default() },
         ];
         save_config(&config, &Config { tasks: vec![task.clone()] }, None).unwrap();
@@ -1483,6 +1495,11 @@ mod tests {
         let id = session.open("combined", None, Arc::new(pdf), None).unwrap();
         assert_eq!(session.get(id).unwrap().info.pages.len(), 2);
         assert_eq!(read_state(&config).unwrap().receipts.len(), 2);
+        let saved = read_state(&config).unwrap();
+        let summary = saved.tasks["scan"].last_optimization.as_ref().unwrap();
+        assert_eq!(summary.documents, 1);
+        assert!(summary.bytes_after <= summary.bytes_before);
+        assert_eq!(summary.bytes_after, fs::metadata(task.output.join("Scan task.pdf")).unwrap().len());
     }
 
     #[test]
@@ -1517,6 +1534,31 @@ mod tests {
         t.settings.language = "de".into();
         t.settle_seconds = 0;
         assert!(validate(&Config { tasks: vec![t] }, None).is_err());
+    }
+
+    #[test]
+    fn hot_folder_optimization_refuses_signed_sources_before_page_selection_and_delete() {
+        let (_dir, config, mut task) = setup();
+        task.originals = Originals::Delete;
+        task.settings.recognize = false;
+        task.settings.auto_rotate = false;
+        task.settings.deskew = false;
+        task.preprocessing.pages = "1".into();
+        task.output_plan.steps[0].optimization.mode = output::optimization::Mode::Lossless;
+        let p12 = fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../sign/tests/data/ec-p256.p12")).unwrap();
+        let identity = crate::sign::pkcs12::open(&p12, "test").unwrap();
+        let mut session = Session::new().with_timestamp(1_800_000_000);
+        let source = session.combine(&[("first.pdf".into(), text_pdf()), ("signed-page.pdf".into(), text_pdf())]).unwrap();
+        let id = session.open("signed.pdf", None, source, None).unwrap();
+        let signed = session.sign(id, &identity, crate::SignOptions { page: 1, rect: None, ..Default::default() }).unwrap();
+        fs::write(task.input.join("source.pdf"), signed.as_slice()).unwrap();
+        save_config(&config, &Config { tasks: vec![task.clone()] }, None).unwrap();
+        let mut state = State::default();
+        let error = settled(&task, &mut state, &config).unwrap_err();
+        assert!(error.contains("signed PDFs"), "{error}");
+        assert_eq!(fs::read(task.input.join("source.pdf")).unwrap(), *signed);
+        assert!(state.receipts.is_empty());
+        assert_eq!(fs::read_dir(&task.output).unwrap().count(), 0);
     }
 
     #[test]

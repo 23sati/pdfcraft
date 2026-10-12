@@ -28,6 +28,22 @@ mcp::McpServer::new(a).serve(stdin, stdout)?             // newline-delimited JS
 - `doc_close` refuses to drop unsaved changes unless `discard_changes: true`. `doc_save` writes atomically, incrementally in place, and in full for a new path.
 - With a root set, every read and write path must resolve inside it (symlinks and `..` included). Relative paths resolve inside the root, and `..` is resolved by name before the check. Every path outside the root gets the same refusal (`<path> is outside the allowed directory <root>`), whether or not it exists, so a confined agent can't probe the rest of the disk; on Windows another network share or device path (`\\host\share`, `\\?\UNC\…`, `\\.\…`) is refused without being contacted. "Not found" and other filesystem errors are reported only for paths inside the root. Tools that write several files into a folder name them after the document or input file, with separators, colons and control characters replaced by `_`, so a name can't lead them out of the folder. The root itself must be a folder.
 
+## PDF optimization
+
+`doc_optimize {"doc":1,"path":"compact.pdf","profile":"lossless"}` writes a full copy using
+the shared lossless profile: image streams, thumbnails, alternate images, document tags,
+print settings, links, named destinations and user data are retained. Non-image streams and
+document structure may be compressed; identical resources may be merged. A full rewrite can
+discard old revisions and update the modification date, and may not reduce the total size.
+The open document is unchanged; signed documents are refused.
+
+The lossless profile cannot be combined with custom optimization options. Omit `profile`
+(or use `"reduce"`) for the existing configurable image/downsampling options. The separate
+`doc_reduce` tool retains its existing 150-ppi/JPEG choices and writes nothing when the
+candidate is not smaller. Explicitly discarding an already absent hidden-information category
+now succeeds with an empty `discarded` result. `remove_unused_xobjects` defaults to true for
+custom/reduce optimization and is false in the lossless profile.
+
 ## Shared field properties
 
 `form_set_props` accepts either `field` (one name) or `fields` (1–1000 unique names):
@@ -51,6 +67,23 @@ or fill colour. Names, rectangles and rotations require the single-field form. R
 `pdfcraft-cli mcp --compact` (or `McpServer::with_compact(true)`) keeps `tools/list` short for agents with small context budgets. It lists only the core tools (`mcp::COMPACT_CORE_TOOLS`: open, info, save, close, render, text extract and find, combine, split, undo) plus the common command/inspection/preview tools and two meta tools: `tool_search` (optional `query` and `category`, the name prefix; or `name` for one tool's full `input_schema`) and `tool_call` (`name` and `arguments`, run through the same `Automation::call`). `tools/call` by name keeps working for every tool, and the server instructions mention the meta tools. Without the flag nothing changes.
 
 Implemented: `initialize` (protocol 2025-06-18, 2025-03-26, 2024-11-05), `ping`, `tools/list` (with `readOnlyHint`/`destructiveHint` annotations), `tools/call` (JSON results also returned as `structuredContent`; images as `image/png`), and `resources/list`, `resources/templates/list` and `resources/read`. The resources expose the open documents read-only: `pdfcraft://doc/{doc}/info` (JSON), `…/text`, `…/page/{page}/text` and `…/page/{page}/image{?dpi}` (PNG, 1–600 dpi). Tool failures come back as `isError: true` results, so the agent can read and recover from them.
+
+### From an installed release
+
+The release packages ship `pdfcraft-cli` alongside the desktop app, so no build is needed:
+
+| Install | CLI |
+|---|---|
+| Windows (MSI) | `C:\Program Files\PdfCraft\pdfcraft-cli.exe` by default (wherever you installed it otherwise), not on `PATH` |
+| Linux (deb, rpm) | `/usr/bin/pdfcraft-cli` |
+| macOS | the separate `pdfcraft-cli-<version>-macos-<arch>.zip` release asset (the `.app` holds only the desktop app) |
+
+```sh
+# Windows, default install folder
+claude mcp add pdfcraft -- "C:\Program Files\PdfCraft\pdfcraft-cli.exe" mcp --root <dir>
+# Linux, or macOS with the CLI unzipped onto PATH
+claude mcp add pdfcraft -- pdfcraft-cli mcp --root <dir>
+```
 
 ## Security regression tests
 
@@ -89,6 +122,11 @@ project manifests; `hot_folder_source` provides explicit remote authentication a
 FTP passwords enter through named environment variables, never through replayable tool arguments.
 `hot_folder_service` explicitly controls an installed boot service and refuses mutations under
 `--root`. See [the configuration and scope guide](../../docs/hot-folder.md).
+PDF saving steps accept `optimization.mode` (`off`, the default; `lossless`; `reduce`; or
+`custom` with separate color/grayscale DPI and compression choices). All tools and the
+standalone UI use the same validation, cancellable optimizer and smaller-only publication
+rule. Status exposes the actual previous batch sizes in `last_optimization`; signed sources
+are refused before preprocessing and no source is changed before all outputs succeed.
 
 ## Common command tools
 

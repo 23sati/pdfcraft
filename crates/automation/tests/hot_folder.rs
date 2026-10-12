@@ -10,6 +10,65 @@ fn call(a: &mut Automation, name: &str, args: Value) -> Value {
 }
 
 #[test]
+fn hot_folder_pdf_optimization_is_optional_reports_real_sizes_and_preserves_sources() {
+    use pdfcraft_cos::{Dict, Document, Object, SaveOptions, Stream, write_full};
+    let root = tempfile::tempdir().unwrap();
+    for folder in ["in", "out"] {
+        std::fs::create_dir(root.path().join(folder)).unwrap();
+    }
+    let source = pdfcraft_engine::Session::new().create_from_text("source", "Searchable text after automatic PDF optimization").unwrap();
+    let mut document = Document::open(source).unwrap();
+    let extension = document.add(Object::Stream(Stream::from_raw(Dict::new(), vec![b'x'; 65_536])));
+    document.update_dict(document.root().unwrap(), |catalog| catalog.set(b"PdfCraftTestExtension".to_vec(), Object::Ref(extension))).unwrap();
+    let source = write_full(&document, &SaveOptions::default()).unwrap();
+    std::fs::write(root.path().join("in/source.pdf"), &source).unwrap();
+    let mut a = Automation::new().with_root(root.path()).unwrap();
+    let task = json!({
+        "id":"optimize", "name":"Optimize", "input":"in", "output":"out", "enabled":true,
+        "interval_seconds":1, "settle_seconds":1,
+        "settings":{"recognize":false,"auto_rotate":false,"deskew":false},
+        "output_plan":{"steps":[
+            {"format":"pdf","name_template":"unchanged"},
+            {"format":"pdf","name_template":"lossless","optimization":{"mode":"lossless"}},
+            {"format":"pdf","name_template":"reduce","optimization":{"mode":"reduce"}},
+            {"format":"pdf","name_template":"custom","optimization":{"mode":"custom", "color":{"downsample":false,"compression":"retain"}, "gray":{"downsample":false,"compression":"zip"}}}
+        ]}
+    });
+    let mut invalid = task.clone();
+    invalid["output_plan"]["steps"][1]["format"] = json!("txt");
+    assert!(a.call("hot_folder_configure", &json!({"config":"invalid.json","settings":{"tasks":[invalid]}})).is_err());
+    assert!(!root.path().join("invalid.json").exists());
+    call(&mut a, "hot_folder_configure", json!({"config":"tasks.json","settings":{"tasks":[task]}}));
+    let config = call(&mut a, "hot_folder_status", json!({"config":"tasks.json"}));
+    assert_eq!(config["settings"]["tasks"][0]["output_plan"]["steps"][0]["optimization"]["mode"], "off");
+    assert_eq!(config["settings"]["tasks"][0]["originals"], "keep");
+    call(&mut a, "hot_folder_poll", json!({"config":"tasks.json"}));
+    std::thread::sleep(std::time::Duration::from_millis(1100));
+    let state = call(&mut a, "hot_folder_poll", json!({"config":"tasks.json"}));
+    assert_eq!(state["tasks"]["optimize"]["completed"], 1, "{state}");
+    let report = &state["tasks"]["optimize"]["last_optimization"];
+    assert_eq!(report["documents"], 3);
+    assert_eq!(report["changed"], 3);
+    assert_eq!(report["bytes_before"].as_u64().unwrap(), source.len() as u64 * 3);
+    let mut after = 0;
+    for name in ["lossless", "reduce", "custom"] {
+        let path = format!("out/{name}.pdf");
+        let bytes = std::fs::read(root.path().join(&path)).unwrap();
+        assert!(bytes.len() < source.len(), "{name}");
+        after += bytes.len() as u64;
+        let doc = call(&mut a, "doc_open", json!({"path":path}))["doc"].clone();
+        assert!(call(&mut a, "text_extract", json!({"doc":doc})).to_string().contains("Searchable text"));
+    }
+    assert_eq!(report["bytes_after"].as_u64().unwrap(), after);
+    assert_eq!(std::fs::read(root.path().join("out/unchanged.pdf")).unwrap(), source);
+    assert_eq!(std::fs::read(root.path().join("in/source.pdf")).unwrap(), source);
+    call(&mut a, "hot_folder_retry", json!({"config":"tasks.json","task":"optimize"}));
+    call(&mut a, "hot_folder_poll", json!({"config":"tasks.json"}));
+    assert_eq!(std::fs::read_dir(root.path().join("out")).unwrap().count(), 4);
+    assert_eq!(std::fs::read(root.path().join("in/source.pdf")).unwrap(), source);
+}
+
+#[test]
 fn hot_folder_analysis_only_preserves_pages_and_skips_processing_options() {
     let root = tempfile::tempdir().unwrap();
     for folder in ["in", "out"] {
