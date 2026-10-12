@@ -2,8 +2,8 @@
 //!
 //! Marked content (MCIDs) that applying redactions changed is found by comparing each MCID's
 //! operators before and after. Elements owning such content lose their alternate text, actual
-//! text and expansion (which may spell out the removed words); references to marked content that
-//! is now empty are dropped from the element.
+//! text, title and expansion (which may spell out the removed words), as do their ancestors;
+//! references to marked content that is now empty are dropped from the element.
 
 use std::collections::{HashMap, HashSet};
 
@@ -131,11 +131,27 @@ pub(crate) fn clean(doc: &mut Document, page: ObjRef, changed: &HashSet<i64>, em
             _ => {}
         }
     }
+    // Ancestor descriptions may repeat a descendant's removed text.
+    let mut cleaned: HashSet<ObjRef> = hits.iter().map(|(r, _, _)| *r).collect();
+    let mut parents: Vec<ObjRef> = hits.iter().filter_map(|(_, d, _)| d.get(b"P").and_then(Object::as_ref)).collect();
+    while let Some(r) = parents.pop() {
+        if !cleaned.insert(r) || cleaned.len() > 2_000_000 {
+            continue;
+        }
+        let Some(d) = doc.get(r).as_dict().cloned() else { continue };
+        if !d.contains(b"S") {
+            continue;
+        }
+        if let Some(parent) = d.get(b"P").and_then(Object::as_ref) {
+            parents.push(parent);
+        }
+        hits.push((r, d, None));
+    }
     let mut n = 0;
     for (r, d, pg) in hits {
         let kids = d.get(b"K").cloned();
         doc.update_dict(r, |e| {
-            for key in [&b"Alt"[..], b"ActualText", b"E"] {
+            for key in [&b"Alt"[..], b"ActualText", b"E", b"T"] {
                 e.remove(key);
             }
             // Marked content that is now empty no longer belongs to the element.
@@ -150,7 +166,7 @@ pub(crate) fn clean(doc: &mut Document, page: ObjRef, changed: &HashSet<i64>, em
                 _ => {}
             }
         })?;
-        n += 1;
+        n += usize::from(doc.get(r).as_dict() != Some(&d));
     }
     Ok(n)
 }

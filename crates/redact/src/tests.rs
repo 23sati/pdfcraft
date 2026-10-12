@@ -617,17 +617,25 @@ fn tags_lose_what_redaction_removed() {
         FONT.replace("95 0 R", "6 0 R").into_bytes(),
         widths(),
         b"<< /Type /StructTreeRoot /K 8 0 R >>".to_vec(),
-        b"<< /S /Document /P 7 0 R /K [9 0 R 10 0 R] >>".to_vec(),
-        b"<< /S /P /P 8 0 R /Pg 3 0 R /ActualText (SECRET) /Alt (the secret) /K 0 >>".to_vec(),
+        b"<< /S /Document /P 7 0 R /T (SECRET-PARENT) /Alt (SECRET-ALT) /ActualText (SECRET-ACTUAL) /E (SECRET-EXPANSION) /K [9 0 R 10 0 R] >>"
+            .to_vec(),
+        b"<< /S /P /P 8 0 R /Pg 3 0 R /T (SECRET-TITLE) /ActualText (SECRET) /Alt (the secret) /K 0 >>".to_vec(),
         b"<< /S /P /P 8 0 R /Pg 3 0 R /ActualText (Public) /K 1 >>".to_vec(),
     ]);
     mark(&mut doc, 0, &[[5.0, 195.0, 60.0, 212.0]], "");
     let report = apply(&mut doc, None).unwrap();
-    assert_eq!(report.tags, 1);
+    assert_eq!(report.tags, 2);
     let secret = doc.get(pdfcraft_cos::ObjRef::new(9, 0)).as_dict().cloned().unwrap();
     assert!(secret.get(b"ActualText").is_none() && secret.get(b"Alt").is_none());
     assert!(secret.get(b"K").is_none(), "its marked content is empty now");
+    assert!(!secret.contains(b"T"));
+    let parent = doc.get(ObjRef::new(8, 0));
+    let parent = parent.as_dict().unwrap();
+    assert!([&b"T"[..], b"Alt", b"ActualText", b"E"].iter().all(|k| !parent.contains(k)));
+    assert_eq!(parent.get(b"K").unwrap().as_array().unwrap().len(), 2);
     let public = doc.get(pdfcraft_cos::ObjRef::new(10, 0)).as_dict().cloned().unwrap();
     assert_eq!(public.get(b"K").and_then(Object::as_int), Some(1));
     assert!(public.get(b"ActualText").is_some(), "untouched content keeps its tags");
+    let bytes = write_incremental(&doc, &SaveOptions { object_streams: false, ..SaveOptions::default() }).unwrap();
+    assert!(!bytes.windows(6).any(|w| w == b"SECRET"));
 }
