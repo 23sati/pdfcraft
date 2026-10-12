@@ -1507,7 +1507,7 @@
 	Couldn't optimize the file: {e}	A fájlt nem sikerült optimalizálni: {e}
 	Couldn't write {path}: {e}	Nem sikerült írni ide: {path}: {e}
 	The form asks to be submitted to {u}; PdfCraft doesn't send form data. Save the document to keep your entries.	Az űrlap ide kéri a beküldést: {u}; a PdfCraft nem küld űrlapadatot. Mentsd a dokumentumot, hogy megmaradjanak a beírásaid.
-	{s} actions run in the JavaScript engine (M6)	{s} műveletek a JavaScript-motorban futnak (M6)
+	This PDF uses the unsupported {s} action.	Ez a PDF nem támogatott {s} műveletet használ.
 	{name}: the {other} action isn't supported yet	{name}: ez a művelet még nem támogatott ({other})
 	{name} submits the form to {url}; PdfCraft doesn't send form data. Save the document to keep your entries.	{name} ide küldi az űrlapot: {url}; a PdfCraft nem küld űrlapadatot. Mentsd a dokumentumot, hogy megmaradjanak a beírásaid.
 	Export stopped: {e}	Az exportálás leállt: {e}

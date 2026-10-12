@@ -1535,7 +1535,7 @@
 	Couldn't optimize the file: {e}	Не вдалося оптимізувати файл: {e}
 	Couldn't write {path}: {e}	Не вдалося записати {path}: {e}
 	The form asks to be submitted to {u}; PdfCraft doesn't send form data. Save the document to keep your entries.	Форма запитує надсилання до {u}; PdfCraft не надсилає дані форми. Збережіть документ, щоб зберегти введені дані.
-	{s} actions run in the JavaScript engine (M6)	Дії ({s}) виконуються в рушії JavaScript (M6)
+	This PDF uses the unsupported {s} action.	У цьому PDF використовується непідтримувана дія {s}.
 	{name}: the {other} action isn't supported yet	{name}: дія {other} ще не підтримується
 	{name} submits the form to {url}; PdfCraft doesn't send form data. Save the document to keep your entries.	{name} надсилає форму до {url}; PdfCraft не надсилає дані форми. Збережіть документ, щоб зберегти введені дані.
 	Export stopped: {e}	Експорт зупинено: {e}

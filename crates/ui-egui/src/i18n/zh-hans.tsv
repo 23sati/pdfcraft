@@ -1496,7 +1496,7 @@
 	Couldn't optimize the file: {e}	无法优化文件：{e}
 	Couldn't write {path}: {e}	无法写入{path}：{e}
 	The form asks to be submitted to {u}; PdfCraft doesn't send form data. Save the document to keep your entries.	该表单请求提交到{u}；PdfCraft 不发送表单数据。请保存文档以保留填写内容。
-	{s} actions run in the JavaScript engine (M6)	{s} 动作在 JavaScript 引擎中运行 (M6)
+	This PDF uses the unsupported {s} action.	此 PDF 使用了不支持的 {s} 操作。
 	{name}: the {other} action isn't supported yet	{name}：{other} 动作暂不受支持
 	{name} submits the form to {url}; PdfCraft doesn't send form data. Save the document to keep your entries.	{name} 将表单提交到{url}；PdfCraft 不发送表单数据。请保存文档以保留填写内容。
 	Export stopped: {e}	导出中止：{e}
