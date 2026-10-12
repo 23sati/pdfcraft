@@ -1705,8 +1705,10 @@ trailer << /Root 1 0 R >>
     let figures_rule = findings["results"].as_array().unwrap().iter().find(|x| x["rule"] == "figures-alt-text").unwrap();
     assert_eq!(figures_rule["findings"][0]["object"], 7);
     assert_eq!(figures_rule["findings"][0]["object_generation"], 0);
+    assert_eq!(figures_rule["findings"][0]["bbox_user_space"], json!([10.0, 150.0, 50.0, 170.0]));
     assert_eq!(figures_rule["findings"][1]["object"], 8);
     assert_eq!(figures_rule["findings"][1]["object_generation"], 0);
+    assert_eq!(figures_rule["findings"][1]["bbox_user_space"], json!([100.0, 100.0, 150.0, 130.0]));
     let figs = ok(&mut a, "accessibility_figures", json!({ "doc": fd }));
     assert_eq!(figs["count"], 2);
     assert_eq!(figs["figures"][0]["rect"], json!([10.0, 30.0, 50.0, 50.0]), "top-left-origin points");

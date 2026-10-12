@@ -430,6 +430,9 @@ fn figures_are_listed_with_their_alt_text_and_place() {
     assert_eq!(f.len(), 2, "role-mapped Photo counts");
     assert_eq!((f[0].page, f[0].alt.as_deref(), f[0].bbox), (Some(0), None, Some([10.0, 150.0, 50.0, 170.0])));
     assert_eq!((f[1].alt.as_deref(), f[1].bbox), (Some("A bar"), Some([100.0, 100.0, 150.0, 130.0])));
+    let report = check(&doc, &Options { rules: [Rule::FiguresAltText].into(), pages: None });
+    let finding = &report.result(Rule::FiguresAltText).unwrap().findings[0];
+    assert_eq!((finding.object, finding.page, finding.bbox), (Some(f[0].obj), Some(0), f[0].bbox));
 }
 
 #[test]

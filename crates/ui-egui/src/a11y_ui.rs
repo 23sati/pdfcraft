@@ -59,7 +59,7 @@ pub(crate) enum PanelAction {
     CheckAgain,
     ShowReport,
     Options,
-    GoTo(usize),
+    GoTo(usize, Option<[f64; 4]>),
 }
 
 /// Rules with an automatic (or guided) fix.
@@ -294,7 +294,7 @@ pub(crate) fn panel(ui: &mut egui::Ui, t: &Tokens, state: &mut A11yState, doc: D
                         if let Some(p) = f.page
                             && l.on_hover_text(tl!("Go to the page")).clicked()
                         {
-                            action = Some(PanelAction::GoTo(p));
+                            action = Some(PanelAction::GoTo(p, f.bbox));
                         }
                     }
                 });
@@ -372,7 +372,13 @@ impl PdfCraftApp {
             PanelAction::CheckAgain => self.run_accessibility_check(),
             PanelAction::Options => self.dialog = Some(Dialog::AccessibilityOptions),
             PanelAction::ShowReport => self.show_accessibility_report(),
-            PanelAction::GoTo(p) => self.views[index].go_to_page(p),
+            PanelAction::GoTo(p, bbox) => {
+                let view = &mut self.views[index];
+                view.go_to_page(p);
+                if let Some(bbox) = bbox {
+                    view.flash = Some((p, bbox.map(|v| v as f32), 0.0));
+                }
+            }
             PanelAction::Skip(rule) => {
                 self.a11y_skipped.insert(rule);
                 if let Some((_, r)) = self.a11y.report.as_mut()
