@@ -171,14 +171,20 @@ pub(crate) fn panel(ui: &mut egui::Ui, t: &Tokens, state: &mut A11yState, doc: D
         return action;
     };
     let failed = report.count(Status::Failed);
+    let manual = report.count(Status::Manual);
+    let skipped = report.count(Status::Skipped);
     ui.horizontal(|ui| {
         ui.label(
-            egui::RichText::new(if failed == 0 {
-                tl!("No issues found").to_string()
-            } else if failed == 1 {
+            egui::RichText::new(if failed == 1 {
                 tl!("1 issue").to_string()
-            } else {
+            } else if failed > 1 {
                 crate::i18n::fmt(tl!("{n} issues"), &[("n", &failed.to_string())])
+            } else if manual > 0 {
+                format!("{}: {manual}", tl!("Needs manual check"))
+            } else if skipped > 0 {
+                format!("{}: {skipped}", tl!("Skipped"))
+            } else {
+                format!("{}: {}", tl!("Passed"), report.count(Status::Passed))
             })
             .color(t.text_muted),
         );
@@ -191,6 +197,9 @@ pub(crate) fn panel(ui: &mut egui::Ui, t: &Tokens, state: &mut A11yState, doc: D
             }
         });
     });
+    if failed > 0 && manual > 0 {
+        ui.label(egui::RichText::new(format!("{}: {manual}", tl!("Needs manual check"))).small().color(t.text_muted));
+    }
     ui.add_space(6.0);
     for c in Category::ALL {
         let rules: Vec<_> = report.in_category(c).collect();
@@ -331,17 +340,24 @@ impl PdfCraftApp {
             r.findings.clear();
         }
         let failed = report.count(Status::Failed);
+        let manual = report.count(Status::Manual);
+        let skipped = report.count(Status::Skipped);
+        let passed = report.count(Status::Passed);
         self.a11y.report = Some((id, report));
         self.right = Some(RightPanel::Accessibility);
-        self.notify(if failed == 0 {
-            tl!("The checker found no problems in this document.").to_string()
-        } else if failed == 1 {
+        self.notify(if failed == 1 {
             tl!("The checker found 1 problem which may prevent the document from being fully accessible.").to_string()
-        } else {
+        } else if failed > 1 {
             crate::i18n::fmt(
                 tl!("The checker found {n} problems which may prevent the document from being fully accessible."),
                 &[("n", &failed.to_string())],
             )
+        } else if manual > 0 {
+            format!("{}: {manual}", tl!("Needs manual check"))
+        } else if skipped > 0 {
+            format!("{}: {skipped}", tl!("Skipped"))
+        } else {
+            format!("{}: {passed}", tl!("Passed"))
         });
         if self.a11y_options.create_report {
             self.show_accessibility_report();

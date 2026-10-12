@@ -8374,8 +8374,8 @@ milestone = "M12"
 status = "shipped"
 commands = ["a11y.check"]
 tools = ["accessibility_check"]
-evidence = ["crates/a11y/src/tests.rs::an_untagged_document_fails_the_document_rules", "crates/a11y/src/tests.rs::a_well_tagged_document_passes", "crates/a11y/src/tests.rs::structure_findings_identify_indirect_elements_without_guessing_inline_objects", "crates/ui-egui/tests/accessibility.rs::checking_fixing_skipping_and_reporting", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools"]
-notes = "full check: options dialog (report, page range, 32 rules by category, 31 on by default), results panel by category with Passed / Failed / Needs manual check / Skipped and findings that go to their page. Structure findings expose the indirect tag object number and generation through accessibility_check, when available, for precise follow-up in the Tags Panel."
+evidence = ["crates/a11y/src/tests.rs::an_untagged_document_fails_the_document_rules", "crates/a11y/src/tests.rs::a_well_tagged_document_passes", "crates/a11y/src/tests.rs::structure_findings_identify_indirect_elements_without_guessing_inline_objects", "crates/ui-egui/tests/accessibility.rs::checking_fixing_skipping_and_reporting", "crates/ui-egui/tests/accessibility.rs::checker_summary_does_not_hide_manual_review", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools"]
+notes = "full check: options dialog (report, page range, 32 rules by category, 31 on by default), results panel by category with Passed / Failed / Needs manual check / Skipped and findings that go to their page. A zero-failure check reports manual or skipped rules rather than claiming no issues. Structure findings expose the indirect tag object number and generation through accessibility_check, when available, for precise follow-up in the Tags Panel."
 
 [[feature]]
 id = "a11y.checker-report"
@@ -8387,7 +8387,7 @@ status = "shipped"
 commands = ["a11y.report"]
 tools = ["accessibility_report"]
 evidence = ["crates/a11y/src/tests.rs::rules_have_ids_and_the_report_lists_them", "crates/ui-egui/tests/accessibility.rs::checking_fixing_skipping_and_reporting", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools"]
-notes = "HTML report: summary counts and a table per category with descriptions and findings"
+notes = "HTML report: summary counts and a table per category with descriptions and findings. The headline shows manual or skipped rules when there are no automated failures."
 
 [[feature]]
 id = "a11y.checker-fix"

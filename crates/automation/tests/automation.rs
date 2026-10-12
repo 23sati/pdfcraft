@@ -1544,6 +1544,10 @@ fn accessibility_check_report_and_fixes_through_tools() {
     assert_eq!(r["failed"].as_u64(), Some(3), "tagging, tagged content and (undone) title");
     let html = std::fs::read_to_string(dir.join("report.html")).unwrap();
     assert!(html.contains("Accessibility Report") && html.contains("a.pdf"));
+    ok(&mut a, "accessibility_report", json!({ "doc": doc, "path": "manual-report.html", "rules": ["scripts"] }));
+    let manual_html = std::fs::read_to_string(dir.join("manual-report.html")).unwrap();
+    assert!(manual_html.contains("<p>Needs manual check: 1</p>"));
+    assert!(!manual_html.contains("no problems"));
     // Figures: list, describe, mark decorative.
     std::fs::write(
         dir.join("figures.pdf"),
