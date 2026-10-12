@@ -45,7 +45,7 @@ and add a line to the [progress log](#progress-log); when a gap closes, remove i
 of 0.4–0.5, switching reports such as #179). Two are only partial: editing (no CJK/RTL) and convert
 and share (no in-app Office→PDF; Word export loses layout, #773; password-protected files open in
 Acrobat since #836, #774). Those, unmeasured quality against Acrobat, the borrowed `hayro` renderer,
-no printing on the web and 245 open issues keep it far from beta.
+and 245 open issues keep it far from beta.
 
 ### Readiness by audience
 
@@ -125,7 +125,7 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 | Rank | Milestone | Estimate (h) |
 |---|---|---|
 | 0 | Convert and share: Create PDF from Office, Word export that keeps layout (#773) | 32–55 |
-| 1 | Backlog and platform: crash and wrong-result reports, web printing, Chinese UI face (#826) | 65–120 |
+| 1 | Backlog and platform: crash and wrong-result reports, Chinese UI face (#826) | 50–90 |
 | 2 | Fidelity harness against Acrobat and the renderer decision (M2; owner decision on #841) | 110–190 |
 | 3 | Editing existing content (M7) | 100–180 |
 | 4 | OCR languages and Office export/import (M10) | 95–175 |
@@ -139,6 +139,8 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 - **2026-10-11 (M10.5, focused follow-up to #599):** Carry the architectural/ANSI/large ISO paper presets, current-page matching at 100%, and previewed PDF scale into the current print dialog and `doc_print`. Retains the #847/#1007 spooler and background discovery. Driver substitution, physical calibration, vector Windows printing and managed-endpoint restrictions remain separate gaps. Overall estimates unchanged.
 
 Newest first: the date, what moved, and the new overall estimate.
+
+- **2026-10-11 (M10, gap 4):** The web build prints. Its Print dialog offers "Browser's print dialog" (the default there), which reaches every printer the operating system knows. PdfCraft draws the print-ready PDF's sheets itself with its own renderer, a sheet a frame because the web build has no threads: 300 dpi up to 100 sheets, 200 up to 300, 150 up to 1,000, at most 64 megapixels a sheet and 1 GiB of pictures a job. It then prints them from a hidden iframe, one sheet per printed page with no margin. A landscape sheet among portrait ones is turned onto the paper, as a driver does, because Chromium prints every page at the default `@page` size. Copies, two-sided and colour are set in the browser's dialog, so the dialog greys them out. If the browser refuses to print (a sandboxed frame, for example), the print-ready PDF downloads instead. Verified in headless Chromium: the right sheets at 300 dpi, the landscape sheet turned, no blank trailing page, and the download fallback. Not yet tested in Firefox or Safari. Gap 4 closed; rank 1 is 65–120 → 50–90 h; other estimates unchanged.
 
 - **2026-10-11 (M10, #1028):** Recognize Text can read pages that already have text: "Also recognize pages that already have text" in the dialog (remembered with the other choices, and used by Recognize text in multiple files) and `skip_text_pages: false` on `ocr_recognize` and, newly, `ocr_recognize_files`. A picture on such a page becomes searchable, and a recognised word at least half covered by the page's own text (an earlier OCR layer included) is left out, so nothing is found twice; `ocr_recognize` reports how many were left out as `already_on_page`. Before, the option existed only for agents and added the page's text a second time. The default still skips pages with text. Synthetic tests (a picture of a sentence plus real text) cover the engine, the tool and the dialog, and fail with the filter turned off. Still missing: reading only the picture areas (the whole page is read, as for a scan). Separately, `recognize_text_makes_a_scanned_page_searchable` fails on main wherever the models are installed (the model reads "quick" as "auick"). Estimates unchanged.
 - **2026-10-11 (M2, page-label prefixes):** The page-label readers bound the total size of decoded prefixes. Each range decodes its own prefix, and ranges may share one prefix object, so a small file could ask for a copy per range: within the 200,000-entry tree limit, about 200 MiB of copies of one 1,024-byte prefix. Inspection and Organize now refuse a tree whose decoded prefixes pass 4 MiB in total (`MAX_PREFIX_TOTAL_BYTES`), before any label is made, as the other tree limits do; relabelling such a tree changes nothing. Synthetic tests share one 1,000-byte prefix across 5,000 ranges and keep exactly 4 MiB of prefixes readable. Overall estimate unchanged.

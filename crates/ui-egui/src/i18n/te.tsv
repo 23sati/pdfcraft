@@ -2168,3 +2168,9 @@ scroll speed	Fast	వేగంగా
 	Original	అసలు
 	Greyscale	గ్రేస్కేల్
 	Black and white	నలుపు తెలుపు
+	Browser's print dialog	బ్రౌజర్ ముద్రణ డైలాగ్
+	Copies, two-sided printing and colour are chosen in the browser's print dialog.	కాపీలు, రెండు వైపుల ముద్రణ మరియు రంగును బ్రౌజర్ ముద్రణ డైలాగ్‌లో ఎంచుకుంటారు.
+	Preparing {n} sheets for printing…	ముద్రణ కోసం {n} షీట్‌లను సిద్ధం చేస్తోంది…
+	Preparing sheet {done} of {total} for printing…	ముద్రణ కోసం {total}లో షీట్ {done}ను సిద్ధం చేస్తోంది…
+	Opening the browser's print dialog…	బ్రౌజర్ ముద్రణ డైలాగ్‌ను తెరుస్తోంది…
+	Couldn't print from the browser ({e}); downloaded {name} to print instead	బ్రౌజర్ నుండి ముద్రించలేకపోయింది ({e}); బదులుగా ముద్రించడానికి {name}ను డౌన్‌లోడ్ చేసింది

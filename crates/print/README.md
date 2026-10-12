@@ -44,7 +44,11 @@ paper closest to its size, turned landscape when it is wide, and is rasterised a
 resolution (up to 600 dpi), not sent as vectors. Other platforms report that printing to a
 printer isn't available yet; the print-ready PDF can always be saved.
 
-Not yet: the web spooler, print as image, poster labels, PostScript output, colour conversion for
+In a browser there is no spooler: the app (`pdfcraft-ui-egui`'s `web_print`) draws the print-ready
+PDF's sheets with PdfCraft's renderer and prints them through the browser's print dialog, which
+sets copies, two-sided printing and colour. This crate stays free of web APIs.
+
+Not yet: print as image, poster labels, PostScript output, colour conversion for
 grayscale.
 
 ## Architectural sheets and scale
