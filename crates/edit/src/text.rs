@@ -236,6 +236,8 @@ pub struct TextBlock {
     /// The text fill colour as RGB, used by the visual editor and preserved when no colour
     /// override is requested.
     pub color: [f64; 3],
+    /// Counterclockwise baseline angle in page user space, in degrees.
+    pub rotation: f64,
     /// Indexes into [`text_lines`].
     pub lines: Vec<usize>,
     /// Visual rows; each contains indexes into [`text_lines`], including mixed-style runs.
@@ -300,6 +302,11 @@ impl TextLine {
     /// page content-stream index and `ops` are indices into the joined operator list.)
     pub fn paint_pos(&self) -> (usize, usize) {
         (self.stream, self.ops.iter().max().copied().unwrap_or(0))
+    }
+
+    fn rotation(&self) -> f64 {
+        let m = Matrix(self.origin.tm).then(&Matrix(self.origin.ctm)).0;
+        m[1].atan2(m[0]).to_degrees()
     }
 }
 

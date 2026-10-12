@@ -28,6 +28,7 @@
 	Create PDF from file…	Créer un PDF à partir d'un fichier…
 	Create PDF from images…	Créer un PDF à partir d'images…
 	Create PDF from multiple files…	Créer un PDF à partir de plusieurs fichiers…
+	Create separate PDFs…	Créer des PDF séparés…
 	Create PDF from clipboard	Créer un PDF à partir du presse-papiers
 	Combine files…	Combiner des fichiers…
 	Save	Enregistrer
@@ -235,6 +236,7 @@
 	Optimize PDF…	Optimiser le PDF…
 	Export to text…	Exporter vers le texte…
 	Export to Word…	Exporter vers Word…
+	Export to PowerPoint…	Exporter vers PowerPoint…
 	Export to HTML…	Exporter vers HTML…
 	Export to RTF…	Exporter vers RTF…
 	JavaScript console…	Console JavaScript…
@@ -319,6 +321,7 @@
 	Create from	Créer à partir de
 	Single file	Un seul fichier
 	Multiple files	Plusieurs fichiers
+	Separate PDFs	PDF séparés
 	Images	Images
 	Clipboard	Presse-papiers
 	Blank page	Page vierge
@@ -835,6 +838,7 @@
 	{verb} as "{name}"	{verb} en tant que «{name}»
 	Certify	Certifier
 	The signature will be invisible.	La signature sera invisible.
+	The existing action will be preserved.	L’action existante sera conservée.
 	Distinguished name	Nom distinctif
 	Labels	Étiquettes
 	Graphic	Graphique
@@ -1514,7 +1518,7 @@
 	Couldn't optimize the file: {e}	Impossible d'optimiser le fichier : {e}
 	Couldn't write {path}: {e}	Impossible d'écrire {path} : {e}
 	The form asks to be submitted to {u}; PdfCraft doesn't send form data. Save the document to keep your entries.	Le formulaire demande un envoi vers {u} ; PdfCraft n'envoie pas les données de formulaire. Enregistrez le document pour conserver vos saisies.
-	{s} actions run in the JavaScript engine (M6)	Les actions {s} s'exécutent dans le moteur JavaScript (M6)
+	This PDF uses the unsupported {s} action.	Ce PDF utilise une action {s} non prise en charge.
 	{name}: the {other} action isn't supported yet	{name} : l'action {other} n'est pas encore prise en charge
 	{name} submits the form to {url}; PdfCraft doesn't send form data. Save the document to keep your entries.	{name} envoie le formulaire vers {url} ; PdfCraft n'envoie pas les données de formulaire. Enregistrez le document pour conserver vos saisies.
 	Export stopped: {e}	Exportation interrompue : {e}
@@ -1799,6 +1803,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	Modifier {key}
 	Insert pages from {name}	Insérer des pages depuis {name}
+	Insert pages from {name} — 1 field renamed	Insérer des pages depuis {name} — 1 champ renommé
+	Insert pages from {name} — fields renamed	Insérer des pages depuis {name} — champs renommés
 	Fill in {name}	Remplir {name}
 	Set the image of {name}	Définir l'image de {name}
 	Edit script of {name}	Modifier le script de {name}
@@ -1956,6 +1962,7 @@
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	Formulaire XFA : ses champs et ses données XFA restent synchronisés, afin que les autres visionneuses affichent ce que vous remplissez.
 @plural	{n} page|{n} pages	{n} page|{n} pages
 @plural	{n} field|{n} fields	{n} champ|{n} champs
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} nom de champ entre en collision avec les fichiers précédents et sera renommé : {list}|{n} noms de champs entrent en collision avec les fichiers précédents et seront renommés : {list}
 	Switch to two-page view first to show the cover page	Passez d'abord à l'affichage sur deux pages pour montrer la couverture
 	Page display: {layout}	Affichage des pages : {layout}
 	Fit to width scrolling	Défilement ajusté à la largeur
@@ -2261,6 +2268,42 @@ scroll speed	Fast	Rapide
 	Greyscale	Niveaux de gris
 	Black and white	Noir et blanc
 	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Le pilote de cette imprimante n'accepte pas les réglages recto verso des autres programmes ; son propre réglage s'applique. Modifiez-le dans Propriétés…
+	Browser's print dialog	Boîte de dialogue d'impression du navigateur
+	Copies, two-sided printing and colour are chosen in the browser's print dialog.	Le nombre de copies, l'impression recto verso et la couleur se choisissent dans la boîte de dialogue d'impression du navigateur.
+	Preparing {n} sheets for printing…	Préparation de {n} feuilles pour l'impression…
+	Preparing sheet {done} of {total} for printing…	Préparation de la feuille {done} sur {total} pour l'impression…
+	Opening the browser's print dialog…	Ouverture de la boîte de dialogue d'impression du navigateur…
+	Couldn't print from the browser ({e}); downloaded {name} to print instead	Impossible d'imprimer depuis le navigateur ({e}) ; {name} a été téléchargé pour être imprimé
 	Tools panel side	Côté du panneau Outils
 	Add comment	Ajouter un commentaire
 	Change tag properties	Modifier les propriétés de la balise
+# Accessibility structure tags.
+	Tags panel	Panneau des balises
+	Tags	Balises
+	Tag type	Type de balise
+	Actual text	Texte réel
+	Find a tag	Rechercher une balise
+	Collapse tag	Réduire la balise
+	Expand tag	Développer la balise
+	Revert changes	Annuler les modifications
+	Save tag properties	Enregistrer les propriétés de la balise
+	This document has no editable structure tags.	Ce document ne contient aucune balise de structure modifiable.
+	{n} tags	{n} balises
+	Save or revert changes before selecting another tag.	Enregistrez ou annulez les modifications avant de sélectionner une autre balise.
+	Left out: {names}	Ignorés : {names}
+	already a PDF	déjà un PDF
+	no unused output name	aucun nom de sortie libre
+	no output folder was chosen	aucun dossier de sortie choisi
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	{n} PDF téléchargé|{n} PDF téléchargés
+	Scan	Numériser
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Signez une feuille de papier blanc et prenez-la en photo sous une lumière vive et uniforme (utilisez le flash). Choisissez la photo ou déposez-la ici : PdfCraft trouve la signature et retire le papier.
+	Choose photo…	Choisir une photo…
+	No photo chosen	Aucune photo choisie
+	Photo	Photo
+	Ink sensitivity	Sensibilité à l’encre
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Aucune signature trouvée dans le cadre. Placez le cadre sur la signature ou augmentez la sensibilité à l’encre.
+	Couldn't use the photo: {e}	Impossible d’utiliser la photo : {e}
+	Couldn't follow linked PDF: {reason}	Impossible de suivre le PDF lié : {reason}
+	The linked PDF opened, but its named destination was not applied.	Le PDF lié s'est ouvert, mais sa destination nommée n'a pas été appliquée.
+	The linked PDF opened, but its page destination was out of range.	Le PDF lié s'est ouvert, mais sa page de destination est hors limites.
+	Local cross-PDF links require the desktop app	Les liens locaux entre PDF nécessitent l'application de bureau

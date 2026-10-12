@@ -41,6 +41,7 @@ fn same_style(a: &TextLine, b: &TextLine) -> bool {
         && a.bold == b.bold
         && a.italic == b.italic
         && a.color == b.color
+        && (a.rotation() - b.rotation()).abs() < 0.01
         && (a.size - b.size).abs() < 0.01
 }
 
@@ -98,6 +99,7 @@ fn group_layout(lines: &[TextLine], mixed: bool) -> Vec<TextBlock> {
                 bold: first.bold,
                 italic: first.italic,
                 color: first.color,
+                rotation: first.rotation(),
                 lines: Vec::new(),
                 rows: Vec::new(),
             });

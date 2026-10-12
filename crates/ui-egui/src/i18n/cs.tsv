@@ -54,6 +54,7 @@
 	Create PDF from file…	Vytvořit PDF ze souboru…
 	Create PDF from images…	Vytvořit PDF z obrázků…
 	Create PDF from multiple files…	Vytvořit PDF z více souborů…
+	Create separate PDFs…	Vytvořit samostatná PDF…
 	Create PDF from clipboard	Vytvořit PDF ze schránky
 	Combine files…	Sloučit soubory…
 	Save	Uložit
@@ -70,6 +71,7 @@
 	Optimize PDF…	Optimalizovat PDF…
 	Export to text…	Exportovat jako text…
 	Export to Word…	Exportovat do formátu Word…
+	Export to PowerPoint…	Exportovat do formátu PowerPoint…
 	Export to HTML…	Exportovat do formátu HTML…
 	Export to RTF…	Exportovat do formátu RTF…
 	Export all images…	Exportovat všechny obrázky…
@@ -171,6 +173,7 @@
 
 # Multi-object selection and movement (#844)
 @plural	{n} object selected|{n} objects selected	Vybrán {n} objekt|Vybrány {n} objekty|Vybráno {n} objektů
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} název pole koliduje s dřívějšími soubory a bude přejmenován: {list}|Názvy {n} polí kolidují s dřívějšími soubory a budou přejmenovány: {list}|{n} názvů polí koliduje s dřívějšími soubory a bude přejmenováno: {list}
 	Drag the selection to move it. Esc clears the selection.	Přetažením výběr přesunete. Esc zruší výběr.
 	Shift-click to select several objects. Drag empty space to select an area.	Kliknutím se Shiftem vyberete více objektů. Tažením v prázdném místě vyberete oblast.
 	Select at most 1000 objects at a time.	Vyberte nejvýše 1000 objektů najednou.
@@ -426,6 +429,7 @@ key	Space	Mezerník
 	Create from	Vytvořit z
 	Single file	Jeden soubor
 	Multiple files	Více souborů
+	Separate PDFs	Samostatná PDF
 	Images	Obrázky
 	Clipboard	Schránka
 	Blank page	Prázdná stránka
@@ -934,6 +938,7 @@ key	Space	Mezerník
 	{verb} as "{name}"	{verb} jako „{name}“
 	Certify	Certifikovat
 	The signature will be invisible.	Podpis bude neviditelný.
+	The existing action will be preserved.	Stávající akce bude zachována.
 	Distinguished name	Rozlišující jméno
 	Labels	Popisky
 	Graphic	Grafika
@@ -1599,7 +1604,7 @@ key	Space	Mezerník
 	Couldn't optimize the file: {e}	Soubor nelze optimalizovat: {e}
 	Couldn't write {path}: {e}	Nelze zapsat {path}: {e}
 	The form asks to be submitted to {u}; PdfCraft doesn't send form data. Save the document to keep your entries.	Formulář žádá o odeslání na {u}; PdfCraft data formulářů neodesílá. Své údaje zachováte uložením dokumentu.
-	{s} actions run in the JavaScript engine (M6)	Akce {s} se spouštějí v JavaScriptovém stroji (M6)
+	This PDF uses the unsupported {s} action.	Tento PDF používá nepodporovanou akci {s}.
 	{name}: the {other} action isn't supported yet	{name}: akce {other} zatím není podporována
 	{name} submits the form to {url}; PdfCraft doesn't send form data. Save the document to keep your entries.	{name} odesílá formulář na {url}; PdfCraft data formulářů neodesílá. Své údaje zachováte uložením dokumentu.
 	Export stopped: {e}	Export byl zastaven: {e}
@@ -1916,6 +1921,8 @@ key	Space	Mezerník
 	{month} {y}	{month} {y}
 	Change {key}	Změnit: {key}
 	Insert pages from {name}	Vložit stránky ze souboru {name}
+	Insert pages from {name} — 1 field renamed	Vložit stránky ze souboru {name} — 1 pole přejmenováno
+	Insert pages from {name} — fields renamed	Vložit stránky ze souboru {name} — pole přejmenována
 	Fill in {name}	Vyplnit {name}
 	Set the image of {name}	Nastavit obrázek pole {name}
 	Edit script of {name}	Upravit skript {name}
@@ -2335,6 +2342,42 @@ scroll speed	Fast	Rychlá
 	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Ovladač této tiskárny nepřijímá nastavení oboustranného tisku z jiných programů, proto platí jeho vlastní nastavení. Změňte ho ve Vlastnosti…
 	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Písmo tohoto pole neumí zobrazit „{c}“ ({code}), proto PdfCraft místo něj ukazuje ?. Hodnota se uloží a jiné prohlížeče PDF pole podle ní překreslí.
 	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Písma, kterými PdfCraft píše, neumí zobrazit „{c}“ ({code}), proto se ve všech prohlížečích PDF zobrazí jako ?. Text se uloží.
+	Browser's print dialog	Dialog tisku prohlížeče
+	Copies, two-sided printing and colour are chosen in the browser's print dialog.	Počet kopií, oboustranný tisk a barva se volí v dialogu tisku prohlížeče.
+	Preparing {n} sheets for printing…	Příprava {n} listů k tisku…
+	Preparing sheet {done} of {total} for printing…	Příprava listu {done} z {total} k tisku…
+	Opening the browser's print dialog…	Otevírá se dialog tisku prohlížeče…
+	Couldn't print from the browser ({e}); downloaded {name} to print instead	Z prohlížeče nelze tisknout ({e}); místo toho byl k tisku stažen soubor {name}
 	Tools panel side	Strana panelu nástrojů
 	Add comment	Přidat komentář
 	Change tag properties	Změnit vlastnosti značky
+# Accessibility structure tags.
+	Tags panel	Panel značek
+	Tags	Značky
+	Tag type	Typ značky
+	Actual text	Skutečný text
+	Find a tag	Najít značku
+	Collapse tag	Sbalit značku
+	Expand tag	Rozbalit značku
+	Revert changes	Vrátit změny
+	Save tag properties	Uložit vlastnosti značky
+	This document has no editable structure tags.	Tento dokument nemá upravitelné značky struktury.
+	{n} tags	{n} značek
+	Save or revert changes before selecting another tag.	Před výběrem jiné značky změny uložte nebo vraťte.
+	Left out: {names}	Vynecháno: {names}
+	already a PDF	již je PDF
+	no unused output name	žádný volný název výstupního souboru
+	no output folder was chosen	nebyla vybrána výstupní složka
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	Stažen {n} soubor PDF|Staženy {n} soubory PDF|Staženo {n} souborů PDF
+	Scan	Skenovat
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Podepište se na bílý list papíru a vyfoťte ho při jasném, rovnoměrném světle (použijte blesk). Vyberte fotografii nebo ji sem přetáhněte: PdfCraft najde podpis a odstraní papír.
+	Choose photo…	Vybrat fotografii…
+	No photo chosen	Není vybrána žádná fotografie
+	Photo	Fotografie
+	Ink sensitivity	Citlivost na inkoust
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	V rámečku nebyl nalezen žádný podpis. Přesuňte rámeček na podpis nebo zvyšte citlivost na inkoust.
+	Couldn't use the photo: {e}	Fotografii nelze použít: {e}
+	Couldn't follow linked PDF: {reason}	Odkazovaný PDF nelze otevřít: {reason}
+	The linked PDF opened, but its named destination was not applied.	Odkazovaný PDF se otevřel, ale jeho pojmenovaný cíl nebyl použit.
+	The linked PDF opened, but its page destination was out of range.	Odkazovaný PDF se otevřel, ale cílová stránka je mimo rozsah.
+	Local cross-PDF links require the desktop app	Místní odkazy mezi soubory PDF vyžadují desktopovou aplikaci

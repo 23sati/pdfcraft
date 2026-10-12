@@ -261,6 +261,7 @@
 	Optimize PDF…	Оптимізувати PDF…
 	Export to text…	Експортувати в текст…
 	Export to Word…	Експортувати у Word…
+	Export to PowerPoint…	Експортувати у PowerPoint…
 	Export to HTML…	Експортувати в HTML…
 	Export to RTF…	Експортувати в RTF…
 	JavaScript console…	Консоль JavaScript…
@@ -345,6 +346,7 @@
 	Create from	Створити з
 	Single file	Один файл
 	Multiple files	Кілька файлів
+	Separate PDFs	Окремі PDF-файли
 	Images	Зображення
 	Clipboard	Буфер обміну
 	Blank page	Порожня сторінка
@@ -860,6 +862,7 @@
 	{verb} as "{name}"	{verb} як «{name}»
 	Certify	Засвідчити
 	The signature will be invisible.	Підпис буде невидимим.
+	The existing action will be preserved.	Наявну дію буде збережено.
 	Distinguished name	Розпізнавальне ім’я
 	Labels	Позначки
 	Graphic	Графіка
@@ -1533,7 +1536,7 @@
 	Couldn't optimize the file: {e}	Не вдалося оптимізувати файл: {e}
 	Couldn't write {path}: {e}	Не вдалося записати {path}: {e}
 	The form asks to be submitted to {u}; PdfCraft doesn't send form data. Save the document to keep your entries.	Форма запитує надсилання до {u}; PdfCraft не надсилає дані форми. Збережіть документ, щоб зберегти введені дані.
-	{s} actions run in the JavaScript engine (M6)	Дії ({s}) виконуються в рушії JavaScript (M6)
+	This PDF uses the unsupported {s} action.	У цьому PDF використовується непідтримувана дія {s}.
 	{name}: the {other} action isn't supported yet	{name}: дія {other} ще не підтримується
 	{name} submits the form to {url}; PdfCraft doesn't send form data. Save the document to keep your entries.	{name} надсилає форму до {url}; PdfCraft не надсилає дані форми. Збережіть документ, щоб зберегти введені дані.
 	Export stopped: {e}	Експорт зупинено: {e}
@@ -1867,6 +1870,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	Змінити: {key}
 	Insert pages from {name}	Вставити сторінки з {name}
+	Insert pages from {name} — 1 field renamed	Вставити сторінки з {name} — 1 поле перейменовано
+	Insert pages from {name} — fields renamed	Вставити сторінки з {name} — поля перейменовано
 	Fill in {name}	Заповнити {name}
 	Set the image of {name}	Задати зображення для {name}
 	Edit script of {name}	Редагувати сценарій {name}
@@ -2033,7 +2038,9 @@
 	Couldn't import the signature image: {e}	Не вдалося імпортувати зображення підпису: {e}
 @plural	{n} page|{n} pages	{n} сторінка|{n} сторінки|{n} сторінок
 @plural	{n} field|{n} fields	{n} поле|{n} поля|{n} полів
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	Назва {n} поля збігається з попередніми файлами та буде перейменована: {list}|Назви {n} полів збігаються з попередніми файлами та будуть перейменовані: {list}|Назви {n} полів збігаються з попередніми файлами та будуть перейменовані: {list}
 	Create PDF from multiple files…	Створити PDF із кількох файлів…
+	Create separate PDFs…	Створити окремі PDF-файли…
 	Optimizing… removing user data	Оптимізація… видалення даних користувача
 	Optimizing… image {d} of {t}	Оптимізація… зображення {d} із {t}
 	Optimizing… cleaning up	Оптимізація… очищення
@@ -2283,6 +2290,42 @@ scroll speed	Fast	Швидка
 	Greyscale	Відтінки сірого
 	Black and white	Чорно-білий
 	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Драйвер цього принтера не приймає налаштування двобічного друку від інших програм, тому діє його власне налаштування. Змініть його у вікні Властивості…
+	Browser's print dialog	Діалог друку браузера
+	Copies, two-sided printing and colour are chosen in the browser's print dialog.	Кількість копій, двосторонній друк і колір вибирають у діалозі друку браузера.
+	Preparing {n} sheets for printing…	Підготовка аркушів до друку: {n}…
+	Preparing sheet {done} of {total} for printing…	Підготовка до друку аркуша {done} з {total}…
+	Opening the browser's print dialog…	Відкривається діалог друку браузера…
+	Couldn't print from the browser ({e}); downloaded {name} to print instead	Не вдалося надрукувати з браузера ({e}); натомість для друку завантажено файл {name}
 	Tools panel side	Бік панелі інструментів
 	Add comment	Додати коментар
 	Change tag properties	Змінити властивості тегу
+# Accessibility structure tags.
+	Tags panel	Панель тегів
+	Tags	Теги
+	Tag type	Тип тегу
+	Actual text	Фактичний текст
+	Find a tag	Знайти тег
+	Collapse tag	Згорнути тег
+	Expand tag	Розгорнути тег
+	Revert changes	Скасувати зміни
+	Save tag properties	Зберегти властивості тегу
+	This document has no editable structure tags.	У цьому документі немає структурних тегів, доступних для редагування.
+	{n} tags	{n} тегів
+	Save or revert changes before selecting another tag.	Збережіть або скасуйте зміни, перш ніж вибрати інший тег.
+	Left out: {names}	Пропущено: {names}
+	already a PDF	вже PDF
+	no unused output name	немає вільної назви для вихідного файлу
+	no output folder was chosen	не вибрано теку для виводу
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	Завантажено {n} PDF-файл|Завантажено {n} PDF-файли|Завантажено {n} PDF-файлів
+	Scan	Сканувати
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Розпишіться на аркуші білого паперу та сфотографуйте його за яскравого рівномірного освітлення (зі спалахом). Виберіть фото або перетягніть його сюди: PdfCraft знайде підпис і прибере папір.
+	Choose photo…	Вибрати фото…
+	No photo chosen	Фото не вибрано
+	Photo	Фото
+	Ink sensitivity	Чутливість до чорнила
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	У рамці не знайдено підпису. Наведіть рамку на підпис або збільште чутливість до чорнила.
+	Couldn't use the photo: {e}	Не вдалося використати фото: {e}
+	Couldn't follow linked PDF: {reason}	Не вдалося відкрити пов’язаний PDF: {reason}
+	The linked PDF opened, but its named destination was not applied.	Пов’язаний PDF відкрито, але його іменоване призначення не застосовано.
+	The linked PDF opened, but its page destination was out of range.	Пов’язаний PDF відкрито, але сторінка призначення поза межами діапазону.
+	Local cross-PDF links require the desktop app	Локальні посилання між PDF працюють лише в настільному застосунку
