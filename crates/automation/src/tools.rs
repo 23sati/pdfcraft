@@ -1119,6 +1119,9 @@ pub fn tools() -> Vec<ToolDef> {
         t("text_font_files", "List installed document fonts", "Discover openly licensed, embeddable TrueType/OpenType files on request. Optional directories (at most 16) restrict the scan; with --root, only that root is scanned by default and supplied folders must stay inside it. The scan skips symlinks, collections and invalid/licence-restricted fonts, with depth, entry and byte budgets. Select a returned path with text_font_import.")
             .ro().cmd("edit.edit_text")
             .with(schema(json!({"directories":{"type":"array","items":{"type":"string"},"maxItems":16}}), &[])),
+        t("text_font_refresh", "Refresh automatic document fonts", "Cache eligible installed full faces for automatic completion of matching source subsets in text_edit and text_edit_layout. Scans standard installed folders by default; with --root, scans only that root. Optional directories stay inside the root. Does not change PDF bytes or undo history. Reopen saved edits without the original installed file; complete programs are embedded atomically with text edits.")
+            .cmd("edit.edit_text")
+            .with(schema(json!({"directories":{"type":"array","items":{"type":"string"},"maxItems":16}}), &[])),
         t("text_font_import", "Load document font", "Load an explicitly selected, openly licensed full TrueType/OpenType face into a page. The program's family, embedding permissions and licence declaration are validated. Completes source subsets of the same face without replacing existing glyphs. Returns a font resource usable with text_edit.font_resource. Undoable; respects root confinement. No system-interface fallback is exported.")
             .cmd("edit.edit_text")
             .with(schema(json!({"doc":doc(), "page":{"type":"integer","minimum":1}, "path":{"type":"string"}}), &["doc","page","path"])),

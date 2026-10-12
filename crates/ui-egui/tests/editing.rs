@@ -3854,16 +3854,18 @@ fn private_document_cropped_artwork_does_not_block_text() {
 #[test]
 #[ignore = "requires a private Chinese PDF and an approved full source font file"]
 fn private_new_chinese_keyboard_input_preserves_font_layout_and_saved_pixels() {
-    use pdfcraft_engine::{Edit, Session};
+    use pdfcraft_engine::Session;
     use std::sync::Arc;
     let path = std::env::var("PDFCRAFT_CHINESE_TEXT_PDF").expect("supply a local PDF path");
     let font_path = std::env::var("PDFCRAFT_CHINESE_FULL_FONT").expect("supply the full source face");
     let original = std::fs::read(&path).unwrap();
     let bytes = original.clone();
-    let font = Arc::new(std::fs::read(font_path).unwrap());
+    let catalogue = Arc::new(pdfcraft_engine::text_fonts::Catalogue::discover(&[std::path::PathBuf::from(font_path).parent().unwrap().to_owned()]));
+    assert!(catalogue.files().any(|f| f.face == "DroidSansFallback"));
     let mut h = Harness::builder().with_size(egui::vec2(1400.0, 1100.0)).build_eframe(move |_cc| {
         let mut app = PdfCraftApp::new();
         app.set_option("language", "en").unwrap();
+        app.session.set_text_font_catalogue(catalogue);
         app.open_bytes("private.pdf", None, bytes).unwrap();
         app
     });
@@ -3884,7 +3886,6 @@ fn private_new_chinese_keyboard_input_preserves_font_layout_and_saved_pixels() {
     };
     for page_index in 0..pages {
         h.state_mut().views[0].go_to_page(page_index);
-        h.state_mut().session.apply(id, Edit::RegisterTextFont { page: page_index, bytes: font.clone() }).unwrap();
         h.run_steps(4);
         let doc = h.state().session.get(id).unwrap();
         let (index, block) = doc
@@ -3964,9 +3965,91 @@ fn private_new_chinese_keyboard_input_preserves_font_layout_and_saved_pixels() {
         assert_eq!(content(&reopen.get(rid).unwrap().text_blocks(page_index)[index].editor_text), content(&shortened));
         h.state_mut().session.undo(id).unwrap();
         h.state_mut().session.undo(id).unwrap();
-        h.state_mut().session.undo(id).unwrap();
         h.run_steps(4);
     }
     assert_eq!(std::fs::read(path).unwrap(), original);
-    println!("verified Chinese keyboard insertion/deletion and save/reopen rendering on {pages} pages");
+    println!(
+        "verified automatic matching full-face discovery, Chinese keyboard insertion/deletion and portable save/reopen rendering on {pages} pages without Load font"
+    );
+}
+
+#[path = "../../engine/tests/support/source_subset.rs"]
+mod automatic_font_source_subset;
+
+#[test]
+fn automatic_matching_font_is_used_by_inline_keyboard_edit_without_load_font() {
+    use pdfcraft_engine::{Session, text_fonts::Catalogue};
+    use std::sync::Arc;
+    let dir = std::env::temp_dir().join(format!("pdfcraft-ui-auto-font-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("full.ttf"), include_bytes!("../../../assets/fonts/Inter-Regular.ttf")).unwrap();
+    let catalogue = Arc::new(Catalogue::discover(std::slice::from_ref(&dir)));
+    std::fs::remove_dir_all(dir).unwrap();
+    let original = automatic_font_source_subset::source_subset();
+    let source = original.clone();
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.session.set_text_font_catalogue(catalogue);
+        app.open_bytes("source.pdf", None, source.as_ref().clone()).unwrap();
+        app
+    });
+    h.run_steps(4);
+    h.state_mut().execute("edit.edit_text");
+    h.state_mut().views[0].fit = pdfcraft_ui_egui::canvas::Fit::Page;
+    h.run_steps(4);
+    let id = h.state().views[0].id;
+    let doc = h.state().session.get(id).unwrap();
+    assert!(doc.can_undo().is_none());
+    let line = doc.text_lines(0)[0].clone();
+    let info = doc.info.pages[0].clone();
+    let rect = h.state().views[0].page_screen_rect(0).unwrap();
+    let v = info.user_to_view((line.rect[0] + 3.0) as f32, ((line.rect[1] + line.rect[3]) / 2.0) as f32);
+    let point = rect.min + egui::vec2(v[0], v[1]) * (rect.width() / info.width);
+    h.hover_at(point);
+    h.run_steps(1);
+    h.drag_at(point);
+    h.run_steps(1);
+    h.drop_at(point);
+    h.run_steps(6);
+    assert!(h.state().views[0].line_editor.is_some());
+    h.key_press_modifiers(Modifiers::COMMAND, Key::A);
+    h.event(egui::Event::Text("ABΩ".into()));
+    h.run_steps(4);
+    assert_eq!(h.state().views[0].line_editor.as_ref().unwrap().text, "ABΩ");
+    let doc = h.state().session.get(id).unwrap();
+    assert_eq!(doc.bytes, original);
+    assert!(!doc.dirty && doc.can_undo().is_none());
+    assert!(!doc.text_editor_fonts(0).iter().any(|f| f.resource.starts_with("PCFull")));
+    let galley = h
+        .output()
+        .shapes
+        .iter()
+        .find_map(|s| match &s.shape {
+            egui::Shape::Text(t) if t.galley.text() == "ABΩ" => Some(t.galley.clone()),
+            _ => None,
+        })
+        .unwrap();
+    assert!(galley.job.sections.iter().all(|s| matches!(&s.format.font_id.family, egui::FontFamily::Name(n) if n.starts_with("pdf-source-"))));
+    h.key_press_modifiers(Modifiers::COMMAND, Key::Enter);
+    h.run_steps(4);
+    let doc = h.state().session.get(id).unwrap();
+    assert_eq!(doc.text_blocks(0)[0].editor_text, "ABΩ");
+    assert!(doc.text_lines(0).iter().all(|l| pdfcraft_fonts::embedding::face_key(&l.base_font) == "interregular"));
+    assert_eq!(doc.text_lines(0)[0].baseline(), line.baseline());
+    let pixels = |bytes: Arc<Vec<u8>>| {
+        let mut r = PageRenderer::new(bytes, Default::default());
+        let p = r.render(RenderRequest { page: 0, scale: 2.0, ..Default::default() });
+        assert!(p.error.is_none() && p.warnings.is_empty());
+        p.rgba.to_vec()
+    };
+    let live = pixels(doc.display.clone());
+    let saved = h.state_mut().session.save_bytes(id).unwrap();
+    let mut portable = Session::new();
+    let rid = portable.open("portable.pdf", None, saved, None).unwrap();
+    assert_eq!(pixels(portable.get(rid).unwrap().display.clone()), live);
+    h.state_mut().session.undo(id).unwrap();
+    assert_eq!(h.state().session.get(id).unwrap().bytes, original);
+    assert!(h.state().session.get(id).unwrap().can_undo().is_none());
 }

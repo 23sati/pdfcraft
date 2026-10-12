@@ -49,7 +49,26 @@ pub fn validate_document_input(bytes: &[u8]) -> Result<(), String> {
     use skrifa::string::StringId;
     let (family, _) = names(bytes)?;
     let key = face_key(&family);
-    if ["sourcehan", "sourceserif", "sourcesans", "notosanscjk", "notoserifcjk"].iter().any(|n| key.starts_with(n)) {
+    if [
+        "sourcehan",
+        "sourceserif",
+        "sourcesans",
+        "notosanscjk",
+        "notoserifcjk",
+        "notosansjp",
+        "notosanssc",
+        "notosanstc",
+        "notosanshk",
+        "notosanskr",
+        "notoserifjp",
+        "notoserifsc",
+        "notoseriftc",
+        "notoserifhk",
+        "notoserifkr",
+    ]
+    .iter()
+    .any(|n| key.starts_with(n))
+    {
         return Err("this font family is excluded by the project's asset policy".into());
     }
     let f = FontRef::new(bytes).map_err(|e| e.to_string())?;

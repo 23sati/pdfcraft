@@ -12,11 +12,14 @@ fn pixels(bytes: Arc<Vec<u8>>, page: usize) -> Vec<u8> {
 }
 
 #[test]
-#[ignore = "requires a private Chinese PDF and its full approved face in craft-fonts"]
+#[ignore = "requires a private Chinese PDF and its full approved face in a font directory"]
 fn private_new_chinese_glyphs_keep_face_position_save_reopen_and_undo() {
     let path = std::env::var("PDFCRAFT_CHINESE_TEXT_PDF").expect("provide a local PDF");
     let original = Arc::new(std::fs::read(&path).unwrap());
     let mut session = Session::new();
+    let font = std::env::var_os("PDFCRAFT_CHINESE_FULL_FONT").expect("provide the eligible full source font");
+    let dir = std::path::PathBuf::from(font).parent().unwrap().to_owned();
+    session.set_text_font_catalogue(Arc::new(pdfcraft_engine::text_fonts::Catalogue::discover(&[dir])));
     let id = session.open("private.pdf", None, original.clone(), None).unwrap();
     let pages = session.get(id).unwrap().info.pages.len();
     let all: String = (0..pages).flat_map(|p| session.get(id).unwrap().text_lines(p)).map(|l| l.text).collect();
