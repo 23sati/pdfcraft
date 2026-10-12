@@ -518,18 +518,16 @@ fn interpret(
     let mut actual: Vec<Option<(usize, usize, String)>> = Vec::new();
     for (i, op) in ops.iter().enumerate() {
         match op.op.as_slice() {
-            b"BMC" | b"BDC" => {
-                if marked.len() < 256 {
-                    // Marked text paragraphs/headings are authoritative boundaries. Ignore
-                    // artifacts and inner spans, which inherit their enclosing region.
-                    let region = matches!(op.name(0), Some(b"P" | b"H" | b"H1" | b"H2" | b"H3" | b"H4" | b"H5" | b"H6" | b"LI" | b"TD" | b"TH"));
-                    marked.push(if region { Some(i) } else { marked.last().copied().flatten() });
-                    let logical = op.operands.get(1).and_then(Object::as_dict).and_then(|d| d.get(b"ActualText")).and_then(|s| match s {
-                        Object::String(s) if s.bytes.len() <= 4_000_000 => Some(s.to_text()),
-                        _ => None,
-                    });
-                    actual.push(if logical_text { logical.map(|s| (out.len(), i, s)) } else { None });
-                }
+            b"BMC" | b"BDC" if marked.len() < 256 => {
+                // Marked text paragraphs/headings are authoritative boundaries. Ignore
+                // artifacts and inner spans, which inherit their enclosing region.
+                let region = matches!(op.name(0), Some(b"P" | b"H" | b"H1" | b"H2" | b"H3" | b"H4" | b"H5" | b"H6" | b"LI" | b"TD" | b"TH"));
+                marked.push(if region { Some(i) } else { marked.last().copied().flatten() });
+                let logical = op.operands.get(1).and_then(Object::as_dict).and_then(|d| d.get(b"ActualText")).and_then(|s| match s {
+                    Object::String(s) if s.bytes.len() <= 4_000_000 => Some(s.to_text()),
+                    _ => None,
+                });
+                actual.push(if logical_text { logical.map(|s| (out.len(), i, s)) } else { None });
             }
             b"EMC" => {
                 marked.pop();
