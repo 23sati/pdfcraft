@@ -145,6 +145,26 @@ fn autotag_preview_proposes_text_without_changing_the_pdf() {
     assert!(preview["candidates"].as_array().unwrap().iter().any(|c| c["text"] == "First paragraph" && c["type"] == "P"));
 }
 
+#[test]
+fn finding_untagged_content_limits_results_to_content_annotations_and_widgets() {
+    let dir = workdir("find-untagged");
+    std::fs::write(dir.join("field.pdf"), form_pdf("name")).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "field.pdf" }))["doc"].as_u64().unwrap();
+    let found = ok(&mut a, "accessibility_find_untagged", json!({ "doc": doc }));
+    let active: Vec<&str> = found["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|result| result["status"] != "skipped")
+        .map(|result| result["rule"].as_str().unwrap())
+        .collect();
+    assert_eq!(active, ["tagged-content", "tagged-annotations", "tagged-form-fields"]);
+    let fields = found["results"].as_array().unwrap().iter().find(|result| result["rule"] == "tagged-form-fields").unwrap();
+    assert_eq!(fields["status"], "failed");
+    assert_eq!(fields["findings"][0]["page"], 1);
+}
+
 /// A one-page PDF whose form holds one text field named `name`.
 fn form_pdf(name: &str) -> Vec<u8> {
     let objs: Vec<String> = vec![
