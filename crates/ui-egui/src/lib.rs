@@ -463,6 +463,8 @@ pub struct PdfCraftApp {
     /// The user closed the Comments panel, so picking a comment tool leaves it closed until they
     /// open it again (#225). Remembered across restarts.
     pub comments_panel_closed: bool,
+    /// The user closed the community card on Home. Remembered across restarts.
+    pub community_card_closed: bool,
     pub quick_tool: QuickTool,
     /// The tool to go back to when Space, held for a temporary Hand, is released.
     space_hand: Option<QuickTool>,
@@ -810,6 +812,7 @@ impl PdfCraftApp {
             right: None,
             right_before_read: None,
             comments_panel_closed: false,
+            community_card_closed: false,
             quick_tool: QuickTool::Select,
             space_hand: None,
             comment_prefs: Default::default(),
@@ -1802,6 +1805,7 @@ impl PdfCraftApp {
             "combine_view": self.combine_view.as_str(),
             "combine_zoom": self.combine_zoom,
             "comments_panel_closed": self.comments_panel_closed,
+            "community_card_closed": self.community_card_closed,
         })
         .to_string()
     }
@@ -1862,6 +1866,9 @@ impl PdfCraftApp {
         }
         if let Some(closed) = v["comments_panel_closed"].as_bool() {
             self.comments_panel_closed = closed;
+        }
+        if let Some(closed) = v["community_card_closed"].as_bool() {
+            self.community_card_closed = closed;
         }
         if let Some(defaults) = v["default_zoom"].as_str().and_then(|zoom| self.view_defaults.with_zoom(zoom)) {
             self.view_defaults = defaults;
