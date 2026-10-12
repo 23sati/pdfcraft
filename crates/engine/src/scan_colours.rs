@@ -4,6 +4,7 @@
 
 use std::sync::Arc;
 
+use pdfcraft_edit::TextBlock;
 use pdfcraft_render::{PageInfo, PageRenderer, RenderConfig, RenderRequest, Tile};
 
 /// Device pixels per point the word's surroundings are read at.
@@ -13,11 +14,12 @@ const MAX_PIXELS: f32 = 4_000_000.0;
 /// How far around the word (points) the paper is read.
 const RING: f32 = 4.0;
 
-/// The paper and ink colours (RGB 0–1) of invisible paragraph `block` on `page`, or `None` when the
+/// The paper and ink colours (RGB 0–1) of invisible paragraph `b` on `page`, or `None` when the
 /// paragraph is visible text or the page can't be read.
-pub(crate) fn sample(cos: &pdfcraft_cos::Document, info: &PageInfo, page: usize, block: usize) -> Option<([f64; 3], [f64; 3])> {
-    let blocks = pdfcraft_edit::text_blocks(cos, page).ok()?;
-    let b = blocks.get(block).filter(|b| b.invisible)?;
+pub(crate) fn sample(cos: &pdfcraft_cos::Document, info: &PageInfo, page: usize, b: &TextBlock) -> Option<([f64; 3], [f64; 3])> {
+    if !b.invisible {
+        return None;
+    }
     // The word's box in view space (points, y down).
     let corners = [[b.rect[0], b.rect[1]], [b.rect[2], b.rect[1]], [b.rect[0], b.rect[3]], [b.rect[2], b.rect[3]]]
         .map(|[x, y]| info.user_to_view(x as f32, y as f32));
@@ -38,7 +40,13 @@ pub(crate) fn sample(cos: &pdfcraft_cos::Document, info: &PageInfo, page: usize,
         return None;
     }
     let tile = Tile { x: tx0, y: ty0, w: tx1 - tx0, h: ty1 - ty0 };
-    let bytes = Arc::new(pdfcraft_cos::write_incremental(cos, &pdfcraft_cos::SaveOptions::default()).ok()?);
+    // The working file as it is: written out only if the document holds unsaved changes, which
+    // it doesn't between edits (each one reopens the file it wrote).
+    let bytes = if cos.is_modified() {
+        Arc::new(pdfcraft_cos::write_incremental(cos, &pdfcraft_cos::SaveOptions::default()).ok()?)
+    } else {
+        cos.bytes().clone()
+    };
     // The document's true colours, whatever the reading colours are set to.
     let shot = PageRenderer::new(bytes, RenderConfig::default()).render(RenderRequest { page, scale, tile: Some(tile), ..Default::default() });
     if shot.error.is_some() {

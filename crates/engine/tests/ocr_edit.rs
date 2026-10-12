@@ -145,3 +145,65 @@ fn a_rewritten_ocr_phrase_keeps_its_word_widths() {
         assert!(pair[1].rect[0] >= pair[0].rect[2] - 0.5, "{:?} runs into {:?}", pair[1].text, pair[0].text);
     }
 }
+
+/// Visible text set with a horizontally stretched text matrix (3 × 1), as some generators write.
+fn stretched_visible() -> std::sync::Arc<Vec<u8>> {
+    use pdfcraft_cos::{Dict, Document, Object, SaveOptions, Stream};
+    let mut d = Document::new_empty();
+    let pages = d.add(Object::Dict(Dict::new()));
+    let contents = d.add(Object::Stream(Stream::flate(Dict::new(), b"BT /F1 12 Tf 3 0 0 1 20 60 Tm (Source) Tj ET")));
+    let mut font = Dict::new();
+    font.set(b"Type".to_vec(), Object::name("Font"));
+    font.set(b"Subtype".to_vec(), Object::name("Type1"));
+    font.set(b"BaseFont".to_vec(), Object::name("Helvetica"));
+    let mut fonts = Dict::new();
+    fonts.set(b"F1".to_vec(), Object::Dict(font));
+    let mut res = Dict::new();
+    res.set(b"Font".to_vec(), Object::Dict(fonts));
+    let mut p = Dict::new();
+    p.set(b"Type".to_vec(), Object::name("Page"));
+    p.set(b"Parent".to_vec(), Object::Ref(pages));
+    p.set(b"Contents".to_vec(), Object::Ref(contents));
+    p.set(b"Resources".to_vec(), Object::Dict(res));
+    p.set(b"MediaBox".to_vec(), Object::Array([0, 0, 400, 120].map(Object::Int).to_vec()));
+    let page = d.add(Object::Dict(p));
+    d.update_dict(pages, |p| {
+        p.set(b"Type".to_vec(), Object::name("Pages"));
+        p.set(b"Kids".to_vec(), Object::Array(vec![Object::Ref(page)]));
+        p.set(b"Count".to_vec(), Object::Int(1));
+    })
+    .unwrap();
+    let mut root = Dict::new();
+    root.set(b"Type".to_vec(), Object::name("Catalog"));
+    root.set(b"Pages".to_vec(), Object::Ref(pages));
+    let root = d.add(Object::Dict(root));
+    d.trailer_mut().set(b"Root".to_vec(), Object::Ref(root));
+    std::sync::Arc::new(pdfcraft_cos::write_full(&d, &SaveOptions::default()).unwrap())
+}
+
+/// Visible text is not OCR: a styled rewrite of stretched text keeps its width, draws no cover
+/// and stays visible.
+#[test]
+fn visible_stretched_text_rewrites_unchanged() {
+    let mut s = Session::new();
+    let id = s.open("stretched.pdf", None, stretched_visible(), None).unwrap();
+    let before = s.get(id).unwrap().text_blocks(0);
+    assert_eq!(before.len(), 1);
+    assert!(!before[0].invisible);
+    let style = pdfcraft_engine::BlockStyle { color: Some([1.0, 0.0, 0.0]), ..Default::default() };
+    s.apply(id, Edit::EditTextBlock { page: 0, block: 0, text: "Source".into(), style }).unwrap();
+    let after = s.get(id).unwrap().text_blocks(0);
+    assert_eq!(after.iter().map(|b| b.text.as_str()).collect::<Vec<_>>(), ["Source"]);
+    assert!(!after[0].invisible);
+    let (w0, w1) = (before[0].rect[2] - before[0].rect[0], after[0].rect[2] - after[0].rect[0]);
+    assert!((w0 - w1).abs() < 1.0, "the stretched word keeps its width: {w0} → {w1}");
+    assert!((before[0].rect[0] - after[0].rect[0]).abs() < 0.5);
+    // No paper-coloured cover: outside the glyphs the page is still white.
+    let doc = s.get(id).unwrap();
+    let out = PageRenderer::new(doc.bytes.clone(), Default::default()).render(RenderRequest { page: 0, scale: 1.0, ..Default::default() });
+    assert!(out.error.is_none());
+    let r = after[0].rect;
+    let (x, y) = ((r[0] - 1.0).max(0.0) as u32, (120.0 - (r[1] + r[3]) / 2.0) as u32);
+    let i = ((y * out.width + x) * 4) as usize;
+    assert_eq!(&out.rgba[i..i + 3], &[255, 255, 255]);
+}
