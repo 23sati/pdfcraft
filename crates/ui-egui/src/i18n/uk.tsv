@@ -2264,6 +2264,9 @@ key	Space	Пробіл
 scroll speed	Slow	Повільна
 scroll speed	Normal	Звичайна
 scroll speed	Fast	Швидка
+	Smooth scrolling	Плавне прокручування
+smooth scrolling	On	Увімкнено
+smooth scrolling	Off	Вимкнено
 	Enhance camera image	Поліпшити знімок з камери
 	Drag the corners onto the document's edges, then choose Enhance page.	Перетягніть кути до країв документа, потім виберіть «Поліпшити сторінку».
 	Enhance page	Поліпшити сторінку

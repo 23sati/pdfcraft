@@ -2296,6 +2296,9 @@ certificate	Subject	Subjekt
 scroll speed	Slow	Pomalá
 scroll speed	Normal	Normální
 scroll speed	Fast	Rychlá
+	Smooth scrolling	Hladké posouvání
+smooth scrolling	On	Zapnuto
+smooth scrolling	Off	Vypnuto
 
 # Counts that take plural forms: optimized images, discarded items, bytes, pixels and deleted fields.
 @plural	{n} image optimized|{n} images optimized	{n} obrázek optimalizován|{n} obrázky optimalizovány|{n} obrázků optimalizováno

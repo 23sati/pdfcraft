@@ -2155,6 +2155,9 @@ key	Space	Пробел
 scroll speed	Slow	Низкая
 scroll speed	Normal	Обычная
 scroll speed	Fast	Высокая
+	Smooth scrolling	Плавная прокрутка
+smooth scrolling	On	Вкл
+smooth scrolling	Off	Выкл
 	Enhance camera image	Улучшить снимок с камеры
 	Drag the corners onto the document's edges, then choose Enhance page.	Перетащите углы к краям документа, затем выберите «Улучшить страницу».
 	Enhance page	Улучшить страницу

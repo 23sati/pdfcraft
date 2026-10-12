@@ -2248,6 +2248,9 @@ key	Space	Preslednica
 scroll speed	Slow	Počasi
 scroll speed	Normal	Običajno
 scroll speed	Fast	Hitro
+	Smooth scrolling	Gladko drsenje
+smooth scrolling	On	Vklopljeno
+smooth scrolling	Off	Izklopljeno
 	Enhance camera image	Izboljšaj fotografijo s kamere
 	Drag the corners onto the document's edges, then choose Enhance page.	Povlecite vogale na robove dokumenta, nato izberite Izboljšaj stran.
 	Enhance page	Izboljšaj stran

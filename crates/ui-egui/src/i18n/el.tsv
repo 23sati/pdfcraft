@@ -2259,6 +2259,9 @@ comment menu	Edit	Επεξεργασία
 scroll speed	Slow	Αργή
 scroll speed	Normal	Κανονική
 scroll speed	Fast	Γρήγορη
+	Smooth scrolling	Ομαλή κύλιση
+smooth scrolling	On	Ενεργή
+smooth scrolling	Off	Ανενεργή
 	Enhance camera image	Βελτίωση εικόνας κάμερας
 	Drag the corners onto the document's edges, then choose Enhance page.	Σύρετε τις γωνίες στις άκρες του εγγράφου και επιλέξτε Βελτίωση σελίδας.
 	Enhance page	Βελτίωση σελίδας

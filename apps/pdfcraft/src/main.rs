@@ -33,6 +33,8 @@ use pdfcraft_ui_egui::PdfCraftApp;
 mod apple_events;
 mod compositor_gpu;
 mod logging;
+#[cfg(target_os = "windows")]
+mod motion;
 mod reopen;
 mod single_instance;
 mod text_scale;
@@ -312,6 +314,12 @@ fn app_creator<'a>(
         }
         app.integrated_titlebar = integrated;
         app.system_text_scale = text_scale::system();
+        // Windows' Animation effects setting: with it off nothing animates, and the wheel doesn't
+        // ease unless Preferences ▸ Smooth scrolling says so.
+        #[cfg(target_os = "windows")]
+        {
+            app.motion.source = Some(motion::source());
+        }
         app.update_source = Some(std::sync::Arc::new(updates::latest_release));
         app.printer_source = Some(pdfcraft_ui_egui::system_printers());
         app.os_key_store_ids = cfg!(any(target_os = "macos", target_os = "windows"));

@@ -2206,6 +2206,9 @@ key	Space	空格
 scroll speed	Slow	慢
 scroll speed	Normal	正常
 scroll speed	Fast	快
+	Smooth scrolling	平滑滚动
+smooth scrolling	On	开
+smooth scrolling	Off	关
 	Enhance camera image	增强相机图像
 	Drag the corners onto the document's edges, then choose Enhance page.	将四个角拖到文档边缘，然后选择“增强页面”。
 	Enhance page	增强页面

@@ -2227,6 +2227,9 @@ key	Space	Spacja
 scroll speed	Slow	Wolna
 scroll speed	Normal	Normalna
 scroll speed	Fast	Szybka
+	Smooth scrolling	Płynne przewijanie
+smooth scrolling	On	Włączone
+smooth scrolling	Off	Wyłączone
 	Enhance camera image	Popraw zdjęcie z aparatu
 	Drag the corners onto the document's edges, then choose Enhance page.	Przeciągnij narożniki na krawędzie dokumentu, a następnie wybierz Popraw stronę.
 	Enhance page	Popraw stronę

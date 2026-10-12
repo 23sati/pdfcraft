@@ -2243,6 +2243,9 @@ key	Space	Leertaste
 scroll speed	Slow	Langsam
 scroll speed	Normal	Normal
 scroll speed	Fast	Schnell
+	Smooth scrolling	Sanftes Scrollen
+smooth scrolling	On	Ein
+smooth scrolling	Off	Aus
 	Enhance camera image	Kamerafoto verbessern
 	Drag the corners onto the document's edges, then choose Enhance page.	Ziehen Sie die Ecken auf die Kanten des Dokuments und wählen Sie dann Seite verbessern.
 	Enhance page	Seite verbessern

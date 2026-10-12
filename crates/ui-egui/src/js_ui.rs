@@ -357,6 +357,13 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
             widgets::radio_value(ui, &mut app.scroll_speed, speed, tl_ctx!("scroll speed", speed.label()));
         }
     });
+    // Whether the wheel eases; left alone it follows the system's animation setting.
+    ui.horizontal(|ui| {
+        ui.label(tl!("Smooth scrolling"));
+        for choice in crate::motion::SmoothScrolling::ALL {
+            widgets::radio_value(ui, &mut app.smooth_scrolling, choice, tl_ctx!("smooth scrolling", choice.label()));
+        }
+    });
     ui.add_space(8.0);
     // Identity: the author of new comments (Acrobat: Preferences ▸ Identity).
     ui.label(egui::RichText::new(tl!("Identity")).font(theme::semibold(13.0)));

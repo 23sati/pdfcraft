@@ -2073,7 +2073,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     }
 
     // Pinch / ctrl+scroll zoom, anchored on the current page.
-    let zoom_delta = ui.input(|i| i.zoom_delta());
+    let zoom_delta = crate::motion::zoom_delta(ui.ctx());
     // Exclude the previous frame's scrollbar tracks from gesture activation.
     let navigation_rect = if view.viewport_screen.is_positive() { avail.intersect(view.viewport_screen) } else { avail };
     let navigation_enabled = app.dialog.is_none() && app.close_request.is_none() && !app.palette_open && ui.is_enabled() && ui.input(|i| i.focused);
@@ -4197,7 +4197,7 @@ fn organize_grid(view: &mut DocView, info: &DocInfo, editable: bool, dirty: bool
     }
     view.auto_scroll.paint(ui, viewport);
     // Pinch, or Ctrl/⌘ with the wheel, zooms the grid about the page under the pointer.
-    let pinch = ui.input(|i| i.zoom_delta());
+    let pinch = crate::motion::zoom_delta(ui.ctx());
     if (pinch - 1.0).abs() > 0.001 && pointer.is_some() && !middle_gesture {
         view.grid_zoom_request = Some(view.grid_zoom * pinch);
     }

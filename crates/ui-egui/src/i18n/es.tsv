@@ -2295,6 +2295,9 @@ key	Space	Espacio
 scroll speed	Slow	Lenta
 scroll speed	Normal	Normal
 scroll speed	Fast	Rápida
+	Smooth scrolling	Desplazamiento suave
+smooth scrolling	On	Activado
+smooth scrolling	Off	Desactivado
 	Enhance camera image	Mejorar foto de cámara
 	Drag the corners onto the document's edges, then choose Enhance page.	Arrastre las esquinas hasta los bordes del documento y elija Mejorar página.
 	Enhance page	Mejorar página
