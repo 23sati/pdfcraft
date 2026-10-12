@@ -2147,6 +2147,9 @@
 	Add or edit links	Προσθήκη ή επεξεργασία συνδέσμων
 	Create links from URLs	Δημιουργία συνδέσμων από URL
 	Remove all links	Αφαίρεση όλων των συνδέσμων
+	No links to remove	Δεν υπάρχουν σύνδεσμοι για κατάργηση
+	Removed 1 link	Καταργήθηκε 1 σύνδεσμος
+	Removed {n} links	Σύνδεσμοι που καταργήθηκαν: {n}
 	Add Bates numbering…	Προσθήκη αρίθμησης Bates…
 	Add image…	Προσθήκη εικόνας…
 	Redact text and images	Οριστική απόκρυψη κειμένου και εικόνων

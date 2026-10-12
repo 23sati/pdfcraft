@@ -196,6 +196,9 @@
 	Add or edit links	Hivatkozások hozzáadása vagy szerkesztése
 	Create links from URLs	Hivatkozások létrehozása URL-ekből
 	Remove all links	Összes hivatkozás eltávolítása
+	No links to remove	Nincs eltávolítható hivatkozás
+	Removed 1 link	1 hivatkozás eltávolítva
+	Removed {n} links	{n} hivatkozás eltávolítva
 	Add Bates numbering…	Bates-számozás hozzáadása…
 	Add image…	Kép hozzáadása…
 	Redact text and images	Szöveg és képek kitakarása

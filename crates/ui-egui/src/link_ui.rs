@@ -17,6 +17,10 @@ pub struct LinkView {
     /// A link rectangle being drawn: (page, start).
     pub drag: Option<(usize, Pos2)>,
     pub selected: Option<(usize, usize)>,
+    /// The link the last right-click on a page hit (page, index), if any: the canvas
+    /// context menu shows the link items only for it, so a right-click elsewhere (on a
+    /// comment, say) keeps its own menu even while a link stays selected.
+    pub context: Option<(usize, usize)>,
     /// Ask the app to open Link Properties for a new rect (page, user rect) or an existing
     /// link (page, index).
     pub open_new: Option<(usize, [f64; 4])>,
@@ -82,6 +86,7 @@ pub(crate) fn page_input(
         && let Some(l) = hit
     {
         lv.selected = Some((page, l.index));
+        lv.context = Some((page, l.index));
         return true;
     }
     if resp.clicked() || resp.double_clicked() {

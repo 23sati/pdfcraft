@@ -183,6 +183,9 @@
 	Add or edit links	Bağlantı ekle veya düzenle
 	Create links from URLs	URL'lerden bağlantı oluştur
 	Remove all links	Tüm bağlantıları kaldır
+	No links to remove	Kaldırılacak bağlantı yok
+	Removed 1 link	1 bağlantı kaldırıldı
+	Removed {n} links	{n} bağlantı kaldırıldı
 	Add Bates numbering…	Bates numaralandırması ekle…
 	Add image…	Resim ekle…
 	Redact text and images	Metin ve resimleri karart

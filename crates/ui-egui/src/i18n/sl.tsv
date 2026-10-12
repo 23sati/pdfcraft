@@ -1429,6 +1429,9 @@
 	Reliable character encoding is provided	Zagotovljeno je zanesljivo kodiranje znakov
 	Remove	Odstrani
 	Remove all links	Odstrani vse povezave
+	No links to remove	Ni povezav za odstranitev
+	Removed 1 link	Odstranjena je 1 povezava
+	Removed {n} links	Odstranjene povezave: {n}
 	Remove background	Odstrani ozadje
 	Remove checkmark	Odstrani kljukico
 	Remove from Recent	Odstrani iz nedavnih

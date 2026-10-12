@@ -2374,6 +2374,10 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         let mut current_overlap = -1.0f32;
         let mut current_height = f32::INFINITY;
         let pointer = ui.input(|i| i.pointer.hover_pos());
+        if resp.secondary_clicked() {
+            // Set again below when the right-click lands on a link.
+            view.links.context = None;
+        }
         for &i in &visible_pages {
             let r = snap_to_pixels(rects[i].translate(origin.to_vec2()), ppp);
             if !r.intersects(visible.expand(400.0)) {
@@ -2676,7 +2680,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                 && let Some(p) = pointer.filter(|p| xf.rect.contains(*p))
                 && let Some(l) = doc.links.iter().find(|l| l.page == i && crate::link_ui::screen_rect(&xf, info, i, l.rect).expand(2.0).contains(p))
             {
-                view.links.selected = Some((i, l.index));
+                view.links.context = Some((i, l.index));
             }
             let consumed = on_objects || on_edit_text || on_link || on_content || boxing || on_field || comments::page_input(ui, &resp, &pcx, view);
 
@@ -3005,7 +3009,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                 }
                 return;
             }
-            if let Some((page, index)) = view.links.selected {
+            if let Some((page, index)) = view.links.context {
                 if ui.button(tl!("Properties…")).clicked() {
                     view.links.open_existing = Some((page, index));
                     ui.close();
@@ -3013,19 +3017,14 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                 if ui.add_enabled(can_modify, egui::Button::new(tl!("Delete"))).clicked() {
                     view.pending_edit = Some(Edit::DeleteLink { page, index });
                     view.links.selected = None;
+                    view.links.context = None;
                     ui.close();
                 }
                 ui.separator();
                 if ui.add_enabled(can_modify, egui::Button::new(tl!("Remove all links"))).clicked() {
                     view.pending_edit = Some(Edit::RemoveLinks { pages: None });
                     view.links.selected = None;
-                    ui.close();
-                }
-                return;
-            }
-            if tool == QuickTool::Link {
-                if ui.add_enabled(can_modify && !doc.links.is_empty(), egui::Button::new(tl!("Remove all links"))).clicked() {
-                    view.pending_edit = Some(Edit::RemoveLinks { pages: None });
+                    view.links.context = None;
                     ui.close();
                 }
                 return;

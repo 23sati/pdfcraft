@@ -269,7 +269,6 @@ pub const COMMANDS: &[CommandSpec] = &[
     c("edit.link", "Add or edit links", None, None, Modification, "link-2"),
     c("edit.links_from_urls", "Create links from URLs", None, None, Modification, "link-2"),
     c("edit.remove_links", "Remove all links", None, None, Modification, "trash-2"),
-    c("edit.remove_all_links", "Remove all links", None, None, Modification, "trash-2"),
     c("edit.bates", "Add Bates numbering…", None, None, Modification, "hash"),
     c("edit.image", "Add image…", None, None, Modification, "image-plus"),
     c("redact.mark", "Redact text and images", None, None, Modification, "rectangle-horizontal"),

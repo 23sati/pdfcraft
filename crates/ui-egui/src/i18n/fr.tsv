@@ -198,6 +198,9 @@
 	Add or edit links	Ajouter ou modifier des liens
 	Create links from URLs	Créer des liens à partir des URL
 	Remove all links	Retirer tous les liens
+	No links to remove	Aucun lien à retirer
+	Removed 1 link	1 lien retiré
+	Removed {n} links	Liens retirés : {n}
 	Add Bates numbering…	Ajouter une numérotation Bates…
 	Add image…	Ajouter une image…
 	Redact text and images	Biffer du texte et des images

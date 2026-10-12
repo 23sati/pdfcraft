@@ -202,6 +202,9 @@ comment menu	Edit	సవరించు
 	Add or edit links	లింక్‌లను జోడించు లేదా సవరించు
 	Create links from URLs	URLల నుండి లింక్‌లను సృష్టించు
 	Remove all links	అన్ని లింక్‌లను తీసివేయి
+	No links to remove	తీసివేయడానికి లింక్‌లు లేవు
+	Removed 1 link	1 లింక్ తీసివేయబడింది
+	Removed {n} links	తీసివేసిన లింక్‌లు: {n}
 	Add Bates numbering…	బేట్స్ నంబరింగ్ జోడించు…
 	Add image…	చిత్రాన్ని జోడించు…
 	Redact text and images	టెక్స్ట్‌ను, చిత్రాలను రెడాక్ట్ చేయి

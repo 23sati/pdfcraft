@@ -342,6 +342,9 @@ key	Space	Mezerník
 	Add or edit links	Přidat nebo upravit odkazy
 	Create links from URLs	Vytvořit odkazy z adres URL
 	Remove all links	Odebrat všechny odkazy
+	No links to remove	Nejsou žádné odkazy k odebrání
+	Removed 1 link	Odebrán 1 odkaz
+	Removed {n} links	Odebrané odkazy: {n}
 	Add Bates numbering…	Přidat Batesovo číslování…
 	Add image…	Přidat obrázek…
 	Redact text and images	Začernit text a obrázky
