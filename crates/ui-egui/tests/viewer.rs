@@ -39,7 +39,8 @@ fn harness() -> Harness<'static, PdfCraftApp> {
         app.open_bytes("b.pdf", None, fixture(2)).unwrap();
         app
     });
-    for _ in 0..40 {
+    // Background rendering and text extraction can take seconds on a loaded CI runner (FreeBSD VM).
+    for _ in 0..3000 {
         h.run_steps(2);
         if !h.state().render_pending() {
             break;
@@ -91,7 +92,8 @@ fn view_history_select_all_and_find_options() {
     assert!(h.state_mut().views[0].view_history(true));
     assert_eq!(h.state().views[0].current, 3, "next view");
     // Select all on the current page (once its text is known).
-    for _ in 0..40 {
+    // Background rendering and text extraction can take seconds on a loaded CI runner (FreeBSD VM).
+    for _ in 0..3000 {
         h.run_steps(2);
         if h.state_mut().views[0].select_all() {
             break;
@@ -217,6 +219,38 @@ fn marking_while_searching_does_not_jitter_or_reset_search_state() {
         }
     }
     assert_eq!(h.state().views[0].find.as_ref().unwrap().current, current_before);
+    assert_eq!(h.state().views[0].find.as_ref().unwrap().matches.len(), 15);
+
+    // If user is viewing page 3 and reruns find, the selected match must be on page 3 (index 9), not page 0
+    h.state_mut().views[0].current = 3;
+    h.state_mut().views[0].rerun_find();
+    let current_p3 = h.state().views[0].find.as_ref().unwrap().current;
+    assert_eq!(current_p3, Some(9), "rerun_find must select the first match at or after the viewed page (page 3), but selected {:?}", current_p3);
+
+    // Continuous drawing across multiple pages must never trigger viewport jumps or wipe search state
+    h.run_steps(2);
+    h.state_mut().views[0].goto = None;
+    for p in 1..=4 {
+        let shape = pdfcraft_engine::Shape::Ink { strokes: vec![vec![[15.0 * p as f64, 20.0], [30.0 * p as f64, 40.0]]] };
+        let stroke = pdfcraft_engine::Edit::AddAnnotation(pdfcraft_engine::NewAnnotation {
+            page: p,
+            style: pdfcraft_engine::Style::default_for(&shape),
+            shape,
+            contents: String::new(),
+            author: "tester".into(),
+        });
+        h.state_mut().apply_edit(stroke);
+        h.run_steps(2);
+        assert!(h.state().views[0].goto.is_none(), "drawing on page {p} must not set goto");
+        assert_eq!(h.state().views[0].find.as_ref().unwrap().current, Some(9));
+    }
+    let multi_deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while std::time::Instant::now() < multi_deadline {
+        h.run_steps(2);
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        assert!(h.state().views[0].goto.is_none(), "multi-page reload after annotations must not set goto");
+    }
+    assert_eq!(h.state().views[0].find.as_ref().unwrap().current, Some(9));
     assert_eq!(h.state().views[0].find.as_ref().unwrap().matches.len(), 15);
 }
 
@@ -476,7 +510,8 @@ fn advanced_search_lists_results_with_context() {
     h.run_steps(2);
     h.get_by_label("What word or phrase would you like to search for?");
     h.state_mut().views[i].find.as_mut().unwrap().query = "pages".into();
-    for _ in 0..40 {
+    // Background rendering and text extraction can take seconds on a loaded CI runner (FreeBSD VM).
+    for _ in 0..3000 {
         h.run_steps(2);
         if h.state().views[i].find.as_ref().is_some_and(|f| f.matches.len() == 2) {
             break;

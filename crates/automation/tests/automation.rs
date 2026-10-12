@@ -2303,6 +2303,36 @@ fn fill_and_sign_through_tools() {
 }
 
 #[test]
+fn fill_sign_text_font_size_is_saved_and_validated() {
+    let dir = workdir("fill-sign-text-size");
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    ok(&mut a, "fill_sign_add", json!({ "doc": doc, "page": 1, "type": "text", "at": [20, 40], "text": "Big", "font_size": 24 }));
+    let comments = ok(&mut a, "comment_list", json!({ "doc": doc }));
+    let rect = comments["comments"][0]["rect"].as_array().unwrap();
+    let height = rect[3].as_f64().unwrap() - rect[1].as_f64().unwrap();
+    assert!(height > 30.0, "24 pt text has a taller annotation: {comments}");
+    ok(&mut a, "doc_save", json!({ "doc": doc, "path": "sized.pdf" }));
+    let saved = std::fs::read(dir.join("sized.pdf")).unwrap();
+    let pdf = pdfcraft_cos::Document::open(std::sync::Arc::new(saved)).unwrap();
+    let page = pdfcraft_model::pages(&pdf).remove(0);
+    let annotations = pdf.resolve(page.dict.get(b"Annots").unwrap());
+    let annotation = pdf.resolve(annotations.as_array().unwrap().first().unwrap());
+    let da = annotation.as_dict().unwrap().get(b"DA").unwrap().as_string().unwrap();
+    assert!(da.bytes.windows(b"/Helv 24 Tf".len()).any(|w| w == b"/Helv 24 Tf"), "saved annotation uses the requested font size");
+    for size in [0, 3, 301] {
+        assert!(matches!(
+            a.call("fill_sign_add", &json!({ "doc": doc, "page": 1, "type": "text", "at": [20, 80], "text": "No", "font_size": size })),
+            Err(ToolError::InvalidArgs(_))
+        ));
+    }
+    assert!(matches!(
+        a.call("fill_sign_add", &json!({ "doc": doc, "page": 1, "type": "signature", "at": [20, 80], "text": "Ada", "font_size": 24 })),
+        Err(ToolError::InvalidArgs(_))
+    ));
+}
+
+#[test]
 fn image_signatures_through_tools_preserve_transparency_and_survive_save() {
     let dir = workdir("image-signatures");
     let mut png = Vec::new();
@@ -3233,6 +3263,8 @@ fn local_gotor_link_open_refuses_directories_devices_and_non_pdf_targets() {
     std::fs::write(root.join("notes.txt"), fixture(1)).unwrap();
     std::fs::write(root.join("dir-source.pdf"), remote_link_pdf("folder.pdf", None)).unwrap();
     std::fs::write(root.join("txt-source.pdf"), remote_link_pdf("notes.txt", None)).unwrap();
+    // Only Unix adds a case (a FIFO), so elsewhere the list is never changed.
+    #[cfg_attr(not(unix), allow(unused_mut))]
     let mut cases = vec![("dir-source.pdf", "not a regular file"), ("txt-source.pdf", "not a .pdf file")];
     #[cfg(unix)]
     {
@@ -4221,6 +4253,33 @@ BT /F1 11 Tf 20 20 Td (Total due: 150.00) Tj ET";
     assert!(xml.contains("margin-left:20.000pt"), "invoice fields retain their left edge");
     let rendered = a.call("page_render", &json!({ "doc": doc, "page": 1, "dpi": 72 })).unwrap();
     assert!(rendered.iter().any(|c| matches!(c, Content::Png { .. })));
+}
+
+#[test]
+fn hundreds_of_xfa_calculations_open_and_recalculate_within_their_budgets() {
+    let dir = workdir("xfa-many");
+    let (sections, rows) = (10, 20);
+    std::fs::write(dir.join("many.pdf"), pdfcraft_xfa::fixtures::shell(&pdfcraft_xfa::fixtures::many_calculations_template(sections, rows))).unwrap();
+    let mut a = auto(&dir);
+    let started = std::time::Instant::now();
+    let opened = ok(&mut a, "doc_open", json!({ "path": "many.pdf" }));
+    let open_took = started.elapsed();
+    let doc = opened["doc"].as_u64().unwrap();
+    let warnings = opened["warnings"].to_string();
+    assert!(!warnings.contains("were skipped") && !warnings.contains("stopped"), "{warnings}");
+    let fields = ok(&mut a, "form_fields", json!({ "doc": doc }));
+    let totals: Vec<&serde_json::Value> =
+        fields["fields"].as_array().unwrap().iter().filter(|f| f["name"].as_str().is_some_and(|n| n.starts_with("total"))).collect();
+    assert_eq!(totals.len(), sections * rows);
+    assert!(totals.iter().all(|f| !f["value"].as_str().unwrap_or("").is_empty()), "every total calculated");
+    let started = std::time::Instant::now();
+    let r = ok(&mut a, "form_fill", json!({ "doc": doc, "values": { "qty": "100" } }));
+    let change_took = started.elapsed();
+    assert!(!r.to_string().contains("were skipped"), "{r}");
+    let fields = ok(&mut a, "form_fields", json!({ "doc": doc }));
+    let total = fields["fields"].as_array().unwrap().iter().find(|f| f["name"] == "total").unwrap();
+    assert_eq!(total["value"], "200");
+    eprintln!("{} calculate scripts: open {open_took:?}, recalculation after a change {change_took:?}", sections * rows + sections);
 }
 
 #[test]
