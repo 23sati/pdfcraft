@@ -1790,6 +1790,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	Өзгерту: {key}
 	Insert pages from {name}	Беттерді {name} файлынан енгізу
+	Insert pages from {name} — 1 field renamed	{name} ішінен беттерді кірістіру — 1 өріс қайта аталды
+	Insert pages from {name} — fields renamed	{name} ішінен беттерді кірістіру — өрістер қайта аталды
 	Fill in {name}	{name} толтыру
 	Set the image of {name}	{name} кескінін орнату
 	Edit script of {name}	{name} скриптін түзету
@@ -2256,3 +2258,4 @@ scroll speed	Fast	Жылдам
 	Tools panel side	Құралдар панелінің жағы
 	Add comment	Түсініктеме қосу
 	Change tag properties	Тег қасиеттерін өзгерту
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} өріс атауы алдыңғы файлдармен қайшы келеді және қайта аталады: {list}|{n} өріс атауы алдыңғы файлдармен қайшы келеді және қайта аталады: {list}

@@ -1784,6 +1784,8 @@ action wizard	Start	ప్రారంభించు
 	{month} {y}	{month} {y}
 	Change {key}	{key} మార్చు
 	Insert pages from {name}	{name} నుండి పేజీలను చొప్పించు
+	Insert pages from {name} — 1 field renamed	{name} నుండి పేజీలను చొప్పించు — 1 ఫీల్డ్ పేరు మార్చబడింది
+	Insert pages from {name} — fields renamed	{name} నుండి పేజీలను చొప్పించు — ఫీల్డ్‌ల పేర్లు మార్చబడ్డాయి
 	Fill in {name}	{name}ను నింపు
 	Set the image of {name}	{name} చిత్రాన్ని సెట్ చేయి
 	Edit script of {name}	{name} స్క్రిప్ట్‌ను సవరించు

@@ -1304,6 +1304,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	Αλλαγή {key}
 	Insert pages from {name}	Εισαγωγή σελίδων από {name}
+	Insert pages from {name} — 1 field renamed	Εισαγωγή σελίδων από {name} — μετονομάστηκε 1 πεδίο
+	Insert pages from {name} — fields renamed	Εισαγωγή σελίδων από {name} — μετονομάστηκαν πεδία
 	Fill in {name}	Συμπλήρωση του {name}
 	Set the image of {name}	Ορισμός εικόνας του {name}
 	Edit script of {name}	Επεξεργασία δέσμης ενεργειών του {name}
@@ -2274,3 +2276,4 @@ scroll speed	Fast	Γρήγορη
 	Tools panel side	Πλευρά πλαισίου εργαλείων
 	Add comment	Προσθήκη σχολίου
 	Change tag properties	Αλλαγή ιδιοτήτων ετικέτας
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} όνομα πεδίου συγκρούεται με προηγούμενα αρχεία και θα μετονομαστεί: {list}|{n} ονόματα πεδίων συγκρούονται με προηγούμενα αρχεία και θα μετονομαστούν: {list}

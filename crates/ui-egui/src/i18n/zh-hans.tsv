@@ -1961,6 +1961,8 @@
 	Images and text (converted to PDF)	图像和文本（转换为 PDF）
 	Import {name}	导入 {name}
 	Insert pages from {name}	从 {name} 插入页面
+	Insert pages from {name} — 1 field renamed	从 {name} 插入页面 — 已重命名 1 个字段
+	Insert pages from {name} — fields renamed	从 {name} 插入页面 — 已重命名字段
 	Items marked Ready work today.	标记为就绪的项目现已可用。
 	JavaScript	JavaScript
 	JavaScript, e.g. getField("total").value	JavaScript，例如 getField("total").value

@@ -1872,6 +1872,8 @@
 	{month} {y}	{y}年{month}
 	Change {key}	{key}を変更
 	Insert pages from {name}	{name} からページを挿入
+	Insert pages from {name} — 1 field renamed	{name} からページを挿入 — 1 個のフィールド名を変更
+	Insert pages from {name} — fields renamed	{name} からページを挿入 — フィールド名を変更
 	Fill in {name}	{name} に入力
 	Set the image of {name}	{name} の画像を設定
 	Edit script of {name}	{name} のスクリプトを編集

@@ -345,6 +345,8 @@ pub struct DuplicateDraft {
 /// Copied pages: their document's name and bytes (as it was when copied) and the pages.
 #[derive(Clone, Debug)]
 pub struct PageClip {
+    /// The document the pages were copied from: pasting back into it keeps field names.
+    pub from: DocId,
     pub name: String,
     pub bytes: std::sync::Arc<Vec<u8>>,
     pub pages: Vec<usize>,

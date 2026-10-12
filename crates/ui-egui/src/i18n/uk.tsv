@@ -1859,6 +1859,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	Змінити: {key}
 	Insert pages from {name}	Вставити сторінки з {name}
+	Insert pages from {name} — 1 field renamed	Вставити сторінки з {name} — 1 поле перейменовано
+	Insert pages from {name} — fields renamed	Вставити сторінки з {name} — поля перейменовано
 	Fill in {name}	Заповнити {name}
 	Set the image of {name}	Задати зображення для {name}
 	Edit script of {name}	Редагувати сценарій {name}

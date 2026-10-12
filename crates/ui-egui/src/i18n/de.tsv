@@ -1796,6 +1796,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	{key} ändern
 	Insert pages from {name}	Seiten aus {name} einfügen
+	Insert pages from {name} — 1 field renamed	Seiten aus {name} einfügen — 1 Feld umbenannt
+	Insert pages from {name} — fields renamed	Seiten aus {name} einfügen — Felder umbenannt
 	Fill in {name}	{name} ausfüllen
 	Set the image of {name}	Bild von {name} festlegen
 	Edit script of {name}	Skript von {name} bearbeiten

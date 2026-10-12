@@ -843,6 +843,21 @@ fn combine_list_does_not_warn_that_a_split_file_collides_with_itself() {
     assert!(h.query_by_label_contains("will be renamed").is_none(), "one file, however many parts, cannot collide with itself");
 }
 
+/// Copying a page with a field and pasting it back into the same document is a duplicate: the
+/// copy keeps the field's name rather than becoming Text1-1.
+#[test]
+fn pasting_pages_into_their_own_document_keeps_field_names() {
+    let mut app = PdfCraftApp::new();
+    app.set_option("language", "en").unwrap();
+    app.open_bytes("form.pdf", None, form_pdf("Text1")).unwrap();
+    app.views[0].select_pages(&[0]);
+    assert!(app.execute("page.copy"));
+    assert!(app.execute("page.paste"));
+    let doc = app.session.get(app.views[0].id).unwrap();
+    assert_eq!(doc.info.pages.len(), 2, "pasted");
+    assert!(doc.form.iter().all(|f| f.name == "Text1"), "{:?}", doc.form.iter().map(|f| &f.name).collect::<Vec<_>>());
+}
+
 fn texts_of(app: &PdfCraftApp, tab: usize) -> Vec<String> {
     let doc = app.session.get(app.views[tab].id).unwrap();
     let mut r = PageRenderer::new(doc.bytes.clone(), Default::default());

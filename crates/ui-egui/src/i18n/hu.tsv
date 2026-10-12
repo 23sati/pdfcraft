@@ -1781,6 +1781,8 @@
 	{month} {y}	{y}. {month}
 	Change {key}	{key} módosítása
 	Insert pages from {name}	Oldalak beszúrása ebből: {name}
+	Insert pages from {name} — 1 field renamed	Oldalak beszúrása ebből: {name} — 1 mező átnevezve
+	Insert pages from {name} — fields renamed	Oldalak beszúrása ebből: {name} — mezők átnevezve
 	Fill in {name}	{name} kitöltése
 	Set the image of {name}	{name} képének beállítása
 	Edit script of {name}	{name} szkriptjének szerkesztése

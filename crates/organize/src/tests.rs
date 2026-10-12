@@ -1777,7 +1777,7 @@ fn form_field_names(doc: &Document) -> Vec<String> {
 fn import_renames_a_colliding_field_name() {
     let mut dst = doc_with_field("Text1");
     let src = doc_with_field("Text1");
-    import_pages(&mut dst, &src, &[0], 1).unwrap();
+    import_pages_with(&mut dst, &src, &[0], 1, FieldConflicts::Rename).unwrap();
     assert_eq!(form_field_names(&dst), ["Text1", "Text1-1"]);
 }
 
@@ -1787,7 +1787,7 @@ fn import_renames_a_colliding_field_name() {
 fn import_renames_to_the_first_free_variant() {
     let mut dst = doc_with_fields(&["Text1", "Text1-1"]);
     let src = doc_with_field("Text1");
-    import_pages(&mut dst, &src, &[0], 1).unwrap();
+    import_pages_with(&mut dst, &src, &[0], 1, FieldConflicts::Rename).unwrap();
     assert_eq!(form_field_names(&dst), ["Text1", "Text1-1", "Text1-2"]);
 }
 
@@ -1870,7 +1870,7 @@ fn doc_with_tree(root: &str, kid: &str) -> Document {
 fn import_renames_a_nested_field_whose_full_name_collides() {
     let mut dst = doc_with_tree("x", "b");
     let src = doc_with_field("x.b");
-    import_pages(&mut dst, &src, &[0], 1).unwrap();
+    import_pages_with(&mut dst, &src, &[0], 1, FieldConflicts::Rename).unwrap();
     assert_eq!(form_field_names(&dst), ["x", "x.b-1"]);
 }
 
@@ -1881,7 +1881,7 @@ fn import_renames_a_nested_field_whose_full_name_collides() {
 fn import_renames_the_colliding_child_not_the_whole_tree() {
     let mut dst = doc_with_field("a.b");
     let src = doc_with_tree("a", "b");
-    import_pages(&mut dst, &src, &[0], 1).unwrap();
+    import_pages_with(&mut dst, &src, &[0], 1, FieldConflicts::Rename).unwrap();
     assert_eq!(form_field_names(&dst), ["a.b", "a"], "the incoming root keeps its name");
     // The incoming tree is the second /Fields entry; its child was renamed.
     let fields = catalog(&dst)
@@ -1914,7 +1914,7 @@ fn import_renames_away_from_an_orphaned_widgets_name() {
     ];
     let mut dst = open(build(&b, "/Root 1 0 R /Info 4 0 R"));
     let src = doc_with_field("Text1");
-    import_pages(&mut dst, &src, &[0], 1).unwrap();
+    import_pages_with(&mut dst, &src, &[0], 1, FieldConflicts::Rename).unwrap();
     assert_eq!(form_field_names(&dst), ["Text1-1"], "the orphaned Text1 must count as taken");
 }
 
@@ -1927,6 +1927,36 @@ fn import_can_merge_into_same_named_fields_instead() {
     let outcome = import_pages_with(&mut dst, &src, &[0], 1, FieldConflicts::Merge).unwrap();
     assert_eq!(form_field_names(&dst), ["Text1", "Text1"]);
     assert!(outcome.renamed_fields.is_empty(), "merge renames nothing");
+}
+
+/// Duplicating a page copies the document's own fields: the copies keep their names (one field
+/// shown twice, as before field-conflict renaming existed) instead of silently becoming Text1-1.
+#[test]
+fn duplicating_a_page_with_a_field_keeps_the_field_name() {
+    let mut doc = doc_with_field("Text1");
+    crate::duplicate_pages(&mut doc, &[0]).unwrap();
+    assert_eq!(crate::page_count(&doc).unwrap(), 2);
+    assert_eq!(form_field_names(&doc), ["Text1", "Text1"], "nothing renamed");
+}
+
+/// Replace Pages keeps the field names too.
+#[test]
+fn replacing_a_page_renames_no_fields() {
+    let mut doc = doc_with_field("Text1");
+    crate::replace_pages(&mut doc, &[0], &doc_with_field("Text1"), &[0]).unwrap();
+    assert!(form_field_names(&doc).iter().all(|n| n == "Text1"), "{:?}", form_field_names(&doc));
+}
+
+/// Extract and Split copy one document: two same-named field roots (malformed but common) stay
+/// one field by name rather than being split apart as Name and Name-1.
+#[test]
+fn extract_and_split_keep_same_named_fields_together() {
+    let src = doc_with_fields(&["Text1", "Text1"]);
+    let out = extract_pages(&src, &[0]).unwrap();
+    assert_eq!(form_field_names(&out), ["Text1", "Text1"]);
+    for part in split(&src, &SplitBy::PageCount(1)).unwrap() {
+        assert_eq!(form_field_names(&part), ["Text1", "Text1"]);
+    }
 }
 
 /// An import says what it renamed, so callers can tell the user — and their scripts — that a
@@ -1946,7 +1976,7 @@ fn import_reports_the_fields_it_renamed() {
 fn a_renamed_field_tree_survives_a_save_and_reopen() {
     let mut dst = doc_with_tree("a", "b");
     let src = doc_with_tree("a", "b");
-    import_pages(&mut dst, &src, &[0], 1).unwrap();
+    import_pages_with(&mut dst, &src, &[0], 1, FieldConflicts::Rename).unwrap();
     let out = full_roundtrip(&dst);
     assert_eq!(form_field_names(&out), ["a", "a-1"], "the incoming root was renamed");
     let fields = catalog(&out)
@@ -1984,7 +2014,7 @@ fn field_name_conflicts_previews_what_an_import_renames() {
 fn import_renames_a_field_colliding_with_another_incoming_field() {
     let mut dst = doc_with_field("Other");
     let src = doc_with_fields(&["Text1", "Text1"]);
-    import_pages(&mut dst, &src, &[0], 1).unwrap();
+    import_pages_with(&mut dst, &src, &[0], 1, FieldConflicts::Rename).unwrap();
     assert_eq!(form_field_names(&dst), ["Other", "Text1", "Text1-1"]);
 }
 
@@ -1994,7 +2024,7 @@ fn import_renames_a_field_colliding_with_another_incoming_field() {
 fn a_repeated_page_joins_the_renamed_field() {
     let mut dst = doc_with_field("Text1");
     let src = doc_with_field("Text1");
-    import_pages(&mut dst, &src, &[0, 0], 2).unwrap();
+    import_pages_with(&mut dst, &src, &[0, 0], 2, FieldConflicts::Rename).unwrap();
     assert_eq!(form_field_names(&dst), ["Text1", "Text1-1"], "one field, renamed once");
     let fields = catalog(&dst)
         .get(b"AcroForm")

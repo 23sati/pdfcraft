@@ -1951,6 +1951,8 @@
 	Images and text (converted to PDF)	Изображения и текст (конвертирани в PDF)
 	Import {name}	Импортирай {name}
 	Insert pages from {name}	Вмъкни страници от {name}
+	Insert pages from {name} — 1 field renamed	Вмъкни страници от {name} — 1 поле е преименувано
+	Insert pages from {name} — fields renamed	Вмъкни страници от {name} — полета са преименувани
 	Items marked Ready work today.	Елементите, отбелязани като „Готово“, работят още сега.
 	JavaScript	JavaScript
 	JavaScript, e.g. getField("total").value	JavaScript, напр. getField("total").value

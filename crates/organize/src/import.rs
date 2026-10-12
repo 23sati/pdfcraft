@@ -192,11 +192,11 @@ pub(crate) fn copy_object(dst: &mut Document, src: &Document, o: &Object, map: H
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum FieldConflicts {
     /// The incoming field's own `/T` is renamed to the first free `Name-1`, `Name-2`… variant,
-    /// so it stays its own field (the default).
+    /// so it stays its own field (the default; Combine and Insert from File use it).
     #[default]
     Rename,
     /// The older behaviour: a field that arrives with a taken name becomes one field with the
-    /// one already there.
+    /// one already there. Duplicate, Replace, Extract and Split always use it.
     Merge,
 }
 
@@ -231,10 +231,15 @@ pub fn import_pages_with(
 /// Copy pages `src_pages` (0-based, in the given order) of `src` into `dst`, inserting them at
 /// position `at`. Returns the new page references in order.
 ///
+/// Fields keep their names ([`FieldConflicts::Merge`]): this is what Duplicate and Replace
+/// Pages use, where the incoming fields are copies of the document's own and renaming them
+/// would silently change what the form exports. Combine and Insert from File, which bring in
+/// another document's fields, use [`import_pages_with`] and [`FieldConflicts::Rename`].
+///
 /// Resources identical to ones already in `dst` (the same fonts, images, colour profiles) are
 /// shared rather than stored twice (see `dedupe`).
 pub fn import_pages(dst: &mut Document, src: &Document, src_pages: &[usize], at: usize) -> Result<Vec<ObjRef>, OrganizeError> {
-    import_pages_with(dst, src, src_pages, at, FieldConflicts::Rename).map(|o| o.pages)
+    import_pages_with(dst, src, src_pages, at, FieldConflicts::Merge).map(|o| o.pages)
 }
 
 /// What `import_pages_mapped` copied.
@@ -709,8 +714,9 @@ fn register_fields(dst: &mut Document, fields: &[ObjRef]) -> Result<(), Organize
 /// source declares (PDF/X: its output intents and identification, #263).
 pub fn extract_pages(src: &Document, pages: &[usize]) -> Result<Document, OrganizeError> {
     let mut out = Document::new_empty();
-    // One source: nothing to deduplicate.
-    let imported = import_pages_mapped(&mut out, src, pages, 0, FieldConflicts::Rename)?;
+    // One source: nothing to deduplicate. Its fields keep their names (a source with two
+    // same-named field roots stays one field, as it was), so Extract and Split never rename.
+    let imported = import_pages_mapped(&mut out, src, pages, 0, FieldConflicts::Merge)?;
     for key in crate::INFO_KEYS {
         if let Some(v) = crate::info(src, key) {
             crate::set_info(&mut out, key, &v)?;

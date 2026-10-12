@@ -1791,6 +1791,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	Modifier {key}
 	Insert pages from {name}	Insérer des pages depuis {name}
+	Insert pages from {name} — 1 field renamed	Insérer des pages depuis {name} — 1 champ renommé
+	Insert pages from {name} — fields renamed	Insérer des pages depuis {name} — champs renommés
 	Fill in {name}	Remplir {name}
 	Set the image of {name}	Définir l'image de {name}
 	Edit script of {name}	Modifier le script de {name}

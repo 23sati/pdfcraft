@@ -1823,6 +1823,8 @@
 	Images and text (converted to PDF)	Imagens e texto (convertidos para PDF)
 	Import {name}	Importar {name}
 	Insert pages from {name}	Inserir páginas de {name}
+	Insert pages from {name} — 1 field renamed	Inserir páginas de {name} — 1 campo renomeado
+	Insert pages from {name} — fields renamed	Inserir páginas de {name} — campos renomeados
 	Items marked Ready work today.	Os itens marcados como Pronto já funcionam hoje.
 	JavaScript	JavaScript
 	JavaScript, e.g. getField("total").value	JavaScript, ex.: getField("total").value

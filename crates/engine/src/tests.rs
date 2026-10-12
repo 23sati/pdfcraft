@@ -482,6 +482,19 @@ fn form_with_field(name: &str) -> Vec<u8> {
 }
 
 /// Inserting pages of a file whose form names a field as the open document's: the incoming
+/// Duplicating a page copies the document's own field: the copy keeps its name (Duplicate is
+/// not Combine), and nothing about renaming lands in the repair log.
+#[test]
+fn duplicating_a_page_with_a_field_keeps_the_field_name() {
+    let mut s = Session::new().with_clock(|| 1_700_000_000);
+    let id = s.open("a.pdf", None, Arc::new(form_with_field("Text1")), None).unwrap();
+    s.apply(id, Edit::DuplicatePages { pages: vec![0] }).unwrap();
+    let doc = s.get(id).unwrap();
+    assert_eq!(doc.info.pages.len(), 2);
+    assert!(doc.form.iter().all(|f| f.name == "Text1"), "{:?}", doc.form.iter().map(|f| &f.name).collect::<Vec<_>>());
+    assert!(!doc.repair_log().iter().any(|l| l.contains("Text1-1")), "{:?}", doc.repair_log());
+}
+
 /// field is renamed to keep the two separate, the repair log says so (warning that scripts
 /// were not rewritten), the undo step's label counts the renames, and undo puts the names back.
 #[test]
@@ -508,7 +521,7 @@ fn insert_from_file_renames_colliding_fields_and_notes_it() {
         doc.repair_log()
     );
     let label = s.undo(id).unwrap();
-    assert_eq!(label, "Insert pages from b.pdf — 1 field renamed");
+    assert_eq!(label.as_str(), "Insert pages from b.pdf — 1 field renamed");
     let doc = s.get(id).unwrap();
     let names: Vec<&str> = doc.form.iter().map(|f| f.name.as_str()).collect();
     assert_eq!(names, ["Text1"], "undo restores the single original field");

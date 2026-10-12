@@ -1912,6 +1912,8 @@ key	Space	Mezerník
 	{month} {y}	{month} {y}
 	Change {key}	Změnit: {key}
 	Insert pages from {name}	Vložit stránky ze souboru {name}
+	Insert pages from {name} — 1 field renamed	Vložit stránky ze souboru {name} — 1 pole přejmenováno
+	Insert pages from {name} — fields renamed	Vložit stránky ze souboru {name} — pole přejmenována
 	Fill in {name}	Vyplnit {name}
 	Set the image of {name}	Nastavit obrázek pole {name}
 	Edit script of {name}	Upravit skript {name}

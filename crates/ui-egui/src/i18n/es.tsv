@@ -1878,6 +1878,8 @@ action wizard	Start	Iniciar
 	{month} {y}	{month} de {y}
 	Change {key}	Cambiar {key}
 	Insert pages from {name}	Insertar páginas de {name}
+	Insert pages from {name} — 1 field renamed	Insertar páginas de {name} — 1 campo renombrado
+	Insert pages from {name} — fields renamed	Insertar páginas de {name} — campos renombrados
 	Fill in {name}	Rellenar {name}
 	Set the image of {name}	Definir la imagen de {name}
 	Edit script of {name}	Editar el script de {name}

@@ -1761,6 +1761,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	{key} değiştir
 	Insert pages from {name}	{name} belgesinden sayfalar ekle
+	Insert pages from {name} — 1 field renamed	{name} dosyasından sayfa ekle — 1 alan yeniden adlandırıldı
+	Insert pages from {name} — fields renamed	{name} dosyasından sayfa ekle — alanlar yeniden adlandırıldı
 	Fill in {name}	{name} doldur
 	Set the image of {name}	{name} resmini ayarla
 	Edit script of {name}	{name} komut dosyasını düzenle
@@ -2254,3 +2256,4 @@ scroll speed	Fast	Hızlı
 	Tools panel side	Araçlar panelinin yeri
 	Add comment	Yorum ekle
 	Change tag properties	Etiket özelliklerini değiştir
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} alan adı önceki dosyalarla çakışıyor ve yeniden adlandırılacak: {list}

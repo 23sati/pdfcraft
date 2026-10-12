@@ -1863,6 +1863,8 @@
 	{month} {y}	{y} 年 {month}
 	Change {key}	變更{key}
 	Insert pages from {name}	從 {name} 插入頁面
+	Insert pages from {name} — 1 field renamed	從 {name} 插入頁面 — 已重新命名 1 個欄位
+	Insert pages from {name} — fields renamed	從 {name} 插入頁面 — 已重新命名欄位
 	Fill in {name}	填寫 {name}
 	Set the image of {name}	設定 {name} 的圖片
 	Edit script of {name}	編輯 {name} 的指令碼

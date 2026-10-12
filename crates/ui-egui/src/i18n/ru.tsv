@@ -1862,6 +1862,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	Изменить {key}
 	Insert pages from {name}	Вставить страницы из {name}
+	Insert pages from {name} — 1 field renamed	Вставить страницы из {name} — 1 поле переименовано
+	Insert pages from {name} — fields renamed	Вставить страницы из {name} — поля переименованы
 	Fill in {name}	Заполнить {name}
 	Set the image of {name}	Задать изображение: {name}
 	Edit script of {name}	Редактировать скрипт: {name}

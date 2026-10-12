@@ -1479,6 +1479,8 @@ pub const EDIT_LABELS: &[&str] = &[
     "Change Keywords",
     "Change {key}",
     "Insert pages from {name}",
+    "Insert pages from {name} — 1 field renamed",
+    "Insert pages from {name} — fields renamed",
     "Add bookmark",
     "Rename bookmark",
     "Delete bookmark",
@@ -3098,9 +3100,15 @@ impl Session {
         if let Some(note) = renamed_note(&cx.renamed_fields) {
             next.note_repair(note);
         }
-        let label = match cx.renamed_fields.len() {
-            0 => edit.label(),
-            n => format!("{} — {n} field{} renamed", edit.label(), if n == 1 { "" } else { "s" }),
+        // Only Insert from File renames fields; its label says so in a wording the interface
+        // translates (the count lives in the repair note).
+        let label = match (&edit, cx.renamed_fields.len()) {
+            (_, 0) => edit.label(),
+            (Edit::InsertPagesFrom { name, .. }, n) => Label::with(
+                if n == 1 { "Insert pages from {name} — 1 field renamed" } else { "Insert pages from {name} — fields renamed" },
+                name.as_str(),
+            ),
+            _ => edit.label(),
         };
         // An XFA form's scripts answer the change: exit and validate scripts of the field, then
         // every calculation (and a reset recalculates). They read the data, so it is brought up
