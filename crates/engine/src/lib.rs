@@ -25,6 +25,7 @@ pub mod js;
 pub mod links;
 pub mod ocr;
 pub mod optimizer;
+mod scan_colours;
 pub mod signature_image;
 pub mod signature_scan;
 pub mod text_fonts;
@@ -3114,6 +3115,21 @@ impl Session {
         if let Some(p) = editor.cos.permissions() {
             check_permission(&edit, &p)?;
         }
+        // Rewriting an OCR word (invisible text over a scan) also hides the scanned word: cover it
+        // in the paper's colour and draw the new text in the ink's.
+        let edit = match edit {
+            Edit::EditTextBlock { page, block, text, mut style } => {
+                if style.cover.is_none()
+                    && let Some(info) = doc.info.pages.get(page)
+                    && let Some((paper, ink)) = guard(|| scan_colours::sample(&editor.cos, info, page, block)).ok().flatten()
+                {
+                    style.cover = Some(paper);
+                    style.color = style.color.or(Some(ink));
+                }
+                Edit::EditTextBlock { page, block, text, style }
+            }
+            other => other,
+        };
         // Nothing to bake: leave undo history and the dirty flag alone.
         if matches!(&edit, Edit::FlattenFillSign) && !pdfcraft_annot::has_visible_fill_sign(&editor.cos) {
             return Ok(());
