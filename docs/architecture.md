@@ -16,7 +16,7 @@ handwritten JS/TS, in the product or the build.
 | Binary | What it is |
 |---|---|
 | `apps/pdfcraft` | The desktop app (macOS, Windows, Linux, FreeBSD): eframe/egui on wgpu, single instance, Apple events, update check on request |
-| `apps/pdfcraft-cli` | `inspect`, `edit`, `combine`, `extract`, `split`, `run` (any automation tool or a JSON script), `tools`, `ui` (drive the running app), and the opt-in `mcp` server |
+| `apps/xueluopdf-cli` | `inspect`, `edit`, `combine`, `extract`, `split`, `run` (any automation tool or a JSON script), `tools`, `ui` (drive the running app), and the opt-in `mcp` server |
 | `apps/pdfcraft-web` | The same egui shell compiled to WebAssembly |
 
 ## Layers
@@ -86,7 +86,7 @@ Every user-facing feature is reachable headlessly (`AGENTS.md` §3):
   shortcuts and the command palette;
 - the **automation tool table** (`crates/automation`, 141 tools) is shared by `pdfcraft-cli run`
   and the opt-in **MCP server** (stdio only; `pdfcraft-cli mcp`), confined to `--root`;
-- the opt-in **UI control channel** (`pdfcraft --control FILE`; loopback, per-launch token) lets an
+- the opt-in **UI control channel** (`xueluopdf --control FILE`; loopback, per-launch token) lets an
   agent inspect, click, type, run commands and take screenshots of the real interface.
 
 ## Safety

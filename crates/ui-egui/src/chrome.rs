@@ -4,7 +4,7 @@ use egui::{Align, Align2, Color32, CornerRadius, Layout, Rect, Sense, Stroke, ve
 
 use crate::canvas::{DocView, Fit, PageLayout};
 use crate::theme::{self, ThemePreference, Tokens};
-use crate::{Dialog, Mode, PdfCraftApp, PropsTab, RightPanel, icons, widgets};
+use crate::{Dialog, Mode, XueLuoPDFApp, PropsTab, RightPanel, icons, widgets};
 
 /// Height of the tab strip when it doubles as the macOS title bar (#789). AppKit draws the traffic
 /// lights itself, centred in the standard 28 pt title-bar band at the top of the window, and moving
@@ -26,7 +26,7 @@ const TAB_STRIP: f32 = 38.0;
 const TAB_HEIGHT: f32 = 30.0;
 const STRIP_BUTTON: f32 = 28.0;
 
-pub fn tab_strip(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
+pub fn tab_strip(app: &mut XueLuoPDFApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     // macOS: the strip is the 28 pt title bar, so the traffic lights are centred in it; tabs and
     // buttons shrink to keep a margin above and below.
@@ -190,9 +190,9 @@ pub fn tab_strip(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     if icons::button(ui, "circle-help", button, false, tl!("Keyboard shortcuts")).clicked() {
                         app.dialog = Some(Dialog::Shortcuts);
                     }
-                    // One click to the community, from anywhere in the app.
-                    if widgets::ghost_button_sized(ui, "messages-square", "Discord", tab_h).on_hover_text(pdfcraft_engine::links::DISCORD).clicked() {
-                        app.execute("help.discord");
+                    // One click to the project page, from anywhere in the app.
+                    if widgets::ghost_button_sized(ui, "code-xml", "GitHub", tab_h).on_hover_text(pdfcraft_engine::links::GITHUB).clicked() {
+                        app.execute("help.github");
                     }
                 });
             });
@@ -200,7 +200,7 @@ pub fn tab_strip(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
 }
 
 /// Both theme entry points use the same choices and command path.
-fn theme_menu(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
+fn theme_menu(app: &mut XueLuoPDFApp, ui: &mut egui::Ui) {
     for (preference, command, label) in [
         (ThemePreference::System, "view.theme.system", "Use system setting"),
         (ThemePreference::Light, "view.theme.light", "Light gray"),
@@ -219,7 +219,7 @@ fn theme_menu(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
 }
 
 /// The right-click menu on the title bar's theme button.
-fn appearance_menu(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
+fn appearance_menu(app: &mut XueLuoPDFApp, ui: &mut egui::Ui) {
     if ui.button(tl!("Appearance settings…")).clicked() {
         app.dialog = Some(Dialog::Preferences);
         ui.close();
@@ -354,7 +354,7 @@ fn tab(
     })
 }
 
-pub fn mode_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
+pub fn mode_bar(app: &mut XueLuoPDFApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     egui::Panel::top("mode_bar")
         .exact_size(48.0)
@@ -399,7 +399,7 @@ pub fn mode_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
         });
 }
 
-fn main_menu(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
+fn main_menu(app: &mut XueLuoPDFApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     let resp = widgets::ghost_button(ui, "panel-left", tl!("Menu"));
     egui::Popup::menu(&resp).show(|ui| {
@@ -484,7 +484,7 @@ fn main_menu(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
     });
 }
 
-pub fn right_rail(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
+pub fn right_rail(app: &mut XueLuoPDFApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     let Some((index, id)) = app.active_ids() else { return };
     let Some(doc) = app.session.get(id) else { return };

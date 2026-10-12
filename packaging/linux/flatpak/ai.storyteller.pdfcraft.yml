@@ -1,4 +1,4 @@
-# Flatpak manifest for PdfCraft, ready for a Flathub submission.
+# Flatpak manifest for XueLuoPDF, ready for a Flathub submission.
 #
 # Flatpak builds run offline, so the crate sources must be vendored first. From the repo root:
 #
@@ -16,7 +16,7 @@ runtime-version: '25.08'
 sdk: org.freedesktop.Sdk
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
-command: pdfcraft
+command: xueluopdf
 finish-args:
   # Display: Wayland first; X11 only when no Wayland compositor is running.
   - --socket=wayland
@@ -47,7 +47,7 @@ modules:
         CARGO_NET_OFFLINE: 'true'
     build-commands:
       - cargo --offline build --release --locked -p pdfcraft
-      - install -Dm755 target/release/pdfcraft /app/bin/pdfcraft
+      - install -Dm755 target/release/xueluopdf /app/bin/xueluopdf
       - install -Dm644 packaging/linux/ai.storyteller.pdfcraft.desktop /app/share/applications/ai.storyteller.pdfcraft.desktop
       - install -Dm644 packaging/linux/ai.storyteller.pdfcraft.mime.xml /app/share/mime/packages/ai.storyteller.pdfcraft.xml
       - mkdir -p /app/share/icons && cp -R assets/app-icon/hicolor /app/share/icons/

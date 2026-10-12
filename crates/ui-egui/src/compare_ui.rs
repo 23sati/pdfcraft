@@ -7,7 +7,7 @@ use pdfcraft_engine::DocId;
 use pdfcraft_engine::compare::{Comparison, Kind};
 
 use crate::theme::{self, Tokens};
-use crate::{PdfCraftApp, RightPanel, widgets};
+use crate::{XueLuoPDFApp, RightPanel, widgets};
 
 /// The last comparison.
 pub struct CompareState {
@@ -36,7 +36,7 @@ pub fn colour(kind: Kind) -> Color32 {
 }
 
 /// The Compare Files dialog: pick the older document. Returns (compare, cancel).
-pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> (bool, bool) {
+pub(crate) fn body(ui: &mut egui::Ui, app: &mut XueLuoPDFApp, t: &Tokens) -> (bool, bool) {
     ui.label(egui::RichText::new(tl!("Compare Files")).font(theme::semibold(18.0)));
     ui.add_space(8.0);
     let Some((_, new)) = app.active_ids() else { return (false, true) };
@@ -144,7 +144,7 @@ pub(crate) fn panel(ui: &mut egui::Ui, t: &Tokens, state: &Option<CompareState>,
     action
 }
 
-impl PdfCraftApp {
+impl XueLuoPDFApp {
     /// Compare the chosen older document with the active one and show the differences.
     pub fn run_compare(&mut self) {
         let Some((i, new)) = self.active_ids() else { return };

@@ -3,7 +3,7 @@
 
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable;
-use pdfcraft_ui_egui::{Dialog, PdfCraftApp};
+use pdfcraft_ui_egui::{Dialog, XueLuoPDFApp};
 
 /// `n` pages of 200×300; page i says "Page i+1" plus "page" and "Pages" for find tests.
 fn fixture(n: usize) -> Vec<u8> {
@@ -31,9 +31,9 @@ fn fixture(n: usize) -> Vec<u8> {
     out
 }
 
-fn harness() -> Harness<'static, PdfCraftApp> {
+fn harness() -> Harness<'static, XueLuoPDFApp> {
     let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(|_cc| {
-        let mut app = PdfCraftApp::new();
+        let mut app = XueLuoPDFApp::new();
         app.set_option("language", "en").unwrap();
         app.open_bytes("a.pdf", None, fixture(5)).unwrap();
         app.open_bytes("b.pdf", None, fixture(2)).unwrap();
@@ -278,7 +278,7 @@ fn two_page_view_steps_a_spread_at_a_time() {
     h.state_mut().views[0].fit = Fit::Width;
     h.state_mut().views[0].layout = PageLayout::TwoUp;
     h.run_steps(4);
-    let step = |h: &mut Harness<'static, PdfCraftApp>, key| {
+    let step = |h: &mut Harness<'static, XueLuoPDFApp>, key| {
         h.key_press_modifiers(Modifiers::COMMAND, key);
         h.run_steps(4);
         h.state().views[0].current
@@ -303,7 +303,7 @@ trailer << /Root 1 0 R >>
 %%EOF"
         .to_vec();
     let mut h = Harness::builder().with_size(egui::vec2(1200.0, 800.0)).build_eframe(move |_cc| {
-        let mut app = PdfCraftApp::new();
+        let mut app = XueLuoPDFApp::new();
         app.set_option("language", "en").unwrap();
         app.open_bytes("damaged.pdf", None, damaged.clone()).unwrap();
         app
@@ -343,14 +343,14 @@ fn initial_view_is_edited_and_honoured_on_open() {
     assert_eq!(s.session.get(id).unwrap().can_undo(), Some("Change document properties"));
     // Opening the saved file follows it.
     let bytes = s.session.save_bytes(id).unwrap();
-    let mut app = PdfCraftApp::new();
+    let mut app = XueLuoPDFApp::new();
     app.set_option("language", "en").unwrap();
     app.open_bytes("again.pdf", None, bytes.to_vec()).unwrap();
     let view = &app.views[0];
     assert_eq!((view.current, view.cover, app.right), (1, true, Some(pdfcraft_ui_egui::RightPanel::Bookmarks)));
 }
 
-fn drag(h: &mut Harness<'static, PdfCraftApp>, a: egui::Pos2, b: egui::Pos2) {
+fn drag(h: &mut Harness<'static, XueLuoPDFApp>, a: egui::Pos2, b: egui::Pos2) {
     h.hover_at(a);
     h.run_steps(1);
     h.drag_at(a);
@@ -409,7 +409,7 @@ fn tab_and_window_show_the_document_title_when_asked() {
     use pdfcraft_engine::Edit;
     let mut h = harness();
     h.run_steps(2);
-    assert_eq!(h.state().window_title, "b.pdf — PdfCraft");
+    assert_eq!(h.state().window_title, "b.pdf — XueLuoPDF");
     {
         let s = h.state_mut();
         let id = s.views[s.active.unwrap()].id;
@@ -419,7 +419,7 @@ fn tab_and_window_show_the_document_title_when_asked() {
         s.session.apply(id, Edit::SetInitialView(Box::new(v))).unwrap();
     }
     h.run_steps(2);
-    assert_eq!(h.state().window_title, "Quarterly report — PdfCraft");
+    assert_eq!(h.state().window_title, "Quarterly report — XueLuoPDF");
     h.get_by_label_contains("Quarterly report");
 }
 
@@ -438,7 +438,7 @@ fn a_placeholder_title_leaves_the_file_name_on_the_tab_and_window() {
         s.session.apply(id, Edit::SetInitialView(Box::new(v))).unwrap();
     }
     h.run_steps(2);
-    assert_eq!(h.state().window_title, "b.pdf — PdfCraft");
+    assert_eq!(h.state().window_title, "b.pdf — XueLuoPDF");
     assert!(h.query_by_label_contains("about:blank").is_none());
 }
 
@@ -521,7 +521,7 @@ fn each_document_keeps_its_own_scroll_position() {
     for v in &mut h.state_mut().views {
         v.fit = Fit::Width;
     }
-    let show = |h: &mut Harness<'static, PdfCraftApp>, i: usize| {
+    let show = |h: &mut Harness<'static, XueLuoPDFApp>, i: usize| {
         h.state_mut().active = Some(i);
         h.run_steps(4);
         h.state().views[i].current
@@ -576,7 +576,7 @@ fn a_new_document_opens_at_the_top_after_a_relaunch() {
     // Next launch: a document never seen before, which gets a.pdf's old id.
     let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(|cc| {
         cc.egui_ctx.memory_mut(|m| *m = memory);
-        let mut app = PdfCraftApp::new();
+        let mut app = XueLuoPDFApp::new();
         app.set_option("language", "en").unwrap();
         app.open_bytes("c.pdf", None, fixture(5)).unwrap();
         app.views[0].fit = Fit::Width;
@@ -605,7 +605,7 @@ fn arrow_and_page_keys_move_through_a_scrolling_document() {
     h.run_steps(4);
     assert_eq!(h.state().views[0].layout, PageLayout::Single);
     assert!(h.state().views[0].continuous(), "the default view scrolls continuously");
-    let press = |h: &mut Harness<'static, PdfCraftApp>, key, times: usize| {
+    let press = |h: &mut Harness<'static, XueLuoPDFApp>, key, times: usize| {
         for _ in 0..times {
             h.key_press(key);
             h.run_steps(2);
@@ -618,7 +618,7 @@ fn arrow_and_page_keys_move_through_a_scrolling_document() {
     assert_eq!(press(&mut h, Key::ArrowLeft, 1), 1);
     assert_eq!(press(&mut h, Key::ArrowLeft, 1), 0);
     // ↓ scrolls a line at a time, Page Down a screen: count the presses that reach page 2
-    let presses = |h: &mut Harness<'static, PdfCraftApp>, key| {
+    let presses = |h: &mut Harness<'static, XueLuoPDFApp>, key| {
         let mut n = 0;
         while h.state().views[0].current == 0 {
             press(h, key, 1);
@@ -655,7 +655,7 @@ fn up_and_down_turn_pages_in_single_page_view() {
     h.state_mut().views[0].continuous = false;
     h.state_mut().views[0].fit = Fit::Page;
     h.run_steps(4);
-    let press = |h: &mut Harness<'static, PdfCraftApp>, key, times: usize| {
+    let press = |h: &mut Harness<'static, XueLuoPDFApp>, key, times: usize| {
         for _ in 0..times {
             h.key_press(key);
             h.run_steps(2);
@@ -693,7 +693,7 @@ fn v_h_and_space_pick_the_quick_tools() {
     let mut h = harness();
     h.state_mut().active = Some(0);
     h.run_steps(2);
-    let press = |h: &mut Harness<'static, PdfCraftApp>, key| {
+    let press = |h: &mut Harness<'static, XueLuoPDFApp>, key| {
         h.key_press(key);
         h.run_steps(2);
         h.state().quick_tool
@@ -771,7 +771,7 @@ fn page_down_steps_every_spread_when_several_fit_on_screen() {
     for fit in [Fit::Width, Fit::Page, Fit::Height] {
         let bytes = sized_fixture(&sizes);
         let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
-            let mut app = PdfCraftApp::new();
+            let mut app = XueLuoPDFApp::new();
             app.set_option("language", "en").unwrap();
             app.open_bytes("book.pdf", None, bytes).unwrap();
             app
@@ -794,10 +794,10 @@ fn page_down_steps_every_spread_when_several_fit_on_screen() {
 }
 
 /// Open `sizes` in Fit width, continuous, with the Pages panel showing.
-fn pages_panel_harness(sizes: &[(u32, u32)]) -> Harness<'static, PdfCraftApp> {
+fn pages_panel_harness(sizes: &[(u32, u32)]) -> Harness<'static, XueLuoPDFApp> {
     let bytes = sized_fixture(sizes);
     let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
-        let mut app = PdfCraftApp::new();
+        let mut app = XueLuoPDFApp::new();
         app.set_option("language", "en").unwrap();
         app.open_bytes("cheques.pdf", None, bytes).unwrap();
         app.right = Some(pdfcraft_ui_egui::RightPanel::Pages);
@@ -811,12 +811,12 @@ fn pages_panel_harness(sizes: &[(u32, u32)]) -> Harness<'static, PdfCraftApp> {
 }
 
 /// A thumbnail in the Pages panel (the panel lists pages as "Page n" buttons).
-fn thumbnail(h: &Harness<'static, PdfCraftApp>, label: &str) -> egui::Pos2 {
+fn thumbnail(h: &Harness<'static, XueLuoPDFApp>, label: &str) -> egui::Pos2 {
     h.get_all_by_label(label).find(|n| n.rect().left() > 1000.0).expect("the Pages panel thumbnail").rect().center()
 }
 
 /// Press and release `button` at `at`.
-fn press(h: &mut Harness<'static, PdfCraftApp>, at: egui::Pos2, button: egui::PointerButton) {
+fn press(h: &mut Harness<'static, XueLuoPDFApp>, at: egui::Pos2, button: egui::PointerButton) {
     h.hover_at(at);
     h.run_steps(1);
     h.event(egui::Event::PointerButton { pos: at, button, pressed: true, modifiers: Default::default() });
@@ -863,7 +863,7 @@ fn the_scroll_speed_preference_scales_mouse_wheel_notches() {
         h.state_mut().scroll_speed = speed;
         h.run_steps(2);
         let i = h.state().active.expect("a document is shown");
-        let top = |h: &Harness<'static, PdfCraftApp>| h.state().views[i].page_screen_rect(0).expect("page 1 on screen").min.y;
+        let top = |h: &Harness<'static, XueLuoPDFApp>| h.state().views[i].page_screen_rect(0).expect("page 1 on screen").min.y;
         let before = top(&h);
         h.event(egui::Event::PointerMoved(h.state().views[i].viewport_rect().center()));
         h.event(egui::Event::MouseWheel { unit, delta: egui::vec2(0.0, -dy), phase: egui::TouchPhase::Move, modifiers: egui::Modifiers::NONE });
@@ -879,10 +879,10 @@ fn the_scroll_speed_preference_scales_mouse_wheel_notches() {
     let point = egui::MouseWheelUnit::Point;
     let (normal_points, fast_points) = (scrolled(ScrollSpeed::Normal, point, 30.0), scrolled(ScrollSpeed::Fast, point, 30.0));
     assert!(normal_points > 0.0 && (normal_points - fast_points).abs() < 1.0, "trackpad: {normal_points} vs {fast_points}");
-    let mut app = PdfCraftApp::new();
+    let mut app = XueLuoPDFApp::new();
     app.set_option("scroll_speed", "fast").unwrap();
     assert!(app.set_option("scroll_speed", "warp").unwrap_err().contains("slow, normal, or fast"));
-    let mut again = PdfCraftApp::new();
+    let mut again = XueLuoPDFApp::new();
     again.restore(&app.persist());
     assert_eq!(again.scroll_speed, ScrollSpeed::Fast);
 }

@@ -1,10 +1,10 @@
 [Desktop Entry]
 Type=Application
-Name=PdfCraft
+Name=XueLuoPDF
 GenericName=PDF Editor
 Comment=Read, organize, combine, split and secure PDFs
-Exec=pdfcraft %U
-TryExec=pdfcraft
+Exec=xueluopdf %U
+TryExec=xueluopdf
 Icon=ai.storyteller.pdfcraft
 Terminal=false
 StartupNotify=true

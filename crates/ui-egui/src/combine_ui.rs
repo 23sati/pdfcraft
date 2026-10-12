@@ -14,7 +14,7 @@ use egui_extras::{Column, TableBuilder};
 use pdfcraft_engine::SourceProblem;
 
 use crate::theme::{self, Tokens};
-use crate::{PdfCraftApp, icons, widgets};
+use crate::{XueLuoPDFApp, icons, widgets};
 
 /// Same reds and ambers as the signature status (`sign_ui`).
 pub(crate) const ERROR: Color32 = Color32::from_rgb(0xD7, 0x37, 0x3F);
@@ -582,7 +582,7 @@ struct TableEvents {
 }
 
 /// The Combine files page.
-pub(crate) fn page(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
+pub(crate) fn page(app: &mut XueLuoPDFApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     let files_hovering = ui.ctx().input(|i| !i.raw.hovered_files.is_empty());
     // Ranges are checked before anything below reads them.
@@ -857,7 +857,7 @@ pub(crate) fn page(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
 const SKIP_PROMPT_NAMES: usize = 8;
 
 /// "Leave out files that can't be read?": names them and why, then combines the others, or not.
-fn skip_prompt(app: &mut PdfCraftApp, ctx: &egui::Context) {
+fn skip_prompt(app: &mut XueLuoPDFApp, ctx: &egui::Context) {
     if !app.combine_tab.confirm_skip {
         return;
     }
@@ -910,7 +910,7 @@ fn skip_prompt(app: &mut PdfCraftApp, ctx: &egui::Context) {
 
 /// Unlock…'s password box, floating below what opened it. Enter unlocks, Escape or a click
 /// elsewhere closes it.
-fn unlock_prompt(app: &mut PdfCraftApp, ctx: &egui::Context) {
+fn unlock_prompt(app: &mut XueLuoPDFApp, ctx: &egui::Context) {
     let Some(mut prompt) = app.combine_tab.unlock.take() else { return };
     let t = Tokens::get(ctx);
     let files: Vec<&CombineFile> = app.combine_draft.iter().filter(|f| prompt.rows.contains(&f.id)).collect();
@@ -1117,7 +1117,7 @@ fn zoom_keys(ui: &egui::Ui, zoom: f32) -> Option<f32> {
 
 /// The grid's card size, at the right of the toolbar (right to left: larger, the percentage, the
 /// slider, smaller), as the page grid's.
-fn zoom_controls(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens, edge: f32) {
+fn zoom_controls(app: &mut XueLuoPDFApp, ui: &mut egui::Ui, t: &Tokens, edge: f32) {
     use crate::combine_grid::{ZOOM_RANGE, zoom_step};
     let zoom = app.combine_zoom;
     // Two buttons, the percentage, the slider and the spaces between: on a line of their own when
@@ -1156,7 +1156,7 @@ fn zoom_controls(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens, edge: f32
     });
 }
 
-fn empty_state(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens, files_hovering: bool) {
+fn empty_state(app: &mut XueLuoPDFApp, ui: &mut egui::Ui, t: &Tokens, files_hovering: bool) {
     ui.vertical_centered(|ui| {
         ui.add_space((ui.available_height() / 2.0 - 70.0).max(16.0));
         ui.add(icons::image("files", 40.0, if files_hovering { t.accent } else { t.text_faint }));
@@ -1184,7 +1184,7 @@ fn empty_state(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens, files_hover
 }
 
 /// "Add files…" with a menu of the other ways to add: folders (desktop).
-fn add_menu(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
+fn add_menu(app: &mut XueLuoPDFApp, ui: &mut egui::Ui) {
     if !cfg!(not(target_arch = "wasm32")) {
         if widgets::icon_pill(ui, "plus", tl!("Add files…"), false).clicked() {
             app.combine_dialog();
@@ -1220,7 +1220,7 @@ fn add_menu(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
 
 /// The file table.
 fn table(
-    app: &mut PdfCraftApp,
+    app: &mut XueLuoPDFApp,
     ui: &mut egui::Ui,
     t: &Tokens,
     checks: &[Result<usize, String>],
@@ -1350,7 +1350,7 @@ fn heading(ui: &mut egui::Ui, t: &Tokens, key: SortKey, sort: Option<(SortKey, b
 
 #[allow(clippy::too_many_arguments)]
 fn table_body(
-    app: &mut PdfCraftApp,
+    app: &mut XueLuoPDFApp,
     ui: &mut egui::Ui,
     t: &Tokens,
     rows: &Rows,
@@ -1832,7 +1832,7 @@ fn utc_stamp(time: SystemTime) -> String {
     format!("{y:04}-{m:02}-{d:02} {:02}:{:02} UTC", rem / 3600, rem % 3600 / 60)
 }
 
-impl PdfCraftApp {
+impl XueLuoPDFApp {
     /// Show the Combine files tab (File ▸ Combine files…), opening it if needed.
     pub fn open_combine_tab(&mut self) {
         self.combine_tab.open = true;
@@ -2577,7 +2577,7 @@ mod tests {
     fn every_read_of_a_file_is_new_even_after_undo() {
         // Regression: the read counter lived in the undo history, so unlock → undo → unlock (with
         // another password) could repeat a value and keep a thumbnail of the other read.
-        let mut app = PdfCraftApp::new();
+        let mut app = XueLuoPDFApp::new();
         app.stage_combine(vec![("secret.pdf".into(), locked())]);
         let added = app.combine_draft[0].auth;
         assert!(app.combine_unlock_rows(&[0], "pw"));
@@ -2591,7 +2591,7 @@ mod tests {
 
     #[test]
     fn moves_by_rank_never_lose_or_repeat_a_file() {
-        let mut app = PdfCraftApp::new();
+        let mut app = XueLuoPDFApp::new();
         app.stage_combine((0..6).map(|i| (format!("f{i}.pdf"), locked())).collect());
         let mut ids: Vec<u64> = app.combine_draft.iter().map(|f| f.id).collect();
         for (moving, gap) in [(vec![0usize, 2, 4], 6), (vec![5], 0), (vec![1, 3], 3)] {

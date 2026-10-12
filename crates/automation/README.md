@@ -54,17 +54,17 @@ Implemented: `initialize` (protocol 2025-06-18, 2025-03-26, 2024-11-05), `ping`,
 
 ### From an installed release
 
-The release packages ship `pdfcraft-cli` alongside the desktop app, so no build is needed:
+The release packages ship `xueluopdf-cli` alongside the desktop app, so no build is needed:
 
 | Install | CLI |
 |---|---|
-| Windows (MSI) | `C:\Program Files\PdfCraft\pdfcraft-cli.exe` by default (wherever you installed it otherwise), not on `PATH` |
-| Linux (deb, rpm) | `/usr/bin/pdfcraft-cli` |
-| macOS | the separate `pdfcraft-cli-<version>-macos-<arch>.zip` release asset (the `.app` holds only the desktop app) |
+| Windows (MSI) | `C:\Program Files\PdfCraft\xueluopdf-cli.exe` by default (wherever you installed it otherwise), not on `PATH` |
+| Linux (deb, rpm) | `/usr/bin/xueluopdf-cli` |
+| macOS | the separate `xueluopdf-cli-<version>-macos-<arch>.zip` release asset (the `.app` holds only the desktop app) |
 
 ```sh
 # Windows, default install folder
-claude mcp add pdfcraft -- "C:\Program Files\PdfCraft\pdfcraft-cli.exe" mcp --root <dir>
+claude mcp add pdfcraft -- "C:\Program Files\PdfCraft\xueluopdf-cli.exe" mcp --root <dir>
 # Linux, or macOS with the CLI unzipped onto PATH
 claude mcp add pdfcraft -- pdfcraft-cli mcp --root <dir>
 ```

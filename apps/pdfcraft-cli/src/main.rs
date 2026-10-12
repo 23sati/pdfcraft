@@ -1,6 +1,6 @@
 //! pdfcraft-cli — headless PdfCraft.
 //!
-//! Usage: `pdfcraft-cli --help`, which prints `USAGE` below.
+//! Usage: `xueluopdf-cli --help`, which prints `USAGE` below.
 //!
 //! `run` and `mcp` drive the same tool table (`pdfcraft-automation`). In `run`, values parse as
 //! JSON when they can (`pages=[1,3]`, `degrees=90`) and are strings otherwise. A script runs its
@@ -64,7 +64,7 @@ pdfcraft-cli run    --script steps.json [--root DIR]      [{\"tool\": \"doc_open
     "\
 pdfcraft-cli ui     --control FILE <method> [key=value …] [--out shot.png]
                                                            drive a running app started with --control FILE
-help and feedback: https://discord.gg/artcraft"
+issues and source: https://github.com/PLSshenyun/xueluopdf"
 );
 
 fn main() -> ExitCode {
@@ -95,7 +95,7 @@ fn main() -> ExitCode {
         #[cfg(not(feature = "mcp"))]
         Some("mcp") => Err("mcp: this build leaves out the MCP server (built without the `mcp` feature)".into()),
         Some("--version") => version(),
-        Some(other) => Err(format!("unknown command '{other}'; see pdfcraft-cli --help").into()),
+        Some(other) => Err(format!("unknown command '{other}'; see xueluopdf-cli --help").into()),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
@@ -141,8 +141,7 @@ fn stdout_line(line: std::fmt::Arguments<'_>) -> Result<(), CliError> {
 }
 
 fn version() -> Result<(), CliError> {
-    stdout_line(format_args!("pdfcraft-cli {}", env!("CARGO_PKG_VERSION")))?;
-    stdout_line(format_args!("Discord: {}  (help and feedback)", pdfcraft_engine::links::DISCORD))?;
+    stdout_line(format_args!("xueluopdf-cli {}", env!("CARGO_PKG_VERSION")))?;
     stdout_line(format_args!("Web:     {}", pdfcraft_engine::links::APP_PAGE))?;
     stdout_line(format_args!("Source:  {}", pdfcraft_engine::links::GITHUB))?;
     Ok(())
@@ -758,11 +757,11 @@ fn mcp(args: &[String]) -> Result<(), CliError> {
 
 // ---- UI control channel client -----------------------------------------------------------------
 
-/// One request to a running app's control channel (`pdfcraft --control FILE`).
+/// One request to a running app's control channel (`xueluopdf --control FILE`).
 fn ui(args: &[String]) -> Result<(), CliError> {
     validate_options("ui", args, UI_OPTIONS)?;
     use std::io::{BufRead, BufReader, Write as _};
-    let file = flag(args, "--control").ok_or("ui: missing --control FILE (start the app with `pdfcraft --control FILE`)")?;
+    let file = flag(args, "--control").ok_or("ui: missing --control FILE (start the app with `xueluopdf --control FILE`)")?;
     let info = read_control_file(file)?;
     let port = info["port"].as_u64().ok_or(format!("{file}: no port"))?;
     // Refused rather than truncated, which would quietly reach some other port.
@@ -806,9 +805,9 @@ fn ui(args: &[String]) -> Result<(), CliError> {
 const CONTROL_FILE_MAX: u64 = 64 * 1024;
 
 const CONTROL_FILE_ADVICE: &str =
-    "Start the app with a control file in a folder only you can write, such as `pdfcraft --control ~/.pdfcraft-control.json`";
+    "Start the app with a control file in a folder only you can write, such as `xueluopdf --control ~/.xueluopdf-control.json`";
 
-/// Read the file written by `pdfcraft --control FILE`.
+/// Read the file written by `xueluopdf --control FILE`.
 ///
 /// It names the port that receives the token and every command, typed text included, so it must
 /// be the user's own. In a shared folder such as `/tmp`, another local user can create the file

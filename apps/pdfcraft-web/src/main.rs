@@ -1,4 +1,4 @@
-//! PdfCraft in the browser. Build: `cd apps/pdfcraft-web && trunk build --release`
+//! XueLuoPDF in the browser. Build: `cd apps/pdfcraft-web && trunk build --release`
 //! (trunk generates the JS loader; no handwritten JS — plan/execution-plan.md §1).
 
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
@@ -6,13 +6,13 @@
 #[cfg(target_arch = "wasm32")]
 fn main() {
     use eframe::wasm_bindgen::JsCast;
-    use pdfcraft_ui_egui::PdfCraftApp;
+    use pdfcraft_ui_egui::XueLuoPDFApp;
 
     let options = eframe::WebOptions { renderer: eframe::Renderer::Glow, ..Default::default() };
     wasm_bindgen_futures::spawn_local(async move {
         let Some(canvas) = web_sys::window()
             .and_then(|w| w.document())
-            .and_then(|d| d.get_element_by_id("pdfcraft"))
+            .and_then(|d| d.get_element_by_id("xueluopdf"))
             .and_then(|e| e.dyn_into::<web_sys::HtmlCanvasElement>().ok())
         else {
             return;
@@ -22,9 +22,12 @@ fn main() {
                 canvas,
                 options,
                 Box::new(|cc| {
-                    let mut app = PdfCraftApp::new();
-                    // "printcraft": settings saved under the app's former name, PrintCraft.
-                    if let Some(json) = cc.storage.and_then(|s| s.get_string("pdfcraft").or_else(|| s.get_string("printcraft"))) {
+                    let mut app = XueLuoPDFApp::new();
+                    // "pdfcraft"/"printcraft": settings saved under the app's former names (PdfCraft,
+                    // and PrintCraft before that), so a browser that stored them keeps them.
+                    if let Some(json) = cc.storage.and_then(|s| {
+                        s.get_string("xueluopdf").or_else(|| s.get_string("pdfcraft")).or_else(|| s.get_string("printcraft"))
+                    }) {
                         app.restore(&json);
                     }
                     // `?file=<url>` opens a PDF from a URL (same-origin or CORS-enabled).
@@ -41,7 +44,7 @@ fn main() {
                                     }
                                 }
                                 Err(e) => {
-                                    eframe::web_sys::console::error_1(&format!("PdfCraft: could not fetch {url}: {e}").into());
+                                    eframe::web_sys::console::error_1(&format!("XueLuoPDF: could not fetch {url}: {e}").into());
                                     // Shown in the app too, not only in the console (#173).
                                     if let Ok(mut q) = failed.lock() {
                                         q.push((name, e));
@@ -54,13 +57,13 @@ fn main() {
                     // eframe never raises a close request on a browser reload or tab close, so `guard_quit` never
                     // prompts; ask the browser to confirm instead while a document has unsaved work (#812).
                     warn_before_unload(app.unsaved_flag.clone());
-                    // `?host=parent`: a same-origin page embedding PdfCraft in an iframe (such
+                    // `?host=parent`: a same-origin page embedding XueLuoPDF in an iframe (such
                     // as the Nextcloud app) passes files in and takes saves back (`host` below).
                     if query_param("host").as_deref() == Some("parent")
                         && let Some(bridge) = host::Bridge::new()
                     {
                         // `?author=`: the host's name for the user signs their comments,
-                        // unless they chose a name in PdfCraft (the web default is "Guest").
+                        // unless they chose a name in XueLuoPDF (the web default is "Guest").
                         if let Some(author) = query_param("author").map(|a| a.trim().to_string()).filter(|a| !a.is_empty())
                             && app.comment_prefs.author == "Guest"
                         {

@@ -1,6 +1,6 @@
 [package]
 name = "pdfcraft"
-description = "PdfCraft desktop app"
+description = "XueLuoPDF desktop app"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,12 +8,20 @@ license.workspace = true
 [lints]
 workspace = true
 
+# The package keeps its name, so `cargo run -p pdfcraft` and `cargo build -p pdfcraft` still work;
+# the file it produces is named after the product.
+[[bin]]
+name = "xueluopdf"
+path = "src/main.rs"
+
 [dependencies]
 # Help ▸ Check for updates (issue #28): one HTTPS request to GitHub, over rustls with the OS's
 # trusted roots. No bundled root list (webpki-roots and webpki-root-certs are CDLA-licensed).
 ureq = { version = "3.4", default-features = false, features = ["rustls-no-provider", "_ring"] }
 rustls-native-certs = "0.8"
 pdfcraft-ui-egui = { workspace = true }
+# The product name and its links (`links::APP_NAME`), used for the window title.
+pdfcraft-engine = { workspace = true }
 # wgpu draws; OpenGL (glow) is the fallback when wgpu can't start on an old or unusual GPU or
 # driver (#461, #435, #392), and can be chosen with PDFCRAFT_RENDERER=gl.
 eframe = { workspace = true, features = ["default_fonts", "wgpu", "glow", "accesskit", "wayland", "x11", "persistence", "links"] }
@@ -52,5 +60,5 @@ windows = { version = "0.62", default-features = false, features = ["std", "UI_V
 uds_windows = "=1.2.1"
 
 [build-dependencies]
-# Icon + VERSIONINFO for pdfcraft.exe; build.rs only uses it when targeting Windows.
+# Icon + VERSIONINFO for xueluopdf.exe; build.rs only uses it when targeting Windows.
 winresource = "0.1"

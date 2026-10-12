@@ -49,11 +49,11 @@ do not contact a desktop session bus. Page and document colours retain their exi
 
 ## Logs
 
-The desktop app writes its `log` records to standard error and to `logs/pdfcraft.log` in its
+The desktop app writes its `log` records to standard error and to `logs/xueluopdf.log` in its
 settings folder, next to `app.ron`: Linux and FreeBSD `~/.local/share/pdfcraft/logs/` (or
 `$XDG_DATA_HOME/pdfcraft/logs/`), macOS `~/Library/Application Support/PdfCraft/logs/`, Windows
 `%APPDATA%\PdfCraft\data\logs\`. In portable mode (a `portable.txt` file next to the executable, as
-the Windows portable zip ships) the settings folder is `PdfCraftData\` beside the executable, and
+the Windows portable zip ships) the settings folder is `XueLuoPDFData\` beside the executable, and
 crash recovery and new digital IDs go there too. A start from a desktop menu, Finder or the Start
 menu has no terminal, so this file is what to attach to a bug report: a failed autosave, a page that
 would not render, a render worker that could not start and the report of an internal error all land
@@ -80,7 +80,7 @@ at a correspondingly lower scale instead of panicking in `Surface::configure` (v
 stretched over the window: softer, but complete and lined up with the pointer. wgpu's GL backend
 copies it unscaled into a corner of the window instead.
 
-For blurry or incorrectly scaled UI reports, attach `pdfcraft.log`. Look for the successful
+For blurry or incorrectly scaled UI reports, attach `xueluopdf.log`. Look for the successful
 startup `renderer:` line, which records the wgpu adapter, device type, backend and enabled texture
 limit, or the OpenGL renderer. Also look for the `drawing it at … and scaling it up` warning: it
 means PdfCraft hit the surface-size safety fallback and rendered below the physical window size, so

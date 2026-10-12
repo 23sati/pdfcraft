@@ -106,7 +106,7 @@ pub enum FillMark {
 }
 
 impl FillMark {
-    /// The `/Name` of the stamp PdfCraft draws for it.
+    /// The `/Name` of the stamp XueLuoPDF draws for it.
     pub fn name(self) -> &'static str {
         match self {
             FillMark::Check => "PCCheck",
@@ -126,7 +126,7 @@ impl FillMark {
     }
 }
 
-/// The stamps of Acrobat's stamp palette (drawn in PdfCraft's own style).
+/// The stamps of Acrobat's stamp palette (drawn in XueLuoPDF's own style).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum StampKind {
     // Standard business.
@@ -722,7 +722,7 @@ fn annot_dict(doc: &Document, r: ObjRef) -> Dict {
 
 /// A Fill & Sign item: typed text, a check/cross/dot/line, or a typed, drawn or image signature.
 ///
-/// New items carry `/PCFillSign`. Older files are recognised from the dictionaries PdfCraft
+/// New items carry `/PCFillSign`. Older files are recognised from the dictionaries XueLuoPDF
 /// already writes (`/IT /FreeTextTypeWriter`, stamp `/Name`, drawn ink whose subject is
 /// "Signature").
 pub fn is_fill_sign(doc: &Document, d: &Dict) -> bool {
@@ -1084,7 +1084,7 @@ pub fn add_annotation(doc: &mut Document, new: &NewAnnotation, meta: &Meta) -> R
         Shape::Stamp { stamp, by, .. } => {
             d.set(b"C".to_vec(), rgb(style.color));
             d.set(b"Name".to_vec(), Object::name(stamp.name()));
-            // Marks the stamp as drawn by PdfCraft: other stamps with standard names keep
+            // Marks the stamp as drawn by XueLuoPDF: other stamps with standard names keep
             // their own artwork.
             d.set(b"PCStamp".to_vec(), Object::Bool(true));
             if let Some(b) = by {
@@ -1268,7 +1268,7 @@ pub fn orient_image_stamp(doc: &mut Document, page: usize, index: usize, rotatio
 ///
 /// A comment whose text the standard fonts can't draw, with an appearance another program drew
 /// (with a font that has those characters), keeps that appearance: redrawing it would put `?` in
-/// their place, so the edit is refused (`AnnotError::Undrawable`). One PdfCraft drew with `?`
+/// their place, so the edit is refused (`AnnotError::Undrawable`). One XueLuoPDF drew with `?`
 /// (marked `pdfcraft_fonts::UNDRAWN_MARK`) is redrawn.
 pub fn set_appearance(doc: &mut Document, r: ObjRef) -> Result<(), AnnotError> {
     let d = annot_dict(doc, r);
@@ -1276,7 +1276,7 @@ pub fn set_appearance(doc: &mut Document, r: ObjRef) -> Result<(), AnnotError> {
         d.get(b"AP").is_some_and(|ap| doc.resolve(ap).as_dict().is_some_and(|ap| ap.contains(b"N"))) && pdfcraft_fonts::undrawn_mark(&d).is_none();
     if drawn_elsewhere && let Some((what, c)) = appearance::undrawable_text(&d) {
         return Err(AnnotError::Undrawable(format!(
-            "PdfCraft can't redraw this comment: the standard fonts can't draw \"{}\" (U+{:04X}) in {what}, which would then show as ? (the comment was left as it is)",
+            "XueLuoPDF can't redraw this comment: the standard fonts can't draw \"{}\" (U+{:04X}) in {what}, which would then show as ? (the comment was left as it is)",
             c.escape_debug(),
             u32::from(c)
         )));

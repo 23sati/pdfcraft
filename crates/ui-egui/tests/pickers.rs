@@ -7,7 +7,7 @@
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable;
 use pdfcraft_render::PageRenderer;
-use pdfcraft_ui_egui::PdfCraftApp;
+use pdfcraft_ui_egui::XueLuoPDFApp;
 
 /// An `n`-page document with a proper xref table.
 fn fixture(n: usize) -> Vec<u8> {
@@ -35,16 +35,16 @@ fn fixture(n: usize) -> Vec<u8> {
     out
 }
 
-fn pages(app: &PdfCraftApp, view: usize) -> usize {
+fn pages(app: &XueLuoPDFApp, view: usize) -> usize {
     let doc = app.session.get(app.views[view].id).unwrap();
     PageRenderer::new(doc.bytes.clone(), Default::default()).page_count()
 }
 
 /// A shell with `docs` open, each the given number of pages.
-fn harness(docs: &[usize]) -> Harness<'static, PdfCraftApp> {
+fn harness(docs: &[usize]) -> Harness<'static, XueLuoPDFApp> {
     let docs = docs.to_vec();
     let mut h = Harness::builder().with_size(egui::vec2(1200.0, 800.0)).build_eframe(move |_cc| {
-        let mut app = PdfCraftApp::new();
+        let mut app = XueLuoPDFApp::new();
         app.set_option("language", "en").unwrap();
         for (i, n) in docs.iter().enumerate() {
             app.open_bytes(&format!("doc{i}.pdf"), None, fixture(*n)).unwrap();
@@ -121,11 +121,11 @@ fn page_count(bytes: Vec<u8>) -> usize {
     PageRenderer::new(std::sync::Arc::new(bytes), Default::default()).page_count()
 }
 
-fn dirty(app: &PdfCraftApp, view: usize) -> bool {
+fn dirty(app: &XueLuoPDFApp, view: usize) -> bool {
     app.session.get(app.views[view].id).is_some_and(|d| d.dirty)
 }
 
-fn rotate_first_page(app: &mut PdfCraftApp) {
+fn rotate_first_page(app: &mut XueLuoPDFApp) {
     app.apply_edit(pdfcraft_engine::Edit::RotatePages { pages: vec![0], degrees: 90 });
 }
 
@@ -407,7 +407,7 @@ fn a_watermark_file_from_browse_lands_only_in_the_dialog_that_asked() {
 
 /// Browsers read picked files asynchronously and queue them on `requests` (#167): the request
 /// is made when the picker opens, so it is bound to the document active then.
-fn browser_insert(h: &Harness<'static, PdfCraftApp>, pages: usize) -> pdfcraft_ui_egui::FileRequest {
+fn browser_insert(h: &Harness<'static, XueLuoPDFApp>, pages: usize) -> pdfcraft_ui_egui::FileRequest {
     h.state().file_request(pdfcraft_ui_egui::FilePurpose::InsertPages, vec![("b.pdf".into(), fixture(pages))])
 }
 
@@ -486,7 +486,7 @@ fn a_failed_startup_url_is_reported_in_the_app() {
     assert!(failed.lock().unwrap().is_empty(), "each failure is reported once");
 }
 
-fn deliver_startup(h: &Harness<'static, PdfCraftApp>, name: &str, bytes: Vec<u8>) {
+fn deliver_startup(h: &Harness<'static, XueLuoPDFApp>, name: &str, bytes: Vec<u8>) {
     h.state().startup_inbox.lock().unwrap().push((name.into(), bytes));
 }
 
@@ -568,7 +568,7 @@ fn a_late_startup_url_preserves_home_even_after_all_other_tabs_are_closed() {
         deliver_startup(&h, "late.pdf", fixture(1));
         h.run_steps(2);
         assert_eq!(h.state().active, None, "Home stays selected (closed tabs: {close})");
-        h.get_by_label_contains("Welcome to PdfCraft");
+        h.get_by_label_contains("Welcome to XueLuoPDF");
         h.get_by_label("late.pdf").click();
         h.run_steps(2);
         assert!(h.state().active.is_some());

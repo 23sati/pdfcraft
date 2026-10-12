@@ -7,7 +7,7 @@ use egui::{Color32, Pos2, Rect, Stroke, pos2, vec2};
 use pdfcraft_engine::print::{self, Binding, BookletSubset, Content, Layout, Orientation, PAPERS, PageOrder, SizeMode, Subset, spool};
 
 use crate::theme::{self, Tokens};
-use crate::{PdfCraftApp, widgets};
+use crate::{XueLuoPDFApp, widgets};
 
 /// The preview pane, and the paper inside it (12 pt inset on each side).
 const PREVIEW_W: f32 = 320.0;
@@ -177,7 +177,7 @@ impl PrintDraft {
     }
 }
 
-/// Lists the printers off the UI thread (the desktop app sets [`PdfCraftApp::printer_source`]):
+/// Lists the printers off the UI thread (the desktop app sets [`XueLuoPDFApp::printer_source`]):
 /// on Windows that takes PowerShell a second or more, and CUPS' driverless discovery can wait on
 /// the network. Without a source the dialog reads them as it opens, so tests stay deterministic.
 pub type PrinterSource = std::sync::Arc<dyn Fn() -> Vec<spool::Printer> + Send + Sync>;
@@ -230,7 +230,7 @@ fn default_printer(printers: &[spool::Printer]) -> Option<String> {
     printers.iter().find(|p| p.default).or(printers.first()).map(|p| p.name.clone())
 }
 
-impl PdfCraftApp {
+impl XueLuoPDFApp {
     pub fn open_print(&mut self) {
         let Some((i, _)) = self.active_ids() else { return };
         let (printers, printers_loading) = match self.printer_source.clone() {
@@ -406,7 +406,7 @@ impl PdfCraftApp {
     }
 
     /// Print through the browser's print dialog: start drawing `sheets` (the pages of the
-    /// print-ready `bytes`), a sheet a frame in [`PdfCraftApp::poll_print`]. A print still being
+    /// print-ready `bytes`), a sheet a frame in [`XueLuoPDFApp::poll_print`]. A print still being
     /// prepared is replaced. The dialog closes at once.
     #[cfg(target_arch = "wasm32")]
     fn print_in_browser(&mut self, name: String, bytes: Vec<u8>, sheets: Vec<(f64, f64)>) -> bool {

@@ -3,7 +3,7 @@
 use egui::{Align2, Color32, CornerRadius, Rect, Response, Sense, Stroke, vec2};
 
 use crate::theme::{self, Tokens};
-use crate::{PdfCraftApp, icons};
+use crate::{XueLuoPDFApp, icons};
 
 /// Horizontal and vertical inset of a single-line field.
 const FIELD_MARGIN: egui::Margin = egui::Margin::symmetric(10, 6);
@@ -376,7 +376,7 @@ fn wrapped_lines(ui: &egui::Ui, text: &str, font: &egui::FontId, width: f32, tru
 }
 
 /// Transient message at the bottom centre.
-pub fn toast(app: &mut PdfCraftApp, ctx: &egui::Context) {
+pub fn toast(app: &mut XueLuoPDFApp, ctx: &egui::Context) {
     let Some((msg, start)) = app.toast.clone() else { return };
     let now = ctx.input(|i| i.time);
     let start = if start == 0.0 { now } else { start };
@@ -428,10 +428,10 @@ pub struct ProgressNotice {
 /// Where the progress notice keeps its height this frame, for placing the toast above it.
 const PROGRESS_HEIGHT: &str = "progress-notice-height";
 
-/// Draw [`PdfCraftApp::progress_notice`]: the label, a bar that eases towards the fraction with
+/// Draw [`XueLuoPDFApp::progress_notice`]: the label, a bar that eases towards the fraction with
 /// a light sweeping across it, the percentage and Cancel. Returns true when Cancel was clicked.
 /// With animation effects off ([`crate::motion`]) the bar steps to the fraction and has no sweep.
-pub fn progress_notice(app: &PdfCraftApp, ctx: &egui::Context) -> bool {
+pub fn progress_notice(app: &XueLuoPDFApp, ctx: &egui::Context) -> bool {
     let Some(p) = &app.progress_notice else { return false };
     let t = Tokens::get(ctx);
     let screen = ctx.content_rect();
@@ -499,34 +499,14 @@ pub fn progress_notice(app: &PdfCraftApp, ctx: &egui::Context) -> bool {
     cancel
 }
 
-/// The ArtCraft wordmark (Storyteller's brand, docs/brand/; not open source), sized to `height`.
-pub fn artcraft_logo(ui: &mut egui::Ui, height: f32) -> Response {
-    let dark = ui.visuals().dark_mode;
-    let (uri, bytes): (&str, &'static [u8]) = if dark {
-        ("bytes://artcraft-logo-white.svg", include_bytes!("../../../docs/brand/artcraft-logo-white.svg"))
-    } else {
-        ("bytes://artcraft-logo.svg", include_bytes!("../../../docs/brand/artcraft-logo.svg"))
-    };
-    ui.add(egui::Image::from_bytes(uri, bytes).max_height(height).alt_text("ArtCraft"))
-}
-
-/// The ArtCraft mark (brand blue, works on light and dark), `size` points square.
-pub fn artcraft_mark(ui: &mut egui::Ui, size: f32) -> Response {
-    ui.add(
-        egui::Image::from_bytes("bytes://artcraft-mark.svg", include_bytes!("../../../docs/brand/artcraft-mark.svg"))
-            .fit_to_exact_size(vec2(size, size))
-            .alt_text("ArtCraft"),
-    )
-}
-
-/// Buttons for every community link (`pdfcraft_engine::links`), Discord first and prominent.
-/// Returns the registry command of the one clicked.
+/// Buttons for every link the app offers (`pdfcraft_engine::links`). Returns the registry command
+/// of the one clicked.
 pub fn community_links(ui: &mut egui::Ui) -> Option<&'static str> {
     let mut clicked = None;
     ui.horizontal_wrapped(|ui| {
         ui.spacing_mut().item_spacing = vec2(8.0, 8.0);
-        for (i, l) in pdfcraft_engine::links::LINKS.iter().enumerate() {
-            let resp = if i == 0 { icon_pill(ui, l.icon, tl!("Join our Discord"), true) } else { icon_pill(ui, l.icon, tl!(l.label), false) };
+        for l in pdfcraft_engine::links::LINKS.iter() {
+            let resp = icon_pill(ui, l.icon, tl!(l.label), false);
             if resp.on_hover_text(l.url).clicked() {
                 clicked = Some(l.command);
             }
@@ -687,7 +667,7 @@ mod tests {
         output.drop_without_applying_deltas();
     }
 
-    fn toast_rect(app: &mut PdfCraftApp, ctx: &egui::Context, width: f32, now: &mut f64) -> Rect {
+    fn toast_rect(app: &mut XueLuoPDFApp, ctx: &egui::Context, width: f32, now: &mut f64) -> Rect {
         // Let the Area settle after a notice/viewport change, without advancing to
         // expiry. No native rendering or renderer worker is needed for this layout.
         for _ in 0..3 {
@@ -704,7 +684,7 @@ mod tests {
     #[test]
     fn toast_width_adapts_to_long_notices_and_narrow_viewports() {
         let ctx = egui::Context::default();
-        let mut app = PdfCraftApp::new();
+        let mut app = XueLuoPDFApp::new();
         let mut now = 1.0;
         app.notify("Saved");
         let short = toast_rect(&mut app, &ctx, 1280.0, &mut now);

@@ -1,6 +1,6 @@
-//! PdfCraft desktop app.
+//! XueLuoPDF desktop app.
 //!
-//! Usage: `pdfcraft [options] [files…]`
+//! Usage: `xueluopdf [options] [files…]`
 //! `--create-images [images…]` stages the images in one PDF and asks for the page DPI.
 //!
 //! View options (applied after the files open; also the seed of the UI control channel):
@@ -27,7 +27,7 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
-use pdfcraft_ui_egui::PdfCraftApp;
+use pdfcraft_ui_egui::XueLuoPDFApp;
 
 #[cfg(target_os = "macos")]
 mod apple_events;
@@ -49,21 +49,21 @@ const APP_ID: &str = "ai.storyteller.pdfcraft";
 /// The app icon (assets/app-icon/README.md). macOS gets the version on Apple's icon grid, with a
 /// transparent margin; Windows and Linux get the full-bleed tile.
 #[cfg(target_os = "macos")]
-const APP_ICON_PNG: &[u8] = include_bytes!("../../../assets/app-icon/pdfcraft-1024.png");
+const APP_ICON_PNG: &[u8] = include_bytes!("../../../assets/app-icon/xueluopdf-1024.png");
 #[cfg(not(target_os = "macos"))]
-const APP_ICON_PNG: &[u8] = include_bytes!("../../../assets/app-icon/hicolor/256x256/apps/ai.storyteller.pdfcraft.png");
+const APP_ICON_PNG: &[u8] = include_bytes!("../../../assets/app-icon/hicolor/256x256/apps/ai.storyteller.xueluopdf.png");
 
 /// The app was called PrintCraft before; settings saved then are under this key.
 const LEGACY_STORAGE_KEY: &str = "printcraft";
 
 /// The settings folder: `app.ron` and the `logs` folder (docs/development.md). In portable mode
-/// it is `PdfCraftData` beside the executable (#157). eframe would otherwise derive it from the
-/// app id; keep it under "PdfCraft".
+/// it is `XueLuoPDFData` beside the executable (#157). eframe would otherwise derive it from the
+/// app id; this is the product name.
 fn settings_dir() -> Option<std::path::PathBuf> {
     if let Some(dir) = pdfcraft_ui_egui::portable::data_dir() {
         return Some(dir.to_path_buf());
     }
-    eframe::storage_dir("PdfCraft")
+    eframe::storage_dir("XueLuoPDF")
 }
 
 /// Move the settings and crash-recovery folders of the app's former name, PrintCraft, to the new
@@ -78,7 +78,7 @@ fn migrate_legacy_folders() {
     // Recovery lives in the settings folder except on Windows, where it is under %LOCALAPPDATA%.
     if cfg!(windows) {
         let local = std::env::var_os("LOCALAPPDATA").filter(|v| !v.is_empty()).map(std::path::PathBuf::from);
-        moves.push((local.as_ref().map(|d| d.join("PrintCraft")), local.map(|d| d.join("PdfCraft"))));
+        moves.push((local.as_ref().map(|d| d.join("PrintCraft")), local.map(|d| d.join("XueLuoPDF"))));
     }
     for (old, new) in moves {
         let (Some(old), Some(new)) = (old, new) else { continue };
@@ -143,7 +143,7 @@ fn main() -> eframe::Result {
             log::error!("{report}");
         } else {
             // `eprintln!` panics on a broken stderr pipe, and a panic inside the panic hook aborts.
-            let _ = std::io::Write::write_fmt(&mut std::io::stderr(), format_args!("pdfcraft: {report}\n"));
+            let _ = std::io::Write::write_fmt(&mut std::io::stderr(), format_args!("xueluopdf: {report}\n"));
         }
     }));
     let mut files = Vec::new();
@@ -155,7 +155,7 @@ fn main() -> eframe::Result {
     while let Some(a) = args.next() {
         match a.as_str() {
             "--version" => {
-                println!("pdfcraft {}", env!("CARGO_PKG_VERSION"));
+                println!("xueluopdf {}", env!("CARGO_PKG_VERSION"));
                 return Ok(());
             }
             "--control" => control_file = args.next(),
@@ -175,13 +175,13 @@ fn main() -> eframe::Result {
     // Records logged until now are written to it first.
     if let (Some(logger), Some(dir)) = (logger, settings_dir()) {
         match logger.attach_dir(&dir.join("logs")) {
-            Ok(path) => log::info!("PdfCraft {}, log file {}", env!("CARGO_PKG_VERSION"), path.display()),
+            Ok(path) => log::info!("XueLuoPDF {}, log file {}", env!("CARGO_PKG_VERSION"), path.display()),
             // Standard error only by now (`attach_dir` gave up on the file); unlike `eprintln!`, never panics.
             Err(e) => log::warn!("no log file: {e}"),
         }
     }
     // Windows: a launch that only names files (an Outlook attachment, an Explorer double-click)
-    // hands them to the PdfCraft already running and exits (#282, #317). Any option means the
+    // hands them to the XueLuoPDF already running and exits (#282, #317). Any option means the
     // caller wants this launch's own window.
     let may_hand_off = !new_window && !files.is_empty() && options.is_empty() && control_file.is_none() && !create_images;
     let instance = match single_instance::claim(&single_instance::absolute(&files), may_hand_off) {
@@ -199,7 +199,7 @@ fn main() -> eframe::Result {
     let started = Rc::new(Cell::new(false));
     let first = if choice == RendererChoice::Gl { eframe::Renderer::Glow } else { eframe::Renderer::Wgpu };
     let result = eframe::run_native(
-        "PdfCraft",
+        "XueLuoPDF",
         native_options(integrated, first),
         app_creator(
             launch.clone(),
@@ -217,7 +217,7 @@ fn main() -> eframe::Result {
             // usually still works there, so that's better than quitting.
             log::error!("the GPU renderer (wgpu) didn't start: {e}. Starting with OpenGL instead; set PDFCRAFT_RENDERER=gl to skip wgpu.");
             eframe::run_native(
-                "PdfCraft",
+                "XueLuoPDF",
                 native_options(integrated, eframe::Renderer::Glow),
                 app_creator(
                     launch,
@@ -260,7 +260,7 @@ fn retry_with_gl(choice: RendererChoice, app_started: bool) -> bool {
 /// The window and renderer settings for one run.
 fn native_options(integrated: bool, renderer: eframe::Renderer) -> eframe::NativeOptions {
     let mut viewport = egui::ViewportBuilder::default()
-        .with_title("PdfCraft")
+        .with_title(pdfcraft_engine::links::APP_NAME)
         .with_inner_size([1440.0, 920.0])
         .with_min_inner_size([820.0, 520.0])
         .with_drag_and_drop(true)
@@ -302,14 +302,18 @@ fn app_creator<'a>(
     let Launch { files, options, control_file, create_images, integrated } = launch;
     Box::new(move |cc| {
         started.set(true);
-        let mut app = PdfCraftApp::new();
+        let mut app = XueLuoPDFApp::new();
         // First start (or settings from before Units existed): the region's unit.
         app.units = pdfcraft_ui_egui::units::Unit::system();
         #[cfg(target_os = "linux")]
         app.enable_desktop_theme();
         // The system's reopen-windows choice (macOS) starts the preference; a saved choice replaces it.
         app.reopen_last_session = reopen::system_default();
-        if let Some(json) = cc.storage.and_then(|s| s.get_string("pdfcraft").or_else(|| s.get_string(LEGACY_STORAGE_KEY))) {
+        if let Some(json) = cc.storage.and_then(|s| {
+            // "pdfcraft"/"printcraft": settings saved under the app's former names, so an upgrade
+            // from PdfCraft (or PrintCraft before it) keeps its preferences.
+            s.get_string("xueluopdf").or_else(|| s.get_string("pdfcraft")).or_else(|| s.get_string(LEGACY_STORAGE_KEY))
+        }) {
             app.restore(&json);
         }
         app.integrated_titlebar = integrated;
@@ -381,9 +385,9 @@ fn app_creator<'a>(
 
 /// Tell the user when wgpu draws on the processor (WARP on Windows, llvmpipe on Linux) rather than
 /// a GPU, which makes everything slower. egui-wgpu only logs it, so the reporter of #519 had to find
-/// it in pdfcraft.log. The OpenGL fallback isn't covered: glow only reports its renderer through
+/// it in xueluopdf.log. The OpenGL fallback isn't covered: glow only reports its renderer through
 /// `unsafe` calls.
-fn notify_software_renderer(app: &mut PdfCraftApp, device_type: eframe::wgpu::DeviceType) {
+fn notify_software_renderer(app: &mut XueLuoPDFApp, device_type: eframe::wgpu::DeviceType) {
     if device_type == eframe::wgpu::DeviceType::Cpu {
         app.notify_tr("PdfCraft is drawing without a graphics processor, so it may be slow. Updating the graphics driver may help.");
     }
@@ -403,7 +407,7 @@ fn open_control_channel(file: &str, endpoint: std::io::Result<pdfcraft_ui_egui::
             Ok(())
         }
         Err(e) => {
-            let message = format!("--control {file}: {e}. Use a control file in a folder only you can write, such as ~/.pdfcraft-control.json");
+            let message = format!("--control {file}: {e}. Use a control file in a folder only you can write, such as ~/.xueluopdf-control.json");
             log::error!("{message}");
             Err(message)
         }
@@ -759,13 +763,13 @@ mod tests {
     #[test]
     fn a_software_renderer_is_shown_to_the_user() {
         use eframe::wgpu::DeviceType;
-        // Issue #519: WARP or llvmpipe is announced in the app, not just in pdfcraft.log.
-        let mut app = super::PdfCraftApp::new();
+        // Issue #519: WARP or llvmpipe is announced in the app, not just in xueluopdf.log.
+        let mut app = super::XueLuoPDFApp::new();
         super::notify_software_renderer(&mut app, DeviceType::Cpu);
         let notice = app.toast.as_ref().map(|(m, _)| m.as_str()).unwrap_or_default();
         assert!(notice.contains("without a graphics processor"), "{notice:?}");
         for gpu in [DeviceType::IntegratedGpu, DeviceType::DiscreteGpu, DeviceType::VirtualGpu, DeviceType::Other] {
-            let mut app = super::PdfCraftApp::new();
+            let mut app = super::XueLuoPDFApp::new();
             super::notify_software_renderer(&mut app, gpu);
             assert!(app.toast.is_none(), "{gpu:?}: {:?}", app.toast);
         }

@@ -1,6 +1,6 @@
 //! Fill & Sign (Acrobat's Fill & Sign tool, execution plan M5.7): type text onto the page, place
 //! ✓ ✕ ● ─ marks and today's date (in Preferences ▸ Date format), and sign with a drawn
-//! signature. Everything is an annotation (typewriter text, PdfCraft-drawn stamps, ink), so it
+//! signature. Everything is an annotation (typewriter text, XueLuoPDF-drawn stamps, ink), so it
 //! can be moved, deleted and undone like any comment.
 
 use egui::{Color32, CornerRadius, Pos2, Sense, Stroke, pos2, vec2};
@@ -500,7 +500,7 @@ pub(crate) fn script_preview(text: &str, w: usize, h: usize) -> egui::ColorImage
 }
 
 /// Saved previews and add/remove controls, shared by the left panel and quick-tool picker.
-pub(crate) fn signature_entries(ui: &mut egui::Ui, app: &mut crate::PdfCraftApp, t: &Tokens) -> Option<&'static str> {
+pub(crate) fn signature_entries(ui: &mut egui::Ui, app: &mut crate::XueLuoPDFApp, t: &Tokens) -> Option<&'static str> {
     ui.set_width(ui.available_width().clamp(240.0, 248.0));
     let mut command = None;
     for (i, (saved, what, use_id, change_id, remove_id)) in [
@@ -832,7 +832,7 @@ fn scan_tab(
 ) -> bool {
     ui.label(
         egui::RichText::new(tl!(
-            "Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper."
+            "Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: XueLuoPDF finds the signature and removes the paper."
         ))
         .color(t.text_muted),
     );
@@ -1055,7 +1055,7 @@ struct PickedImage {
     bytes: Option<Result<Vec<u8>, String>>,
 }
 
-impl crate::PdfCraftApp {
+impl crate::XueLuoPDFApp {
     /// Browse asynchronously, answering only into the dialog (and tab) that asked for the image
     /// or, on the Scan tab, the photo.
     pub(crate) fn pick_signature_image(&mut self) {

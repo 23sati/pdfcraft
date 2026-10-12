@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Build and package PdfCraft for Linux (<arch> is x86_64 or aarch64, or riscv64 when cross-compiling):
+# Build and package XueLuoPDF for Linux (<arch> is x86_64 or aarch64, or riscv64 when cross-compiling):
 #
-#   $DIST/pdfcraft-<version>-linux-<arch>.AppImage  any distro with glibc >= the build host's
-#   $DIST/pdfcraft-<version>-linux-<arch>.AppImage.zsync  delta updates (needs zsyncmake)
-#   $DIST/pdfcraft-<version>-linux-<arch>.deb       Debian, Ubuntu, Mint, Pop!_OS, ...
-#   $DIST/pdfcraft-<version>-linux-<arch>.rpm       Fedora, openSUSE, RHEL, ...
-#   $DIST/pdfcraft-<version>-linux-<arch>.tar.gz    plain FHS-style tree (bin/, share/)
-#   $DIST/pdfcraft-cli-<version>-linux-<arch>.tar.gz  the headless CLI alone (servers, CI, agents)
+#   $DIST/xueluopdf-<version>-linux-<arch>.AppImage  any distro with glibc >= the build host's
+#   $DIST/xueluopdf-<version>-linux-<arch>.AppImage.zsync  delta updates (needs zsyncmake)
+#   $DIST/xueluopdf-<version>-linux-<arch>.deb       Debian, Ubuntu, Mint, Pop!_OS, ...
+#   $DIST/xueluopdf-<version>-linux-<arch>.rpm       Fedora, openSUSE, RHEL, ...
+#   $DIST/xueluopdf-<version>-linux-<arch>.tar.gz    plain FHS-style tree (bin/, share/)
+#   $DIST/xueluopdf-cli-<version>-linux-<arch>.tar.gz  the headless CLI alone (servers, CI, agents)
 #
 # Cross-compiling (CI: riscv64, tar only): set CROSS_ARCH (riscv64), CROSS_TARGET (the Rust target),
 # CROSS_COMPILE (binutils prefix, for strip) and optionally EMULATOR (e.g. qemu-riscv64) to
@@ -42,10 +42,10 @@ case "$ARCH" in
   aarch64 | arm64) ARCH=aarch64; DEB_ARCH=arm64 ;;
   *) echo "unsupported architecture $ARCH" >&2; exit 2 ;;
 esac
-export PDFCRAFT_MAINTAINER="${PDFCRAFT_MAINTAINER:-PdfCraft maintainers <pdfcraft@storyteller.ai>}"
-BASENAME="pdfcraft-$VERSION-linux-$ARCH"
+export PDFCRAFT_MAINTAINER="${PDFCRAFT_MAINTAINER:-XueLuoPDF maintainers <xueluopdf@users.noreply.github.com>}"
+BASENAME="xueluopdf-$VERSION-linux-$ARCH"
 
-echo "==> PdfCraft $VERSION for Linux $ARCH ($FORMATS)"
+echo "==> XueLuoPDF $VERSION for Linux $ARCH ($FORMATS)"
 
 if [ "$SKIP_BUILD" = 0 ]; then
   if [ -n "${CROSS_TARGET:-}" ]; then
@@ -60,9 +60,9 @@ STAGE="$WORK/root"
 rm -rf "$WORK"
 
 # ---- stage an FHS tree (shared by every format) -------------------------------------------------
-install -Dm755 "$BIN/pdfcraft" "$STAGE/usr/bin/pdfcraft"
-install -Dm755 "$BIN/pdfcraft-cli" "$STAGE/usr/bin/pdfcraft-cli"
-"${CROSS_COMPILE:-}strip" "$STAGE/usr/bin/pdfcraft" "$STAGE/usr/bin/pdfcraft-cli" 2>/dev/null || true
+install -Dm755 "$BIN/xueluopdf" "$STAGE/usr/bin/xueluopdf"
+install -Dm755 "$BIN/xueluopdf-cli" "$STAGE/usr/bin/xueluopdf-cli"
+"${CROSS_COMPILE:-}strip" "$STAGE/usr/bin/xueluopdf" "$STAGE/usr/bin/xueluopdf-cli" 2>/dev/null || true
 install -Dm644 "$HERE/$APP_ID.desktop" "$STAGE/usr/share/applications/$APP_ID.desktop"
 install -Dm644 "$HERE/$APP_ID.mime.xml" "$STAGE/usr/share/mime/packages/$APP_ID.xml"
 mkdir -p "$STAGE/usr/share/metainfo"
@@ -70,10 +70,10 @@ sed -e "s/@VERSION@/$VERSION/g" -e "s/@DATE@/$PDFCRAFT_BUILD_DATE/g" \
   "$HERE/$APP_ID.metainfo.xml.in" >"$STAGE/usr/share/metainfo/$APP_ID.metainfo.xml"
 mkdir -p "$STAGE/usr/share/icons"
 cp -R "$ROOT/assets/app-icon/hicolor" "$STAGE/usr/share/icons/"
-mkdir -p "$STAGE/usr/share/doc/pdfcraft"
-copy_docs "$STAGE/usr/share/doc/pdfcraft"
-# OCR models: the app finds them at <bin>/../share/pdfcraft/models, so in every format below.
-stage_models "$STAGE/usr/share/pdfcraft/models"
+mkdir -p "$STAGE/usr/share/doc/xueluopdf"
+copy_docs "$STAGE/usr/share/doc/xueluopdf"
+# OCR models: the app finds them at <bin>/../share/xueluopdf/models, so in every format below.
+stage_models "$STAGE/usr/share/xueluopdf/models"
 
 if command -v desktop-file-validate >/dev/null; then
   desktop-file-validate "$STAGE/usr/share/applications/$APP_ID.desktop"
@@ -93,13 +93,13 @@ if has tar; then
 fi
 
 # ---- CLI-only .tar.gz ---------------------------------------------------------------------------
-# The stripped pdfcraft-cli (and its opt-in MCP server) with the licences, for machines that never
+# The stripped xueluopdf-cli (and its opt-in MCP server) with the licences, for machines that never
 # open a window. Like the other formats it needs glibc >= the build host's.
 if has cli; then
-  CLI_NAME="pdfcraft-cli-$VERSION-linux-$ARCH"
+  CLI_NAME="xueluopdf-cli-$VERSION-linux-$ARCH"
   CLI_DIR="$WORK/cli/$CLI_NAME"
   mkdir -p "$CLI_DIR"
-  cp "$STAGE/usr/bin/pdfcraft-cli" "$CLI_DIR/"
+  cp "$STAGE/usr/bin/xueluopdf-cli" "$CLI_DIR/"
   copy_docs "$CLI_DIR"
   tar -C "$WORK/cli" -czf "$DIST/$CLI_NAME.tar.gz" "$CLI_NAME"
   echo "wrote $DIST/$CLI_NAME.tar.gz"
@@ -119,10 +119,10 @@ fi
 
 # ---- AppImage -----------------------------------------------------------------------------------
 if has appimage; then
-  APPDIR="$WORK/PdfCraft.AppDir"
+  APPDIR="$WORK/XueLuoPDF.AppDir"
   cp -R "$STAGE" "$APPDIR"
   mv "$APPDIR/usr/share/doc" "$WORK/doc-unused"
-  ln -s usr/bin/pdfcraft "$APPDIR/AppRun"
+  ln -s usr/bin/xueluopdf "$APPDIR/AppRun"
   cp "$HERE/$APP_ID.desktop" "$APPDIR/$APP_ID.desktop"
   cp "$ROOT/assets/app-icon/hicolor/256x256/apps/$APP_ID.png" "$APPDIR/$APP_ID.png"
   ln -s "$APP_ID.png" "$APPDIR/.DirIcon"
@@ -146,8 +146,8 @@ if has appimage; then
   # fetch only the blocks that changed in a newer release, through the .zsync published next to
   # each AppImage on GitHub Releases. `latest` is the newest published release that is not a
   # pre-release. A fork's builds point at its own releases through GITHUB_REPOSITORY.
-  REPO="${GITHUB_REPOSITORY:-storytold/pdfcraft}"
-  UPDATE_INFO="gh-releases-zsync|${REPO%%/*}|${REPO#*/}|latest|pdfcraft-*-linux-$ARCH.AppImage.zsync"
+  REPO="${GITHUB_REPOSITORY:-PLSshenyun/xueluopdf}"
+  UPDATE_INFO="gh-releases-zsync|${REPO%%/*}|${REPO#*/}|latest|xueluopdf-*-linux-$ARCH.AppImage.zsync"
   # Extract-and-run: works without FUSE (containers, CI). The output embeds the static runtime,
   # so users don't need libfuse2 either. With zsyncmake on the host (CI installs the zsync
   # package) appimagetool also writes the .zsync, into its working directory, hence the cd.
@@ -161,9 +161,9 @@ if has appimage; then
 fi
 
 if [ -z "${CROSS_TARGET:-}" ]; then
-  "$STAGE/usr/bin/pdfcraft-cli" --version
+  "$STAGE/usr/bin/xueluopdf-cli" --version
 elif [ -n "${EMULATOR:-}" ]; then
-  "$EMULATOR" "$STAGE/usr/bin/pdfcraft-cli" --version
+  "$EMULATOR" "$STAGE/usr/bin/xueluopdf-cli" --version
 fi
 echo "==> done"
 ls -lh "$DIST"

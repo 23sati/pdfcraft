@@ -1,12 +1,14 @@
 [package]
 name = "pdfcraft-cli"
-description = "PdfCraft command-line tool: inspect, render and robustness-check PDFs"
+description = "XueLuoPDF command-line tool: inspect, render and robustness-check PDFs"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+# The package keeps its name, so `cargo run -p pdfcraft-cli` and `cargo build -p pdfcraft-cli`
+# still work; the file it produces is named after the product.
 [[bin]]
-name = "pdfcraft-cli"
+name = "xueluopdf-cli"
 path = "src/main.rs"
 
 [lints]
@@ -27,10 +29,10 @@ base64 = "0.22"
 rustix = { version = "1", features = ["process"] }
 
 [build-dependencies]
-# VERSIONINFO for pdfcraft-cli.exe; build.rs only uses it when targeting Windows.
+# VERSIONINFO for xueluopdf-cli.exe; build.rs only uses it when targeting Windows.
 winresource = "0.1"
 
 [features]
 default = ["mcp"]
-# The opt-in MCP server (`pdfcraft-cli mcp`). Build with --no-default-features to leave it out.
+# The opt-in MCP server (`xueluopdf-cli mcp`). Build with --no-default-features to leave it out.
 mcp = ["pdfcraft-automation/mcp"]

@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-const BIN: &str = env!("CARGO_BIN_EXE_pdfcraft-cli");
+const BIN: &str = env!("CARGO_BIN_EXE_xueluopdf-cli");
 const CANARY: &[u8] = b"KEEP EXISTING DESTINATION\n";
 
 struct TestDir(PathBuf);

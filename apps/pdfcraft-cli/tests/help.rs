@@ -3,7 +3,7 @@
 
 use std::process::{Command, Output};
 
-const BIN: &str = env!("CARGO_BIN_EXE_pdfcraft-cli");
+const BIN: &str = env!("CARGO_BIN_EXE_xueluopdf-cli");
 
 fn run(args: &[&str]) -> Output {
     Command::new(BIN).args(args).output().unwrap()
@@ -61,5 +61,5 @@ fn unknown_command_names_it_and_points_to_help() {
     assert!(!out.status.success());
     let stderr = text(&out.stderr);
     assert!(stderr.contains("unknown command 'frobnicate'"), "{stderr}");
-    assert!(stderr.contains("pdfcraft-cli --help"), "{stderr}");
+    assert!(stderr.contains("xueluopdf-cli --help"), "{stderr}");
 }

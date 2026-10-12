@@ -1,19 +1,13 @@
 <p align="center">
-  <a href="https://getartcraft.com/">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/brand/artcraft-logo-white.svg">
-      <img alt="ArtCraft" src="docs/brand/artcraft-logo.svg" width="200">
-    </picture>
-  </a>
+  <img alt="XueLuoPDF" src="assets/app-icon/hicolor/256x256/apps/ai.storyteller.xueluopdf.png" width="128">
 </p>
 
-
-<h1 align="center">PdfCraft</h1>
+<h1 align="center">雪落 PDF · XueLuoPDF</h1>
 
 <p align="center">
-  <b>The PDF workbench; an open-source, clean-room reimplementation of Adobe Acrobat, rebuilt in pure Rust.</b><br>
-  Read, organize, combine, split and secure PDFs in a fast, native app, written in Rust from the ground up.<br>
-  macOS · Windows · Linux · FreeBSD · the web
+  <b>用纯 Rust 从零写起的开源 PDF 工作台。</b><br>
+  阅读、批注、填表、签名、整理、合并、拆分、保护，一个原生应用全搞定。<br>
+  macOS · Windows · Linux · FreeBSD · 浏览器
 </p>
 
 <p align="center">
@@ -24,550 +18,266 @@
 </p>
 
 <p align="center">
-  <a href="https://discord.gg/artcraft"><img alt="Join the ArtCraft community on Discord" src="https://img.shields.io/badge/Join%20us%20on%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" height="40"></a>
-</p>
-
-<p align="center">
-  <a href="https://getartcraft.com/apps/pdfcraft"><b>PdfCraft on getartcraft.com</b></a> ·
-  <a href="https://getartcraft.com/">ArtCraft</a> ·
-  <a href="https://getartcraft.com/apps">All Crafting Apps</a>
-</p>
-
-<br>
-
-<p align="center">
-  <img src="docs/images/pdfcraft-viewer.png" alt="PdfCraft with the PdfCraft Showcase cover page open, the All tools panel on the left and 20 threaded comments on the right" width="100%">
-  <br>
-  <sub>The PdfCraft Showcase, a 13-page specimen PDF, open with the All tools panel and threaded comments.</sub>
-</p>
-
-> [!NOTE]
-> **ArtCraft is a community of artists from all walks of life.** Digital, generative, music,
-> games &mdash; if you make things, you're one of us. **[Come say hi on Discord](https://discord.gg/artcraft).**
-
-<p align="center">
-  <a href="#highlights">Highlights</a> ·
-  <a href="#read-anything-beautifully">Read</a> ·
-  <a href="#find-it-select-it-copy-it">Find</a> ·
-  <a href="#organize-pages-like-cards-on-a-table">Organize</a> ·
-  <a href="#combine-and-split-without-losing-a-thing">Combine &amp; split</a> ·
-  <a href="#open-protected-documents-and-respect-their-rules">Protect</a> ·
-  <a href="#comments-forms-layers-and-attachments">Forms &amp; layers</a> ·
-  <a href="#runs-everywhere-stays-yours">Everywhere</a> ·
-  <a href="#built-for-agents-too">Agents</a> ·
-  <a href="#how-its-built">How it's built</a> ·
-  <a href="#get-started">Get started</a> ·
-  <a href="#whats-next">What's next</a> ·
-  <a href="#downloads">Downloads</a> ·
-  <a href="#the-crafting-apps">Crafting Apps</a>
+  <a href="https://github.com/PLSshenyun/xueluopdf"><b>github.com/PLSshenyun/xueluopdf</b></a> ·
+  <a href="https://github.com/PLSshenyun/xueluopdf/issues">问题反馈</a> ·
+  <a href="#下载">下载</a>
 </p>
 
 ---
 
-## Community
+## 这是什么
 
-PdfCraft is part of [ArtCraft](https://getartcraft.com). Come say hello, get help and follow development:
+XueLuoPDF 是一个本地优先的 PDF 应用：文档不离开你的电脑，没有账号、没有遥测、没有云端处理。它把 PDF 的对象结构当作数据模型，保存时默认**增量写入**——原始字节原样保留，新的改动追加在后面。
 
-- **Discord: [discord.gg/artcraft](https://discord.gg/artcraft)**. This is the fastest way to get help and share feedback. The app has a Discord button in its title bar.
-- **Web page:** [getartcraft.com/apps/pdfcraft](https://getartcraft.com/apps/pdfcraft)
-- **Source:** [github.com/storytold/pdfcraft](https://github.com/storytold/pdfcraft)
+工程上它是一个 Cargo 工作区（约 30 个库 crate + 3 个可执行程序），引擎与界面分层：解析、渲染、编辑都在可复用的库 crate 里，界面只是最上面可替换的一层。同一个代码库同时产出桌面版、命令行版和 WebAssembly 浏览器版。
 
-The ArtCraft name and logos in `docs/brand/` are trademarks of the ArtCraft Team and are not open source. They may be used only unmodified, and only as part of PdfCraft (see `docs/brand/LICENSE-brand.txt`). Forks and modified versions must remove them.
+> 本项目基于 **PdfCraft**（[storytold/pdfcraft](https://github.com/storytold/pdfcraft)）改名而来，原作者与项目介绍见文末[「上游」](#上游)。
 
-## Highlights
+- 渲染：世界文字系统、日文竖排、彩色 emoji、渐变、软遮罩与透明
+- 数据安全：增量保存、原子写入、深撤销、崩溃后自动恢复
+- 可自动化：每个功能都有无头接口（CLI 与 MCP），界面本身也能被脚本驱动
+- 全平台：macOS / Windows / Linux / FreeBSD 原生，另有浏览器版
 
-<table>
-<tr>
-<td width="33%" valign="top">
+## 快速开始
 
-### Faithful
-Real-world typography: world scripts, vertical Japanese, colour emoji, gradients, soft masks and transparency. All of it renders the way the author intended.
-
-</td>
-<td width="33%" valign="top">
-
-### Fearless
-Every save appends your changes and leaves the original bytes untouched. Writes are atomic, undo runs deep, and nothing is lost if you close by mistake.
-
-</td>
-<td width="33%" valign="top">
-
-### Yours
-No account, no telemetry, no cloud. It works offline and opens instantly. The engine, CLI and app are all open source.
-
-</td>
-</tr>
-</table>
-
----
-
-## Read anything, beautifully
-
-PdfCraft renders PDFs with care for the details that make a page feel right: kerning and ligatures, right-to-left and complex scripts, vertical CJK, colour emoji, shadings, blend modes, soft masks and optional content.
-
-<p align="center">
-  <img src="docs/images/pdfcraft-scripts.png" alt="The Scripts of the World page: Arabic, Hebrew, Devanagari, Thai, Greek, Cyrillic, Chinese, Korean, IPA, Armenian, Georgian and Tamil samples, with vertical Japanese in the right margin" width="100%">
-  <br>
-  <sub>Twelve writing systems on one page, plus vertical Japanese, at 125%.</sub>
-</p>
-
-- **Deep zoom stays sharp.** Large pages render in tiles, so text stays crisp at any magnification.
-- **Built to survive bad files.** Every page renders in isolation and damaged documents are repaired. Across the 983-file pdf.js test corpus the result is 0 crashes.
-- **Layouts for every task:** continuous, single page, two-up, view rotation, full screen and a distraction-free Read mode.
-- **Light and dark themes**, both designed to be easy on the eyes for long sessions.
-
-<table>
-<tr>
-<td width="50%"><img src="docs/images/pdfcraft-twoup.png" alt="Two facing pages in Read mode with the dark theme: the Foreword and the Setting Text chapter with its drop cap and pull quote"></td>
-<td width="50%"><img src="docs/images/pdfcraft-dark.png" alt="The dark theme showing the Code and Images chapter, a syntax-coloured listing and a fractal image, with the comments panel open"></td>
-</tr>
-<tr>
-<td align="center"><sub>Two-up Read mode, ready for long reading</sub></td>
-<td align="center"><sub>The dark theme, with the comments panel open</sub></td>
-</tr>
-</table>
-
-## Find it, select it, copy it
-
-Search the whole document as you type, step through matches with <kbd>⌘G</kbd>, and select text that comes out in the right reading order. That holds for columns, right-to-left runs and CJK too.
-
-## Navigate long documents
-
-Bookmarks, page thumbnails and the document's own page labels (i, ii, 1, 2…) keep you oriented in long documents. Search bookmark titles in the Bookmarks panel to find nested entries even when their parents are collapsed. Matches keep their ancestors for context; Clear restores the unfiltered tree without changing its expansion state.
-
-<table>
-<tr>
-<td width="50%"><img src="docs/images/pdfcraft-find.png" alt="The find bar showing match 10 of 16 for the word 'type', highlighted in the Expressive Type chapter heading"></td>
-<td width="50%"><img src="docs/images/pdfcraft-bookmarks.png" alt="The Bookmarks panel showing the nested outline of the showcase, with page labels such as Cover, i and ii, next to the Scripts of the World page"></td>
-</tr>
-<tr>
-<td align="center"><sub>Find as you type: match 10 of 16</sub></td>
-<td align="center"><sub>Nested bookmarks with the document's own page labels</sub></td>
-</tr>
-</table>
-
----
-
-## Organize pages like cards on a table
-
-Open **Organize pages** to see every page at once:
-- **Select pages:** click, <kbd>⌘</kbd>-click or <kbd>⇧</kbd>-click.
-- **Change them:** rotate, delete, insert blank pages, insert pages from another file, and move them earlier or later.
-- **Undo anything:** <kbd>⌘Z</kbd>, then save.
-
-<p align="center">
-  <img src="docs/images/pdfcraft-organize.png" alt="The Organize pages grid with the showcase's pages as thumbnails, three of them selected, and the page toolbar above" width="100%">
-  <br>
-  <sub>Organize pages with three pages selected and the page tools in the toolbar above.</sub>
-</p>
-
-<table>
-<tr>
-<td width="50%" valign="top">
-
-**Undo that goes the distance.** Each change is one step in a history you can walk backwards and forwards. The Edit menu names the step ("Undo Rotate pages"), and undo still works after you save.
-
-**Saves you can trust:**
-- *Incremental:* the original bytes stay byte-for-byte intact.
-- *Atomic:* the file is written to a temporary copy, then swapped in.
-- *Verified:* independently checked with qpdf.
-
-When open documents exceed the window width, scroll over the tab strip with the mouse wheel or trackpad, or use its horizontal scrollbar. Opening or switching to a document brings its tab into view.
-
-Unsaved documents carry a dot on their tab, and closing or quitting asks before anything is lost. Changes are autosaved every minute. If PdfCraft ever quits unexpectedly, it offers to recover your work the next time it opens. Encrypted documents stay encrypted on disk.
-
-</td>
-<td width="50%" valign="top"><img src="docs/images/pdfcraft-split.png" alt="The Split document dialog over the organize view, set to one page per file and reporting that it creates 13 files from 13 pages"><br><sub>Split document: one page per file makes 13 files.</sub></td>
-</tr>
-</table>
-
-## Combine and split without losing a thing
-
-**Combine files** merges any number of PDFs into one. Each file gets a bookmark, with its own bookmarks nested underneath.
-
-**Extract** copies the pages you select into a new document. **Split** divides a document every *n* pages, or before the pages you choose.
-
-Nothing quietly disappears along the way:
-- links and named destinations are rewired to the copied pages;
-- form fields stay interactive;
-- layers keep their on/off defaults;
-- attachments come along.
-
-Every page of a combined document renders pixel-identical to its source.
+需要 Rust 1.95 或更高版本。
 
 ```sh
-pdfcraft-cli combine report.pdf appendix.pdf --out combined.pdf
-pdfcraft-cli extract report.pdf --pages 1,3,5 --out highlights.pdf
-pdfcraft-cli split   report.pdf --every 10 --out-dir parts/
+git clone https://github.com/PLSshenyun/xueluopdf
+cd xueluopdf
+cargo run --release -p pdfcraft -- some.pdf     # 打开桌面版
+cargo run -p pdfcraft-cli -- --help             # 命令行工具
 ```
 
----
+构建产物叫 `xueluopdf`（桌面版）和 `xueluopdf-cli`（命令行版）——crate 名仍是 `pdfcraft*`，所以上面的 `-p pdfcraft` 选择器写法不变。
 
-## Open protected documents and respect their rules
-
-PdfCraft implements the PDF standard security handler completely:
-- every revision, from 40-bit RC4 to AES-256;
-- user and owner passwords, including Unicode passwords normalised with SASLprep;
-- crypt filters and attachment-only encryption.
-
-Documents restricted by their author show a clear notice, and PdfCraft honours their permissions. Enter the owner password and the restrictions lift. Edits to encrypted documents are saved encrypted, under the same keys.
-
-<table>
-<tr>
-<td width="50%" valign="top"><img src="docs/images/pdfcraft-properties.png" alt="The Document Properties dialog on its Description tab, with editable title, author, subject and keywords, and tabs for Security, Fonts and Advanced"><br><sub>Document Properties, Description tab</sub></td>
-<td width="50%" valign="top">
-
-**Document Properties** shows:
-- the document's title, author, subject and keywords, which you can edit;
-- the fonts it uses and whether each is embedded;
-- PDF version, page size, tags, fields, layers and attachments;
-- the full security picture: encryption method, which password opened it, and each permission.
-
-</td>
-</tr>
-</table>
-
-## Comments, forms, layers and attachments
-
-<table>
-<tr>
-<td width="50%"><img src="docs/images/pdfcraft-forms.png" alt="The Interactive Form page with highlighted text fields, checkboxes, radio buttons, a list and a signature field, and the Fields panel listing all 13 fields and their values"></td>
-<td width="50%"><img src="docs/images/pdfcraft-layers.png" alt="The Review and Markup page with highlights, shapes, ink and an APPROVED stamp under a DRAFT watermark, and the Layers panel with Draft watermark and Print-only notes"></td>
-</tr>
-<tr>
-<td valign="top"><b>Forms</b>: every field with its current value, field highlighting, and checkboxes, radio buttons, lists and signatures drawn the way their author designed them.</td>
-<td valign="top"><b>Layers</b>: switch optional content on and off and the page re-renders instantly. <b>Comments</b> appear as threaded conversations, and <b>attachments</b> can be opened or saved.</td>
-</tr>
-</table>
-
-## Every tool, one keystroke away
-
-Press <kbd>⌘K</kbd> to search every tool and command, or browse the **All tools** catalogue. Tools that are still in development are marked with the milestone that will ship them.
-
-<table>
-<tr>
-<td width="50%"><img src="docs/images/pdfcraft-palette.png" alt="The command palette searching for 'page', listing Page grid, Page labels, Rotate pages, Insert pages, Delete pages, Extract pages and more, each with the tool it belongs to"></td>
-<td width="50%"><img src="docs/images/pdfcraft-tools.png" alt="The Welcome to PdfCraft home screen with recommended tools, a recent file, a privacy note, and the full tool catalogue in the side panel"></td>
-</tr>
-<tr>
-<td align="center"><sub>The <kbd>⌘K</kbd> command palette</sub></td>
-<td align="center"><sub>The home screen and the All tools catalogue</sub></td>
-</tr>
-</table>
-
----
-
-## Runs everywhere, stays yours
-
-- **Native on macOS, Windows, Linux and FreeBSD**, and **in the browser** through WebAssembly, from the same Rust codebase. Windows builds come for x64, x86 and ARM64 (Windows on ARM, no emulation); every ARM64 change is tested on ARM64 hardware in CI.
-- **Private by design.** Documents never leave your machine. There's no account, no telemetry and no cloud processing.
-- **Engine first.** Parsing, rendering and editing live in reusable library crates. The interface is one swappable layer on top.
-- **Scriptable.** The `pdfcraft-cli` tool (see [Built for agents, too](#built-for-agents-too)) covers inspecting, rendering, extracting text, editing, combining, extracting pages and splitting. Robustness sweeps run on the same engine as the app.
+几个常用任务：
 
 ```sh
-pdfcraft-cli info  form.pdf                                  # structure as JSON
-pdfcraft-cli text  paper.pdf --page 3                        # reading-order text
-pdfcraft-cli edit  in.pdf --rotate 1,2:90 --delete 5 --title "Q3" --out out.pdf
+cargo xtask models          # 下载「扫描与 OCR」需要的识别模型（正式发布包已内置）
+cargo xtask assets          # 校验所有素材的授权与哈希
+cargo xtask parity          # 查看与目标功能的对齐进度
+cargo test --workspace      # 跑全部测试
 ```
 
----
+界面语言在 **菜单 → 编辑 → 首选项…** 里切换（macOS 是 ⌘,，其他平台是 Ctrl+,），没有打开文档时也能改；Auto 跟随系统语言。简体中文、繁體中文、日本語等 20 种语言在列，其中中日文覆盖面最广（命令、对话框、面板、快捷键）。命令面板同时接受译文、英文原文和稳定的命令 id；文件名、PDF 内容、作者名以及来自引擎或操作系统的错误细节保持原样。
 
-## Built for agents, too
-
-Every engine feature is reachable without the GUI, through one table of JSON-Schema-described tools: open, inspect, render pages to PNG, extract and find text, rotate, delete, move and insert pages, edit bookmarks and page labels, add, reply to, restyle and delete comments (highlight a phrase just by naming it), list and fill in form fields, protect with passwords, set metadata, undo and redo, save, combine, extract and split. Three front doors share it:
-
-- **`pdfcraft-cli run`**, for one-off calls and JSON scripts:
-
-  ```sh
-  pdfcraft-cli tools                                        # every tool and its JSON Schema
-  pdfcraft-cli run text_find doc=1 query=invoice            # key=value; values parse as JSON
-  pdfcraft-cli run --script review.json                     # e.g. comment_add {"type": "highlight", "find": "total due"}
-  pdfcraft-cli run --script steps.json --root ./work        # several steps in one session
-  ```
-
-  With `--root`, every file the script's steps read or write stays in that directory, including the PNG a step saves with `"out"` (the script itself is read from wherever you name it).
-
-- **An MCP server**, for AI agents such as Claude. **It is opt-in:** PdfCraft never starts it on its own, and it opens no network port. It runs only while an agent launches `pdfcraft-cli mcp`, talks over stdin/stdout, and stops when the agent disconnects. To enable it, add it to your agent's MCP configuration:
-
-  ```json
-  { "mcpServers": { "pdfcraft": { "command": "pdfcraft-cli", "args": ["mcp", "--root", "/path/to/your/pdfs"] } } }
-  ```
-
-  `--compact` shrinks the tool list the agent has to read: `tools/list` returns about ten core tools plus `tool_search` and `tool_call`, which find and run every other tool, so the list costs far fewer tokens. Every tool still works.
-
-  `--root` confines every file the agent can read or write to one directory. Builds that should not include the server at all can use `cargo build -p pdfcraft-cli --no-default-features`.
-
-- **The Rust API** (`pdfcraft_automation::Automation::call`), for embedding.
-
-Edits stay in memory, undoable, until `doc_save`. Saving to the same file appends an incremental update, so the original bytes are preserved, and the write is atomic. Unsaved changes are never discarded silently.
-
-### Driving the app itself
-
-Start the desktop app with `pdfcraft --control ~/.pdfcraft-control.json` and an agent can see and operate the real interface: the widget tree with labels and positions (from the accessibility tree), clicks, typing, keys, commands, view options and screenshots. This is also off by default. It listens only on loopback, and every connection must present the random token written to that file, which only you can read.
-
-Keep the control file in a folder only you can write, not a shared one such as `/tmp`: another user could create the file there first and receive your commands. `pdfcraft-cli ui` refuses a control file that is a symbolic link, and on macOS, Linux and FreeBSD one that another user owns or can read or write. The app doesn't start if it can't write the file.
-
-```sh
-pdfcraft-cli ui --control ~/.pdfcraft-control.json inspect query=rotate      # find widgets
-pdfcraft-cli ui --control ~/.pdfcraft-control.json click label="Organize pages"
-pdfcraft-cli ui --control ~/.pdfcraft-control.json key key=K modifiers='["command"]'
-pdfcraft-cli ui --control ~/.pdfcraft-control.json command id=comment.square   # pick a tool, then draw:
-pdfcraft-cli ui --control ~/.pdfcraft-control.json drag from='[400,300]' to='[600,420]'
-pdfcraft-cli ui --control ~/.pdfcraft-control.json screenshot --out window.png
-pdfcraft-cli ui --control ~/.pdfcraft-control.json resize width=1200 height=800
-pdfcraft-cli ui --control ~/.pdfcraft-control.json focus label="Read"
-pdfcraft-cli ui --control ~/.pdfcraft-control.json inspect focused=true
-pdfcraft-cli ui --control ~/.pdfcraft-control.json quit
-```
-
-`ui.dock` arranges the `tools` and `inspector` panels; `canvas` is the protected document view.
-Each per-panel request requires a `panel` ID and an `operation`: `open`, `close`,
-`activate`, `float` with `rect: [x, y, width, height]`, or `move` with `target` and
-`zone: center|left|right|top|bottom`. For example,
-`{"operation":"float","panel":"tools","rect":[100,100,320,440]}` floats Tools.
-`ui.dock.reset` restores the default
-arrangement. The control channel accepts these methods directly; `ui.command` also accepts
-`{"id":"ui.dock","params":{...}}`. Saved preferences retain groups, active tabs, visibility
-and floating geometry. Invalid requests return an error without changing the document or layout.
-
-
-`resize` requests a native inner-window size in logical points (each dimension must be between 320 and 8192); the window manager may constrain it. `state` reports the observed `window.width`, `window.height` and `window.pixels_per_point`. `focus` accepts exactly one widget `id` or unique enabled, focusable `label`; subsequent `key` requests traverse or activate the actual widgets. `inspect` includes focusability and accepts a `focused` filter. `quit` takes no parameters: clean documents exit normally, while unsaved edits or typing open the existing Save/Don't save/Cancel prompt and return `quitting: false, needs_confirmation: true`. It never silently discards work. Window resizing and application quit are native-only.
-
----
-
-## How it's built
-
-PdfCraft is a Cargo workspace of focused crates, layered so the core never depends on the UI:
-
-| Crate | What it does |
-|---|---|
-| `pdfcraft-filters` | Every PDF stream filter (Flate, LZW, ASCII85, RunLength, predictors), encode and decode, property-tested |
-| `pdfcraft-crypt` | The standard security handler: RC4, AES-128/256, revisions 2–6, permissions |
-| `pdfcraft-cos` | The PDF object layer: tolerant parsing, repair, copy-on-write edits, incremental and full writing |
-| `pdfcraft-organize` | Page operations, combine / extract / split, bookmarks, page labels, document information |
-| `pdfcraft-fonts` | Font metrics and encodings for generated appearances |
-| `pdfcraft-annot` | Comments: builders and appearance streams for notes, text markup, shapes, ink and text boxes; replies, status, edits |
-| `pdfcraft-forms` | Interactive forms: the field model, filling with regenerated appearances, Clear form |
-| `pdfcraft-render` | Rendering, inspection and text extraction with reading order |
-| `pdfcraft-engine` | The façade every frontend uses: sessions, edits, undo, saving, the tool catalogue |
-| `pdfcraft-automation` | Agent control: the headless tool table, `pdfcraft-cli run`, and the opt-in MCP server |
-| `pdfcraft-ui-egui` | The desktop and web interface |
-
-**Quality gates.** Every change passes the same automated checks:
-- formatting, and Clippy with warnings as errors;
-- 200+ unit, property and UI tests;
-- crate-layering rules and a WebAssembly build check;
-- an asset-licence audit.
-
-On top of those, two corpus sweeps run over real-world files:
-- **Opening and rendering:** of the 983 pdf.js test files, 963 open and render cleanly, with 0 crashes.
-- **Open, edit and save round trips:** 958 succeed.
-
-The output is verified with independent tools: hayro, qpdf and poppler.
-
-PdfCraft is a clean-room implementation. Its behaviour comes from the ISO 32000 specification and black-box observation, never from anyone else's code. Every icon, font and image is openly licensed and listed in [ATTRIBUTION.md](ATTRIBUTION.md).
-
-## Get started
-
-Building needs Rust 1.95 or later.
-
-```sh
-git clone https://github.com/storytold/pdfcraft
-cd pdfcraft
-cargo xtask models                                # fetch the OCR models Scan & OCR needs (release builds include them)
-cargo run --release -p pdfcraft -- some.pdf     # desktop app
-cargo xtask demo-pdf                              # build the showcase PDF used in these screenshots
-cargo xtask screenshots                           # regenerate every screenshot in this README
-```
-
-The interface language is chosen in **Menu → Edit → Preferences…** (Command-comma on macOS,
-Ctrl-comma elsewhere, also with no document open; Auto follows the system language;
-see [docs/localization.md](docs/localization.md)) and saved. Japanese covers commands,
-dialogs, panels and keyboard shortcuts. Command search accepts the translated label, the
-English label and the stable command id; filenames, PDF contents, author names, custom
-action names and error details from the engine or the operating system keep their own text.
-
-Japanese fonts come from [craft-fonts](https://github.com/storytold/craft-fonts), an optional build
-input that every release includes. To build with them (Japanese interface text, and Japanese text in
-edited PDFs):
+日文字体来自 [craft-fonts](https://github.com/storytold/craft-fonts)，它是可选的构建输入（正式发布都会带上）。要用它构建（日文界面文字、以及写入 PDF 的日文）：
 
 ```sh
 git clone https://github.com/storytold/craft-fonts ../craft-fonts
 CRAFT_FONTS_DIR=../craft-fonts cargo run --release -p pdfcraft -- some.pdf
 ```
 
-Each [GitHub release](https://github.com/storytold/pdfcraft/releases) has ready-made builds for macOS,
-Windows, Linux (AppImage, Flatpak, `.deb`, `.rpm` and a tarball), FreeBSD and the web; see
-[Downloads](#downloads). On Gentoo, the community [::snakebyte
-overlay](https://github.com/switch87/snakebyte-overlay) packages the Linux release as
-`app-text/pdfcraft-bin` (not maintained by the PdfCraft team):
+## 阅读
+
+- **缩放不糊。** 大页面按块（tile）渲染，任意倍率下文字都清晰。
+- **坏文件也不崩。** 每页独立渲染，受损文档会尽量修复；在 pdf.js 的 983 个测试文件上 0 崩溃。
+- **版式齐全。** 连续、单页、双页对开、旋转视图、全屏，以及无干扰的「阅读模式」。
+- **明暗两套主题**，长时间阅读更护眼。
+
+搜索边打边出结果，⌘G 在命中之间跳转；复制出来的文字按正确的阅读顺序排列——分栏、从右到左的文字、中日韩文字都适用。
+
+书签、页面缩略图和文档自带的页码标签（i、ii、1、2…）帮你在大文档里定位。书签面板可以按标题过滤，父节点折叠时也能找到嵌套条目，命中结果保留祖先作为上下文；「清除」恢复完整目录且不改变展开状态。
+
+## 整理页面
+
+打开**整理页面**可以一次看到所有页面：
+
+- **选择**：单击、⌘ 单击、⇧ 单击。
+- **操作**：旋转、删除、插入空白页、从其他文件插入页面、前移后移。
+- **撤销**：⌘Z，然后保存。
+
+每次改动都是历史记录中的一步，可以来回走；「编辑」菜单会写明这一步是什么（例如「撤销 旋转页面」），保存之后依然可以撤销。
+
+保存策略：
+
+- **增量**：原始字节逐字节保留。
+- **原子**：先写临时副本，再整体替换。
+- **可验证**：可用 qpdf 等独立工具复核。
+
+标签页超过窗口宽度时，用滚轮或触控板在标签栏上横向滚动，也可以拖它的横向滚动条；打开或切换文档时对应标签会滚入视野。未保存的文档标签上有一个圆点，关闭或退出前会询问。改动每分钟自动保存一次；如果应用异常退出，下次启动会提示恢复。加密文档在磁盘上保持加密。
+
+## 合并与拆分
+
+**合并**把任意多个 PDF 合成一个，每个来源生成一个书签，来源自身的书签嵌在下面。**提取**把选中的页面复制成新文档。**拆分**按每 *n* 页，或在你指定的页面之前切开。
+
+过程中不会悄悄丢东西：链接与命名目标会重新指向复制后的页面，表单域保持可交互，图层保留开关默认值，附件一并带走。合并后每一页的渲染结果与来源逐像素一致。
 
 ```sh
-eselect repository add snakebyte git https://github.com/switch87/snakebyte-overlay.git
-emaint sync -r snakebyte
-echo 'app-text/pdfcraft-bin ~amd64' >> /etc/portage/package.accept_keywords/pdfcraft
-emerge --ask app-text/pdfcraft-bin
+xueluopdf-cli combine report.pdf appendix.pdf --out combined.pdf
+xueluopdf-cli extract report.pdf --pages 1,3,5 --out highlights.pdf
+xueluopdf-cli split   report.pdf --every 10 --out-dir parts/
 ```
 
-Logs, environment variables and other development notes are in [docs/development.md](docs/development.md).
+## 加密文档
 
-## What's next
+完整实现 PDF 标准安全处理器：从 40 位 RC4 到 AES-256 的所有修订版本、用户密码与所有者密码（含按 SASLprep 规范化的 Unicode 密码）、加密过滤器与仅附件加密。
 
-PdfCraft is young and moving fast. The aim is a workbench where you can view, organize, annotate, fill, sign and edit PDFs, at parity with Acrobat Pro.
+作者设了限制的文档会明确提示，并尊重其权限设置；输入所有者密码即可解除限制。对加密文档的编辑会以同样的密钥加密保存。
 
-**Where it stands (October 2026), honestly:** PdfCraft is **alpha**. Most of Acrobat Pro's offline features exist in some form (57% of all tracked features, 94% of the must-haves). For everyday work (viewing, commenting, filling and signing forms, organizing pages) it is about 55% of the way to replacing Acrobat; against all of Acrobat Pro, about 49%; for someone who only needs the essentials, about 66%. Every everyday workflow can be completed, but converting and sharing is weak: no Office-to-PDF, and Word export that loses layout.
+**文档属性**里可以看到：可编辑的标题/作者/主题/关键词，用到的字体以及是否内嵌，PDF 版本、页面尺寸、标签、表单域、图层与附件，以及完整的加密信息（加密方式、用哪个密码打开的、每一项权限）。
 
-- **Good today:** viewing and search; organizing, combining and splitting; most kinds of comment; filling and authoring forms (with sandboxed JavaScript); passwords, redaction and sanitizing; basic digital signatures; printing; the Accessibility Checker; agent control through the CLI and MCP.
-- **Still borrowed:** pages are drawn by the `hayro` crate while our own renderer is built.
-- **Thin or missing:** reliable editing of existing text (especially CJK and right-to-left), OCR beyond Latin script, Office import/export, signature tokens and online long-term validation, Preflight and PDF/X/UA, printing from the web build, physical printer fidelity, and full XFA forms.
-- **Hardening:** fuzzing still turns up crashes and hangs on hostile files; each one is fixed with a regression test. Quality has not yet been compared with Acrobat side by side.
+## 批注、表单、图层与附件
 
-**Next, in order:** Office-to-PDF and a Word export that keeps layout, the reported bugs and the Chinese interface font, a fidelity harness against Acrobat and the renderer, editing existing content, then the Pro workflows (OCR, Office, Preflight, signatures, accessibility tagging) and 1.0 polish.
+- **表单**：列出每个域及其当前值，域高亮，复选框、单选按钮、列表和签名按其作者设计的样式绘制。
+- **图层**：开关可选内容，页面立即重绘。
+- **批注**：以对话串（thread）的形式呈现，可回复、改状态、改样式、删除。
+- **附件**：可以打开或另存。
 
-The summary is in **[ROADMAP.md](ROADMAP.md)**; the full assessment by dimension and area is in [docs/target-app-parity.md](docs/target-app-parity.md), the ranked gaps in [docs/gaps.md](docs/gaps.md), and the milestones in [docs/roadmap.md](docs/roadmap.md).
+## 工具与命令
 
----
+按 ⌘K（其他平台 Ctrl+K）搜索所有工具与命令，或浏览**全部工具**目录。尚未完成的工具会标注计划发布的里程碑。
 
-## Downloads
+## 为自动化而生
 
-**New to PdfCraft?** Download it from the [PdfCraft page on getartcraft.com](https://getartcraft.com/apps/pdfcraft). That's the easiest way to install it.
+每个引擎功能都能脱离界面使用，共用一张带 JSON Schema 描述的工具表：打开、检查、把页面渲染成 PNG、提取与查找文本、旋转/删除/移动/插入页面、编辑书签与页码标签、添加/回复/改样式/删除批注（给出一个短语就能高亮它）、列出并填写表单域、设置密码保护、写元数据、撤销重做、保存、合并、提取、拆分。三个入口共用这张表：
 
-**Want a specific build or format?** On GitHub, the [latest release](https://github.com/storytold/pdfcraft/releases/latest) has every build listed below, and [all releases](https://github.com/storytold/pdfcraft/releases) has earlier versions and their notes. `<ver>` in the file names is the version number, and `SHA256SUMS.txt` lists a checksum for every file.
+**1. `xueluopdf-cli run`** —— 单次调用或 JSON 脚本：
+
+```sh
+xueluopdf-cli tools                                     # 列出所有工具及其 JSON Schema
+xueluopdf-cli run text_find doc=1 query=invoice         # key=value，值按 JSON 解析
+xueluopdf-cli run --script review.json                  # 例如 comment_add {"type": "highlight", "find": "total due"}
+xueluopdf-cli run --script steps.json --root ./work     # 一次会话跑多步
+```
+
+带 `--root` 时，脚本每一步读写文件都限制在该目录内，包括步骤用 `"out"` 保存的 PNG（脚本本身可以从任意路径读取）。
+
+**2. MCP 服务器** —— 给 Claude 之类的 AI 代理用。**它是选择性开启的**：应用自己绝不会启动它，也不监听任何网络端口。只有代理主动运行 `xueluopdf-cli mcp` 时才工作，通过 stdin/stdout 通信，代理断开即退出。加到代理的 MCP 配置里即可：
+
+```json
+{ "mcpServers": { "xueluopdf": { "command": "xueluopdf-cli", "args": ["mcp", "--root", "/path/to/your/pdfs"] } } }
+```
+
+`--compact` 会缩小代理需要读的工具清单：`tools/list` 只返回约十个核心工具加上 `tool_search` 和 `tool_call`，由它们查找并运行其余工具，token 开销小得多，但每个工具依然可用。`--root` 把代理能读写的文件限制在一个目录里。完全不想包含这个服务器的构建可以加 `cargo build -p pdfcraft-cli --no-default-features`。
+
+**3. Rust API**（`pdfcraft_automation::Automation::call`）—— 用于把引擎嵌进别的程序。
+
+编辑都留在内存里、可撤销，直到调用 `doc_save`。保存到同一个文件会追加一个增量更新，原始字节因此得以保留，写入是原子的。未保存的改动绝不会被静默丢弃。
+
+### 驱动界面本身
+
+用 `xueluopdf --control ~/.xueluopdf-control.json` 启动桌面版，代理就能看到并操作真实界面：控件树（含标签与位置，取自无障碍树）、点击、输入、按键、执行命令、改视图选项、截图。这个通道同样默认关闭，只监听回环地址，每个连接都必须带上写入该文件的随机令牌，而那个文件只有你能读。
+
+控制文件请放在只有你能写的目录里，不要放在 `/tmp` 这类共享目录：否则别人可以先创建同名文件，从而接收你的命令。`xueluopdf-cli ui` 会拒绝符号链接形式、以及在 macOS / Linux / FreeBSD 上属于他人或他人可读写的控制文件。应用写不出这个文件时不会启动。
+
+```sh
+xueluopdf-cli ui --control ~/.xueluopdf-control.json inspect query=rotate      # 查找控件
+xueluopdf-cli ui --control ~/.xueluopdf-control.json click label="整理页面"
+xueluopdf-cli ui --control ~/.xueluopdf-control.json key key=K modifiers='["command"]'
+xueluopdf-cli ui --control ~/.xueluopdf-control.json command id=comment.square   # 选一个工具再画：
+xueluopdf-cli ui --control ~/.xueluopdf-control.json drag from='[400,300]' to='[600,420]'
+xueluopdf-cli ui --control ~/.xueluopdf-control.json screenshot --out window.png
+xueluopdf-cli ui --control ~/.xueluopdf-control.json resize width=1200 height=800
+xueluopdf-cli ui --control ~/.xueluopdf-control.json focus label="阅读"
+xueluopdf-cli ui --control ~/.xueluopdf-control.json inspect focused=true
+xueluopdf-cli ui --control ~/.xueluopdf-control.json quit
+```
+
+`ui.dock` 用来排布 `tools` 与 `inspector` 面板；`canvas` 是受保护的文档视图。每个面板请求需要一个 `panel` ID 和一个 `operation`：`open`、`close`、`activate`、带 `rect: [x, y, width, height]` 的 `float`，或带 `target` 与 `zone: center|left|right|top|bottom` 的 `move`。例如 `{"operation":"float","panel":"tools","rect":[100,100,320,440]}` 会把「工具」面板浮动出来。`ui.dock.reset` 恢复默认排布。控制通道直接接受这些方法；`ui.command` 也接受 `{"id":"ui.dock","params":{...}}`。保存的偏好会记住分组、活动标签、可见性与浮动位置。非法请求会返回错误，不会改动文档或布局。
+
+`resize` 以逻辑点请求原生窗口内尺寸（每个维度必须在 320 到 8192 之间），窗口管理器仍可能做限制；`state` 返回观察到的 `window.width`、`window.height` 与 `window.pixels_per_point`。`focus` 接受一个控件 `id`，或一个唯一的、可获得焦点且启用的 `label`；之后的 `key` 请求会遍历或激活真实控件。`inspect` 会给出是否可获得焦点，并接受 `focused` 过滤器。`quit` 不带参数：没有未保存改动就直接退出，否则弹出既有的「保存/不保存/取消」提示并返回 `quitting: false, needs_confirmation: true`——它绝不会静默丢弃你的工作。窗口缩放与退出应用只在原生版本可用。
+
+## 技术结构
+
+XueLuoPDF 是一个按职责切分的 Cargo 工作区，分层设计，核心不依赖界面：
+
+| crate | 负责什么 |
+|---|---|
+| `pdfcraft-filters` | 全部 PDF 流过滤器（Flate、LZW、ASCII85、RunLength、predictors），编码与解码，带属性测试 |
+| `pdfcraft-crypt` | 标准安全处理器：RC4、AES-128/256、修订版 2–6、权限位 |
+| `pdfcraft-cos` | PDF 对象层：容错解析、修复、写时复制编辑、增量与完整写入 |
+| `pdfcraft-organize` | 页面操作、合并/提取/拆分、书签、页码标签、文档信息 |
+| `pdfcraft-fonts` | 生成外观流所需的字体度量与编码 |
+| `pdfcraft-annot` | 批注：便签、文本标注、图形、墨迹、文本框的构造与外观流；回复、状态、编辑 |
+| `pdfcraft-forms` | 交互表单：域模型、重绘外观的填写、清除表单 |
+| `pdfcraft-render` | 渲染、检查与按阅读顺序的文本提取 |
+| `pdfcraft-engine` | 所有前端共用的门面：会话、编辑、撤销、保存、工具目录 |
+| `pdfcraft-automation` | 代理控制：无头工具表、`xueluopdf-cli run`、选择性开启的 MCP 服务器 |
+| `pdfcraft-ui-egui` | 桌面与网页界面 |
+
+**质量门禁。** 每次改动都要过同一套自动检查：格式与 Clippy（警告即错误）、200+ 单元/属性/界面测试、crate 分层规则、WebAssembly 构建检查，以及素材授权审计。此外还有两轮真实文件语料扫描：983 个 pdf.js 测试文件中 963 个可正常打开并渲染、0 崩溃；打开—编辑—保存往返 958 个成功。输出用 hayro、qpdf 与 poppler 等独立工具复核。
+
+行为来自 ISO 32000 规范与黑盒观察，不来自任何他人的代码。每一个图标、字体和图片都有开放授权，逐项列在 [ATTRIBUTION.md](ATTRIBUTION.md)。
+
+## 下载
+
+构建产物发布在本仓库的 [releases](https://github.com/PLSshenyun/xueluopdf/releases) 页面。文件名里的 `<ver>` 是版本号，`SHA256SUMS.txt` 列出每个文件的校验和。
 
 ### Windows
 
-| Build | Installer | Portable |
+| 版本 | 安装包 | 免安装 |
 |---|---|---|
-| x64 (64-bit Intel/AMD) | `pdfcraft-<ver>-windows-x64.msi` | `pdfcraft-<ver>-windows-x64-portable.zip` |
-| arm64 (Snapdragon and other ARM PCs) | `pdfcraft-<ver>-windows-arm64.msi` | `pdfcraft-<ver>-windows-arm64-portable.zip` |
-| x86 (32-bit) | `pdfcraft-<ver>-windows-x86.msi` | `pdfcraft-<ver>-windows-x86-portable.zip` |
+| x64（64 位 Intel/AMD） | `xueluopdf-<ver>-windows-x64.msi` | `xueluopdf-<ver>-windows-x64-portable.zip` |
+| arm64（骁龙等 ARM 电脑） | `xueluopdf-<ver>-windows-arm64.msi` | `xueluopdf-<ver>-windows-arm64-portable.zip` |
+| x86（32 位） | `xueluopdf-<ver>-windows-x86.msi` | `xueluopdf-<ver>-windows-x86-portable.zip` |
 
-Installers and executables are code-signed.
+安装包与可执行文件都经过代码签名。免安装版可以从任何目录（包括 U 盘）运行：它旁边的 `portable.txt` 让设置、日志与崩溃恢复到 `xueluopdf.exe` 同级的 `XueLuoPDFData` 目录，不写 `%APPDATA%`；删掉这个文件就改用常规的每用户目录。
 
-The portable zip runs from any folder, a USB stick included. Its `portable.txt` keeps the settings,
-logs and crash recovery in a `PdfCraftData` folder next to `pdfcraft.exe`, so nothing is written to
-`%APPDATA%`; delete that file to use the normal per-user folders.
-
-The MSI installs for all users and requires administrator privileges. It adds "Edit with PdfCraft"
-to the right-click menu of PDF files in File Explorer (on Windows 11, under "Show more options"),
-without changing which app opens PDFs by default. For unattended deployment without a desktop
-shortcut, run from an elevated terminal:
+MSI 为所有用户安装，需要管理员权限。它会在文件资源管理器的 PDF 右键菜单里加入「使用 XueLuoPDF 编辑」（Windows 11 需在「显示更多选项」里找），但不会改变默认打开 PDF 的程序。无人值守安装（不要桌面快捷方式）：
 
 ```powershell
-msiexec /i "pdfcraft-<ver>-windows-x64.msi" /qn /norestart INSTALLDESKTOPSHORTCUT=0
+msiexec /i "xueluopdf-<ver>-windows-x64.msi" /qn /norestart INSTALLDESKTOPSHORTCUT=0
 ```
 
-Add `INSTALLPDFCONTEXTMENU=0` to leave out the right-click menu entry. Pass both on upgrades too,
-since each install applies its own choices. Use the MSI for your architecture. Per-user
-installation overrides are not supported.
+再加 `INSTALLPDFCONTEXTMENU=0` 可以不要右键菜单项。升级时也要带上这些参数，因为每次安装都按自己的选择执行。请选与自己架构对应的 MSI；不支持改为每用户安装。
 
 ### macOS
 
-| Build | File | Notes |
+| 构建 | 文件 | 说明 |
 |---|---|---|
-| App, universal (Apple silicon + Intel) | `pdfcraft-<ver>-macos-universal.dmg` | Signed and notarized |
-| Command-line tool, universal | `pdfcraft-cli-<ver>-macos-universal.zip` | Signed and notarized |
+| 应用（通用，Apple 芯片 + Intel） | `xueluopdf-<ver>-macos-universal.dmg` | 已签名并公证 |
+| 命令行工具（通用） | `xueluopdf-cli-<ver>-macos-universal.zip` | 已签名并公证 |
 
 ### Linux
 
-| Format | x86_64 | aarch64 (ARM64) | Notes |
+| 格式 | x86_64 | aarch64 (ARM64) | 说明 |
 |---|---|---|---|
-| AppImage | `pdfcraft-<ver>-linux-x86_64.AppImage` | `pdfcraft-<ver>-linux-aarch64.AppImage` | Runs anywhere; updates itself with [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) (`.zsync` files) |
-| Flatpak | `pdfcraft-<ver>-linux-x86_64.flatpak` | `pdfcraft-<ver>-linux-aarch64.flatpak` | Sandboxed; `flatpak install --user <file>` |
-| Debian/Ubuntu | `pdfcraft-<ver>-linux-x86_64.deb` | `pdfcraft-<ver>-linux-aarch64.deb` | |
-| Fedora/RHEL/openSUSE | `pdfcraft-<ver>-linux-x86_64.rpm` | `pdfcraft-<ver>-linux-aarch64.rpm` | |
-| Tarball | `pdfcraft-<ver>-linux-x86_64.tar.gz` | `pdfcraft-<ver>-linux-aarch64.tar.gz` | Unpack anywhere |
-| Command-line tool | `pdfcraft-cli-<ver>-linux-x86_64.tar.gz` | `pdfcraft-cli-<ver>-linux-aarch64.tar.gz` | `pdfcraft-cli` alone (and its opt-in MCP server), for servers, CI and agents |
+| AppImage | `xueluopdf-<ver>-linux-x86_64.AppImage` | `xueluopdf-<ver>-linux-aarch64.AppImage` | 随处可运行；用 [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) 自更新（`.zsync`） |
+| Flatpak | `xueluopdf-<ver>-linux-x86_64.flatpak` | `xueluopdf-<ver>-linux-aarch64.flatpak` | 沙箱运行；`flatpak install --user <文件>` |
+| Debian/Ubuntu | `xueluopdf-<ver>-linux-x86_64.deb` | `xueluopdf-<ver>-linux-aarch64.deb` | |
+| Fedora/RHEL/openSUSE | `xueluopdf-<ver>-linux-x86_64.rpm` | `xueluopdf-<ver>-linux-aarch64.rpm` | |
+| tar 包 | `xueluopdf-<ver>-linux-x86_64.tar.gz` | `xueluopdf-<ver>-linux-aarch64.tar.gz` | 解压即用 |
+| 命令行工具 | `xueluopdf-cli-<ver>-linux-x86_64.tar.gz` | `xueluopdf-cli-<ver>-linux-aarch64.tar.gz` | 只含 `xueluopdf-cli`（及可选的 MCP 服务器），适合服务器、CI 与代理 |
 
-RISC-V (riscv64) builds come as tarballs only: `pdfcraft-<ver>-linux-riscv64.tar.gz` and `pdfcraft-cli-<ver>-linux-riscv64.tar.gz`. They are cross-compiled and need glibc 2.39 or newer (Ubuntu 24.04+, Debian 13+).
-
-Every other Linux build needs glibc 2.35 or newer (Ubuntu 22.04+, Debian 12+, Fedora 36+, RHEL 10).
+RISC-V（riscv64）只有 tar 包：`xueluopdf-<ver>-linux-riscv64.tar.gz` 与 `xueluopdf-cli-<ver>-linux-riscv64.tar.gz`，交叉编译，需要 glibc 2.39 或更高（Ubuntu 24.04+、Debian 13+）。其他 Linux 构建需要 glibc 2.35 或更高（Ubuntu 22.04+、Debian 12+、Fedora 36+、RHEL 10）。
 
 ### FreeBSD
 
-| Build | File |
+| 构建 | 文件 |
 |---|---|
-| x86_64 | `pdfcraft-<ver>-freebsd-x86_64.tar.gz` |
+| x86_64 | `xueluopdf-<ver>-freebsd-x86_64.tar.gz` |
 
-### Web (WebAssembly)
+### Web（WebAssembly）
 
-| Build | File | Notes |
+| 构建 | 文件 | 说明 |
 |---|---|---|
-| Static site | `pdfcraft-web-<ver>.zip` | Runs in a modern browser; host it on any static server |
+| 静态站点 | `xueluopdf-web-<ver>.zip` | 在现代浏览器中运行；可托管在任意静态服务器上 |
 
----
+## 现状与计划
 
-## The Crafting Apps
+目标是一个能看、能整理、能批注、能填表签名、能编辑 PDF 的工作台，对齐 Acrobat Pro 的离线能力。
 
-PdfCraft is one of the **Crafting Apps**: free, open-source creative tools from the
-[ArtCraft](https://getartcraft.com/) team, each written from scratch in Rust and each able to
-stand on its own.
+**坦率地说（2026 年 10 月）：** 目前是 **alpha**。Acrobat Pro 的离线功能大多已具雏形（占全部跟踪功能约 57%，必做项约 94%）。日常使用（查看、批注、填表签名、整理页面）大约达到可替代 Acrobat 的 55%；对比全部 Acrobat Pro 约 49%；如果只需要基本功能，约 66%。日常流程都能走通，但转换与共享偏弱：没有 Office 转 PDF，Word 导出会丢版式。
 
-| | App | What it's for | Code | Learn more |
-|:-:|---|---|---|---|
-| <img src="https://raw.githubusercontent.com/storytold/photocraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.photocraft.png" alt="" width="32" height="32"> | **PhotoCraft** | Image editing: layers, masks, type and real PSD files | [GitHub](https://github.com/storytold/photocraft) | [Website](https://getartcraft.com/apps/photocraft) |
-| <img src="https://raw.githubusercontent.com/storytold/vectorcraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.vectorcraft.png" alt="" width="32" height="32"> | **VectorCraft** | Vector illustration | [GitHub](https://github.com/storytold/vectorcraft) | [Website](https://getartcraft.com/apps/vectorcraft) |
-| <img src="https://raw.githubusercontent.com/storytold/filmcraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.filmcraft.png" alt="" width="32" height="32"> | **FilmCraft** | Video editing, color and sound | [GitHub](https://github.com/storytold/filmcraft) | [Website](https://getartcraft.com/apps/filmcraft) |
-| <img src="https://raw.githubusercontent.com/storytold/lightcraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.lightcraft.png" alt="" width="32" height="32"> | **LightCraft** | Photo library and raw development | [GitHub](https://github.com/storytold/lightcraft) | [Website](https://getartcraft.com/apps/lightcraft) |
-| <img src="https://raw.githubusercontent.com/storytold/pdfcraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.pdfcraft.png" alt="" width="32" height="32"> | **PdfCraft** | **Reading, organizing and protecting PDFs · you are here** | [GitHub](https://github.com/storytold/pdfcraft) | [Website](https://getartcraft.com/apps/pdfcraft) |
-| <img src="https://raw.githubusercontent.com/storytold/effectcraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.effectcraft.png" alt="" width="32" height="32"> | **EffectCraft** | Motion graphics and visual effects | [GitHub](https://github.com/storytold/effectcraft) | [Website](https://getartcraft.com/apps/effectcraft) |
-| <img src="https://raw.githubusercontent.com/storytold/designcraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.designcraft.png" alt="" width="32" height="32"> | **DesignCraft** | Page layout and publishing | [GitHub](https://github.com/storytold/designcraft) | [Website](https://getartcraft.com/apps/designcraft) |
+- **目前可用**：查看与搜索；整理、合并、拆分；大多数批注；表单填写与制作（带沙箱 JavaScript）；密码、涂黑与清理；基础数字签名；打印；无障碍检查器；通过 CLI 与 MCP 的代理控制。
+- **仍在借用**：页面绘制暂时依赖 `hayro` crate，自研渲染器仍在建设中。
+- **薄弱或缺失**：对既有文字的可靠编辑（尤其中日韩与从右到左文字）、拉丁字母以外的 OCR、Office 导入导出、签名令牌与在线长期验证、Preflight 与 PDF/X/UA、网页版打印、实体打印机保真、完整的 XFA 表单。
+- **加固中**：模糊测试仍会在恶意文件上发现崩溃与卡死，每一个都补上回归测试后才修复；质量尚未与 Acrobat 做过逐项对照。
 
-And [**ArtCraft**](https://getartcraft.com/) itself, our AI image and video studio for artists who want real control.
+**接下来的顺序**：Office 转 PDF 与保留版式的 Word 导出、已报告的问题与中文字体、与 Acrobat 对照的保真度基准与渲染器、编辑既有内容，然后是专业工作流（OCR、Office、Preflight、签名、无障碍标注）与 1.0 打磨。
 
-<br>
+完整评估见 [ROADMAP.md](ROADMAP.md)、[docs/target-app-parity.md](docs/target-app-parity.md) 与 [docs/gaps.md](docs/gaps.md)，里程碑表在 [docs/roadmap.md](docs/roadmap.md)。开发相关的日志、环境变量等说明在 [docs/development.md](docs/development.md)。
 
-<p align="center">
-  <a href="https://discord.gg/artcraft"><img alt="Join the ArtCraft community on Discord" src="https://img.shields.io/badge/Join%20us%20on%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" height="40"></a>
-</p>
+## 授权
 
-<h3 align="center">Come make things with us</h3>
+XueLuoPDF 采用 [MIT](LICENSE-MIT) 或 [Apache-2.0](LICENSE-APACHE) 双授权，任选其一。版权与上游声明见 [NOTICE](NOTICE)。
 
-<p align="center">
-  Our Discord is where artists of every kind hang out: people who paint, shoot, draw, cut film,
-  set type, and people still figuring out what they like to make. Share what you're working on,
-  ask for help, tell us what's broken, or tell us what you wish these tools could do.
-  Whatever your medium and however long you've been at it, you're welcome here.
-</p>
+随附的字体、图标、图片等素材各自保留其开放授权，逐项的作者、来源与许可列在 [ATTRIBUTION.md](ATTRIBUTION.md)。正式发布版还会内嵌 [craft-fonts](https://github.com/storytold/craft-fonts/blob/main/ATTRIBUTION.md) 的日文字体（SIL Open Font License 1.1）。
 
-<p align="center">
-  <a href="https://discord.gg/artcraft"><b>discord.gg/artcraft</b></a> ·
-  <a href="https://getartcraft.com/">getartcraft.com</a> ·
-  <a href="https://getartcraft.com/apps">The Crafting Apps</a> ·
-  <a href="https://getartcraft.com/apps/pdfcraft">PdfCraft</a>
-</p>
+## 上游
 
----
+XueLuoPDF 基于 **PdfCraft**（[storytold/pdfcraft](https://github.com/storytold/pdfcraft)）改名而来，原作者与项目介绍属于他们；本仓库只是换了名称与图标，引擎、界面与文档主体都是上游的工作成果。两者的授权相同（MIT OR Apache-2.0），上游的 ArtCraft 商标素材按授权要求已从本仓库移除。
 
-## License and credits
-
-PdfCraft is dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.
-Copyright (c) 2026 ArtCraft Team and the PdfCraft contributors. Required notices are in [NOTICE](NOTICE).
-
-Bundled fonts, icons, images and other assets keep their own open licenses; each one is listed
-with its author, source and license in [ATTRIBUTION.md](ATTRIBUTION.md). Release builds also embed
-the Japanese fonts of [craft-fonts](https://github.com/storytold/craft-fonts/blob/main/ATTRIBUTION.md)
-(SIL Open Font License 1.1).
-
-The ArtCraft name, wordmark and logos in [`docs/brand/`](docs/brand/) are trademarks of the
-ArtCraft Team and are not covered by this license. They may be used only unmodified, and only as
-part of this repository and PdfCraft, under [`docs/brand/LICENSE-brand.txt`](docs/brand/LICENSE-brand.txt).
-Forks and modified versions must remove them.
-
-<sub>Adobe, Photoshop, Illustrator, Premiere Pro, Lightroom, Acrobat, After Effects and InDesign are trademarks or registered trademarks of Adobe Inc. in the United States and/or other countries. PdfCraft is an independent, open-source project and is not affiliated with, sponsored by or endorsed by Adobe Inc.; these names are used only to describe the workflows it is compatible with.</sub>
-
-<p align="center">
-  <a href="https://getartcraft.com/"><img alt="ArtCraft" src="docs/brand/artcraft-mark.svg" width="28"></a><br>
-  <sub>Made by the <a href="https://getartcraft.com/">ArtCraft</a> team and community.</sub>
-</p>
-
-Tools and Inspector panels can be dragged into tab groups, split beside the PDF, or floated within the app window. Read and full-screen modes keep their existing focused document view. Drag a panel header to a target edge or another header. Its context menu offers Float panel, Move to group, and Close panel. Existing panel toggles reopen panels at their saved location; Reset Panel Layout restores the app layout. Floating panels remain inside the current app window.
-
-Advanced `ui.dock` operations use the same validated transaction as pointer gestures:
-`moveFloating` updates `rect`, `resizeSplit` accepts a boolean child `path` and
-`size` (`{"Ratio":0.5}`, `{"FixedFirst":280}`, or `{"FixedSecond":280}`),
-`setStackOpen` takes `open`, and `resizeStack` takes a point `height` or null.
-A center `move` can include `before` (panel ID or null to append) for tab order.
-The equivalent `{"action": ...}` form accepts a serialized shared docking action;
-this is also the form emitted by the renderer. Protected-canvas and app-specific panel
-rules apply equally to both forms.
+Adobe、Photoshop、Illustrator、Premiere Pro、Lightroom、Acrobat、After Effects 与 InDesign 是 Adobe Inc. 在美国和其他国家的商标或注册商标。XueLuoPDF 是独立的开源项目，与 Adobe Inc. 无隶属关系，也未获得其赞助或认可；上述名称仅用于说明它所兼容的工作流。

@@ -1,12 +1,12 @@
-# Releasing PdfCraft
+# Releasing XueLuoPDF
 
 Every push to the `release` branch runs `.github/workflows/release.yml`. It builds installers for
 macOS, Windows, Linux, FreeBSD and the web, signs the ones it has certificates for, and creates or
-updates a **draft** GitHub Release named `PdfCraft v<version>`. Nobody sees a draft until a
+updates a **draft** GitHub Release named `XueLuoPDF v<version>`. Nobody sees a draft until a
 maintainer publishes it.
 
-The pipeline was ported from PhotoCraft's. User-facing names say **PdfCraft**; files, binaries and
-ids stay lowercase (`pdfcraft-<version>-<platform>-<arch>.<ext>`, `ai.storyteller.pdfcraft`).
+The pipeline was ported from PhotoCraft's. User-facing names say **XueLuoPDF**; files, binaries and
+ids keep the upstream lowercase PdfCraft names (`xueluopdf-<version>-<platform>-<arch>.<ext>`, `ai.storyteller.pdfcraft`).
 
 ## Cutting a release
 
@@ -18,10 +18,10 @@ ids stay lowercase (`pdfcraft-<version>-<platform>-<arch>.<ext>`, `ai.storytelle
    cargo xtask version set 0.3.0       # or 0.3.0-rc.1; updates Cargo.toml and Cargo.lock
    ```
 
-   Commit the change through the normal review flow (see the `Release: PdfCraft v0.2.1` PR).
+   Commit the change through the normal review flow (see the `Release: PdfCraft v0.2.1` upstream PR).
 2. **Merge `main` into `release`** (or fast-forward it) and push. The workflow starts by itself.
 3. **Wait for the draft.** When every job has finished (notarization is the slow part), the
-   Releases page has a draft `PdfCraft v0.3.0` targeting the pushed commit, with every artifact
+   Releases page has a draft `XueLuoPDF v0.3.0` targeting the pushed commit, with every artifact
    and `SHA256SUMS.txt`. The notes are generated from the merged PRs.
 4. **Check it.** Download an installer or two and read the job summaries. A `::warning::` there
    means a signing secret was missing and that artifact is unsigned.
@@ -44,24 +44,24 @@ published (`gh workflow run release.yml --ref <branch>`).
 
 | Platform | Artifacts | Built on |
 |---|---|---|
-| macOS 11+ (universal: Apple silicon + Intel) | `pdfcraft-<v>-macos-universal.dmg`, `pdfcraft-cli-<v>-macos-universal.zip` | `macos-15` |
-| Windows 10+ x64 | `pdfcraft-<v>-windows-x64.msi`, `pdfcraft-<v>-windows-x64-portable.zip` | `windows-latest` |
-| Windows 10+ x86 (32-bit) | `pdfcraft-<v>-windows-x86.msi`, `pdfcraft-<v>-windows-x86-portable.zip` | `windows-latest` |
-| Windows 11 on ARM64 | `pdfcraft-<v>-windows-arm64.msi`, `pdfcraft-<v>-windows-arm64-portable.zip` | `windows-latest` (cross-compiled) |
-| Linux x86_64 | `pdfcraft-<v>-linux-x86_64.{AppImage,AppImage.zsync,deb,rpm,tar.gz}`, `pdfcraft-cli-<v>-linux-x86_64.tar.gz` | `ubuntu-22.04` |
-| Linux aarch64 | `pdfcraft-<v>-linux-aarch64.{AppImage,AppImage.zsync,deb,rpm,tar.gz}`, `pdfcraft-cli-<v>-linux-aarch64.tar.gz` | `ubuntu-22.04-arm` |
-| Linux riscv64 | `pdfcraft-<v>-linux-riscv64.tar.gz`, `pdfcraft-cli-<v>-linux-riscv64.tar.gz` (glibc 2.39+) | `ubuntu-24.04` (cross-compiled; CLI smoke-tested under QEMU) |
-| Flatpak x86_64 | `pdfcraft-<v>-linux-x86_64.flatpak` | `ubuntu-24.04` (repackages the Linux tarball) |
-| Flatpak aarch64 | `pdfcraft-<v>-linux-aarch64.flatpak` | `ubuntu-24.04-arm` (repackages the Linux tarball) |
-| FreeBSD 14 x86_64 | `pdfcraft-<v>-freebsd-x86_64.tar.gz` | FreeBSD VM on `ubuntu-latest` |
-| Web | `pdfcraft-web-<v>.zip` (a static site; see [`packaging/web/README.md`](../packaging/web/README.md)) | `ubuntu-latest` |
+| macOS 11+ (universal: Apple silicon + Intel) | `xueluopdf-<v>-macos-universal.dmg`, `xueluopdf-cli-<v>-macos-universal.zip` | `macos-15` |
+| Windows 10+ x64 | `xueluopdf-<v>-windows-x64.msi`, `xueluopdf-<v>-windows-x64-portable.zip` | `windows-latest` |
+| Windows 10+ x86 (32-bit) | `xueluopdf-<v>-windows-x86.msi`, `xueluopdf-<v>-windows-x86-portable.zip` | `windows-latest` |
+| Windows 11 on ARM64 | `xueluopdf-<v>-windows-arm64.msi`, `xueluopdf-<v>-windows-arm64-portable.zip` | `windows-latest` (cross-compiled) |
+| Linux x86_64 | `xueluopdf-<v>-linux-x86_64.{AppImage,AppImage.zsync,deb,rpm,tar.gz}`, `xueluopdf-cli-<v>-linux-x86_64.tar.gz` | `ubuntu-22.04` |
+| Linux aarch64 | `xueluopdf-<v>-linux-aarch64.{AppImage,AppImage.zsync,deb,rpm,tar.gz}`, `xueluopdf-cli-<v>-linux-aarch64.tar.gz` | `ubuntu-22.04-arm` |
+| Linux riscv64 | `xueluopdf-<v>-linux-riscv64.tar.gz`, `xueluopdf-cli-<v>-linux-riscv64.tar.gz` (glibc 2.39+) | `ubuntu-24.04` (cross-compiled; CLI smoke-tested under QEMU) |
+| Flatpak x86_64 | `xueluopdf-<v>-linux-x86_64.flatpak` | `ubuntu-24.04` (repackages the Linux tarball) |
+| Flatpak aarch64 | `xueluopdf-<v>-linux-aarch64.flatpak` | `ubuntu-24.04-arm` (repackages the Linux tarball) |
+| FreeBSD 14 x86_64 | `xueluopdf-<v>-freebsd-x86_64.tar.gz` | FreeBSD VM on `ubuntu-latest` |
+| Web | `xueluopdf-web-<v>.zip` (a static site; see [`packaging/web/README.md`](../packaging/web/README.md)) | `ubuntu-latest` |
 
 The ARM64 Windows build is cross-compiled on the x64 runner, so signing and WiX work as for the
 other Windows builds; `.github/workflows/windows-arm64.yml` installs and runs it on ARM64 hardware.
 
-Every binary reports its version (`pdfcraft --version`, `pdfcraft-cli --version`, *Help ▸ About*).
+Every binary reports its version (`xueluopdf --version`, `xueluopdf-cli --version`, *Help ▸ About*).
 The workflow sets `PDFCRAFT_BUILD_SHA` and `PDFCRAFT_BUILD_DATE` (`packaging/env.sh` fills them in
-for local builds): the commit is recorded in the macOS `Info.plist` (`PdfCraftBuildCommit`) and the
+for local builds): the commit is recorded in the macOS `Info.plist` (`PdfCraftBuildCommit`, kept as the upstream key name) and the
 date in the AppStream metadata. The binaries don't embed the commit yet.
 
 **Fonts:** every job checks out [craft-fonts](https://github.com/storytold/craft-fonts) at the commit
@@ -73,15 +73,15 @@ deliberately.
 `stage_models` (`packaging/env.sh`; `package.ps1` on Windows), which runs `cargo xtask models` to
 fetch every `kind = "model"` file in `ATTRIBUTION.toml` (verified by SHA-256) with its licence text
 and an `ATTRIBUTION.txt`, straight into the package, so packaging needs the network. They go where
-`pdfcraft_ocr::Models::dirs_beside_exe` looks: `models\` beside `pdfcraft.exe` (MSI, portable zip),
-`PdfCraft.app/Contents/Resources/models` (macOS), and `share/pdfcraft/models` beside `bin/`
+`pdfcraft_ocr::Models::dirs_beside_exe` looks: `models\` beside `xueluopdf.exe` (MSI, portable zip),
+`XueLuoPDF.app/Contents/Resources/models` (macOS), and `share/xueluopdf/models` beside `bin/`
 (deb, rpm, tar.gz, AppImage, Flatpak, FreeBSD). The web build doesn't include them yet.
 
 ### macOS
 
 `packaging/macos/package.sh` builds both architectures, joins them with `lipo`, and assembles
-`PdfCraft.app` from `Info.plist.in` (bundle id `ai.storyteller.pdfcraft`, macOS 11+, PDF declared
-as a document type with rank Alternate, so PdfCraft is offered under Open With without taking over
+`XueLuoPDF.app` from `Info.plist.in` (macOS bundle from `xueluopdf.exe`; the bundle id, the executable name and `PdfCraftVersion` keep their upstream values, macOS 11+, PDF declared
+as a document type with rank Alternate, so XueLuoPDF is offered under Open With without taking over
 from Preview). Files opened from Finder arrive as Apple events, which
 `apps/pdfcraft/src/apple_events.rs` receives.
 
@@ -92,9 +92,9 @@ from Preview). Files opened from Finder arrive as Apple events, which
   stapled, and the result is checked with `codesign --verify`, `stapler validate` and `spctl`. The
   app ships on a drag-to-Applications DMG, which is signed and notarized too.
   Its Finder window (background, icon size and positions) comes from
-  [`packaging/macos/dmg/`](../packaging/macos/dmg/README.md), and its volume is named `PdfCraft`
+  [`packaging/macos/dmg/`](../packaging/macos/dmg/README.md), and its volume is named `XueLuoPDF`
   without the version, which the window's background needs; the DMG file name keeps the version.
-- **CLI:** `pdfcraft-cli` is signed and notarized as a zip. A bare executable can't hold a stapled
+- **CLI:** `xueluopdf-cli` is signed and notarized as a zip. A bare executable can't hold a stapled
   ticket, so Gatekeeper looks it up online the first time a downloaded copy runs.
 
 Without certificates (locally) the script signs ad-hoc and skips notarization:
@@ -109,11 +109,11 @@ packaging/macos/package.sh --arch aarch64     # quicker, host-only; --arch unive
 neither the MSI nor the portable zip needs the Visual C++ redistributable.
 
 - Before packaging, it reads both executables' PE headers: the machine type must match `-Arch`, and
-  `pdfcraft.exe` must be a GUI-subsystem program (no console window, #57) while `pdfcraft-cli.exe`
+  `xueluopdf.exe` must be a GUI-subsystem program (no console window, #57) while `xueluopdf-cli.exe`
   stays a console program.
 - `pdfcraft.wxs` (WiX v5) installs per machine into Program Files with a Start Menu shortcut, a
   desktop shortcut (on by default) and an App Paths entry. Both shortcuts are plain links to
-  `pdfcraft.exe`, not advertised MSI shortcuts (#107, #143). The MSI version is the numeric `X.Y.Z`
+  `xueluopdf.exe`, not advertised MSI shortcuts (#107, #143). The MSI version is the numeric `X.Y.Z`
   (MSI has no pre-release field), and same-version upgrades are allowed so release candidates replace
   each other. Icon ids end in `.ico` or `.exe` (Windows Installer requires it); packaging-lint checks
   this.
@@ -125,17 +125,17 @@ neither the MSI nor the portable zip needs the Visual C++ redistributable.
 - The PDF right-click entry (#682) is a classic verb under
   `HKLM\Software\Classes\SystemFileAssociations\.pdf\shell\PdfCraft.Edit`, so it shows whichever app
   is the default for `.pdf` and never changes that default. Several selected PDFs (up to 15, the
-  limit for a `Document` verb) start one `pdfcraft.exe "<file>"` each, and the single-instance
+  limit for a `Document` verb) start one `xueluopdf.exe "<file>"` each, and the single-instance
   hand-off opens them as tabs. On Windows 11 it is under "Show more options"; a first-level entry
   needs an `IExplorerCommand` handler and package identity (a sparse MSIX package), which the MSI
   doesn't have.
 - `test-msi.ps1 <file.msi>` checks the compiled shortcut, context-menu and dialog tables. Packaging
   runs it in a child process before signing, so the MSI isn't held open when signtool runs. The ARM64 install
-  smoke test checks that both all-users shortcuts point at the installed `pdfcraft.exe` and are
+  smoke test checks that both all-users shortcuts point at the installed `xueluopdf.exe` and are
   removed on uninstall, and that `INSTALLDESKTOPSHORTCUT=0` skips the desktop one.
 - The portable zip holds both executables, the README, the licences, the OFL licence of each
-  embedded craft-fonts family, and `portable.txt`. That marker beside `pdfcraft.exe` keeps the
-  settings, logs, crash recovery and new digital IDs in `PdfCraftData\` next to the exe instead of
+  embedded craft-fonts family, and `portable.txt`. That marker beside `xueluopdf.exe` keeps the
+  settings, logs, crash recovery and new digital IDs in `XueLuoPDFData\` next to the exe instead of
   `%APPDATA%` and `%LOCALAPPDATA%` (`crates/ui-egui/src/portable.rs`).
 - **Signing:** `packaging/windows/sign.ps1` signs both executables and the MSI with `signtool`
   (SHA-256, RFC 3161 timestamp), from a `.pfx` (`WINDOWS_CERTIFICATE`) or Azure Trusted Signing
@@ -149,7 +149,7 @@ Locally: `dotnet tool install -g wix --version 5.0.2`, then `pwsh packaging/wind
 AppStream metainfo) and makes every format from it: an **AppImage** (any distribution, nothing to
 install), a **.deb** and an **.rpm** (built with [nfpm](https://nfpm.goreleaser.com) from
 `nfpm.yaml`; they integrate with the menu, MIME and icon caches), a **.tar.gz**, and a CLI-only
-**`pdfcraft-cli-<v>-linux-<arch>.tar.gz`** (the stripped `pdfcraft-cli` plus the licences and
+**`xueluopdf-cli-<v>-linux-<arch>.tar.gz`** (the stripped `xueluopdf-cli` plus the licences and
 README, for servers, CI and agent sandboxes). `--formats` picks a subset (`appimage deb rpm tar cli`).
 
 The binaries are built on Ubuntu 22.04, the oldest GitHub-hosted image, so they need only
@@ -166,11 +166,11 @@ otherwise; the release job checks both.
 
 **Flatpak:** the `flatpak` job turns each arch's tarball into a single-file bundle with
 `packaging/linux/flatpak-bundle.sh` and `flatpak/ai.storyteller.pdfcraft.bundle.yml` (no Rust build;
-the same binaries), then installs it and runs `pdfcraft-cli --version` in the sandbox.
+the same binaries), then installs it and runs `xueluopdf-cli --version` in the sandbox.
 `flatpak/ai.storyteller.pdfcraft.yml` is the from-source manifest for a later Flathub submission;
 packaging-lint keeps the runtime and sandbox permissions (`finish-args`) of the two identical.
 Printing is not available in the Flatpak yet: it runs `lp`, which the freedesktop runtime lacks
-(the job logs a note); it needs the print portal. Users install the bundle with `flatpak install --user pdfcraft-<v>-linux-<arch>.flatpak`; the
+(the job logs a note); it needs the print portal. Users install the bundle with `flatpak install --user xueluopdf-<v>-linux-<arch>.flatpak`; the
 freedesktop runtime comes from Flathub.
 
 Locally (on Linux, with nfpm): `packaging/linux/package.sh` or `--formats "deb tar"`; then
@@ -229,14 +229,14 @@ a match of the `CobaltStrikeBeacon` family rule.
    - `NotTrusted` or `UnknownError`: a signature exists but did not validate on this machine. Compare
      the signer and the hash with the release.
 3. **Extract the payloads without running them.** Scan the executables inside the MSI and the
-   portable zip, not only the outer installer. `7z x -oDIR pdfcraft-<version>-windows-x64.msi`
+   portable zip, not only the outer installer. `7z x -oDIR xueluopdf-<version>-windows-x64.msi`
    extracts them. The payload names are WiX-internal, so tell the executables apart by their file
    type. Don't install or run the MSI or the extracted files.
 4. **Scan with YARA and keep every match.** Use your own copies of YARA and the rule. PdfCraft
    bundles neither, and the helper never runs in the app, the installer or CI:
 
    ```powershell
-   pwsh packaging/windows/security-audit.ps1 -Path .\pdfcraft.exe, .\pdfcraft-cli.exe -YaraExe C:\tools\yara64.exe -YaraRule C:\rules\CobaltStrikeBeacon.yar
+   pwsh packaging/windows/security-audit.ps1 -Path .\xueluopdf.exe, .\xueluopdf-cli.exe -YaraExe C:\tools\yara64.exe -YaraRule C:\rules\CobaltStrikeBeacon.yar
    ```
 
    The output lists each matched identifier with its offset, and the SHA-256 of the rule file.

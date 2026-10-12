@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Repackage a PdfCraft Linux tarball as a single-file Flatpak bundle:
+# Repackage a XueLuoPDF Linux tarball as a single-file Flatpak bundle:
 #
-#   $DIST/pdfcraft-<version>-linux-<arch>.flatpak
+#   $DIST/xueluopdf-<version>-linux-<arch>.flatpak
 #
 # Usage: packaging/linux/flatpak-bundle.sh [--no-test] [TARBALL]
 #
-# TARBALL defaults to $DIST/pdfcraft-<version>-linux-<arch>.tar.gz from package.sh. The bundle
+# TARBALL defaults to $DIST/xueluopdf-<version>-linux-<arch>.tar.gz from package.sh. The bundle
 # is built for the host architecture (x86_64 or aarch64), which must match the tarball's.
 # Needs flatpak, flatpak-builder and the SVG pixbuf loader (librsvg2-common) for the host's
 # `appstreamcli compose`; the freedesktop runtime and SDK named in the manifest are
 # installed per-user from Flathub. Unless --no-test, the bundle is then installed per-user and
-# `pdfcraft-cli --version` is run inside the sandbox as a smoke test.
+# `xueluopdf-cli --version` is run inside the sandbox as a smoke test.
 # Manifest: packaging/linux/flatpak/ai.storyteller.pdfcraft.bundle.yml.
 set -euo pipefail
 # shellcheck source=../env.sh
@@ -36,20 +36,20 @@ case "$ARCH" in
   aarch64 | arm64) ARCH=aarch64 ;;
   *) echo "unsupported architecture $ARCH" >&2; exit 2 ;;
 esac
-BASENAME="pdfcraft-$VERSION-linux-$ARCH"
+BASENAME="xueluopdf-$VERSION-linux-$ARCH"
 TARBALL="${TARBALL:-$DIST/$BASENAME.tar.gz}"
 [ -f "$TARBALL" ] || { echo "error: $TARBALL not found (run packaging/linux/package.sh --formats tar first)" >&2; exit 1; }
 for tool in flatpak flatpak-builder; do
   command -v "$tool" >/dev/null || { echo "error: $tool not found (apt install flatpak flatpak-builder librsvg2-common)" >&2; exit 1; }
 done
 
-echo "==> PdfCraft $VERSION Flatpak bundle for $ARCH from $(basename "$TARBALL")"
+echo "==> XueLuoPDF $VERSION Flatpak bundle for $ARCH from $(basename "$TARBALL")"
 
 WORK="$CARGO_TARGET_DIR/flatpak-bundle"
 rm -rf "$WORK"
 mkdir -p "$WORK/stage"
 tar -xzf "$TARBALL" -C "$WORK/stage" --strip-components=1
-[ -x "$WORK/stage/bin/pdfcraft" ] || { echo "error: $TARBALL has no bin/pdfcraft" >&2; exit 1; }
+[ -x "$WORK/stage/bin/xueluopdf" ] || { echo "error: $TARBALL has no bin/xueluopdf" >&2; exit 1; }
 cp "$HERE/flatpak/$APP_ID.bundle.yml" "$WORK/$APP_ID.yml"
 
 flatpak remote-add --user --if-not-exists flathub "$FLATHUB"
@@ -65,8 +65,8 @@ echo "wrote $OUT"
 if [ "$TEST" = 1 ]; then
   flatpak install --user -y --noninteractive --reinstall "$OUT"
   flatpak info --user "$APP_ID"
-  flatpak run --command=pdfcraft-cli "$APP_ID" --version
-  flatpak run --command=sh "$APP_ID" -c 'ls /app/share/applications /app/share/metainfo /app/share/mime/packages /app/share/icons/hicolor/scalable/apps /app/share/pdfcraft/models'
+  flatpak run --command=xueluopdf-cli "$APP_ID" --version
+  flatpak run --command=sh "$APP_ID" -c 'ls /app/share/applications /app/share/metainfo /app/share/mime/packages /app/share/icons/hicolor/scalable/apps /app/share/xueluopdf/models'
   # Informational: printing runs lp/lpstat, which the freedesktop runtime doesn't ship (see the
   # manifest's finish-args). Says so if a runtime update ever adds them.
   flatpak run --command=sh "$APP_ID" -c 'command -v lp lpstat' || echo "note: no lp/lpstat in the runtime, so printing is unavailable in the Flatpak"

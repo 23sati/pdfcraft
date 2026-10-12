@@ -3,7 +3,7 @@
 
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable;
-use pdfcraft_ui_egui::{LinkOrigin, PdfCraftApp, PendingLink};
+use pdfcraft_ui_egui::{LinkOrigin, XueLuoPDFApp, PendingLink};
 
 /// See `tests/view.rs`: WARP's shader JIT crashes when two devices compile at once on ARM64.
 static GPU: std::sync::Mutex<()> = std::sync::Mutex::new(());
@@ -70,9 +70,9 @@ fn remote_fixture(file: &str, destination: &str) -> Vec<u8> {
     out
 }
 
-fn remote_harness(source_path: Option<String>, file: &str, destination: &str) -> Harness<'static, PdfCraftApp> {
+fn remote_harness(source_path: Option<String>, file: &str, destination: &str) -> Harness<'static, XueLuoPDFApp> {
     let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
-        let mut app = PdfCraftApp::new();
+        let mut app = XueLuoPDFApp::new();
         app.set_option("language", "en").unwrap();
         app.open_bytes("source.pdf", source_path, remote_fixture(file, destination)).unwrap();
         app.set_option("left", "closed").unwrap();
@@ -97,9 +97,9 @@ fn linked_pages(count: usize, password: Option<&str>) -> Vec<u8> {
     session.save_bytes(id).unwrap().as_ref().clone()
 }
 
-fn harness() -> Harness<'static, PdfCraftApp> {
+fn harness() -> Harness<'static, XueLuoPDFApp> {
     let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(|_cc| {
-        let mut app = PdfCraftApp::new();
+        let mut app = XueLuoPDFApp::new();
         app.set_option("language", "en").unwrap();
         app.open_bytes("links.pdf", None, fixture()).unwrap();
         app.set_option("left", "closed").unwrap();
@@ -111,7 +111,7 @@ fn harness() -> Harness<'static, PdfCraftApp> {
     h
 }
 
-fn click_at(h: &mut Harness<'static, PdfCraftApp>, at: egui::Pos2) {
+fn click_at(h: &mut Harness<'static, XueLuoPDFApp>, at: egui::Pos2) {
     h.hover_at(at);
     h.run_steps(2);
     h.drag_at(at);
@@ -120,21 +120,21 @@ fn click_at(h: &mut Harness<'static, PdfCraftApp>, at: egui::Pos2) {
 }
 
 /// Click the link on page 1, at the middle of its rectangle.
-fn click_link_at(h: &mut Harness<'static, PdfCraftApp>, y: f32) {
+fn click_link_at(h: &mut Harness<'static, XueLuoPDFApp>, y: f32) {
     let r = h.state().views[0].page_screen_rect(0).expect("page 1 on screen");
     let at = egui::pos2(r.min.x + r.width() * (150.0 / 300.0), r.min.y + r.height() * (1.0 - y / 400.0));
     click_at(h, at);
 }
 
-fn click_remote_link(h: &mut Harness<'static, PdfCraftApp>) {
+fn click_remote_link(h: &mut Harness<'static, XueLuoPDFApp>) {
     click_link(h);
 }
 
-fn click_link(h: &mut Harness<'static, PdfCraftApp>) {
+fn click_link(h: &mut Harness<'static, XueLuoPDFApp>) {
     click_link_at(h, 325.0);
 }
 
-fn click_field(h: &mut Harness<'static, PdfCraftApp>, name: &str) {
+fn click_field(h: &mut Harness<'static, XueLuoPDFApp>, name: &str) {
     let at = {
         let s = h.state();
         let doc = s.session.get(s.views[0].id).unwrap();
@@ -347,7 +347,7 @@ fn an_email_link_cannot_attach_a_local_file() {
 }
 
 /// Ask to open `url` from a script and return the harness with the prompt showing.
-fn prompt_for(url: &str) -> Harness<'static, PdfCraftApp> {
+fn prompt_for(url: &str) -> Harness<'static, XueLuoPDFApp> {
     let mut h = harness();
     let id = h.state().views[0].id;
     let script = format!("app.launchURL({});", serde_json::to_string(url).unwrap());

@@ -6,7 +6,7 @@ use egui::{Key, Modifiers};
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable;
 use pdfcraft_engine::commands::COMMANDS;
-use pdfcraft_ui_egui::{Dialog, PdfCraftApp};
+use pdfcraft_ui_egui::{Dialog, XueLuoPDFApp};
 
 fn fixture(n: usize) -> Vec<u8> {
     let mut objs: Vec<String> = vec!["<< /Type /Catalog /Pages 2 0 R >>".into()];
@@ -33,9 +33,9 @@ fn fixture(n: usize) -> Vec<u8> {
     out
 }
 
-fn harness() -> Harness<'static, PdfCraftApp> {
+fn harness() -> Harness<'static, XueLuoPDFApp> {
     let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(|_cc| {
-        let mut app = PdfCraftApp::new();
+        let mut app = XueLuoPDFApp::new();
         app.set_option("language", "en").unwrap();
         app.open_bytes("doc.pdf", None, fixture(3)).unwrap();
         app
@@ -72,7 +72,7 @@ fn every_registered_command_is_implemented() {
         if PICKERS.contains(&spec.id) {
             continue;
         }
-        let mut app = PdfCraftApp::new();
+        let mut app = XueLuoPDFApp::new();
         app.set_option("language", "en").unwrap();
         if spec.id.starts_with("form.") || spec.id == "comment.flatten" {
             app.open_bytes("form.pdf", None, include_bytes!("data/form.pdf").to_vec()).unwrap();
@@ -155,7 +155,7 @@ fn every_registered_command_is_implemented() {
 
 #[test]
 fn disabled_commands_explain_themselves() {
-    let mut app = PdfCraftApp::new();
+    let mut app = XueLuoPDFApp::new();
     app.set_option("language", "en").unwrap();
     assert!(!app.execute("file.save"));
     assert_eq!(app.toast.as_ref().map(|t| t.0.as_str()), Some("Open a document first"));
@@ -176,7 +176,7 @@ fn a_tool_chosen_with_no_document_asks_for_one_and_runs_on_it() {
     std::fs::write(&path, fixture(2)).unwrap();
     let pick = path.to_string_lossy().into_owned();
     let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
-        let mut app = PdfCraftApp::new();
+        let mut app = XueLuoPDFApp::new();
         app.set_option("language", "en").unwrap();
         app.pick_override = Some(vec![pick]);
         app
@@ -189,7 +189,7 @@ fn a_tool_chosen_with_no_document_asks_for_one_and_runs_on_it() {
     assert!(matches!(h.state().dialog, Some(Dialog::Export(_))), "and the tool runs on it: {:?}", h.state().dialog);
     // Cancelled: nothing opens and nothing runs.
     let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(|_cc| {
-        let mut app = PdfCraftApp::new();
+        let mut app = XueLuoPDFApp::new();
         app.set_option("language", "en").unwrap();
         app.pick_override = Some(Vec::new());
         app
@@ -256,7 +256,7 @@ fn the_open_recent_menu_lists_files_and_opens_one() {
     let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe({
         let path = path.clone();
         move |_cc| {
-            let mut app = PdfCraftApp::new();
+            let mut app = XueLuoPDFApp::new();
             app.set_option("language", "en").unwrap();
             app.open_bytes("doc.pdf", None, fixture(3)).unwrap();
             app.recent.push(pdfcraft_ui_egui::RecentFile { name: "recent.pdf".into(), path, pages: 2, size: 0 });
@@ -298,7 +298,7 @@ fn recent_file(name: &str) -> pdfcraft_ui_egui::RecentFile {
 #[test]
 fn clear_recent_files_at_the_foot_of_open_recent_empties_the_list() {
     let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(|_cc| {
-        let mut app = PdfCraftApp::new();
+        let mut app = XueLuoPDFApp::new();
         app.set_option("language", "en").unwrap();
         app.open_bytes("doc.pdf", None, fixture(3)).unwrap();
         app.recent.extend([recent_file("first.pdf"), recent_file("second.pdf")]);
@@ -323,11 +323,11 @@ fn clear_recent_files_at_the_foot_of_open_recent_empties_the_list() {
 
 #[test]
 fn clear_recent_files_runs_from_the_palette_and_is_saved() {
-    let mut app = PdfCraftApp::new();
+    let mut app = XueLuoPDFApp::new();
     app.recent.extend([recent_file("first.pdf"), recent_file("second.pdf")]);
     assert!(app.execute("file.clear_recent"));
     assert!(app.recent.is_empty());
-    let mut restarted = PdfCraftApp::new();
+    let mut restarted = XueLuoPDFApp::new();
     restarted.recent.push(recent_file("stale.pdf"));
     restarted.restore(&app.persist());
     assert!(restarted.recent.is_empty(), "the empty list is what's saved");
@@ -391,7 +391,7 @@ fn localized_shortcuts_update_immediately_and_keep_command_ids_and_key_bindings(
 }
 
 /// Menu ▸ View open, with egui told the app runs on `os`.
-fn view_menu(os: OperatingSystem) -> Harness<'static, PdfCraftApp> {
+fn view_menu(os: OperatingSystem) -> Harness<'static, XueLuoPDFApp> {
     let mut h = harness();
     h.ctx.set_os(os);
     h.get_by_label("Menu").click();
@@ -470,7 +470,7 @@ fn the_about_dialog_shows_the_running_version() {
 #[test]
 fn command_w_closes_empty_macos_window_but_not_an_empty_windows_window() {
     for (os, should_close) in [(OperatingSystem::Mac, true), (OperatingSystem::Windows, false)] {
-        let mut h = Harness::builder().with_size(egui::vec2(1000.0, 700.0)).build_eframe(|_cc| PdfCraftApp::new());
+        let mut h = Harness::builder().with_size(egui::vec2(1000.0, 700.0)).build_eframe(|_cc| XueLuoPDFApp::new());
         h.ctx.set_os(os);
         h.run_steps(4);
         assert!(h.state().views.is_empty());

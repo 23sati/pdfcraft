@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use egui_kittest::Harness;
 use egui_kittest::kittest::{NodeT, Queryable};
-use pdfcraft_ui_egui::PdfCraftApp;
+use pdfcraft_ui_egui::XueLuoPDFApp;
 use pdfcraft_ui_egui::control::{ControlClient, Reply};
 use serde_json::{Value, json};
 
@@ -34,19 +34,19 @@ fn fixture(n: usize) -> Vec<u8> {
     out
 }
 
-fn harness() -> (Harness<'static, PdfCraftApp>, ControlClient) {
+fn harness() -> (Harness<'static, XueLuoPDFApp>, ControlClient) {
     harness_pages(5)
 }
 
-fn harness_pages(pages: usize) -> (Harness<'static, PdfCraftApp>, ControlClient) {
+fn harness_pages(pages: usize) -> (Harness<'static, XueLuoPDFApp>, ControlClient) {
     harness_pages_at(pages, 1400.0, 1.0)
 }
 
-fn harness_pages_at(pages: usize, width: f32, scale: f32) -> (Harness<'static, PdfCraftApp>, ControlClient) {
+fn harness_pages_at(pages: usize, width: f32, scale: f32) -> (Harness<'static, XueLuoPDFApp>, ControlClient) {
     let slot: Arc<Mutex<Option<ControlClient>>> = Arc::default();
     let s = slot.clone();
     let mut h = Harness::builder().with_size(egui::vec2(width, 900.0)).with_pixels_per_point(scale).build_eframe(move |cc| {
-        let mut app = PdfCraftApp::new();
+        let mut app = XueLuoPDFApp::new();
         app.set_option("language", "en").unwrap();
         *s.lock().unwrap() = Some(app.attach_control(&cc.egui_ctx));
         app.open_bytes("doc.pdf", None, fixture(pages)).unwrap();
@@ -58,7 +58,7 @@ fn harness_pages_at(pages: usize, width: f32, scale: f32) -> (Harness<'static, P
 }
 
 /// Send a request and run frames until it is answered.
-fn call(h: &mut Harness<'static, PdfCraftApp>, c: &ControlClient, method: &str, params: Value) -> Reply {
+fn call(h: &mut Harness<'static, XueLuoPDFApp>, c: &ControlClient, method: &str, params: Value) -> Reply {
     let rx = c.send(method, params);
     for _ in 0..30 {
         h.step();
@@ -69,7 +69,7 @@ fn call(h: &mut Harness<'static, PdfCraftApp>, c: &ControlClient, method: &str, 
     panic!("{method}: no reply after 30 frames");
 }
 
-fn ok(h: &mut Harness<'static, PdfCraftApp>, c: &ControlClient, method: &str, params: Value) -> Value {
+fn ok(h: &mut Harness<'static, XueLuoPDFApp>, c: &ControlClient, method: &str, params: Value) -> Value {
     call(h, c, method, params).unwrap_or_else(|e| panic!("{method}: {e}"))
 }
 
@@ -184,7 +184,7 @@ fn control_focus_rejects_missing_ambiguous_disabled_and_nonfocusable_targets() {
     assert!(call(&mut h, &c, "ui.focus", json!({"id": disabled["id"]})).is_err());
 }
 
-fn close_requested(h: &Harness<'static, PdfCraftApp>) -> bool {
+fn close_requested(h: &Harness<'static, XueLuoPDFApp>) -> bool {
     h.output().viewport_output.values().any(|v| v.commands.iter().any(|c| matches!(c, egui::ViewportCommand::Close)))
 }
 
@@ -309,7 +309,7 @@ fn language_switch_preserves_document_and_command_ids() {
 }
 
 #[cfg(target_os = "linux")]
-fn start_autoscroll(h: &mut Harness<'static, PdfCraftApp>, c: &ControlClient) -> egui::Pos2 {
+fn start_autoscroll(h: &mut Harness<'static, XueLuoPDFApp>, c: &ControlClient) -> egui::Pos2 {
     let p = h.state().views[0].viewport_rect().center();
     ok(h, c, "ui.click", json!({ "x": p.x, "y": p.y, "button": "middle" }));
     assert!(h.state().views[0].auto_scrolling());
@@ -327,7 +327,7 @@ struct CanvasPosition {
 
 #[cfg(target_os = "linux")]
 impl CanvasPosition {
-    fn new(h: &Harness<'static, PdfCraftApp>) -> Self {
+    fn new(h: &Harness<'static, XueLuoPDFApp>) -> Self {
         let grid = h.state().views[0].organize.then(|| {
             let first = h.get_by_label("Page 1").rect().top();
             let (page, next_row) = Self::grid_cells(h).into_iter().find(|(_, top)| *top > first + 1.0).expect("a second grid row");
@@ -336,7 +336,7 @@ impl CanvasPosition {
         Self { grid }
     }
 
-    fn grid_cells(h: &Harness<'static, PdfCraftApp>) -> Vec<(usize, f32)> {
+    fn grid_cells(h: &Harness<'static, XueLuoPDFApp>) -> Vec<(usize, f32)> {
         use egui_kittest::kittest::NodeT;
         let mut cells: Vec<_> = h
             .query_all_by_label_contains("Page ")
@@ -349,7 +349,7 @@ impl CanvasPosition {
         cells
     }
 
-    fn top(&self, h: &Harness<'static, PdfCraftApp>) -> f32 {
+    fn top(&self, h: &Harness<'static, XueLuoPDFApp>) -> f32 {
         match self.grid {
             Some((columns, row_pitch)) => {
                 let (page, top) = Self::grid_cells(h).into_iter().next().expect("a rendered grid cell");
@@ -447,7 +447,7 @@ fn farther_from_the_click_scrolls_faster_in_the_viewer_and_page_grid() {
         h.state_mut().views[0].organize = organize;
         h.run_steps(3);
         let position = CanvasPosition::new(&h);
-        let top = |h: &Harness<'static, PdfCraftApp>| position.top(h);
+        let top = |h: &Harness<'static, XueLuoPDFApp>| position.top(h);
         let p = start_autoscroll(&mut h, &c);
         ok(&mut h, &c, "ui.move", json!({ "x": p.x, "y": p.y + 30.0 }));
         let before_near = top(&h);
@@ -480,8 +480,8 @@ fn autoscroll_uses_elapsed_frame_time_and_preserves_fractional_motion_in_both_vi
             h.run_steps(3);
             assert_eq!(h.ctx.pixels_per_point(), scale);
             let position = CanvasPosition::new(&h);
-            let top = |h: &Harness<'static, PdfCraftApp>| position.top(h);
-            let step = |h: &mut Harness<'static, PdfCraftApp>| {
+            let top = |h: &Harness<'static, XueLuoPDFApp>| position.top(h);
+            let step = |h: &mut Harness<'static, XueLuoPDFApp>| {
                 // Deliberately differ from the harness's predicted frame interval: scrolling
                 // must follow the elapsed time rather than the display's predicted rate.
                 h.input_mut().time = Some(h.ctx.input(|i| i.time) + 1.0 / f64::from(frames));
@@ -1098,7 +1098,7 @@ fn loopback_transport_requires_the_token() {
             out
         })
     };
-    let pump = |h: &mut Harness<'static, PdfCraftApp>, t: std::thread::JoinHandle<Vec<Value>>| {
+    let pump = |h: &mut Harness<'static, XueLuoPDFApp>, t: std::thread::JoinHandle<Vec<Value>>| {
         while !t.is_finished() {
             h.step();
         }
@@ -1159,7 +1159,7 @@ fn measurement_tools_draw_live_calibrate_save_and_export() {
     h.run_steps(3);
     let scale = h.state().session.get(doc).unwrap().measurement_scale(0, [20.0, 20.0]).unwrap();
     assert!((scale.x - 0.1).abs() < 1e-10);
-    let click = |h: &mut Harness<'static, PdfCraftApp>, c: &ControlClient, x: f32, y: f32| {
+    let click = |h: &mut Harness<'static, XueLuoPDFApp>, c: &ControlClient, x: f32, y: f32| {
         let r = h.state().views[0].page_screen_rect(0).unwrap();
         ok(h, c, "ui.click", json!({"x":r.left()+x*r.width()/200.0,"y":r.top()+y*r.height()/300.0}));
         h.run_steps(2);
@@ -1349,7 +1349,7 @@ fn home_and_combine_suppress_inspector_without_forgetting_layout_or_choice() {
 
 #[test]
 fn malformed_docking_settings_preserve_other_preferences() {
-    let mut app = PdfCraftApp::new();
+    let mut app = XueLuoPDFApp::new();
     app.restore(r#"{"docking":{"layout":{"root":null,"floating":[]},"hidden":[]},"default_mode":"edit","flatten_fill_sign":true}"#);
     assert_eq!(app.default_mode, pdfcraft_ui_egui::Mode::Edit);
     app.docking.validate().unwrap();
@@ -1434,12 +1434,12 @@ fn read_mode_retains_existing_rail_click_to_close_policy() {
     assert_eq!(h.state().mode, pdfcraft_ui_egui::Mode::Read);
 }
 
-fn navigation_frame(h: &mut Harness<'static, PdfCraftApp>, events: Vec<egui::Event>) {
+fn navigation_frame(h: &mut Harness<'static, XueLuoPDFApp>, events: Vec<egui::Event>) {
     h.input_mut().events.extend(events);
     h.step();
 }
 
-fn navigation_wheel(h: &mut Harness<'static, PdfCraftApp>, pos: egui::Pos2, delta: f32, ctrl: bool) {
+fn navigation_wheel(h: &mut Harness<'static, XueLuoPDFApp>, pos: egui::Pos2, delta: f32, ctrl: bool) {
     let modifiers = egui::Modifiers { ctrl, command: ctrl, ..egui::Modifiers::NONE };
     navigation_frame(
         h,
@@ -1505,7 +1505,7 @@ fn wheel_zoom_is_scoped_to_the_viewport_and_respects_existing_limits() {
 fn initial_zoom_option_is_applied_before_the_first_viewport_layout() {
     for percent in [50, 100, 200, 400] {
         let h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
-            let mut app = PdfCraftApp::new();
+            let mut app = XueLuoPDFApp::new();
             app.open_bytes("initial-zoom.pdf", None, fixture(3)).unwrap();
             app.set_option("zoom", &percent.to_string()).unwrap();
             assert_eq!(app.views[0].zoom, percent as f32 / 100.0, "initial options must work before the viewport exists");

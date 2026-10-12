@@ -1054,7 +1054,7 @@ mod tests {
 
     #[test]
     fn text_background_is_cached_without_editing_and_released_on_cancel() {
-        let mut app = crate::PdfCraftApp::new();
+        let mut app = crate::XueLuoPDFApp::new();
         let bytes = app.session.create_from_text("Preview", "Preview text").unwrap();
         app.open_bytes("preview.pdf", None, bytes.as_ref().clone()).unwrap();
         let doc = app.session.get(app.views[0].id).unwrap();

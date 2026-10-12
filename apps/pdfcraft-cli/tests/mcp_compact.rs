@@ -8,7 +8,7 @@ use serde_json::{Value, json};
 
 /// Run `pdfcraft-cli mcp <flags>` over an initialize request plus `requests` and return the replies to `requests`.
 fn session(flags: &[&str], requests: &[Value]) -> Vec<Value> {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_pdfcraft-cli"))
+    let mut child = Command::new(env!("CARGO_BIN_EXE_xueluopdf-cli"))
         .arg("mcp")
         .args(flags)
         .stdin(Stdio::piped())

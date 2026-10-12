@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 use std::process::Command;
 
-const BIN: &str = env!("CARGO_BIN_EXE_pdfcraft-cli");
+const BIN: &str = env!("CARGO_BIN_EXE_xueluopdf-cli");
 
 /// A one-page 200×300 pt PDF.
 fn fixture() -> Vec<u8> {

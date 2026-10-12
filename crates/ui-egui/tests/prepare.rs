@@ -4,12 +4,12 @@
 use egui::Pos2;
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable;
-use pdfcraft_ui_egui::{PdfCraftApp, QuickTool};
+use pdfcraft_ui_egui::{XueLuoPDFApp, QuickTool};
 
-fn harness() -> Harness<'static, PdfCraftApp> {
+fn harness() -> Harness<'static, XueLuoPDFApp> {
     let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(|cc| {
         cc.egui_ctx.options_mut(|options| options.warn_on_id_clash = true);
-        let mut app = PdfCraftApp::new();
+        let mut app = XueLuoPDFApp::new();
         app.set_option("language", "en").unwrap();
         app.open_bytes("form.pdf", None, include_bytes!("data/form.pdf").to_vec()).unwrap();
         app.set_option("zoom", "150").unwrap();
@@ -26,13 +26,13 @@ fn harness() -> Harness<'static, PdfCraftApp> {
 }
 
 /// A point on page 1 at (x, y) points from its top-left.
-fn at(h: &Harness<'static, PdfCraftApp>, x: f32, y: f32) -> Pos2 {
+fn at(h: &Harness<'static, XueLuoPDFApp>, x: f32, y: f32) -> Pos2 {
     let r = h.state().views[0].page_screen_rect(0).expect("on screen");
     let k = r.width() / 300.0;
     r.min + egui::vec2(x * k, y * k)
 }
 
-fn drag(h: &mut Harness<'static, PdfCraftApp>, a: Pos2, b: Pos2) {
+fn drag(h: &mut Harness<'static, XueLuoPDFApp>, a: Pos2, b: Pos2) {
     h.hover_at(a);
     h.run_steps(1);
     h.drag_at(a);
@@ -45,12 +45,12 @@ fn drag(h: &mut Harness<'static, PdfCraftApp>, a: Pos2, b: Pos2) {
     h.run_steps(4);
 }
 
-fn names(h: &Harness<'static, PdfCraftApp>) -> Vec<String> {
+fn names(h: &Harness<'static, XueLuoPDFApp>) -> Vec<String> {
     let s = h.state();
     s.session.get(s.views[0].id).unwrap().form.iter().map(|f| f.name.clone()).collect()
 }
 
-fn rect_of(h: &Harness<'static, PdfCraftApp>, name: &str) -> [f64; 4] {
+fn rect_of(h: &Harness<'static, XueLuoPDFApp>, name: &str) -> [f64; 4] {
     let s = h.state();
     s.session.get(s.views[0].id).unwrap().form.iter().find(|f| f.name == name).unwrap().widgets[0].rect
 }
@@ -198,7 +198,7 @@ fn position_tab_rotates_a_field() {
     let mut h = harness();
     h.state_mut().open_field_props("city", 0);
     h.run_steps(2);
-    let widget = |h: &Harness<'static, PdfCraftApp>| {
+    let widget = |h: &Harness<'static, XueLuoPDFApp>| {
         let s = h.state();
         let f = s.session.get(s.views[0].id).unwrap().form.iter().find(|f| f.name == "city").unwrap();
         f.widgets[0].clone()
@@ -281,7 +281,7 @@ fn the_fields_panel_orders_tabs_manually() {
     h.state_mut().execute("form.prepare");
     h.state_mut().set_option("panel", "fields").unwrap();
     h.run_steps(3);
-    let order = |h: &Harness<'static, PdfCraftApp>| -> Vec<String> {
+    let order = |h: &Harness<'static, XueLuoPDFApp>| -> Vec<String> {
         let s = h.state();
         let form = &s.session.get(s.views[0].id).unwrap().form;
         let mut v: Vec<(usize, String)> = form.iter().filter_map(|f| f.widgets.iter().map(|w| w.tab).min().map(|t| (t, f.name.clone()))).collect();
@@ -343,8 +343,8 @@ fn aligning_distributing_and_sizing_several_fields() {
         });
     }
     h.run_steps(2);
-    let form = |h: &Harness<'static, PdfCraftApp>| h.state().session.get(h.state().views[0].id).unwrap().form.as_ref().clone();
-    let rect = |h: &Harness<'static, PdfCraftApp>, n: &str| form(h).iter().find(|f| f.name == n).unwrap().widgets[0].rect;
+    let form = |h: &Harness<'static, XueLuoPDFApp>| h.state().session.get(h.state().views[0].id).unwrap().form.as_ref().clone();
+    let rect = |h: &Harness<'static, XueLuoPDFApp>, n: &str| form(h).iter().find(|f| f.name == n).unwrap().widgets[0].rect;
     let a = ("a".to_string(), 0);
     let others = vec![("b".to_string(), 0), ("c".to_string(), 0)];
     // Align tops with a.
@@ -413,7 +413,7 @@ fn preview_fills_the_form_and_locked_fields_keep_their_properties() {
     h.run_steps(1);
     h.get_by_label("OK").click();
     h.run_steps(3);
-    let locked = |h: &Harness<'static, PdfCraftApp>| {
+    let locked = |h: &Harness<'static, XueLuoPDFApp>| {
         let s = h.state();
         s.session.get(s.views[0].id).unwrap().form.iter().find(|f| f.name == "city").unwrap().locked()
     };
