@@ -45,8 +45,9 @@ keeps upstream’s System/Light/Dark cycle; its context menu exposes every theme
 The future editor should use this API rather than another preference or file format.
 
 System, Light and Dark keep their historical appearance and encodings. System
-continues following OS appearance changes, including upstream’s Linux desktop
-appearance watcher when winit has no answer. A headless inspection of System returns
+continues following OS appearance changes, including upstream’s opt-in native Linux desktop
+portal watcher. Unknown appearance uses Light; native windows retain inherited
+appearance while both egui style branches receive the selected palette. A headless inspection of System returns
 the Light fallback palette and `follows_system: true`; it does not guess desktop
 appearance. PDF paper, pixels, annotations, redactions and signature ink are not
 application theme tokens. Native file dialogs remain styled by the OS.

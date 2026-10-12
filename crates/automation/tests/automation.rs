@@ -1390,6 +1390,25 @@ fn protecting_with_an_open_password_alone_restricts_nothing() {
     }
 }
 
+/// AES-256 keys on the SASLprep form of a password, which drops soft hyphens: a password made
+/// only of them is no password at all (as the permissions password, it would give everyone owner
+/// rights), so it is refused rather than written.
+#[test]
+fn protecting_with_a_password_encryption_ignores_is_refused() {
+    let dir = workdir("protect-ignored");
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    let answers: Vec<String> = ["open_password", "permissions_password"]
+        .into_iter()
+        .map(|key| match a.call("doc_protect", &json!({ "doc": doc, key: "\u{AD}" })) {
+            Err(ToolError::Failed(m)) => m,
+            other => format!("{key}: {other:?}"),
+        })
+        .collect();
+    assert!(answers.iter().all(|m| m.contains("soft hyphens")), "{answers:?}");
+    assert_eq!(ok(&mut a, "doc_info", json!({ "doc": doc }))["security"]["protected"], false, "a refused call changes nothing");
+}
+
 #[test]
 fn forms_through_tools() {
     let dir = workdir("forms");
@@ -1623,6 +1642,35 @@ trailer << /Root 1 0 R >>
     )
     .unwrap();
     let fd = ok(&mut a, "doc_open", json!({ "path": "figures.pdf" }))["doc"].as_u64().unwrap();
+    let tags = ok(&mut a, "accessibility_tags", json!({ "doc": fd }));
+    assert_eq!(tags["count"], 3);
+    assert_eq!(tags["tags"][1]["object"], 7);
+    assert_eq!(tags["tags"][1]["type"], "Figure");
+    let changed = ok(
+        &mut a,
+        "accessibility_set_tag_property",
+        json!({
+            "doc": fd, "object": 7, "generation": 0, "property": "title", "value": "First shape"
+        }),
+    );
+    assert_eq!(changed["tags"][1]["title"], "First shape");
+    assert_eq!(ok(&mut a, "edit_undo", json!({ "doc": fd }))["undone"], "Change tag properties");
+    assert_eq!(ok(&mut a, "accessibility_tags", json!({ "doc": fd }))["tags"][1]["title"], Value::Null);
+    assert!(matches!(
+        a.call(
+            "accessibility_set_tag_property",
+            &json!({
+                "doc": fd, "object": 7, "generation": 1, "property": "title", "value": "Wrong generation"
+            })
+        ),
+        Err(ToolError::Failed(_))
+    ));
+    let findings = ok(&mut a, "accessibility_check", json!({ "doc": fd, "rules": ["figures-alt-text"] }));
+    let figures_rule = findings["results"].as_array().unwrap().iter().find(|x| x["rule"] == "figures-alt-text").unwrap();
+    assert_eq!(figures_rule["findings"][0]["object"], 7);
+    assert_eq!(figures_rule["findings"][0]["object_generation"], 0);
+    assert_eq!(figures_rule["findings"][1]["object"], 8);
+    assert_eq!(figures_rule["findings"][1]["object_generation"], 0);
     let figs = ok(&mut a, "accessibility_figures", json!({ "doc": fd }));
     assert_eq!(figs["count"], 2);
     assert_eq!(figs["figures"][0]["rect"], json!([10.0, 30.0, 50.0, 50.0]), "top-left-origin points");
@@ -1635,6 +1683,36 @@ trailer << /Root 1 0 R >>
     let check = ok(&mut a, "accessibility_check", json!({ "doc": fd, "rules": ["figures-alt-text", "tagged-content"] }));
     assert_eq!(check["failed"], 0, "{check}");
     assert!(matches!(a.call("accessibility_set_alt", &json!({ "doc": fd, "figure": 6, "alt": "x" })), Err(ToolError::Failed(_))));
+}
+
+#[test]
+fn accessibility_review_record_compares_two_versions_without_changing_them() {
+    let dir = workdir("a11y-review-record");
+    let source = std::fs::read(dir.join("a.pdf")).unwrap();
+    let mut a = auto(&dir);
+    let before = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    let after = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    ok(&mut a, "accessibility_fix", json!({ "doc": after, "rule": "primary-language", "value": "en-GB" }));
+
+    let output = ok(&mut a, "accessibility_review_record", json!({ "before": before, "after": after, "path": "review.json" }));
+    let file: Value = serde_json::from_slice(&std::fs::read(dir.join("review.json")).unwrap()).unwrap();
+    assert_eq!(output["record"], file);
+    assert_eq!(file["schema"], 1);
+    assert_eq!(file["before"]["sha256"].as_str().unwrap().len(), 64);
+    assert_eq!(file["after"]["sha256"].as_str().unwrap().len(), 64);
+    assert_ne!(file["before"]["sha256"], file["after"]["sha256"]);
+    assert_eq!(file["changed"], json!(["primary-language"]));
+    let language = file["rules"].as_array().unwrap().iter().find(|r| r["rule"] == "primary-language").unwrap();
+    assert_eq!(language["before"]["status"], "failed");
+    assert_eq!(language["after"]["status"], "passed");
+    assert!(file["review_required"].as_array().unwrap().iter().any(|r| r == "tagged-pdf"));
+    assert_eq!(std::fs::read(dir.join("a.pdf")).unwrap(), source);
+    assert!(matches!(
+        a.call("accessibility_review_record", &json!({ "before": before, "after": before, "path": "same.json" })),
+        Err(ToolError::InvalidArgs(_))
+    ));
+    assert!(!dir.join("same.json").exists());
+    assert!(a.call("accessibility_review_record", &json!({ "before": before, "after": after, "path": "../escape.json" })).is_err());
 }
 
 #[test]
@@ -2476,7 +2554,7 @@ fn faux_redacted_fixture() -> Vec<u8> {
 
 #[test]
 fn auditing_faux_redactions_through_tools() {
-    let dir = workdir("audit");
+    let dir = workdir("faux-redaction-audit");
     std::fs::write(dir.join("redacted.pdf"), faux_redacted_fixture()).unwrap();
     let mut a = auto(&dir);
     let doc = ok(&mut a, "doc_open", json!({ "path": "redacted.pdf" }))["doc"].as_u64().unwrap();
@@ -2998,6 +3076,58 @@ fn comment_checkmarks_locks_hiding_and_summaries_through_tools() {
     assert!(matches!(a.call("comments_summarize", &json!({ "doc": doc, "sort": "colour" })), Err(ToolError::InvalidArgs(_))));
 }
 
+/// Text the standard fonts can't draw is never written as `?` silently, through the tools. A form
+/// value, a button caption, a text box and Fill & Sign text are kept as typed (as Acrobat keeps
+/// them) and the result's `warnings` names the character; a form also asks other viewers to
+/// redraw it. Where the `?` would be permanent the tool refuses: a typed signature, a redaction's
+/// overlay text, a new document from text, and flattening what PdfCraft drew with `?`. A comment
+/// summary that quotes such text writes it as [U+XXXX].
+#[test]
+fn text_the_standard_fonts_cannot_draw_is_never_silent_through_tools() {
+    let dir = workdir("undrawable");
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    let refused = |a: &mut Automation, tool: &str, args: Value, ch: &str| match a.call(tool, &args) {
+        Err(ToolError::Failed(e) | ToolError::InvalidArgs(e)) => assert!(e.contains(ch), "{tool}: {e}"),
+        other => panic!("{tool}: expected a refusal, got {other:?}"),
+    };
+    let warned = |out: &Value, parts: &[&str]| {
+        let w = out["warnings"].as_array().unwrap_or_else(|| panic!("no warnings: {out}"));
+        assert!(w.iter().filter_map(Value::as_str).any(|m| parts.iter().all(|p| m.contains(p))), "{parts:?} not in {w:?}");
+    };
+    // Forms: a value is kept and the form asks other viewers to redraw it; a button caption too.
+    ok(&mut a, "form_add_field", json!({ "doc": doc, "page": 1, "type": "text", "rect": [20, 20, 180, 42], "name": "who" }));
+    let out = ok(&mut a, "form_fill", json!({ "doc": doc, "values": { "who": "Ada" } }));
+    assert!(out.get("warnings").is_none(), "{out}");
+    let out = ok(&mut a, "form_fill", json!({ "doc": doc, "values": { "who": "张三" } }));
+    warned(&out, &["form field \"who\"", "\"张\" (U+5F20)", "other PDF viewers redraw the field"]);
+    let fields = ok(&mut a, "form_fields", json!({ "doc": doc }));
+    assert_eq!(fields["fields"][0]["value"], "张三", "{fields}");
+    let out = ok(&mut a, "form_add_field", json!({ "doc": doc, "page": 1, "type": "button", "rect": [20, 60, 120, 82], "caption": "提交" }));
+    warned(&out, &["\"提\" (U+63D0)"]);
+    // Comments and Fill & Sign text: kept, and said.
+    let out = ok(&mut a, "comment_add", json!({ "doc": doc, "page": 1, "type": "textbox", "rect": [10, 200, 190, 240], "contents": "欢迎" }));
+    warned(&out, &["a comment on page 1", "\"欢\" (U+6B22)", "every viewer"]);
+    let out = ok(&mut a, "fill_sign_add", json!({ "doc": doc, "page": 1, "type": "text", "at": [20, 300], "text": "签名" }));
+    warned(&out, &["U+7B7E"]);
+    // A sticky note draws an icon, not its text: nothing to say.
+    let out = ok(&mut a, "comment_add", json!({ "doc": doc, "page": 1, "type": "note", "at": [40, 40], "contents": "签名 OK", "author": "Ada" }));
+    assert!(out.get("warnings").is_none(), "{out}");
+    // Permanent `?`: refused.
+    refused(&mut a, "fill_sign_add", json!({ "doc": doc, "page": 1, "type": "signature", "at": [20, 340], "text": "张三" }), "pass `path`");
+    // Cyrillic comes from the script font's Inter fallback (#963), so it isn't refused.
+    ok(&mut a, "fill_sign_add", json!({ "doc": doc, "page": 1, "type": "signature", "at": [20, 380], "text": "Саша" }));
+    refused(&mut a, "redact_mark", json!({ "doc": doc, "page": 1, "rect": [10, 400, 190, 420], "overlay": "机密" }), "\"机\" (U+673A)");
+    refused(&mut a, "doc_flatten", json!({ "doc": doc }), "nothing was flattened");
+    refused(&mut a, "doc_create", json!({ "from": "text", "text": "Notes\n第二行" }), "(line 2)");
+    // A summary quotes the note: escaped, not refused, not `?`.
+    ok(&mut a, "comments_summarize", json!({ "doc": doc, "out": "summary.pdf" }));
+    let summary = ok(&mut a, "doc_open", json!({ "path": "summary.pdf" }))["doc"].as_u64().unwrap();
+    let text = page_text(&mut a, summary).join("\n");
+    assert!(text.contains("[U+7B7E][U+540D] OK") && text.contains("[U+XXXX]"), "{text}");
+    assert!(!text.contains("?? OK"), "{text}");
+}
+
 #[test]
 fn line_endings_through_the_tool() {
     let dir = workdir("endings");
@@ -3138,6 +3268,7 @@ fn signing_with_an_image_typed_or_drawn_graphic_through_tools() {
         (json!("logo.png"), "not an object"),
         (json!({ "image": "broken.png" }), "not an image"),
         (json!({ "text": "   " }), "nothing to draw"),
+        (json!({ "text": "张三" }), "a name the script font and its fallback can't draw"),
         (json!({ "strokes": [[[0, 0], ["x", 1]]] }), "malformed strokes"),
         (json!({ "strokes": [] }), "empty strokes"),
     ] {
@@ -3322,6 +3453,34 @@ fn ocr_tools_make_a_scan_searchable() {
     let again = ok(&mut a, "ocr_recognize", json!({ "doc": scan, "pages": [1] }));
     assert!(again["pages"][0]["skipped"].is_string(), "{again}");
     assert!(matches!(a.call("ocr_recognize", &json!({ "doc": scan, "language": "xx" })), Err(ToolError::InvalidArgs(_))));
+}
+
+/// #1028: `skip_text_pages: false` reads a picture on a page that has its own text, and the
+/// page's own words are left out (counted) instead of being added a second time.
+#[test]
+fn ocr_recognize_reads_pictures_on_pages_with_text() {
+    let dir = workdir("ocr-hybrid");
+    let mut a = auto(&dir);
+    if ok(&mut a, "ocr_status", json!({}))["available"] != true {
+        eprintln!("skipped: OCR models not installed");
+        return;
+    }
+    let text = ok(&mut a, "doc_create", json!({ "from": "text", "text": "Pictures of words become searchable" }))["doc"].as_u64().unwrap();
+    ok(&mut a, "doc_export_images", json!({ "doc": text, "folder": "scan", "dpi": 150, "pages": [1] }));
+    let png = std::fs::read_dir(dir.join("scan")).unwrap().next().unwrap().unwrap().path();
+    let doc = ok(&mut a, "doc_create", json!({ "from": "images", "paths": [png.to_string_lossy()] }))["doc"].as_u64().unwrap();
+    ok(&mut a, "page_add_text", json!({ "doc": doc, "page": 1, "text": "Invoice reference 4711", "at": [40, 500], "size": 24 }));
+
+    let skipped = ok(&mut a, "ocr_recognize", json!({ "doc": doc }));
+    assert!(skipped["pages"][0]["skipped"].is_string(), "{skipped}");
+    let r = ok(&mut a, "ocr_recognize", json!({ "doc": doc, "skip_text_pages": false }));
+    let page = &r["pages"][0];
+    let added = page["text"].as_str().unwrap().to_lowercase();
+    assert!(added.contains("searchable") && !added.contains("invoice"), "{r}");
+    assert!(page["already_on_page"].as_u64().unwrap() >= 2, "{r}");
+    let found = |a: &mut Automation, q: &str| ok(a, "text_find", json!({ "doc": doc, "query": q }))["count"].as_u64().unwrap();
+    assert_eq!((found(&mut a, "invoice"), found(&mut a, "searchable")), (1, 1));
+    assert!(matches!(a.call("ocr_recognize", &json!({ "doc": doc, "skip_text_pages": "no" })), Err(ToolError::InvalidArgs(_))));
 }
 
 #[test]
@@ -3556,6 +3715,39 @@ fn exporting_to_word_html_and_rtf() {
     assert!(std::fs::read(dir.join("a.docx")).unwrap().starts_with(b"PK"));
     assert!(std::fs::read_to_string(dir.join("a.rtf")).unwrap().contains("Page 2"));
     assert!(a.call("doc_export_office", &json!({ "doc": doc, "path": "a.xyz" })).is_err());
+}
+
+#[test]
+fn xfa_data_files_export_and_import_through_tools() {
+    let dir = workdir("xfa-data");
+    let data = "<form><page1><country>JP</country></page1></form>";
+    std::fs::write(dir.join("fields.pdf"), pdfcraft_xfa::fixtures::shell(&pdfcraft_xfa::fixtures::fields_template(data))).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "fields.pdf" }))["doc"].as_u64().unwrap();
+    ok(&mut a, "doc_export_data", json!({ "doc": doc, "path": "data.xml", "what": "fields" }));
+    ok(&mut a, "doc_export_data", json!({ "doc": doc, "path": "data.xdp", "what": "fields" }));
+    let xml = std::fs::read_to_string(dir.join("data.xml")).unwrap();
+    let xdp = std::fs::read_to_string(dir.join("data.xdp")).unwrap();
+    assert!(xml.contains("<form") && xml.contains("<country>JP</country>"), "{xml}");
+    assert!(xdp.contains("<xdp:xdp") && xdp.contains("<country>JP</country>"), "{xdp}");
+    // Edit the exported data and import it back.
+    std::fs::write(dir.join("edited.xdp"), xdp.replace("<country>JP</country>", "<country>CA</country>")).unwrap();
+    let r = ok(&mut a, "doc_import_data", json!({ "doc": doc, "path": "edited.xdp" }));
+    assert!(r["filled_fields"].as_u64().unwrap() >= 1);
+    let fields = ok(&mut a, "form_fields", json!({ "doc": doc }));
+    let country = fields["fields"].as_array().unwrap().iter().find(|f| f["name"] == "country").unwrap();
+    assert_eq!(country["value"], json!("CA"));
+    // A picture for the image field, through form_set_image, lands in the data.
+    std::fs::write(dir.join("pic.gif"), pdfcraft_xfa::fixtures::TINY_GIF).unwrap();
+    ok(&mut a, "form_set_image", json!({ "doc": doc, "field": "photo", "path": "pic.gif" }));
+    ok(&mut a, "doc_export_data", json!({ "doc": doc, "path": "after.xml", "what": "fields" }));
+    let after = std::fs::read_to_string(dir.join("after.xml")).unwrap();
+    assert!(after.contains("<photo xfa:contentType=\"image/gif\">R0lGODlh"), "{after}");
+    // XDP is for XFA forms only.
+    std::fs::write(dir.join("plain.pdf"), pdfcraft_xfa::fixtures::static_shell("<form1><page1><name>Ada</name></page1></form1>")).unwrap();
+    let plain = ok(&mut a, "doc_open", json!({ "path": "plain.pdf" }))["doc"].as_u64().unwrap();
+    ok(&mut a, "doc_export_data", json!({ "doc": plain, "path": "static.xml", "what": "fields" }));
+    assert!(std::fs::read_to_string(dir.join("static.xml")).unwrap().contains("<name>Ada</name>"), "a static XFA form exports its data too");
 }
 
 #[test]
@@ -4129,6 +4321,30 @@ fn command_batch_refuses_more_than_a_thousand_steps() {
     let steps: Vec<Value> = (0..1001).map(|_| json!({"id":"no.such.command"})).collect();
     let err = a.call("command_batch", &json!({"steps": steps})).unwrap_err();
     assert!(err.to_string().contains("at most 1000 steps"), "{err}");
+}
+
+#[test]
+fn thai_text_through_tools_saves_reopens_extracts_and_renders() {
+    let dir = workdir("thai-content");
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({"path": "a.pdf"}))["doc"].as_u64().unwrap();
+    let text = "สวัสดี น้ำ ผู้ใช้ ปู่ ๑๒๓ Hello 123";
+    let args = json!({"doc": doc, "page": 1, "text": text, "at": [10, 20], "size": 9});
+    if pdfcraft_fonts::document_thai_font().is_none() {
+        assert!(a.call("page_add_text", &args).unwrap_err().to_string().contains("Thai"));
+        assert_eq!(ok(&mut a, "content_list", json!({"doc": doc}))["count"], 0);
+        return;
+    }
+    ok(&mut a, "page_add_text", args);
+    assert!(page_text(&mut a, doc)[0].contains(text), "{:?}", page_text(&mut a, doc));
+    ok(&mut a, "doc_save", json!({"doc": doc, "path": "thai.pdf"}));
+    let reopened = ok(&mut a, "doc_open", json!({"path": "thai.pdf"}))["doc"].as_u64().unwrap();
+    assert_eq!(ok(&mut a, "content_list", json!({"doc": reopened}))["items"][0]["text"], text);
+    assert!(page_text(&mut a, reopened)[0].contains(text));
+    let rendered = a.call("page_render", &json!({"doc": reopened, "page": 1, "dpi": 144})).unwrap();
+    assert!(rendered.iter().any(|c| matches!(c, Content::Png { data, width, height } if !data.is_empty() && *width > 0 && *height > 0)));
+    ok(&mut a, "content_update", json!({"doc": reopened, "page": 1, "index": 1, "text": "แก้ไข น้ำ"}));
+    assert!(page_text(&mut a, reopened)[0].contains("แก้ไข น้ำ"));
 }
 
 #[test]

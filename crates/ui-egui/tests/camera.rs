@@ -113,8 +113,8 @@ fn the_clean_up_level_enhances_again_from_the_photo_and_keeps_the_turn() {
     // The history holds one enhancement and one turn, not a pile of them.
     let s = h.state_mut();
     let id = s.views[0].id;
-    assert_eq!(s.session.undo(id).unwrap(), "Rotate page");
-    assert_eq!(s.session.undo(id).unwrap(), "Enhance camera image");
+    assert_eq!(s.session.undo(id).unwrap().as_str(), "Rotate page");
+    assert_eq!(s.session.undo(id).unwrap().as_str(), "Enhance camera image");
     assert_eq!(s.session.get(id).unwrap().can_undo(), None);
     let p = &s.session.get(id).unwrap().info.pages[0];
     assert_eq!((p.width, p.height), (300.0, 400.0), "back to the photo");
@@ -209,8 +209,8 @@ fn the_level_leaves_the_page_alone_when_another_edit_came_in_between() {
     assert_eq!((done.level, done.applied), (applied.1, applied), "the slider goes back");
     let s = h.state_mut();
     let id = s.views[0].id;
-    assert_eq!(s.session.undo(id).unwrap(), "Rotate page");
-    assert_eq!(s.session.undo(id).unwrap(), "Rotate page");
-    assert_eq!(s.session.undo(id).unwrap(), "Enhance camera image");
+    assert_eq!(s.session.undo(id).unwrap().as_str(), "Rotate page");
+    assert_eq!(s.session.undo(id).unwrap().as_str(), "Rotate page");
+    assert_eq!(s.session.undo(id).unwrap().as_str(), "Enhance camera image");
     assert_eq!(s.session.get(id).unwrap().can_undo(), None);
 }

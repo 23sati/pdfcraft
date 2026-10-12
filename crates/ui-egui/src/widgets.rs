@@ -6,6 +6,104 @@ use egui::{Align2, Color32, CornerRadius, Rect, Response, Sense, Stroke, vec2};
 use crate::theme::{self, Tokens};
 use crate::{PdfCraftApp, icons};
 
+/// Horizontal and vertical inset of a single-line field.
+const FIELD_MARGIN: egui::Margin = egui::Margin::symmetric(10, 6);
+/// Outer height of a single-line field, including its inset.
+const FIELD_MIN_HEIGHT: f32 = 30.0;
+/// Padding inside every modal.
+const DIALOG_PAD_X: i8 = 20;
+const DIALOG_PAD_Y: i8 = 16;
+
+fn dialog_frame(ctx: &egui::Context) -> egui::Frame {
+    let t = Tokens::get(ctx);
+    egui::Frame::new()
+        .fill(t.card)
+        .stroke(Stroke::new(1.0, t.border))
+        .corner_radius(CornerRadius::same(10))
+        .inner_margin(egui::Margin::symmetric(DIALOG_PAD_X, DIALOG_PAD_Y))
+        .shadow(ctx.global_style().visuals.window_shadow)
+}
+
+/// A modal with the card fill, a 10-point corner and room around its contents.
+pub fn modal(ctx: &egui::Context, id: impl std::hash::Hash + std::fmt::Debug) -> egui::Modal {
+    egui::Modal::new(egui::Id::new(id)).frame(dialog_frame(ctx))
+}
+
+/// Show [`modal`], outline its controls, and remember the card rect for layout checks.
+pub fn show_modal<R>(ctx: &egui::Context, id: &str, content: impl FnOnce(&mut egui::Ui) -> R) -> egui::ModalResponse<R> {
+    let stored = egui::Id::new(id);
+    modal(ctx, id).show(ctx, |ui| {
+        begin_dialog(ui);
+        let inner = content(ui);
+        // The frame's stroke sits outside this content rect; the stored card is the fill.
+        let card = ui.min_rect().expand2(egui::vec2(f32::from(DIALOG_PAD_X), f32::from(DIALOG_PAD_Y)));
+        ui.ctx().data_mut(|d| d.insert_temp(stored.with("card"), card));
+        inner
+    })
+}
+
+/// Outlined controls at a shared 30-point height, with a focus stroke and 4-point corners.
+///
+/// Dialog fills match the theme's field colour, so radio buttons, check boxes, combo boxes
+/// and number fields need the border or they disappear into the card.
+pub fn begin_dialog(ui: &mut egui::Ui) {
+    let t = Tokens::get(ui.ctx());
+    let w = &mut ui.visuals_mut().widgets;
+    w.inactive.bg_stroke = Stroke::new(1.0, t.border);
+    w.inactive.weak_bg_fill = t.field;
+    // Slider rails and check-box interiors use the plain fill.
+    w.inactive.bg_fill = t.hover;
+    w.hovered.bg_stroke = Stroke::new(1.0, t.text_muted);
+    for state in [&mut w.inactive, &mut w.hovered, &mut w.active, &mut w.open] {
+        state.corner_radius = CornerRadius::same(4);
+    }
+    ui.visuals_mut().selection.stroke = Stroke::new(1.5, t.accent);
+    ui.spacing_mut().interact_size.y = FIELD_MIN_HEIGHT;
+}
+
+/// A single-line field tall enough to read and to click.
+pub fn line(text: &mut dyn egui::TextBuffer) -> egui::TextEdit<'_> {
+    egui::TextEdit::singleline(text).margin(FIELD_MARGIN).min_size(vec2(0.0, FIELD_MIN_HEIGHT))
+}
+
+/// A multiline field with the same horizontal inset as [`line`].
+pub fn block(text: &mut dyn egui::TextBuffer) -> egui::TextEdit<'_> {
+    egui::TextEdit::multiline(text).margin(egui::Margin::symmetric(10, 6))
+}
+
+/// One line that stays within `max_width`, cut on a character boundary with an ellipsis.
+/// Only the first 160 characters are measured, so a huge name cannot lay out thousands of candidates.
+pub(crate) fn fit_line(text: &str, max_width: f32, mut width_of: impl FnMut(&str) -> f32) -> String {
+    if !max_width.is_finite() || max_width <= 0.0 {
+        return String::new();
+    }
+    let mut s: String = text.chars().take(160).collect();
+    if s.len() == text.len() && width_of(text) <= max_width {
+        return text.to_owned();
+    }
+    loop {
+        s.pop();
+        if s.is_empty() {
+            return if width_of("\u{2026}") <= max_width { "\u{2026}".into() } else { String::new() };
+        }
+        let candidate = format!("{s}\u{2026}");
+        if width_of(&candidate) <= max_width {
+            return candidate;
+        }
+    }
+}
+
+pub(crate) fn text_width(ui: &egui::Ui, text: &str, font: &egui::FontId) -> f32 {
+    ui.fonts_mut(|f| f.layout_no_wrap(text.to_owned(), font.clone(), Color32::WHITE).size().x)
+}
+
+/// Draw `text` from `pos` (left, vertically centered) so it never runs past `max_width`.
+pub(crate) fn paint_left(ui: &egui::Ui, pos: egui::Pos2, text: &str, font: egui::FontId, color: Color32, max_width: f32) {
+    let shown = fit_line(text, max_width, |s| text_width(ui, s, &font));
+    let clip = Rect::from_min_size(egui::pos2(pos.x, pos.y - 14.0), vec2(max_width.max(0.0), 28.0));
+    ui.painter().with_clip_rect(clip).text(pos, Align2::LEFT_CENTER, shown, font, color);
+}
+
 /// A mode-bar tab: text with an underline when active.
 pub fn mode_tab(ui: &mut egui::Ui, label: &str, active: bool) -> Response {
     let t = Tokens::get(ui.ctx());
@@ -101,6 +199,76 @@ pub fn search_box(ui: &mut egui::Ui, placeholder: &str, width: f32) -> Response 
 
 pub fn menu_item(ui: &mut egui::Ui, label: &str, shortcut: &str) -> Response {
     ui.add(egui::Button::new(label).shortcut_text(shortcut))
+}
+
+/// Corner radius of a checkbox's box. With the widgets' radius (`Tokens::radius`, 6) egui's 14 px
+/// box is a circle, the shape of a radio button, and View ▸ Page display has both.
+const CHECKBOX_RADIUS: u8 = 3;
+
+/// A checkbox whose box is an outlined rounded square, never mistaken for a radio button. Every
+/// checkbox goes through here: clippy.toml disallows `ui.checkbox` and `egui::Checkbox`.
+pub fn checkbox<'a>(checked: &'a mut bool, atoms: impl egui::IntoAtoms<'a>) -> impl egui::Widget + 'a {
+    #[expect(clippy::disallowed_methods, reason = "the one place that styles the box")]
+    let widget = egui::Checkbox::new(checked, atoms);
+    toggle(widget, Some(CHECKBOX_RADIUS))
+}
+
+/// [`checkbox`] without a label: the selection box on Organize Pages thumbnails.
+pub fn checkbox_without_text(checked: &mut bool) -> impl egui::Widget + '_ {
+    #[expect(clippy::disallowed_methods, reason = "the one place that styles the box")]
+    let widget = egui::Checkbox::without_text(checked);
+    toggle(widget, Some(CHECKBOX_RADIUS))
+}
+
+/// A radio button with an outline and a fill, like [`checkbox`]. Every radio button goes through
+/// here or [`radio_value`]: clippy.toml disallows `ui.radio`, `ui.radio_value` and
+/// `egui::RadioButton`.
+pub fn radio<'a>(selected: bool, atoms: impl egui::IntoAtoms<'a>) -> impl egui::Widget + 'a {
+    #[expect(clippy::disallowed_methods, reason = "the one place that styles the circle")]
+    let widget = egui::RadioButton::new(selected, atoms);
+    toggle(widget, None)
+}
+
+/// [`radio`] selected while `*current == alternative`; a click selects it (`Ui::radio_value`).
+pub fn radio_value<'a, V: PartialEq>(ui: &mut egui::Ui, current: &mut V, alternative: V, atoms: impl egui::IntoAtoms<'a>) -> Response {
+    let mut response = ui.add(radio(*current == alternative, atoms));
+    if response.clicked() && *current != alternative {
+        *current = alternative;
+        response.mark_changed();
+    }
+    response
+}
+
+/// The box of a checkbox or the circle of a radio button. egui draws it with the widgets' visuals
+/// and has no style of its own for it, so it is set in a scope around the widget, keeping what
+/// the caller set (dialogs and the search panel already outline theirs):
+/// - an outline, darker on hover;
+/// - on the light theme, the plain fill (`Tokens::hover`), as dialogs have: the field colour is
+///   the panels' white, so the box would vanish;
+/// - for a checkbox, a corner radius small enough to keep the box square.
+fn toggle<'a>(widget: impl egui::Widget + 'a, radius: Option<u8>) -> impl egui::Widget + 'a {
+    move |ui: &mut egui::Ui| {
+        ui.scope(|ui| {
+            let t = Tokens::get(ui.ctx());
+            let w = &mut ui.visuals_mut().widgets;
+            if let Some(radius) = radius {
+                for v in [&mut w.noninteractive, &mut w.inactive, &mut w.hovered, &mut w.active, &mut w.open] {
+                    v.corner_radius = CornerRadius::same(radius);
+                }
+            }
+            if !t.dark() && w.inactive.bg_fill == t.field {
+                w.inactive.bg_fill = t.hover;
+            }
+            if w.inactive.bg_stroke.is_empty() {
+                w.inactive.bg_stroke = Stroke::new(1.0, t.border);
+            }
+            if w.hovered.bg_stroke.is_empty() {
+                w.hovered.bg_stroke = Stroke::new(1.0, t.text_muted);
+            }
+            ui.add(widget)
+        })
+        .inner
+    }
 }
 
 pub fn section_title(ui: &mut egui::Ui, text: &str) {
@@ -350,6 +518,70 @@ mod tests {
         crate::i18n::set_current(previous);
     }
 
+    /// View ▸ Page display mixes radio buttons and checkboxes. With the theme's 6 px widget radius
+    /// egui's 14 px checkbox box drew as a circle, and on the light theme an unticked box or an
+    /// unselected radio button was white on white with no outline, so it couldn't be seen.
+    #[test]
+    fn checkboxes_and_radio_buttons_are_outlined_filled_and_distinct() {
+        for kind in [theme::ThemeKind::Light, theme::ThemeKind::Dark] {
+            let ctx = egui::Context::default();
+            theme::apply(&ctx, kind);
+            let t = Tokens::for_kind(kind);
+            let side = ctx.global_style().spacing.icon_width;
+            let output = ctx.run_ui(egui::RawInput::default(), |ui| {
+                ui.add(checkbox(&mut false, "Show cover page in two-page view"));
+                ui.add(radio(false, "Single page"));
+            });
+            let boxes: Vec<_> = output
+                .shapes
+                .iter()
+                .filter_map(|s| match &s.shape {
+                    egui::Shape::Rect(r) if (r.rect.width() - side).abs() < 0.5 && (r.rect.height() - side).abs() < 0.5 => Some(r),
+                    _ => None,
+                })
+                .collect();
+            let circles: Vec<_> = output
+                .shapes
+                .iter()
+                .filter_map(|s| match &s.shape {
+                    egui::Shape::Circle(c) if (c.radius * 2.0 - side).abs() < 1.0 => Some(c),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!((boxes.len(), circles.len()), (1, 1), "{kind:?}: one checkbox box and one radio circle");
+            let r = boxes[0].corner_radius;
+            let radius = r.nw.max(r.ne).max(r.sw).max(r.se);
+            assert!(f32::from(radius) <= side / 4.0, "{kind:?}: a {side} px box with corner radius {radius} looks like a radio button");
+            for (what, fill, edge) in [("checkbox", boxes[0].fill, boxes[0].stroke), ("radio button", circles[0].fill, circles[0].stroke)] {
+                assert!(fill != t.panel && fill != t.card, "{kind:?}: an unselected {what} is filled like the panel behind it");
+                assert!(
+                    edge.width >= 1.0 && edge.color != t.panel && edge.color != t.card,
+                    "{kind:?}: an unselected {what} needs an outline, got {edge:?}"
+                );
+            }
+            output.drop_without_applying_deltas();
+        }
+        // An outline the caller set (dialogs) is kept.
+        let ctx = egui::Context::default();
+        let own = Stroke::new(1.5, Color32::RED);
+        let output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            ui.visuals_mut().widgets.inactive.bg_stroke = own;
+            ui.add(checkbox(&mut true, "Collate"));
+            ui.add(radio(false, "All"));
+        });
+        let kept = output
+            .shapes
+            .iter()
+            .filter(|s| match &s.shape {
+                egui::Shape::Rect(r) => r.stroke == own,
+                egui::Shape::Circle(c) => c.stroke == own,
+                _ => false,
+            })
+            .count();
+        assert_eq!(kept, 2, "the checkbox and the radio button keep the caller's outline");
+        output.drop_without_applying_deltas();
+    }
+
     fn toast_rect(app: &mut PdfCraftApp, ctx: &egui::Context, width: f32, now: &mut f64) -> Rect {
         // Let the Area settle after a notice/viewport change, without advancing to
         // expiry. No native rendering or renderer worker is needed for this layout.
@@ -384,5 +616,31 @@ mod tests {
         app.notify("Saved");
         let again = toast_rect(&mut app, &ctx, 1280.0, &mut now);
         assert!((again.width() - short.width()).abs() < 1.0, "long notices must not impose a permanent minimum width");
+    }
+
+    #[test]
+    fn line_field_is_at_least_thirty_points_tall() {
+        let ctx = egui::Context::default();
+        let mut text = String::new();
+        let mut height = 0.0;
+        ctx.run_ui(egui::RawInput { screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(400.0, 200.0))), ..Default::default() }, |ui| {
+            begin_dialog(ui);
+            height = ui.add(line(&mut text)).rect.height();
+        })
+        .drop_without_applying_deltas();
+        assert!(height >= FIELD_MIN_HEIGHT, "field height {height}");
+    }
+
+    #[test]
+    fn fit_line_keeps_short_text_and_ellipsizes_the_rest() {
+        let width = |s: &str| s.chars().count() as f32;
+        assert_eq!(fit_line("localhost", 20.0, width), "localhost");
+        let long = "Apple Worldwide Developer Relations Certification Authority";
+        let fitted = fit_line(long, 24.0, width);
+        assert!(fitted.ends_with('\u{2026}'), "{fitted}");
+        assert!(fitted.chars().count() <= 24, "{fitted}");
+        assert!(long.starts_with(fitted.trim_end_matches('\u{2026}')));
+        assert_eq!(fit_line(long, 0.0, width), "");
+        assert_eq!(fit_line("ééé", 2.0, width), "é\u{2026}");
     }
 }

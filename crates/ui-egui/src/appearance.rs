@@ -5,6 +5,7 @@ use egui::{Rect, RichText, pos2, vec2};
 
 use crate::PdfCraftApp;
 use crate::theme::{self, ThemeKind, ThemePreference, Tokens};
+use crate::widgets;
 
 fn mode_label(preference: ThemePreference) -> &'static str {
     match preference {
@@ -95,7 +96,7 @@ fn card(ui: &mut egui::Ui, t: &Tokens, title: &str, active: bool, shown: &Tokens
             ui.add_space(4.0);
             preview(ui, shown, ui.available_width());
             ui.add_space(4.0);
-            let _ = ui.radio(true, label);
+            let _ = ui.add(widgets::radio(true, label));
         });
 }
 

@@ -32,16 +32,74 @@ impl PdfCraftApp {
     pub fn apply_edit(&mut self, edit: Edit) -> bool {
         let Some((i, id)) = self.active_ids() else { return false };
         let label = edit.label();
+        let (form_before, page_count_before, had_xfa) = if let Some(d) = self.session.get(id) {
+            (Some(std::sync::Arc::clone(&d.form)), d.info.pages.len(), d.xfa.is_some())
+        } else {
+            (None, 0, false)
+        };
         match self.session.apply(id, edit.clone()) {
             Ok(()) => {
                 let Some(doc) = self.session.get(id) else { return true };
                 let info = &doc.info;
                 let view = &mut self.views[i];
                 view.signature_drag.committed(&edit, doc.edit_generation());
-                match comment_page(&edit) {
-                    // Comment edits change one page: keep every other raster.
-                    Some(page) => view.page_changed(page),
-                    None => view.document_changed(info),
+                if let Some(page) = comment_page(&edit).or_else(|| content_page(&edit)) {
+                    // Comment and content edits change one page: keep every other raster.
+                    view.page_changed(page);
+                } else if let Some(form_before) = form_before
+                    && doc.info.pages.len() == page_count_before
+                    && doc.xfa.is_some() == had_xfa
+                    && !doc.xfa.is_some()
+                    && is_form_edit(&edit)
+                {
+                    let mut changed_pages = std::collections::BTreeSet::new();
+                    for f in doc.form.iter() {
+                        match form_before.iter().find(|old| old.name == f.name) {
+                            Some(old) => {
+                                if old != f {
+                                    for w in &f.widgets {
+                                        if let Some(p) = w.page {
+                                            changed_pages.insert(p);
+                                        }
+                                    }
+                                    for w in &old.widgets {
+                                        if let Some(p) = w.page {
+                                            changed_pages.insert(p);
+                                        }
+                                    }
+                                    if old.value != f.value {
+                                        for w in &f.widgets {
+                                            if let Some(p) = w.page {
+                                                view.forms.unbaked.insert((f.name.clone(), p));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            None => {
+                                for w in &f.widgets {
+                                    if let Some(p) = w.page {
+                                        changed_pages.insert(p);
+                                        view.forms.unbaked.insert((f.name.clone(), p));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    for old in form_before.iter() {
+                        if !doc.form.iter().any(|f| f.name == old.name) {
+                            for w in &old.widgets {
+                                if let Some(p) = w.page {
+                                    changed_pages.insert(p);
+                                }
+                            }
+                        }
+                    }
+                    for page in changed_pages {
+                        view.page_changed(page);
+                    }
+                } else {
+                    view.document_changed(info);
                 }
                 // Keep the pages the user acted on selected, where they now are.
                 match edit {
@@ -80,13 +138,18 @@ impl PdfCraftApp {
                 if std::mem::take(&mut view.comments.tool_done) && !self.comment_prefs.pinned {
                     self.quick_tool = crate::QuickTool::Select;
                 }
+                // Text saved as typed but drawn with `?` (its font can't draw it): said, not silent.
+                // Before the scripts' output, so an alert they raise still shows.
+                if let Some(n) = self.session.get(id).and_then(|d| d.edit_notices.first()).cloned() {
+                    self.notify(crate::content_ui::undrawn_message(&n));
+                }
                 let out = self.session.take_js_output(id);
                 self.handle_js(id, out);
                 true
             }
             Err(e) => {
                 let message = if matches!(edit, Edit::MoveObjects { .. }) { crate::object_ui::move_error(&e) } else { e.to_string() };
-                self.notify_fmt("{label} failed: {e}", &[("label", &crate::i18n::action_label(&label)), ("e", &message)]);
+                self.notify_fmt("{label} failed: {e}", &[("label", &crate::i18n::edit_label(&label)), ("e", &message)]);
                 false
             }
         }
@@ -118,7 +181,7 @@ impl PdfCraftApp {
                     self.views[i].document_changed(&doc.info);
                 }
                 self.views[i].comments.selected = None;
-                let label = crate::i18n::action_label(&label);
+                let label = crate::i18n::edit_label(&label);
                 if undo {
                     self.notify_fmt("Undid {label}", &[("label", &label)]);
                 } else {
@@ -141,6 +204,7 @@ impl PdfCraftApp {
         match self.views.get_mut(i).and_then(|v| v.pending_action.take()) {
             Some(crate::canvas::ViewAction::InsertFromFile) => self.insert_from_file_dialog(),
             Some(crate::canvas::ViewAction::InsertFromFileAt(at)) => self.insert_from_file_at(Some(at)),
+            Some(crate::canvas::ViewAction::ReplacePages) => self.replace_pages_dialog(),
             Some(crate::canvas::ViewAction::Save) => {
                 self.save_active(SaveTarget::InPlace);
             }
@@ -660,6 +724,7 @@ impl PdfCraftApp {
                     // Otherwise a later Save could write a rejected draft back into the file.
                     view.forms.focus = None;
                     view.forms.committed = None;
+                    view.forms.unbaked.clear();
                     view.pending_edit = None;
                 }
                 self.notify_tr("Reverted to the last saved version");
@@ -774,7 +839,23 @@ impl PdfCraftApp {
     }
 }
 
-/// The page a comment edit changes (`None` for other edits).
+/// The single page a content edit changes (`None` for other edits). Like comment edits,
+/// these leave every other page's bytes, geometry and text alone, so their rasters stay valid.
+fn content_page(edit: &Edit) -> Option<usize> {
+    match edit {
+        Edit::MoveObjects { page, .. }
+        | Edit::EditTextLine { page, .. }
+        | Edit::EditTextBlock { page, .. }
+        | Edit::EditPageImage { page, .. }
+        | Edit::AddText { page, .. }
+        | Edit::AddImage { page, .. }
+        | Edit::UpdateContent { page, .. }
+        | Edit::DeleteContent { page, .. }
+        | Edit::ReplaceImage { page, .. } => Some(*page),
+        _ => None,
+    }
+}
+
 fn comment_page(edit: &Edit) -> Option<usize> {
     match edit {
         Edit::AddAnnotation(a) => Some(a.page),
@@ -789,6 +870,22 @@ fn comment_page(edit: &Edit) -> Option<usize> {
         | Edit::SetAnnotationInfo { page, .. } => Some(*page),
         _ => None,
     }
+}
+
+/// Whether `edit` is a form-related modification.
+fn is_form_edit(edit: &Edit) -> bool {
+    matches!(
+        edit,
+        Edit::SetFieldValue { .. }
+            | Edit::ResetForm { .. }
+            | Edit::AddField { .. }
+            | Edit::DeleteField { .. }
+            | Edit::DuplicateField { .. }
+            | Edit::SetFieldProps { .. }
+            | Edit::SetFieldImage { .. }
+            | Edit::SetFieldScript { .. }
+            | Edit::ApplyScriptChanges { .. }
+    )
 }
 
 /// Whether `path` is the temporary copy an email client opened an attachment from, so that Save
@@ -1219,6 +1316,29 @@ mod revert_draft_tests {
         }
     }
 
+    /// A value the field's font can't draw is kept, and the user is told why it shows `?`, in the
+    /// interface language; a drawable value says nothing.
+    #[test]
+    fn a_value_its_font_cannot_draw_is_kept_and_explained() {
+        let mut app = app();
+        let fill =
+            |app: &mut PdfCraftApp, text: &str| app.apply_edit(Edit::SetFieldValue { name: "name".into(), value: FieldValue::Text(text.into()) });
+        assert!(fill(&mut app, "张三"));
+        let toast = app.toast.as_ref().map(|t| t.0.clone()).expect("a notice");
+        assert!(toast.contains("“张” (U+5F20)") && toast.contains("other PDF viewers redraw the field"), "{toast}");
+        assert_eq!(app.session.get(app.views[0].id).unwrap().form.iter().find(|f| f.name == "name").unwrap().value, ["张三"]);
+        // The shell sets the drawing language each frame; here, directly (per thread).
+        let previous = crate::i18n::current();
+        crate::i18n::set_current(crate::i18n::Lang::from_code("zh-hans").expect("registered"));
+        assert!(fill(&mut app, "李四"));
+        crate::i18n::set_current(previous);
+        let toast = app.toast.as_ref().map(|t| t.0.clone()).expect("a notice");
+        assert!(toast.contains("此字段的字体无法显示“李”（U+674E）"), "{toast}");
+        app.toast = None;
+        assert!(fill(&mut app, "Ada"));
+        assert!(app.toast.is_none(), "{:?}", app.toast);
+    }
+
     #[test]
     fn unsaved_flag_follows_dirty_state() {
         use std::sync::atomic::Ordering;
@@ -1289,5 +1409,21 @@ mod revert_draft_tests {
         );
         assert_eq!(app.active_ids(), Some((0, source)));
         assert_eq!(app.toast.as_ref().unwrap().0, pdfcraft_engine::EditError::NoDocument.to_string());
+    }
+}
+
+#[cfg(test)]
+mod content_page_tests {
+    use super::content_page;
+    use pdfcraft_engine::{Edit, ObjectKind, ObjectTarget};
+
+    /// Single-page content edits keep every other page's rasters; anything else still
+    /// invalidates the whole document.
+    #[test]
+    fn single_page_content_edits_map_to_their_page() {
+        let moved = Edit::MoveObjects { page: 3, objects: vec![ObjectTarget { kind: ObjectKind::Text, index: 0 }], offset: [1.0, 0.0] };
+        assert_eq!(content_page(&moved), Some(3));
+        assert_eq!(content_page(&Edit::RotatePages { pages: vec![0], degrees: 90 }), None);
+        assert_eq!(content_page(&Edit::SetInfo { key: "Title".into(), value: "x".into() }), None);
     }
 }

@@ -100,8 +100,9 @@ pub fn installed_font_definitions(cjk: CjkPreference) -> FontDefinitions {
 }
 
 /// The interface fonts: Inter (and JetBrains Mono for code) first, then egui's defaults, then
-/// the CJK, Arabic and Telugu faces of the optional craft-fonts build input as the last fallback
-/// in every family. Without craft-fonts there is no Japanese, Chinese, Arabic or Telugu face here.
+/// the CJK, Arabic, Telugu, Hebrew and Thai faces of the optional craft-fonts build input as the
+/// last fallback in every family. Without craft-fonts there is no Japanese, Chinese, Arabic,
+/// Telugu, Hebrew or Thai face here.
 pub fn font_definitions() -> FontDefinitions {
     font_definitions_for(false)
 }
@@ -133,9 +134,15 @@ pub fn font_definitions_for(prefer_hans: bool) -> FontDefinitions {
             fonts.families.entry(family).or_default().push(name.clone());
         }
     }
-    // Arabic-script faces (file names, document titles) and Telugu faces (the Telugu interface,
-    // file names) after the CJK ones; the ranges don't overlap.
-    for face in pdfcraft_fonts::ui_arabic_fonts().into_iter().chain(pdfcraft_fonts::ui_telugu_fonts()) {
+    // Arabic-script faces (file names, document titles), Telugu faces (the Telugu interface,
+    // file names), Hebrew faces (file names, text being edited) and Thai faces after the CJK ones; the
+    // ranges don't overlap.
+    for face in pdfcraft_fonts::ui_arabic_fonts()
+        .into_iter()
+        .chain(pdfcraft_fonts::ui_telugu_fonts())
+        .chain(pdfcraft_fonts::ui_hebrew_fonts())
+        .chain(pdfcraft_fonts::ui_thai_fonts())
+    {
         let name = face.name();
         if !fonts.font_data.contains_key(&name) {
             add(&mut fonts, &name, face.bytes);
@@ -171,9 +178,9 @@ pub fn apply(ctx: &egui::Context, kind: ThemeKind) {
 }
 
 pub fn apply_palette(ctx: &egui::Context, t: Palette) {
-    let kind = t.kind;
-    // egui must use the same theme for popup/menu styles as our custom chrome.
-    ctx.set_theme(if kind == ThemeKind::Dark { egui::Theme::Dark } else { egui::Theme::Light });
+    // Keep native appearance inherited so OS changes continue reaching winit.
+    // Both egui style branches receive the selected palette below.
+    ctx.set_theme(egui::ThemePreference::System);
     ctx.data_mut(|d| d.insert_temp(egui::Id::new("pdfcraft-theme"), t));
     let mut v = if t.dark() { Visuals::dark() } else { Visuals::light() };
     v.panel_fill = t.panel;
@@ -257,6 +264,9 @@ pub fn apply_palette(ctx: &egui::Context, t: Palette) {
         s.text_styles.insert(egui::TextStyle::Heading, semibold(17.0));
         s.interaction.tooltip_delay = 0.35;
     });
+    let style = ctx.global_style();
+    ctx.set_style_of(egui::Theme::Light, style.clone());
+    ctx.set_style_of(egui::Theme::Dark, style);
 }
 
 #[cfg(test)]
@@ -270,10 +280,10 @@ mod tests {
         assert_eq!(ThemePreference::System.resolve(Some(ThemeKind::Light), ThemeKind::Dark), ThemeKind::Light);
     }
 
-    /// An operating system that says nothing leaves the last choice standing, and an explicit
+    /// An operating system that says nothing uses the caller’s fallback, and an explicit
     /// Light or Dark is never overridden by what the system says.
     #[test]
-    fn an_answerless_system_leaves_the_choice_and_an_explicit_one_stands() {
+    fn an_answerless_system_uses_the_fallback_and_an_explicit_one_stands() {
         assert_eq!(ThemePreference::System.resolve(None, ThemeKind::Light), ThemeKind::Light);
         assert_eq!(ThemePreference::System.resolve(None, ThemeKind::Dark), ThemeKind::Dark);
         assert_eq!(ThemePreference::Light.resolve(Some(ThemeKind::Dark), ThemeKind::Dark), ThemeKind::Light);

@@ -43,9 +43,29 @@ formatting, Clippy, native builds, assets, layering and parity. The 34-image vis
 check passed; the Executive Appearance card was inspected. Before/after CLI output
 confirmed identical names, stable IDs and all 31 colors across the merge.
 
+## Latest conflict resolution (PR #1090)
+
+Merged upstream `f3571c591f0ec4ee7faea67c011b3ee1eb6ba913` into the published branch
+without rewriting history. Retained upstream’s Linux portal lifecycle, inherited
+native window appearance, outlined controls, localization additions and grouped
+UI tests. Both egui style branches receive the selected palette. System mode uses
+Light when the OS supplies no preference, matching upstream. The shared theme
+model, storage schema, stable IDs, all 31 colors and ten operations are unchanged.
+An exact before/after CLI JSON comparison confirms all nine built-in selections.
+All 20 catalogs now include the preset names and custom-theme label. The 34-image
+visual test passed; the Executive Preferences and preset menu were inspected.
+
+The first run found two new catalog tests that needed the same proper-name
+allowlist as the existing Czech test. After that integration correction, the full
+workspace rerun passed **2,555 tests, zero failures, six existing ignores** across
+149 test groups. Formatting, all-target Clippy, native desktop/CLI builds, CLI
+without MCP, assets (269 repository, six dependency, 22 build inputs), layering
+(36 crates), and parity passed. WASM still fails for the missing target standard
+library; cargo-deny reports SKIPPED. Other operating systems were not built here.
+
 ## Passed
 
-- `cargo test --workspace --no-fail-fast`: **2,398 passed, zero failed, six ignored**.
+- `cargo test --workspace --no-fail-fast`: **2,555 passed, zero failed, six ignored**.
   This repeats and expands the original 1,765-test baseline after upstream integration.
   The six existing ignores concern network access, two optional corpus tests, a
   timing probe, a local signature diagnostic and a temporary macOS keychain test.
@@ -54,13 +74,13 @@ confirmed identical names, stable IDs and all 31 colors across the merge.
 - `cargo build -p pdfcraft -p pdfcraft-cli` on native macOS, plus
   `cargo check -p pdfcraft-cli --no-default-features`.
 - `cargo xtask parity`: passes after integrating the upstream manifest repair.
-- `cargo xtask assets`: 265 repository assets, six dependency assets, 22 build inputs.
+- `cargo xtask assets`: 269 repository assets, six dependency assets, 22 build inputs.
 - `cargo xtask layers`: 36 crates, no layering violations.
-- Focused final reruns: all 21 shared-core/store tests, all nine theme integration
+- Focused final reruns: all 21 shared-core/store tests, all twelve theme integration
   tests, and the adjusted MCP structured-error regression. The core tests include
-  refusal of a standalone export accidentally supplied as a store. A new unit
-  regression verifies Linux desktop appearance fallback through the shared palette
-  without overriding explicitly selected presets.
+  refusal of a standalone export accidentally supplied as a store. Upstream integration
+  regressions cover native appearance inheritance, unknown-OS fallback and saved
+  System preferences alongside preset and custom-palette coverage.
 
 Native control-channel and screenshot tests need loopback/GPU access, so the full
 workspace and visual runs used an execution environment with those facilities.
