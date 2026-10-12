@@ -36,13 +36,42 @@ fn fixture(n: usize) -> Vec<u8> {
 }
 
 /// A fresh directory with `a.pdf` (3 pages) and `b.pdf` (2 pages).
+#[track_caller]
 fn workdir(test: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("pdfcraft-automation-{test}-{}", std::process::id()));
+    let caller = std::panic::Location::caller();
+    let dir = std::env::temp_dir().join(format!("pdfcraft-automation-{test}-{}-{}-{}", std::process::id(), caller.line(), caller.column(),));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("a.pdf"), fixture(3)).unwrap();
     std::fs::write(dir.join("b.pdf"), fixture(2)).unwrap();
     dir
+}
+
+#[test]
+fn workdir_call_sites_do_not_delete_each_other() {
+    let first = workdir("same-tag");
+    let sentinel = first.join("sentinel");
+    std::fs::write(&sentinel, b"first call site").unwrap();
+
+    let second = workdir("same-tag");
+    let paths_differ = first != second;
+    let sentinel_bytes = std::fs::read(&sentinel).ok();
+    let first_a = std::fs::read(first.join("a.pdf")).ok();
+    let first_b = std::fs::read(first.join("b.pdf")).ok();
+    let second_a = std::fs::read(second.join("a.pdf")).ok();
+    let second_b = std::fs::read(second.join("b.pdf")).ok();
+
+    let _ = std::fs::remove_dir_all(&first);
+    if paths_differ {
+        let _ = std::fs::remove_dir_all(&second);
+    }
+
+    assert!(paths_differ, "distinct call sites shared {first:?}");
+    assert_eq!(sentinel_bytes.as_deref(), Some(&b"first call site"[..]));
+    assert_eq!(first_a, Some(fixture(3)));
+    assert_eq!(first_b, Some(fixture(2)));
+    assert_eq!(second_a, Some(fixture(3)));
+    assert_eq!(second_b, Some(fixture(2)));
 }
 
 fn auto(dir: &Path) -> Automation {
@@ -70,6 +99,19 @@ fn form_pdf(name: &str) -> Vec<u8> {
     }
     bytes.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objs.len() + 1).as_bytes());
     bytes
+}
+
+#[test]
+fn accessibility_check_locates_field_description_on_page() {
+    let dir = workdir("accessibility-field-location");
+    std::fs::write(dir.join("field.pdf"), form_pdf("name")).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "field.pdf" }))["doc"].as_u64().unwrap();
+    let report = ok(&mut a, "accessibility_check", json!({ "doc": doc, "rules": ["field-descriptions"] }));
+    let rule = report["results"].as_array().unwrap().iter().find(|r| r["rule"] == "field-descriptions").unwrap();
+    assert_eq!(rule["status"], "failed");
+    assert_eq!(rule["findings"][0]["page"], 1);
+    assert_eq!(rule["findings"][0]["bbox_user_space"], json!([60.0, 60.0, 200.0, 80.0]));
 }
 
 fn ok(a: &mut Automation, tool: &str, args: Value) -> Value {
@@ -1692,6 +1734,25 @@ trailer << /Root 1 0 R >>
     assert_eq!(changed["tags"][1]["title"], "First shape");
     assert_eq!(ok(&mut a, "edit_undo", json!({ "doc": fd }))["undone"], "Change tag properties");
     assert_eq!(ok(&mut a, "accessibility_tags", json!({ "doc": fd }))["tags"][1]["title"], Value::Null);
+    ok(&mut a, "accessibility_set_tag_property", json!({ "doc": fd, "object": 8, "generation": 0, "property": "title", "value": "Second shape" }));
+    let moved = ok(
+        &mut a,
+        "accessibility_move_tag",
+        json!({ "doc": fd, "object": 8, "generation": 0, "anchor": 7, "anchor_generation": 0, "placement": "before" }),
+    );
+    assert_eq!((moved["tags"][1]["object"].as_u64(), moved["tags"][2]["object"].as_u64()), (Some(8), Some(7)));
+    ok(&mut a, "doc_save", json!({ "doc": fd, "path": "reordered.pdf" }));
+    let saved = pdfcraft_cos::Document::open(std::sync::Arc::new(std::fs::read(dir.join("reordered.pdf")).unwrap())).unwrap();
+    assert_eq!(pdfcraft_engine::a11y::tags(&saved).into_iter().map(|tag| tag.title).collect::<Vec<_>>(), [None, Some("Second shape".into()), None]);
+    assert_eq!(ok(&mut a, "edit_undo", json!({ "doc": fd }))["undone"], "Move object");
+    assert_eq!(ok(&mut a, "accessibility_tags", json!({ "doc": fd }))["tags"][1]["object"], 7);
+    assert!(matches!(
+        a.call(
+            "accessibility_move_tag",
+            &json!({ "doc": fd, "object": 8, "generation": 0, "anchor": 7, "anchor_generation": 0, "placement": "sideways" })
+        ),
+        Err(ToolError::InvalidArgs(_))
+    ));
     assert!(matches!(
         a.call(
             "accessibility_set_tag_property",
@@ -1705,8 +1766,10 @@ trailer << /Root 1 0 R >>
     let figures_rule = findings["results"].as_array().unwrap().iter().find(|x| x["rule"] == "figures-alt-text").unwrap();
     assert_eq!(figures_rule["findings"][0]["object"], 7);
     assert_eq!(figures_rule["findings"][0]["object_generation"], 0);
+    assert_eq!(figures_rule["findings"][0]["bbox_user_space"], json!([10.0, 150.0, 50.0, 170.0]));
     assert_eq!(figures_rule["findings"][1]["object"], 8);
     assert_eq!(figures_rule["findings"][1]["object_generation"], 0);
+    assert_eq!(figures_rule["findings"][1]["bbox_user_space"], json!([100.0, 100.0, 150.0, 130.0]));
     let figs = ok(&mut a, "accessibility_figures", json!({ "doc": fd }));
     assert_eq!(figs["count"], 2);
     assert_eq!(figs["figures"][0]["rect"], json!([10.0, 30.0, 50.0, 50.0]), "top-left-origin points");
@@ -1742,13 +1805,28 @@ fn accessibility_review_record_compares_two_versions_without_changing_them() {
     assert_eq!(language["before"]["status"], "failed");
     assert_eq!(language["after"]["status"], "passed");
     assert!(file["review_required"].as_array().unwrap().iter().any(|r| r == "tagged-pdf"));
+    let html_output = ok(&mut a, "accessibility_review_html", json!({ "before": before, "after": after, "path": "review.html" }));
+    assert_eq!(html_output["record"], file);
+    let html = std::fs::read_to_string(dir.join("review.html")).unwrap();
+    assert!(html.contains("<html lang=\"en\">") && html.contains("Accessibility checker outcomes"));
+    assert!(html.contains("Primary language") && html.contains("<td>Changed</td>"));
+    assert!(html.contains("Still requiring review") && html.contains("Tagged PDF"));
+    assert!(html.contains(file["before"]["sha256"].as_str().unwrap()));
+    assert!(html.contains("validate the final PDF independently"));
     assert_eq!(std::fs::read(dir.join("a.pdf")).unwrap(), source);
     assert!(matches!(
         a.call("accessibility_review_record", &json!({ "before": before, "after": before, "path": "same.json" })),
         Err(ToolError::InvalidArgs(_))
     ));
     assert!(!dir.join("same.json").exists());
+    assert!(matches!(
+        a.call("accessibility_review_html", &json!({ "before": before, "after": before, "path": "same.html" })),
+        Err(ToolError::InvalidArgs(_))
+    ));
+    assert!(!dir.join("same.html").exists());
     assert!(a.call("accessibility_review_record", &json!({ "before": before, "after": after, "path": "../escape.json" })).is_err());
+    assert!(a.call("accessibility_review_html", &json!({ "before": before, "after": after, "path": "../escape.html" })).is_err());
+    assert!(!dir.parent().unwrap().join("escape.html").exists());
 }
 
 #[test]
@@ -2599,6 +2677,27 @@ fn redacting_word_lists_through_tools() {
         assert!(matches!(a.call("redact_mark", &bad), Err(ToolError::InvalidArgs(_))), "{bad}");
     }
     assert!(matches!(a.call("redact_mark", &json!({ "doc": doc, "words": ["absent", "nowhere"] })), Err(ToolError::Failed(_))));
+}
+
+#[test]
+fn redaction_search_respects_case_and_word_boundaries() {
+    let dir = workdir("redact-find-options");
+    std::fs::write(dir.join("memo.txt"), "Ada ada Adaline\nAda beta betamax").unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_create", json!({ "from": "text", "path": "memo.txt" }))["doc"].as_u64().unwrap();
+    let mark = |a: &mut Automation, args: Value| ok(a, "redact_mark", args)["marked"].as_u64().unwrap();
+    assert_eq!(mark(&mut a, json!({ "doc": doc, "find": "Ada", "case_sensitive": true, "whole_words": true })), 2);
+    ok(&mut a, "edit_undo", json!({ "doc": doc }));
+    assert_eq!(mark(&mut a, json!({ "doc": doc, "find": "Ada", "whole_words": true })), 3);
+    ok(&mut a, "edit_undo", json!({ "doc": doc }));
+    let result = ok(&mut a, "redact_mark", json!({ "doc": doc, "words": ["Ada", "beta"], "case_sensitive": true, "whole_words": true }));
+    assert_eq!(result["matched_words"], json!([{ "word": "Ada", "marked": 2 }, { "word": "beta", "marked": 1 }]));
+    ok(&mut a, "edit_undo", json!({ "doc": doc }));
+    assert!(matches!(a.call("redact_mark", &json!({ "doc": doc, "pattern": "email", "whole_words": true })), Err(ToolError::InvalidArgs(_))));
+    assert_eq!(mark(&mut a, json!({ "doc": doc, "find": "Ada", "case_sensitive": true, "whole_words": true })), 2);
+    ok(&mut a, "redact_apply", json!({ "doc": doc }));
+    let text = &page_text(&mut a, doc)[0];
+    assert!(text.contains("ada") && text.contains("Adaline") && text.contains("betamax"), "{text}");
 }
 
 #[test]
