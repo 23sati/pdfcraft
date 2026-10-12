@@ -9015,7 +9015,7 @@ status = "planned"
 commands = []
 tools = []
 evidence = []
-notes = ""
+notes = "Headless review sidecar tools save and reopen human decisions against the exact working PDF SHA-256. The guided GUI action and step-by-step remediation are still missing."
 
 [[feature]]
 id = "a11y.setup-assistant"
@@ -9027,7 +9027,7 @@ status = "planned"
 commands = []
 tools = []
 evidence = []
-notes = ""
+notes = "Review decisions can be saved and reopened through accessibility_review_save and accessibility_review_load. A GUI assistant is still missing."
 
 [[feature]]
 id = "a11y.read-aloud"
