@@ -5,7 +5,7 @@ use egui::{Align2, CornerRadius, Rect, Sense, Stroke, vec2};
 use pdfcraft_engine::catalog;
 
 use crate::theme::{self, Tokens};
-use crate::{PdfCraftApp, icons, panels::human_size, widgets};
+use crate::{PdfCraftApp, icons, mirror, panels::human_size, widgets};
 
 const RECOMMENDED: [&str; 5] = ["organize", "comment", "form", "edit", "protect"];
 
@@ -71,13 +71,13 @@ pub fn show(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                             ui.painter().rect(rect, CornerRadius::same(10), fill, Stroke::new(1.0, t.divider), egui::StrokeKind::Inside);
                             let body = rect.translate(press.offset());
                             let color = egui::Color32::from_rgb(g.hue[0], g.hue[1], g.hue[2]);
-                            icons::paint(ui, Rect::from_min_size(body.min + vec2(14.0, 14.0), vec2(22.0, 22.0)), g.icon, 21.0, color);
+                            icons::paint(ui, mirror::rect_at(body, vec2(14.0, 14.0), vec2(22.0, 22.0)), g.icon, 21.0, color);
                             let mut title_job = egui::text::LayoutJob::simple_singleline(tl!(g.label).to_owned(), theme::semibold(13.5), t.text);
                             title_job.wrap =
                                 egui::text::TextWrapping { max_width: body.width() - 58.0, max_rows: 1, break_anywhere: true, ..Default::default() };
                             let title = ui.fonts_mut(|f| f.layout_job(title_job));
                             let title_elided = title.elided;
-                            ui.painter().galley(body.min + vec2(44.0, 25.0 - title.size().y * 0.5), title, t.text);
+                            ui.painter().galley(mirror::rect_at(body, vec2(44.0, 25.0 - title.size().y * 0.5), title.size()).min, title, t.text);
                             let blurb = g
                                 .sections
                                 .first()
@@ -88,10 +88,10 @@ pub fn show(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                             job.wrap.max_rows = 2;
                             let galley = ui.fonts_mut(|f| f.layout_job(job));
                             let blurb_elided = galley.elided;
-                            ui.painter().galley(body.min + vec2(14.0, 46.0), galley, t.text_muted);
+                            ui.painter().galley(mirror::rect_at(body, vec2(14.0, 46.0), galley.size()).min, galley, t.text_muted);
                             ui.painter().text(
-                                body.left_bottom() + vec2(14.0, -14.0),
-                                Align2::LEFT_CENTER,
+                                mirror::at(body, vec2(14.0, body.height() - 14.0)),
+                                mirror::align(Align2::LEFT_CENTER),
                                 tl!("Use now"),
                                 theme::medium(12.0),
                                 t.accent_text,
@@ -159,7 +159,7 @@ pub fn show(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                 }
                 if hovered {
                     // Remove just this file from the list (#430); the file itself is untouched.
-                    let x_rect = Rect::from_center_size(rect.right_center() - vec2(26.0, 0.0), vec2(28.0, 28.0));
+                    let x_rect = Rect::from_center_size(mirror::end_center(rect, 26.0), vec2(28.0, 28.0));
                     let x = ui.interact(x_rect, ui.id().with(("remove-recent", &r.path)), Sense::click());
                     let label = crate::i18n::fmt(tl!("Remove {name} from Recent"), &[("name", &r.name)]);
                     x.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, &label));
@@ -174,23 +174,25 @@ pub fn show(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                 let body = rect.translate(press.offset());
                 icons::paint(
                     ui,
-                    Rect::from_min_size(body.min + vec2(10.0, 11.0), vec2(24.0, 24.0)),
+                    mirror::rect_at(body, vec2(10.0, 11.0), vec2(24.0, 24.0)),
                     "file-text",
                     22.0,
                     egui::Color32::from_rgb(0xE0, 0x3E, 0x3E),
                 );
                 // Room on the right for the remove button.
                 let detail = ui.painter().text(
-                    body.right_center() - vec2(48.0, 0.0),
-                    Align2::RIGHT_CENTER,
+                    mirror::end_center(body, 48.0),
+                    mirror::align(Align2::RIGHT_CENTER),
                     format!("{}  ·  {}", crate::i18n::trn(crate::i18n::current(), r.pages as u64, "{n} page", "{n} pages"), human_size(r.size)),
                     theme::regular(12.0),
                     t.text_muted,
                 );
                 // The name and path stop short of the page count; hovering shows the whole path.
-                let width = detail.left() - 16.0 - (body.left() + 46.0);
-                widgets::row_text(ui, body.min + vec2(46.0, 15.0), crate::bidi::visual(&r.name), theme::medium(13.5), t.text, width);
-                widgets::row_text(ui, body.min + vec2(46.0, 32.0), crate::bidi::visual(&r.path), theme::regular(11.0), t.text_faint, width);
+                // From the name's start to 16 points short of the detail (which ends 48 points
+                // from the row's end).
+                let width = body.width() - 46.0 - 16.0 - 48.0 - detail.width();
+                widgets::row_text(ui, mirror::at(body, vec2(46.0, 15.0)), crate::bidi::visual(&r.name), theme::medium(13.5), t.text, width);
+                widgets::row_text(ui, mirror::at(body, vec2(46.0, 32.0)), crate::bidi::visual(&r.path), theme::regular(11.0), t.text_faint, width);
                 if theme::hand(resp).on_hover_text(&r.path).clicked() {
                     open = Some(r.path.clone());
                 }

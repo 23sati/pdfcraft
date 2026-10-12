@@ -5,7 +5,7 @@ use egui::{Align2, CornerRadius, Rect, Sense, Stroke, vec2};
 use pdfcraft_engine::catalog::{Availability, TOOL_GROUPS};
 
 use crate::theme::{self, Tokens};
-use crate::{PdfCraftApp, icons};
+use crate::{PdfCraftApp, icons, mirror};
 
 struct Hit {
     /// The tool panel to open (tools and catalogue items); `None` for plain commands.
@@ -25,14 +25,6 @@ fn score(hay: &str, needle: &str) -> Option<usize> {
     let h = pdfcraft_render::text::fold_case(hay);
     if let Some(p) = h.find(needle) {
         return Some(p);
-    }
-    // A right-to-left language's labels are in display order (their words run the other way)
-    // while the query is in typing order, so several words match one by one.
-    if crate::i18n::current().rtl() && needle.contains(char::is_whitespace) {
-        let first = needle.split_whitespace().map(|word| h.find(word)).try_fold(usize::MAX, |first, p| p.map(|p| first.min(p)));
-        if let Some(first) = first {
-            return Some(first);
-        }
     }
     // Subsequence match as a fallback.
     let mut it = h.chars();
@@ -157,7 +149,7 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                     let press = theme::Press::track(ui, &resp);
                     press.wash(ui, rect, 6, false);
                     let body = rect.translate(press.offset());
-                    icons::paint(ui, Rect::from_min_size(body.min + vec2(8.0, 9.0), vec2(18.0, 18.0)), h.icon, 17.0, t.icon);
+                    icons::paint(ui, mirror::rect_at(body, vec2(8.0, 9.0), vec2(18.0, 18.0)), h.icon, 17.0, t.icon);
                     // Display is translated; matching above already considered both languages.
                     let shown = crate::i18n::command_label(&h.label);
                     let shown_detail = tl!(&h.detail).to_string();
@@ -167,10 +159,10 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                     let detail_max = (rect.width() * 0.42).clamp(0.0, 220.0);
                     let detail = crate::widgets::fit_line(&shown_detail, detail_max, |s| crate::widgets::text_width(ui, s, &detail_font));
                     let detail_w = crate::widgets::text_width(ui, &detail, &detail_font);
-                    ui.painter().text(body.right_center() - vec2(10.0, 0.0), Align2::RIGHT_CENTER, detail, detail_font, t.text_faint);
+                    ui.painter().text(mirror::end_center(body, 10.0), mirror::align(Align2::RIGHT_CENTER), detail, detail_font, t.text_faint);
                     crate::widgets::paint_left(
                         ui,
-                        body.left_center() + vec2(36.0, 0.0),
+                        mirror::start_center(body, 36.0),
                         &shown,
                         theme::regular(13.5),
                         fg,

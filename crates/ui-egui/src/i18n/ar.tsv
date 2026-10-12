@@ -16,9 +16,9 @@
 # Product and technology names (PdfCraft, PDF, Acrobat JavaScript ...) stay in Latin letters;
 # the trailing "…" of dialog commands is kept. Digits are Western (0-9).
 #
-# Write every entry in logical (typing) order. The interface draws text left to right, so
-# i18n/mod.rs puts each entry into display order when it loads the catalog (bidi::display_rtl);
-# spaces and a colon at either end of an entry stay at that end, next to what the code appends.
+# Write every entry in logical (typing) order. The text layout reads each entry right to left
+# (the vendored epaint's bidi patch); i18n/mod.rs starts it with a right-to-left mark
+# (bidi::rtl_label), so an entry that begins with a placeholder or a Latin name still does.
 
 	Menu	القائمة
 	File	ملف

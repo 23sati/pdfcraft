@@ -284,7 +284,7 @@ impl PdfCraftApp {
 /// The Home view's Folders section (desktop only: the web build has no folders to read).
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn section(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
-    use egui::{Align2, CornerRadius, Rect, Sense, vec2};
+    use egui::{Align2, CornerRadius, Sense, vec2};
 
     use crate::theme::{self, Tokens};
     use crate::{icons, widgets};
@@ -359,7 +359,7 @@ pub(crate) fn section(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
             }
             icons::paint(
                 ui,
-                Rect::from_min_size(rect.min + vec2(32.0, 9.0), vec2(20.0, 20.0)),
+                crate::mirror::rect_at(rect, vec2(32.0, 9.0), vec2(20.0, 20.0)),
                 "file-text",
                 18.0,
                 egui::Color32::from_rgb(0xE0, 0x3E, 0x3E),
@@ -367,9 +367,15 @@ pub(crate) fn section(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
             let size = crate::panels::human_size(usize::try_from(f.size).unwrap_or(usize::MAX));
             let when = f.modified.map(crate::combine_ui::ago).unwrap_or_default();
             let detail = if when.is_empty() { size } else { format!("{when}  ·  {size}") };
-            let detail = ui.painter().text(rect.right_center() - vec2(12.0, 0.0), Align2::RIGHT_CENTER, detail, theme::regular(12.0), t.text_muted);
-            let width = detail.left() - 16.0 - (rect.left() + 62.0);
-            widgets::row_text(ui, rect.min + vec2(62.0, 19.0), crate::bidi::visual(&f.name), theme::medium(13.0), t.text, width);
+            let detail = ui.painter().text(
+                crate::mirror::end_center(rect, 12.0),
+                crate::mirror::align(Align2::RIGHT_CENTER),
+                detail,
+                theme::regular(12.0),
+                t.text_muted,
+            );
+            let width = rect.width() - 62.0 - 16.0 - 12.0 - detail.width();
+            widgets::row_text(ui, crate::mirror::at(rect, vec2(62.0, 19.0)), crate::bidi::visual(&f.name), theme::medium(13.0), t.text, width);
             if resp.on_hover_text(&f.path).clicked() {
                 open = Some(f.path.clone());
             }

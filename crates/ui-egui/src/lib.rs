@@ -83,6 +83,7 @@ mod home;
 mod icon_data;
 pub mod icons;
 pub mod last_session;
+mod mirror;
 pub mod motion;
 mod page_selection_ui;
 mod pageboxes;
@@ -2524,7 +2525,18 @@ impl eframe::App for PdfCraftApp {
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
-        i18n::set_current(i18n::Lang::from_pref(&self.language));
+        let lang = i18n::Lang::from_pref(&self.language);
+        i18n::set_current(lang);
+        // A right-to-left language mirrors the whole layout (rows, columns, grids, text fields:
+        // the vendored egui's `Style::mirror_layout`). Set on the global style, so theme changes
+        // that replace the style get it back here; this frame's `ui` was made before, so it
+        // takes it directly.
+        if ctx.global_style().mirror_layout != lang.rtl() {
+            ctx.global_style_mut(|style| style.mirror_layout = lang.rtl());
+        }
+        if ui.style().mirror_layout != lang.rtl() {
+            ui.style_mut().mirror_layout = lang.rtl();
+        }
         // Fonts registered via set_fonts only take effect next frame; named families would panic now.
         if !self.fonts_ready {
             ctx.request_repaint();
