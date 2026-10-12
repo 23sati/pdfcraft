@@ -652,7 +652,7 @@
 	Items marked Ready work today.	Elementai, pažymėti „Parengta“, veikia dabar.
 	Its security settings don't allow copying pages	Saugos nuostatos neleidžia kopijuoti puslapių
 	JavaScript Console	JavaScript konsolė
-	JavaScript is turned off (Preferences ▸ JavaScript).	JavaScript išjungtas (Nuostatos ▸ JavaScript).
+	JavaScript is turned off (Preferences ▸ JavaScript).	JavaScript išjungtas (Nuostatos > JavaScript).
 	JavaScript, e.g. getField("total").value	JavaScript, pvz., getField("total").value
 	Join our Discord	Prisijunkite prie mūsų „Discord“ serverio
 	Join the ArtCraft community	Prisijunkite prie „ArtCraft“ bendruomenės
@@ -980,6 +980,12 @@
 	Save & Close	Įrašyti ir užverti
 	Save ({key})	Įrašyti ({key})
 	Save Image As…	Įrašyti paveikslėlį kaip…
+	Copy Image	Kopijuoti paveikslėlį
+	The image has been copied ({w} × {h} pixels)	Paveikslėlis nukopijuotas ({w} × {h} pikselių)
+	Couldn't copy the image: {e}	Nepavyko nukopijuoti paveikslėlio: {e}
+	Copy Image in Original Format	Kopijuoti paveikslėlį originaliu formatu
+	The image has been copied as a {ext} file	Paveikslėlis nukopijuotas kaip {ext} failas
+	The page has changed; select the image again	Puslapis pasikeitė; pažymėkite paveikslėlį iš naujo
 	Save as PDF	Įrašyti kaip PDF
 	Save attachment…	Įrašyti priedą…
 	Save changes to “{name}” before closing?	Prieš užveriant įrašyti „{name}“ pakeitimus?
