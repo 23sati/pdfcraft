@@ -382,6 +382,7 @@ pub struct DocView {
     pub(crate) auto_scroll: crate::autoscroll::AutoScroll,
     /// Pages selected in the organize grid or the Pages panel (0-based). Empty means "the current page".
     pub selected: BTreeSet<usize>,
+    organize_range: crate::page_selection_ui::PageSelectionInput,
     /// Anchor for ⇧-click range selection in the organize grid.
     select_anchor: Option<usize>,
     /// An edit requested by the view (organize toolbar, keys), applied by the app this frame.
@@ -624,6 +625,7 @@ impl DocView {
             auto_scroll: Default::default(),
             selected: BTreeSet::new(),
             select_anchor: None,
+            organize_range: Default::default(),
             pending_edit: None,
             edit_lines: HashMap::new(),
             line_editor: None,
@@ -729,6 +731,10 @@ impl DocView {
     }
 
     /// Select pages in the organize grid (tests, automation). Empty clears the selection.
+    pub(crate) fn page_count(&self) -> usize {
+        self.page_count
+    }
+
     pub fn select_pages(&mut self, pages: &[usize]) {
         self.selected = pages.iter().copied().filter(|p| *p < self.page_count).collect();
         if let Some(first) = self.selected.first() {
@@ -832,10 +838,6 @@ impl DocView {
         if self.selection.is_some_and(|s| s.page == page) {
             self.selection = None;
         }
-        if let Some(f) = self.find.as_mut() {
-            f.matches.retain(|(p, _)| *p != page);
-            f.current = None;
-        }
     }
 
     /// Pages drawn last frame and their screen rectangles.
@@ -908,17 +910,16 @@ impl DocView {
         f.matches.retain(|(p, _)| *p != page);
         f.matches.extend(text.find_opts(&f.case_query, f.case_sensitive, f.whole_words).into_iter().map(|r| (page, r)));
         f.matches.sort_by_key(|(p, r)| (*p, r.start));
-        f.current = match current_key {
-            Some(k) => f.matches.iter().position(|m| *m == k),
-            None => None,
-        };
+        f.current = current_key.as_ref().and_then(|k| f.matches.iter().position(|m| m == k));
         if f.current.is_none() && !f.matches.is_empty() {
             // First match at or after the page being viewed.
             let cur = self.current;
             let i = f.matches.iter().position(|(p, _)| *p >= cur).unwrap_or(0);
             f.current = Some(i);
             let (p, _) = f.matches[i];
-            self.flash_match(p);
+            if current_key.is_none() {
+                self.flash_match(p);
+            }
         }
     }
 
@@ -1540,6 +1541,11 @@ impl DocView {
                 None => {
                     log::warn!("page {} text: {}", r.request.page + 1, r.error.unwrap_or_default());
                     self.text_failed.insert(r.request.page);
+                    if let Some(f) = self.find.as_mut() {
+                        let current_key = f.current.and_then(|c| f.matches.get(c).cloned());
+                        f.matches.retain(|(p, _)| *p != r.request.page);
+                        f.current = current_key.and_then(|k| f.matches.iter().position(|m| *m == k));
+                    }
                 }
             }
             return 0;
@@ -3178,7 +3184,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         Some(LinkTarget::Page(p, dest)) => view.go_to_dest(p, dest, info),
         Some(LinkTarget::Uri(u)) => app.request_document_url(&u, crate::LinkOrigin::Link),
         Some(LinkTarget::SetLayers { changes, preserve_rb }) => set_layers(app, index, &changes, preserve_rb),
-        Some(LinkTarget::Other(s)) => app.notify_fmt("{s} actions run in the JavaScript engine (M6)", &[("s", &s)]),
+        Some(LinkTarget::Other(s)) => app.notify_fmt("This PDF uses the unsupported {s} action.", &[("s", &s)]),
         None => {}
     }
     if tool == QuickTool::Crop && cropped {
@@ -3866,7 +3872,27 @@ fn quick_bar(app: &mut PdfCraftApp, area: Rect, ui: &mut egui::Ui) {
                     if let QuickTool::Comment(tool) = app.quick_tool {
                         let (r, _) = ui.allocate_exact_size(vec2(32.0, 9.0), Sense::hover());
                         ui.painter().hline(r.x_range().shrink(6.0), r.center().y, Stroke::new(1.0, t.divider));
-                        comments::quick_bar_controls(ui, tool, &mut app.comment_prefs);
+                        if let Some(color) = comments::quick_bar_controls(ui, tool, &mut app.comment_prefs)
+                            && let Some((index, id)) = app.active_ids()
+                            && let Some((page, annotation)) = app.views.get(index).and_then(|view| view.comments.selected)
+                            && app.session.get(id).is_some_and(|doc| {
+                                doc.allows_annotation()
+                                    && doc
+                                        .info
+                                        .annotations
+                                        .iter()
+                                        .any(|a| a.page == page && a.index == annotation && a.in_reply_to.is_none() && comments::made_by(a, tool))
+                            })
+                        {
+                            app.apply_edit(Edit::StyleAnnotation {
+                                page,
+                                index: annotation,
+                                color: Some(color),
+                                opacity: None,
+                                width: None,
+                                endings: None,
+                            });
+                        }
                     }
                 });
             });
@@ -3875,6 +3901,12 @@ fn quick_bar(app: &mut PdfCraftApp, area: Rect, ui: &mut egui::Ui) {
 
 /// The organize toolbar: page operations on the selection (Acrobat's Organize Pages bar).
 fn organize_toolbar(view: &mut DocView, info: &DocInfo, editable: bool, dirty: bool, unobstructed: bool, ui: &mut egui::Ui, t: &Tokens) {
+    egui::Frame::NONE.fill(t.chrome).inner_margin(egui::Margin::symmetric(16, 4)).show(ui, |ui| {
+        let pages = ui.add_enabled_ui(unobstructed, |ui| view.organize_range.show(ui, &view.selected, info.pages.len())).inner;
+        if let Some(pages) = pages {
+            view.select_pages(&pages);
+        }
+    });
     let targets = view.target_pages();
     let n = info.pages.len();
     let (first, last) = (targets.first().copied().unwrap_or(0), targets.last().copied().unwrap_or(0));

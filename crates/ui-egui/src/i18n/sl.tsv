@@ -2072,7 +2072,7 @@
 	{n} {kind}	{kind}: {n}
 	{rule} - {status}	{rule} - {status}
 	{s} action	Dejanj: {s}
-	{s} actions run in the JavaScript engine (M6)	Dejanja ({s}) se izvajajo v pogonu JavaScript (M6)
+	This PDF uses the unsupported {s} action.	Ta PDF uporablja nepodprto dejanje {s}.
 	{verb} Background	Ozadje: {verb}
 	{verb} Header and Footer	Glava in noga: {verb}
 	{verb} Watermark	Vodni žig: {verb}

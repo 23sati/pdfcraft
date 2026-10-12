@@ -990,6 +990,12 @@ fn state_reports_the_selected_pages() {
     assert_eq!(ok(&mut h, &c, "ui.state", json!({}))["active"]["selected_pages"], json!([]));
     ok(&mut h, &c, "ui.set", json!({ "key": "select", "value": "2,4" }));
     assert_eq!(ok(&mut h, &c, "ui.state", json!({}))["active"]["selected_pages"], json!([2, 4]));
+    ok(&mut h, &c, "ui.set", json!({ "key": "select", "value": "4-2,3" }));
+    assert_eq!(ok(&mut h, &c, "ui.state", json!({}))["active"]["selected_pages"], json!([2, 3, 4]));
+    assert!(call(&mut h, &c, "ui.set", json!({ "key": "select", "value": "0,6" })).is_err());
+    assert_eq!(ok(&mut h, &c, "ui.state", json!({}))["active"]["selected_pages"], json!([2, 3, 4]));
+    ok(&mut h, &c, "ui.set", json!({ "key": "select", "value": "" }));
+    assert_eq!(ok(&mut h, &c, "ui.state", json!({}))["active"]["selected_pages"], json!([]));
 }
 
 #[test]

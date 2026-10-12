@@ -395,7 +395,7 @@ status = "planned"
 commands = []
 tools = []
 evidence = []
-notes = "ByteSource (M1.5); files are buffered whole today"
+notes = "ByteSource (M1.5); files are buffered whole today. Viewing holds the file once and editing twice: edits let go of the previous working file before writing the next (a 1 GiB file peaked at three copies after a few edits, now two). Saving still peaks at three. Reading from disk on demand waits on the renderer (hayro parses one contiguous buffer, gap 2)."
 
 [[feature]]
 id = "core.pdf20-utf8-strings"
@@ -2082,8 +2082,8 @@ milestone = "M7"
 status = "shipped"
 commands = ["edit.edit_text"]
 tools = ["image_edit", "image_hit"]
-evidence = ["crates/edit/src/tests.rs::form_artwork_edits_only_the_selected_placement", "crates/ui-egui/tests/editing.rs::editing_existing_form_artwork_on_the_page", "crates/automation/tests/automation.rs::editing_form_artwork_through_tools", "crates/edit/src/tests.rs::page_images_move_turn_replace_and_delete", "crates/ui-egui/tests/editing.rs::editing_existing_images_on_the_page", "crates/automation/tests/automation.rs::editing_page_images_through_tools", "crates/edit/src/tests.rs::curved_image_clips_have_analytic_bounds_and_holes_do_not_capture_points", "crates/edit/src/tests.rs::cropped_image_resizing_moves_private_clips_and_keeps_shared_ones", "crates/ui-egui/tests/editing.rs::cropped_image_corner_resize_keeps_opposite_corner_and_scales_crop", "crates/edit/src/tests.rs::image_selection_bounds_respect_clips_and_restore_graphics_state", "crates/ui-egui/tests/editing.rs::cropped_images_do_not_intercept_text_and_stay_inside_each_page", "crates/automation/tests/automation.rs::clipped_image_bounds_and_text_edit_save_reopen_through_tools"]
-notes = "existing raster images and grouped Form artwork: select, drag to move, drag a corner to resize keeping proportions; Delete removes one placement. Forms include their nested content as a group; individual internal elements and inline images are not supported. See docs/editing-images.md; added images too Since #1116: raster images and grouped Forms move/resize/turn as placements; selected grips own the gesture and opposite anchor, with no PDF writes during movement. Curved path frames use analytic Bezier extrema and hit testing evaluates actual nonzero/even-odd fill rules, excluding holes; intersections can retain a loose frame. Selection and resize use the visible (clipped) frame; an image's own `q re W n cm Do Q` clip moves with it (#1049), shared clips stay fixed. Inline images and Form internals remain unsupported; see docs/editing-images.md"
+evidence = ["crates/edit/src/tests.rs::private_image_crop_with_intervening_state_resizes_across_streams", "crates/automation/tests/automation.rs::private_crops_with_nested_state_resize_save_reopen_through_tools", "crates/edit/src/tests.rs::form_artwork_edits_only_the_selected_placement", "crates/ui-egui/tests/editing.rs::editing_existing_form_artwork_on_the_page", "crates/automation/tests/automation.rs::editing_form_artwork_through_tools", "crates/edit/src/tests.rs::page_images_move_turn_replace_and_delete", "crates/ui-egui/tests/editing.rs::editing_existing_images_on_the_page", "crates/automation/tests/automation.rs::editing_page_images_through_tools", "crates/edit/src/tests.rs::curved_image_clips_have_analytic_bounds_and_holes_do_not_capture_points", "crates/edit/src/tests.rs::cropped_image_resizing_moves_private_clips_and_keeps_shared_ones", "crates/ui-egui/tests/editing.rs::cropped_image_corner_resize_keeps_opposite_corner_and_scales_crop", "crates/edit/src/tests.rs::image_selection_bounds_respect_clips_and_restore_graphics_state", "crates/ui-egui/tests/editing.rs::cropped_images_do_not_intercept_text_and_stay_inside_each_page", "crates/automation/tests/automation.rs::clipped_image_bounds_and_text_edit_save_reopen_through_tools"]
+notes = "existing raster images and grouped Form artwork: select, drag to move, drag a corner to resize keeping proportions; Delete removes one placement. Forms include their nested content as a group; individual internal elements and inline images are not supported. See docs/editing-images.md; added images too Since #1116: raster images and grouped Forms move/resize/turn as placements; selected grips own the gesture and opposite anchor, with no PDF writes during movement. Curved path frames use analytic Bezier extrema and hit testing evaluates actual nonzero/even-odd fill rules, excluding holes; intersections can retain a loose frame. Selection and resize use the visible (clipped) frame; exclusive image clips move with their pixels across nested states, intervening operators and content streams; shared clips stay fixed. Inline images and Form internals remain unsupported; see docs/editing-images.md"
 
 [[feature]]
 id = "edit.image-extract"
@@ -2590,8 +2590,8 @@ milestone = "M4"
 status = "shipped"
 commands = ["page.organize"]
 tools = []
-evidence = ["crates/ui-egui/tests/editing.rs::command_click_toggles_and_rotation_applies_to_selection", "crates/ui-egui/tests/editing.rs::shift_click_selects_a_range_and_moves_it", "crates/ui-egui/tests/editing.rs::organize_select_all_shortcut_preserves_current_page_and_sets_range_anchor", "crates/ui-egui/tests/control.rs::select_all_key_selects_every_page_in_organize"]
-notes = "Ctrl+A / ⌘A selects every page in the Organize grid, preserving the current page; text inputs and dialogs keep their own keyboard input. Page checkboxes also toggle selection without modifiers (organize_checkboxes_toggle_multiple_pages_without_modifiers)."
+evidence = ["crates/ui-egui/tests/editing.rs::command_click_toggles_and_rotation_applies_to_selection", "crates/ui-egui/tests/editing.rs::shift_click_selects_a_range_and_moves_it", "crates/ui-egui/tests/editing.rs::organize_select_all_shortcut_preserves_current_page_and_sets_range_anchor", "crates/ui-egui/tests/control.rs::select_all_key_selects_every_page_in_organize", "crates/ui-egui/tests/editing.rs::organize_page_range_tracks_thumbnails_and_applies_typed_selection", "crates/ui-egui/tests/editing.rs::organize_page_range_rejects_invalid_input_and_escape_cancels_without_clearing", "crates/ui-egui/tests/control.rs::state_reports_the_selected_pages"]
+notes = "Ctrl+A / ⌘A selects every page in the Organize grid, preserving the current page; text inputs and dialogs keep their own keyboard input. Page checkboxes also toggle selection without modifiers (organize_checkboxes_toggle_multiple_pages_without_modifiers). An editable physical page-range list stays synchronized with thumbnails; Enter, focus loss or Apply commits valid input, Escape cancels, and invalid input preserves the selection. UI control select accepts the same bounded ranges."
 
 [[feature]]
 id = "organize.rotate-pages"
@@ -3602,8 +3602,8 @@ milestone = "M5"
 status = "partial"
 commands = ["comment.caret"]
 tools = ["comment_add"]
-evidence = ["crates/annot/src/tests.rs::polygons_clouds_connected_lines_callouts_and_carets_are_drawn", "crates/ui-egui/tests/comments.rs::polygons_clouds_connected_lines_callouts_and_inserted_text", "crates/automation/tests/automation.rs::drawing_comments_through_tools"]
-notes = "caret at a click; not yet snapped to the text insertion point"
+evidence = ["crates/annot/src/tests.rs::polygons_clouds_connected_lines_callouts_and_carets_are_drawn", "crates/ui-egui/tests/comments.rs::polygons_clouds_connected_lines_callouts_and_inserted_text", "crates/ui-egui/tests/comments.rs::inserted_text_snaps_to_the_gap_between_characters_on_the_baseline", "crates/automation/tests/automation.rs::drawing_comments_through_tools"]
+notes = "in the UI the caret snaps to the nearer character edge, on the baseline and sized to the text, on upright horizontal text of unrotated pages; elsewhere it stays at the click. comment_add places it where it is told (no snapping)"
 
 [[feature]]
 id = "comment.typewriter"
@@ -3830,8 +3830,8 @@ milestone = "M5"
 status = "shipped"
 commands = ["comment.note"]
 tools = ["comment_edit"]
-evidence = ["crates/annot/src/tests.rs::restyle_and_resize_redraw_the_appearance", "crates/ui-egui/tests/comments.rs::the_opacity_set_for_a_tool_goes_into_its_new_comments"]
-notes = "quick-bar colour swatches, fill colour (rectangle, oval, polygon, cloud), opacity (10–100 %) and line thickness per tool; colour from the context menu"
+evidence = ["crates/annot/src/tests.rs::restyle_and_resize_redraw_the_appearance", "crates/ui-egui/tests/comments.rs::the_opacity_set_for_a_tool_goes_into_its_new_comments", "crates/ui-egui/tests/comments.rs::the_quick_bar_colour_changes_the_selected_comment", "crates/ui-egui/tests/comments.rs::the_quick_bar_colour_changes_the_selected_arrow"]
+notes = "quick-bar colour swatches immediately recolour a selected comment made with the active tool, and set the tool default; fill colour (rectangle, oval, polygon, cloud), opacity (10–100 %) and line thickness per tool; colour from the context menu"
 
 [[feature]]
 id = "comment.lock-comment"
@@ -5554,8 +5554,8 @@ milestone = "M8"
 status = "shipped"
 commands = ["redact.search"]
 tools = ["redact_mark"]
-evidence = ["crates/redact/src/patterns.rs::word_lists_are_trimmed_unique_and_bounded", "crates/automation/tests/automation.rs::redacting_word_lists_through_tools", "crates/ui-egui/tests/ui_group/redact.rs::redacting_an_imported_word_list"]
-notes = "Find text and redact ▸ Multiple words or phrases: one per line, typed or imported from a .txt file (at most 1 MB, 1,000 entries of 256 characters); every match of each is marked in one undo step; redact_mark words reports marks per word. Not yet: whole-words-only and case-sensitive options, exporting the list"
+evidence = ["crates/redact/src/patterns.rs::word_lists_are_trimmed_unique_and_bounded", "crates/automation/tests/automation.rs::redacting_word_lists_through_tools", "crates/automation/tests/automation.rs::redaction_search_respects_case_and_word_boundaries", "crates/ui-egui/tests/ui_group/redact.rs::redacting_an_imported_word_list", "crates/ui-egui/tests/ui_group/redact.rs::redaction_search_can_match_case_and_whole_words"]
+notes = "Find text and redact ▸ Multiple words or phrases: one per line, typed or imported from a .txt file (at most 1 MB, 1,000 entries of 256 characters); every match of each is marked in one undo step; redact_mark words reports marks per word. Single phrase and word-list searches offer case-sensitive and whole-words-only options in the UI and headless tool. Not yet: exporting the list"
 
 [[feature]]
 id = "protect.redact-patterns"
@@ -8390,8 +8390,8 @@ milestone = "M12"
 status = "shipped"
 commands = ["a11y.check"]
 tools = ["accessibility_check"]
-evidence = ["crates/a11y/src/tests.rs::an_untagged_document_fails_the_document_rules", "crates/a11y/src/tests.rs::a_well_tagged_document_passes", "crates/a11y/src/tests.rs::structure_findings_identify_indirect_elements_without_guessing_inline_objects", "crates/ui-egui/tests/accessibility.rs::checking_fixing_skipping_and_reporting", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools"]
-notes = "full check: options dialog (report, page range, 32 rules by category, 31 on by default), results panel by category with Passed / Failed / Needs manual check / Skipped and findings that go to their page. Structure findings expose the indirect tag object number and generation through accessibility_check, when available, for precise follow-up in the Tags Panel."
+evidence = ["crates/a11y/src/tests.rs::an_untagged_document_fails_the_document_rules", "crates/a11y/src/tests.rs::a_well_tagged_document_passes", "crates/a11y/src/tests.rs::structure_findings_identify_indirect_elements_without_guessing_inline_objects", "crates/a11y/src/tests.rs::figures_are_listed_with_their_alt_text_and_place", "crates/a11y/src/tests.rs::annotation_findings_only_locate_valid_rectangles", "crates/automation/tests/automation.rs::accessibility_check_locates_field_description_on_page", "crates/ui-egui/tests/accessibility.rs::checking_fixing_skipping_and_reporting", "crates/ui-egui/tests/accessibility.rs::checker_shows_a_figure_finding_on_its_page", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools"]
+notes = "full check: options dialog (report, page range, 32 rules by category, 31 on by default), results panel by category with Passed / Failed / Needs manual check / Skipped and findings that go to their page. Locatable figure, annotation and form-widget findings flash their bounds on the page; accessibility_check exposes those bounds in PDF user space. Other findings navigate to their page. Structure findings expose the indirect tag object number and generation through accessibility_check, when available, for precise follow-up in the Tags Panel."
 
 [[feature]]
 id = "a11y.checker-report"
@@ -8401,9 +8401,9 @@ tier = "P1"
 milestone = "M12"
 status = "shipped"
 commands = ["a11y.report"]
-tools = ["accessibility_report"]
-evidence = ["crates/a11y/src/tests.rs::rules_have_ids_and_the_report_lists_them", "crates/ui-egui/tests/accessibility.rs::checking_fixing_skipping_and_reporting", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools"]
-notes = "HTML report: summary counts and a table per category with descriptions and findings"
+tools = ["accessibility_report", "accessibility_review_record", "accessibility_review_html"]
+evidence = ["crates/a11y/src/tests.rs::rules_have_ids_and_the_report_lists_them", "crates/ui-egui/tests/accessibility.rs::checking_fixing_skipping_and_reporting", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools", "crates/automation/tests/automation.rs::accessibility_review_record_compares_two_versions_without_changing_them", "crates/automation/src/a11y.rs::document_names_are_escaped_in_review_html"]
+notes = "HTML checker report: summary counts and a table per category with descriptions and findings. Headless comparison of two open versions exports the same before-and-after evidence as JSON or accessible, self-contained HTML with hashes, rule changes, and remaining review items."
 
 [[feature]]
 id = "a11y.checker-fix"
@@ -8413,9 +8413,9 @@ tier = "P1"
 milestone = "M12"
 status = "shipped"
 commands = ["a11y.check"]
-tools = ["accessibility_fix"]
-evidence = ["crates/ui-egui/tests/accessibility.rs::checking_fixing_skipping_and_reporting", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools"]
-notes = "right-click a rule: Fix (language via Document Properties, title, tab order), Skip Rule (kept on Check Again), Explain, Check Again, Show Report, Options"
+tools = ["accessibility_fix", "accessibility_review_record"]
+evidence = ["crates/ui-egui/tests/accessibility.rs::checking_fixing_skipping_and_reporting", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools", "crates/automation/tests/automation.rs::accessibility_review_record_compares_two_versions_without_changing_them"]
+notes = "right-click a rule: Fix (language via Document Properties, title, tab order), Skip Rule (kept on Check Again), Explain, Check Again, Show Report, Options. The panel compares outcome counts and changed rules with the previous check of the same document and options; the headless review record compares two open revisions."
 
 [[feature]]
 id = "a11y.rule-permission-flag"
@@ -8831,11 +8831,11 @@ title = "Reading order tool"
 area = "M"
 tier = "P1"
 milestone = "M12"
-status = "planned"
+status = "partial"
 commands = []
-tools = []
-evidence = []
-notes = ""
+tools = ["accessibility_move_tag"]
+evidence = ["crates/a11y/src/tests.rs::sibling_tags_move_in_reading_order_without_changing_content", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools"]
+notes = "The headless tool can move a reachable indirect tag before or after a direct sibling in their parent's /K array as one undoable edit. It preserves page content and rejects ambiguous children. The visual Reading Order tool, inline tags, arbitrary retagging, and moving across parents remain planned."
 
 [[feature]]
 id = "a11y.tags-panel"
