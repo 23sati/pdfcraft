@@ -274,6 +274,3 @@ mod tests {
         assert!((0.0..=1.0).contains(&c), "{c}");
     }
 }
-
-#[path = "printcheck.rs"]
-pub mod printcheck;

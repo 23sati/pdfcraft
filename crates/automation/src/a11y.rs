@@ -698,6 +698,7 @@ impl Automation {
             "output_intents": report.output_intents,
             "fonts_not_embedded": report.fonts_not_embedded,
             "pdfa_issues": pdfa,
+            "resolution_unknown": report.resolution_unknown,
         }))
     }
 
