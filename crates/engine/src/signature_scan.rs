@@ -7,8 +7,10 @@
 //! on a transparent background, trimmed, so it is placed, saved and reused like any image
 //! signature.
 //!
-//! Everything is local and bounded: the photo is decoded with size and allocation limits,
-//! downscaled to at most [`WORKING_MAX_SIDE`] pixels, and only that copy is kept.
+//! Everything is local and bounded: the photo is decoded within the same limits as an imported
+//! image signature (a 4 MiB file, 32 megapixels, 8192 pixels per side), downscaled to at most
+//! 4 megapixels and [`WORKING_MAX_SIDE`] pixels per side, and only that copy is kept. So one
+//! scan of the whole frame touches at most 4 megapixels.
 //!
 //! The ink is separated from the paper in four steps:
 //! 1. **Paper estimate.** A grayscale morphological closing (a maximum filter, then a minimum
@@ -28,17 +30,13 @@
 use std::io::{Cursor, Read};
 use std::sync::Arc;
 
-use image::{DynamicImage, ImageDecoder, ImageFormat, ImageReader, Limits, RgbImage};
+use image::{DynamicImage, ImageFormat, RgbImage};
 
 use crate::signature_image::{SignatureImage, SignatureImageError};
 
-/// Largest photo file accepted; phone photos are usually 2–12 MiB.
-pub const MAX_PHOTO_BYTES: usize = crate::signature_image::MAX_SOURCE_IMAGE_BYTES;
-/// Largest photo accepted, in pixels (a 50 MP phone camera fits).
-const MAX_PHOTO_PIXELS: u64 = 52_000_000;
-/// Longest side of the decoded photo.
-const MAX_PHOTO_SIDE: u32 = 16_384;
-/// Longest side of the copy that is kept and scanned (the full resolution of a 12 MP photo).
+/// Largest photo file accepted: the image signature limit (decoding shares its limits too).
+pub const MAX_PHOTO_BYTES: usize = crate::signature_image::MAX_SIGNATURE_IMAGE_BYTES;
+/// Longest side of the copy that is kept and scanned (it also holds at most 4 megapixels).
 pub const WORKING_MAX_SIDE: u32 = 4096;
 /// Longest side of the framed area that is cleaned for the final signature.
 pub const SCAN_MAX_SIDE: u32 = 2400;
@@ -79,7 +77,7 @@ const TRIM_PADDING: usize = 8;
 pub enum ScanError {
     #[error("Choose a PNG or JPEG photo.")]
     Format,
-    #[error("Choose a photo smaller than 40 MiB and 50 megapixels.")]
+    #[error("Choose a photo smaller than 4 MiB and 32 megapixels (at most 8192 pixels per side).")]
     Size,
     #[error("No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.")]
     NoInk,
@@ -146,34 +144,13 @@ impl SignaturePhoto {
         if bytes.len() > MAX_PHOTO_BYTES {
             return Err(ScanError::Size);
         }
-        let format = image::guess_format(bytes).map_err(|_| ScanError::Format)?;
-        if !matches!(format, ImageFormat::Png | ImageFormat::Jpeg) {
-            return Err(ScanError::Format);
-        }
-        let mut reader = ImageReader::with_format(Cursor::new(bytes), format);
-        let mut limits = Limits::default();
-        limits.max_image_width = Some(MAX_PHOTO_SIDE);
-        limits.max_image_height = Some(MAX_PHOTO_SIDE);
-        // A 50 MP photo decodes to 150 MB of RGB (200 MB with alpha).
-        limits.max_alloc = Some(256 << 20);
-        reader.limits(limits);
-        let mut decoder = reader.into_decoder()?;
-        let (w, h) = decoder.dimensions();
-        if w == 0 || h == 0 || u64::from(w) * u64::from(h) > MAX_PHOTO_PIXELS {
-            return Err(ScanError::Size);
-        }
-        // Phones store portrait photos as landscape pixels plus an EXIF orientation.
-        let orientation = decoder.orientation()?;
-        let mut image = DynamicImage::from_decoder(decoder)?;
-        image.apply_orientation(orientation);
-        let (w, h) = (image.width(), image.height());
-        let longest = w.max(h);
-        if longest > WORKING_MAX_SIDE {
-            let scale = f64::from(WORKING_MAX_SIDE) / f64::from(longest);
-            let nw = ((f64::from(w) * scale).round() as u32).max(1);
-            let nh = ((f64::from(h) * scale).round() as u32).max(1);
-            image = image.resize_exact(nw, nh, image::imageops::FilterType::Triangle);
-        }
+        // The image signature decoder: same limits, EXIF orientation (phones store portrait
+        // photos as landscape pixels plus an orientation), scaled down to 4 megapixels.
+        let image = crate::signature_image::decode_source(bytes).map_err(|e| match e {
+            SignatureImageError::Size => ScanError::Size,
+            SignatureImageError::Format => ScanError::Format,
+            e => ScanError::Signature(e),
+        })?;
         Ok(Self { rgb: Arc::new(image.into_rgb8()) })
     }
 
@@ -653,6 +630,24 @@ mod tests {
         out.into_inner()
     }
 
+    /// Photos keep the image signature limits (#1124): a 4 MiB file, at most 32 megapixels and
+    /// 8192 pixels per side decoded, and a working copy of at most 4 megapixels.
+    #[test]
+    fn photos_keep_the_image_signature_limits() {
+        let png = |image: &RgbImage| {
+            let mut out = Cursor::new(Vec::new());
+            image.write_to(&mut out, ImageFormat::Png).unwrap();
+            out.into_inner()
+        };
+        assert!(matches!(SignaturePhoto::from_bytes(&vec![0; MAX_PHOTO_BYTES + 1]), Err(ScanError::Size)));
+        assert!(SignaturePhoto::read(std::io::repeat(0)).is_err());
+        assert!(matches!(SignaturePhoto::from_bytes(&png(&RgbImage::new(8193, 1))), Err(ScanError::Size)));
+        assert!(matches!(SignaturePhoto::from_bytes(b"GIF89a\x02\0\x02\0"), Err(ScanError::Format)));
+        let [w, h] = SignaturePhoto::from_bytes(&png(&RgbImage::from_pixel(8000, 4000, image::Rgb([220, 220, 215])))).unwrap().size();
+        assert!(w <= WORKING_MAX_SIDE && u64::from(w) * u64::from(h) <= MAX_OUTPUT_PIXELS, "{w} x {h}");
+        assert!((f64::from(w) / f64::from(h) - 2.0).abs() < 0.01, "the aspect ratio is kept: {w} x {h}");
+    }
+
     fn region(r: [usize; 4]) -> Region {
         Region { x: r[0], y: r[1], width: r[2], height: r[3] }
     }
@@ -877,7 +872,8 @@ mod tests {
     #[test]
     fn large_photos_are_downscaled_and_invalid_ones_rejected() {
         let photo = SignaturePhoto::from_bytes(&jpeg(&RgbImage::from_pixel(5000, 100, image::Rgb([200, 200, 200])))).unwrap();
-        assert_eq!(photo.size(), [WORKING_MAX_SIDE, 82]);
+        let [w, h] = photo.size();
+        assert!((4000..=WORKING_MAX_SIDE).contains(&w) && (81..=82).contains(&h), "{w} x {h}");
         assert!(photo.thumbnail(512).width() <= 512);
         assert!(matches!(SignaturePhoto::from_bytes(b"not a photo"), Err(ScanError::Format)));
         assert!(matches!(SignaturePhoto::from_bytes(b"GIF89a\x02\0\x02\0"), Err(ScanError::Format)));

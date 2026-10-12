@@ -35,7 +35,21 @@ pub enum SavedSig {
     Image(#[serde(with = "image_data")] SignatureImage),
 }
 
-mod image_data {
+impl SavedSig {
+    /// This signature as the graphic of a visible digital signature. `None` for typed text the
+    /// script font has nothing to draw for.
+    pub fn graphic(&self) -> Option<pdfcraft_engine::sign::Graphic> {
+        match self {
+            SavedSig::Drawn(strokes) => Some(pdfcraft_engine::sign::Graphic::Strokes(
+                strokes.iter().map(|s| s.iter().map(|p| [f64::from(p[0]), f64::from(p[1])]).collect()).collect(),
+            )),
+            SavedSig::Typed(text) => pdfcraft_engine::typed_signature_graphic(text),
+            SavedSig::Image(image) => Some(image.graphic()),
+        }
+    }
+}
+
+pub(crate) mod image_data {
     use base64::Engine as _;
     use pdfcraft_engine::{SignatureImage, signature_image::MAX_SIGNATURE_IMAGE_BYTES};
     use serde::{Deserialize, Deserializer, Serializer};
@@ -92,7 +106,7 @@ impl SigDraft {
     fn ready(&self) -> bool {
         if self.scan_mode {
             // A preview made while the frame or slider is still moving is not the result.
-            self.scan.as_ref().is_some_and(|s| s.drag.is_none() && s.full) && self.image.is_some()
+            self.scan.as_ref().is_some_and(|s| s.drag.is_none() && s.full && !s.scanning()) && self.image.is_some()
         } else if self.image_mode {
             self.image.is_some()
         } else if self.drawing {
@@ -129,6 +143,45 @@ pub struct ScanDraft {
     full: bool,
     /// Why the frame gives no signature, shown in place of the preview.
     pub problem: Option<String>,
+    /// Scans run here while the frame or slider moves, so a frame never waits for one.
+    worker: ScanWorker,
+}
+
+/// What one scan cleans: the frame and sensitivity at the time it was asked for.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct ScanRequest {
+    frame: PhotoRect,
+    sensitivity: u8,
+    full: bool,
+}
+
+type ScanAnswer = Result<Result<SignatureImage, ScanError>, String>;
+
+/// The scan running on a worker thread (desktop) and the newest request made meanwhile, which
+/// starts when it answers; requests in between are skipped. It is not part of the draft's value:
+/// a clone has nothing running and comparisons ignore it.
+#[derive(Default)]
+struct ScanWorker {
+    running: Option<(ScanRequest, std::sync::mpsc::Receiver<ScanAnswer>)>,
+    queued: Option<ScanRequest>,
+}
+
+impl Clone for ScanWorker {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
+impl PartialEq for ScanWorker {
+    fn eq(&self, _: &Self) -> bool {
+        true
+    }
+}
+
+impl std::fmt::Debug for ScanWorker {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ScanWorker").field("running", &self.running.as_ref().map(|(r, _)| r)).field("queued", &self.queued).finish()
+    }
 }
 
 /// A drag on the photo, in photo pixels.
@@ -149,15 +202,103 @@ impl ScanDraft {
     /// Frame the signature (turning a sideways one upright) with the default sensitivity.
     pub fn new(mut photo: SignaturePhoto) -> Self {
         let frame = photo.auto_frame();
-        Self { photo, frame, sensitivity: DEFAULT_SENSITIVITY, version: next_photo_version(), drag: None, full: false, problem: None }
+        Self {
+            photo,
+            frame,
+            sensitivity: DEFAULT_SENSITIVITY,
+            version: next_photo_version(),
+            drag: None,
+            full: false,
+            problem: None,
+            worker: ScanWorker::default(),
+        }
     }
 
-    /// Clean the framed area into `image`: quickly (`full` false) while something is being
-    /// dragged, at full resolution otherwise.
+    fn request(&self, full: bool) -> ScanRequest {
+        ScanRequest { frame: self.frame, sensitivity: self.sensitivity, full }
+    }
+
+    fn run(photo: &SignaturePhoto, req: ScanRequest) -> ScanAnswer {
+        let max_side = if req.full { SCAN_MAX_SIDE } else { PREVIEW_MAX_SIDE };
+        pdfcraft_engine::guard(|| photo.scan(req.frame, req.sensitivity, max_side))
+    }
+
+    /// Clean the framed area into `image` now: quickly (`full` false) while something is being
+    /// dragged, at full resolution otherwise. A scan still running in the background is dropped.
     pub fn rescan(&mut self, image: &mut Option<SignatureImage>, full: bool) {
-        let max_side = if full { SCAN_MAX_SIDE } else { PREVIEW_MAX_SIDE };
-        let result = pdfcraft_engine::guard(|| self.photo.scan(self.frame, self.sensitivity, max_side));
-        self.full = full;
+        self.worker = ScanWorker::default();
+        let req = self.request(full);
+        let answer = Self::run(&self.photo, req);
+        self.apply(image, req, answer);
+    }
+
+    /// Like [`Self::rescan`], but on a worker thread on desktop, so the frame that asked doesn't
+    /// wait (a scan of a large frame takes a noticeable fraction of a second). The draft isn't
+    /// ready until the answer for the current frame and sensitivity arrives; [`Self::poll`]
+    /// picks it up. Where threads are unavailable (the web) it scans at once.
+    pub fn rescan_in_background(&mut self, image: &mut Option<SignatureImage>, full: bool, ctx: Option<&egui::Context>) {
+        if cfg!(target_arch = "wasm32") {
+            return self.rescan(image, full);
+        }
+        let req = self.request(full);
+        self.full = false;
+        if self.worker.running.is_some() {
+            self.worker.queued = Some(req);
+        } else if !self.start(req, ctx) {
+            self.rescan(image, full);
+        }
+    }
+
+    /// Start `req` on a worker thread; false if no thread could be started.
+    fn start(&mut self, req: ScanRequest, ctx: Option<&egui::Context>) -> bool {
+        let photo = self.photo.clone();
+        let ctx = ctx.cloned();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let spawned = std::thread::Builder::new().name("signature-scan".into()).spawn(move || {
+            // The receiver may be gone (the dialog closed or a newer photo): nothing to report.
+            let _ = tx.send(Self::run(&photo, req));
+            if let Some(ctx) = ctx {
+                ctx.request_repaint();
+            }
+        });
+        if spawned.is_err() {
+            return false;
+        }
+        self.worker.running = Some((req, rx));
+        true
+    }
+
+    /// Whether a background scan is running or waiting to run.
+    pub fn scanning(&self) -> bool {
+        self.worker.running.is_some() || self.worker.queued.is_some()
+    }
+
+    /// Pick up a finished background scan (each frame), and start the newest waiting request.
+    pub fn poll(&mut self, image: &mut Option<SignatureImage>, ctx: Option<&egui::Context>) {
+        let Some((req, rx)) = &self.worker.running else { return };
+        let answer = match rx.try_recv() {
+            Ok(answer) => answer,
+            Err(std::sync::mpsc::TryRecvError::Empty) => return,
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => Err("the scan stopped unexpectedly".into()),
+        };
+        let req = *req;
+        self.worker.running = None;
+        match self.worker.queued.take() {
+            Some(next) => {
+                // Shown as a preview while the newer request runs.
+                self.apply(image, ScanRequest { full: false, ..req }, answer);
+                if !self.start(next, ctx) {
+                    self.rescan(image, next.full);
+                }
+            }
+            None => self.apply(image, req, answer),
+        }
+    }
+
+    /// Show a scan's answer. It is the result only if it was full and for the current frame and
+    /// sensitivity.
+    fn apply(&mut self, image: &mut Option<SignatureImage>, req: ScanRequest, result: ScanAnswer) {
+        self.full = req.full && req.frame == self.frame && req.sensitivity == self.sensitivity;
         match result {
             Ok(Ok(scanned)) => {
                 *image = Some(scanned);
@@ -179,10 +320,10 @@ impl ScanDraft {
         }
     }
 
-    pub fn turn(&mut self, turn: Turn, image: &mut Option<SignatureImage>) {
+    pub fn turn(&mut self, turn: Turn, image: &mut Option<SignatureImage>, ctx: Option<&egui::Context>) {
         self.frame = self.photo.turn(turn, self.frame);
         self.version = next_photo_version();
-        self.rescan(image, true);
+        self.rescan_in_background(image, true, ctx);
     }
 }
 
@@ -388,48 +529,7 @@ pub(crate) fn signature_entries(ui: &mut egui::Ui, app: &mut crate::PdfCraftApp,
                 Stroke::new(1.0, if response.hovered() { t.accent } else { t.border }),
                 egui::StrokeKind::Inside,
             );
-            let preview_rect = rect.shrink(8.0);
-            match saved {
-                SavedSig::Typed(text) => {
-                    let cache = &mut app.saved_signature_previews[i];
-                    if cache.as_ref().is_none_or(|(s, _)| s != saved) {
-                        *cache = Some((
-                            saved.clone(),
-                            ui.ctx().load_texture(format!("saved-{what}"), script_preview(text, 480, 104), egui::TextureOptions::LINEAR),
-                        ));
-                    }
-                    if let Some((_, tex)) = cache {
-                        let size = vec2(480.0, 104.0) * (preview_rect.width() / 480.0).min(preview_rect.height() / 104.0);
-                        painter.image(
-                            tex.id(),
-                            egui::Rect::from_center_size(preview_rect.center(), size),
-                            egui::Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
-                            Color32::WHITE,
-                        );
-                    }
-                }
-                SavedSig::Image(image) => {
-                    image_preview(ui, preview_rect, image, &mut app.saved_signature_previews[i]);
-                }
-                SavedSig::Drawn(strokes) => {
-                    let bounds = strokes
-                        .iter()
-                        .flatten()
-                        .filter(|p| p.iter().all(|v| v.is_finite()))
-                        .fold(egui::Rect::NOTHING, |r, p| r.union(egui::Rect::from_min_max(pos2(p[0], p[1]), pos2(p[0], p[1]))));
-                    if bounds.is_finite() {
-                        let scale = (preview_rect.width() / bounds.width().max(0.01)).min(preview_rect.height() / bounds.height().max(0.01));
-                        for stroke in strokes {
-                            let pts = stroke
-                                .iter()
-                                .filter(|p| p.iter().all(|v| v.is_finite()))
-                                .map(|p| preview_rect.center() + vec2(p[0] - bounds.center().x, bounds.center().y - p[1]) * scale)
-                                .collect();
-                            painter.add(egui::Shape::line(pts, Stroke::new(1.5, Color32::BLACK)));
-                        }
-                    }
-                }
-            }
+            paint_saved(ui, rect.shrink(8.0), saved, &mut app.saved_signature_previews[i], &format!("saved-{what}"));
             if response.on_hover_text(label("Place saved {what}")).clicked() {
                 command = Some(use_id);
             }
@@ -443,6 +543,47 @@ pub(crate) fn signature_entries(ui: &mut egui::Ui, app: &mut crate::PdfCraftApp,
         ui.add_space(4.0);
     }
     command
+}
+
+/// Draw a saved signature as large as fits in `rect`, centred: typed text and images through
+/// `cache` (a texture named `key`), strokes as lines.
+pub(crate) fn paint_saved(ui: &egui::Ui, rect: egui::Rect, saved: &SavedSig, cache: &mut Option<(SavedSig, egui::TextureHandle)>, key: &str) {
+    let painter = ui.painter_at(rect);
+    match saved {
+        SavedSig::Typed(text) => {
+            if cache.as_ref().is_none_or(|(s, _)| s != saved) {
+                *cache = Some((saved.clone(), ui.ctx().load_texture(key, script_preview(text, 480, 104), egui::TextureOptions::LINEAR)));
+            }
+            if let Some((_, tex)) = cache {
+                let size = vec2(480.0, 104.0) * (rect.width() / 480.0).min(rect.height() / 104.0);
+                painter.image(
+                    tex.id(),
+                    egui::Rect::from_center_size(rect.center(), size),
+                    egui::Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+                    Color32::WHITE,
+                );
+            }
+        }
+        SavedSig::Image(image) => image_preview(ui, rect, image, cache),
+        SavedSig::Drawn(strokes) => {
+            let bounds = strokes
+                .iter()
+                .flatten()
+                .filter(|p| p.iter().all(|v| v.is_finite()))
+                .fold(egui::Rect::NOTHING, |r, p| r.union(egui::Rect::from_min_max(pos2(p[0], p[1]), pos2(p[0], p[1]))));
+            if bounds.is_finite() {
+                let scale = (rect.width() / bounds.width().max(0.01)).min(rect.height() / bounds.height().max(0.01));
+                for stroke in strokes {
+                    let pts = stroke
+                        .iter()
+                        .filter(|p| p.iter().all(|v| v.is_finite()))
+                        .map(|p| rect.center() + vec2(p[0] - bounds.center().x, bounds.center().y - p[1]) * scale)
+                        .collect();
+                    painter.add(egui::Shape::line(pts, Stroke::new(1.5, Color32::BLACK)));
+                }
+            }
+        }
+    }
 }
 
 /// Preview and clicks with a Fill & Sign tool on one page.
@@ -537,6 +678,8 @@ pub(crate) fn type_box(ctx: &egui::Context, view: &mut DocView, info: &DocInfo, 
     let mut cancel = false;
     egui::Area::new(egui::Id::new(("fill-text", view.id.0))).order(egui::Order::Foreground).fixed_pos(pos).show(ctx, |ui| {
         let Some(t) = view.fill_text.as_mut() else { return };
+        // The box is white in every theme, so the caret must not follow the theme (pale in dark mode) (#655).
+        ui.visuals_mut().text_cursor.stroke.color = crate::edit_text_ui::caret_color_on(Color32::WHITE);
         let width = ((t.text.chars().count().max(8) as f32) * TEXT_SIZE as f32 * 0.6 * zoom).clamp(60.0, 600.0);
         // The area's max rect is last frame's size, which caps the edit's width; widen it so the
         // box grows as text is typed.
@@ -605,7 +748,7 @@ pub(crate) fn signature_pad(
             d.image_mode = false;
             // The Image tab shares the result; show this tab's own again.
             if let Some(scan) = d.scan.as_mut() {
-                scan.rescan(&mut d.image, true);
+                scan.rescan_in_background(&mut d.image, true, Some(ui.ctx()));
             }
         }
     });
@@ -616,9 +759,7 @@ pub(crate) fn signature_pad(
         return (apply, cancel, browse);
     }
     if d.image_mode {
-        ui.label(
-            egui::RichText::new(tl!("Choose a PNG or JPEG image. Large images are scaled down. Transparency is preserved.")).color(t.text_muted),
-        );
+        ui.label(egui::RichText::new(tl!("Choose a PNG or JPEG image (up to 4 MiB). Transparency is preserved.")).color(t.text_muted));
         let browse = crate::widgets::ghost_button(ui, "folder", tl!("Browse…")).clicked();
         let (rect, _) = ui.allocate_exact_size(vec2(460.0, 150.0), Sense::hover());
         ui.painter().rect_filled(rect, CornerRadius::same(6), Color32::WHITE);
@@ -701,10 +842,10 @@ fn scan_tab(
         if let Some(scan) = d.scan.as_mut() {
             ui.add_space(8.0);
             if crate::icons::button(ui, "rotate-ccw", 28.0, false, tl!("Rotate counterclockwise")).clicked() {
-                scan.turn(Turn::CounterClockwise, &mut d.image);
+                scan.turn(Turn::CounterClockwise, &mut d.image, Some(ui.ctx()));
             }
             if crate::icons::button(ui, "rotate-cw", 28.0, false, tl!("Rotate clockwise")).clicked() {
-                scan.turn(Turn::Clockwise, &mut d.image);
+                scan.turn(Turn::Clockwise, &mut d.image, Some(ui.ctx()));
             }
         }
     });
@@ -712,6 +853,9 @@ fn scan_tab(
     let painter = ui.painter_at(area);
     painter.rect_filled(area, CornerRadius::same(6), t.pasteboard);
     painter.rect_stroke(area, CornerRadius::same(6), Stroke::new(1.0, t.border), egui::StrokeKind::Inside);
+    if let Some(scan) = d.scan.as_mut() {
+        scan.poll(&mut d.image, Some(ui.ctx()));
+    }
     let Some(scan) = d.scan.as_mut() else {
         painter.text(area.center(), egui::Align2::CENTER_CENTER, tl!("No photo chosen"), egui::FontId::proportional(13.0), t.text_muted);
         resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Other, true, tl!("Photo")));
@@ -783,11 +927,11 @@ fn scan_tab(
         .clamped(pw as u32, ph as u32);
         if frame != scan.frame {
             scan.frame = frame;
-            scan.rescan(&mut d.image, false);
+            scan.rescan_in_background(&mut d.image, false, Some(ui.ctx()));
         }
     }
     if resp.drag_stopped() && scan.drag.take().is_some() {
-        scan.rescan(&mut d.image, true);
+        scan.rescan_in_background(&mut d.image, true, Some(ui.ctx()));
     }
 
     // Dim the photo outside the frame, then outline it with corner handles.
@@ -827,10 +971,10 @@ fn scan_tab(
         let slider = ui.add(egui::Slider::new(&mut scan.sensitivity, 0..=100)).labelled_by(l.id);
         if slider.changed() {
             // Quick previews while dragging; keyboard steps get the full result at once.
-            scan.rescan(&mut d.image, !slider.dragged());
+            scan.rescan_in_background(&mut d.image, !slider.dragged(), Some(ui.ctx()));
         }
         if slider.drag_stopped() {
-            scan.rescan(&mut d.image, true);
+            scan.rescan_in_background(&mut d.image, true, Some(ui.ctx()));
         }
     });
     ui.add_space(4.0);
@@ -949,7 +1093,7 @@ impl crate::PdfCraftApp {
             let (limit, too_large) = if scan {
                 (pdfcraft_engine::signature_scan::MAX_PHOTO_BYTES, ScanError::Size.to_string())
             } else {
-                (pdfcraft_engine::signature_image::MAX_SOURCE_IMAGE_BYTES, pdfcraft_engine::signature_image::SignatureImageError::Size.to_string())
+                (pdfcraft_engine::signature_image::MAX_SIGNATURE_IMAGE_BYTES, pdfcraft_engine::signature_image::SignatureImageError::Size.to_string())
             };
             wasm_bindgen_futures::spawn_local(async move {
                 let bytes = if let Some(file) = dialog.pick_file().await {
@@ -1023,7 +1167,7 @@ impl crate::PdfCraftApp {
         }
         let scan = d.scan_mode;
         let Some(file) = dropped.into_iter().next() else { return Vec::new() };
-        let limit = pdfcraft_engine::signature_image::MAX_SOURCE_IMAGE_BYTES;
+        let limit = pdfcraft_engine::signature_image::MAX_SIGNATURE_IMAGE_BYTES;
         let path = file.path().to_path_buf();
         let bytes: Result<Vec<u8>, String> = if path.is_absolute() {
             use std::io::Read as _;
@@ -1048,7 +1192,7 @@ impl crate::PdfCraftApp {
     fn use_signature_photo(&mut self, result: Result<SignaturePhoto, String>) {
         match result.and_then(|photo| pdfcraft_engine::guard(|| ScanDraft::new(photo))) {
             Ok(mut scan) => {
-                scan.rescan(&mut self.signature_draft.image, true);
+                scan.rescan_in_background(&mut self.signature_draft.image, true, self.ctx.as_ref());
                 self.signature_draft.scan = Some(scan);
                 self.toast = None;
             }

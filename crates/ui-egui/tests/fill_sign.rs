@@ -1262,6 +1262,20 @@ fn choose_photo(h: &mut Harness<'static, PdfCraftApp>, path: &std::path::Path) {
     h.state_mut().pick_override = Some(vec![path.to_string_lossy().into_owned()]);
     h.get_by_label("Choose photo…").click();
     h.run_steps(3);
+    settle_scan(h);
+}
+
+/// Scans run on a worker thread: step frames until the answer has been picked up.
+fn settle_scan(h: &mut Harness<'static, PdfCraftApp>) {
+    for _ in 0..1000 {
+        if !h.state().signature_draft.scan.as_ref().is_some_and(|s| s.scanning()) {
+            h.run_steps(1);
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        h.run_steps(1);
+    }
+    panic!("the signature scan did not finish");
 }
 
 /// A transparent signature in the ink's colour: no paper, table or shadow is left.
@@ -1315,6 +1329,7 @@ fn scanned_signatures_are_framed_cleaned_adjusted_placed_and_remembered() {
     }
     h.drop_at(b);
     h.run_steps(3);
+    settle_scan(&mut h);
     let one_word = h.state().signature_draft.scan.as_ref().unwrap().frame;
     assert!(one_word.x + one_word.width < 420, "{one_word:?}");
     let [w, _] = h.state().signature_draft.image.as_ref().unwrap().size();
@@ -1435,6 +1450,7 @@ fn photos_and_images_dropped_on_the_signature_pad_are_imported_not_opened() {
         h.state_mut().signature_draft.scan = None;
         h.input_mut().dropped_files.push(std::sync::Arc::new(file));
         h.run_steps(3);
+        settle_scan(&mut h);
         assert!(h.state().signature_draft.scan.is_some(), "the photo is scanned");
         assert!(h.state().signature_draft.image.is_some());
     }

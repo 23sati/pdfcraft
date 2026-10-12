@@ -163,7 +163,7 @@ pub(crate) fn console_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens)
     });
     ui.add_space(6.0);
     let input = ui.add(
-        egui::TextEdit::multiline(&mut app.js_console.input)
+        crate::widgets::block(&mut app.js_console.input)
             .code_editor()
             .desired_rows(4)
             .desired_width(f32::INFINITY)
@@ -190,7 +190,7 @@ pub(crate) fn document_js_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
     let mut edit: Option<Edit> = None;
     ui.horizontal(|ui| {
         ui.label(tl!("Script Name:"));
-        ui.add(egui::TextEdit::singleline(&mut app.doc_js.name).desired_width(240.0).id_salt("doc-js-name"));
+        ui.add(crate::widgets::line(&mut app.doc_js.name).desired_width(240.0).id_salt("doc-js-name"));
     });
     ui.add_space(4.0);
     egui::Frame::new().fill(t.hover).corner_radius(egui::CornerRadius::same(6)).inner_margin(egui::Margin::same(8)).show(ui, |ui| {
@@ -208,7 +208,7 @@ pub(crate) fn document_js_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
         });
     });
     ui.add_space(6.0);
-    ui.add(egui::TextEdit::multiline(&mut app.doc_js.script).code_editor().desired_rows(8).desired_width(f32::INFINITY).id_salt("doc-js-script"));
+    ui.add(crate::widgets::block(&mut app.doc_js.script).code_editor().desired_rows(8).desired_width(f32::INFINITY).id_salt("doc-js-script"));
     ui.add_space(8.0);
     let name = app.doc_js.name.trim().to_string();
     let close = match buttons(ui, "Save", &["Close", "Delete"]).as_deref() {
@@ -230,7 +230,7 @@ pub(crate) fn document_js_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
     close
 }
 
-/// Preferences: interface language, identity and JavaScript. Returns `true` to close.
+/// Preferences: interface language and size, appearance, identity and JavaScript. Returns `true` to close.
 pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> bool {
     ui.label(egui::RichText::new(tl!("Preferences")).font(theme::semibold(18.0)));
     ui.horizontal(|ui| {
@@ -255,8 +255,10 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
     ui.horizontal(|ui| {
         use crate::ui_scale;
         ui.label(tl!("Interface size"));
-        let auto =
-            crate::i18n::fmt(tl!("Auto ({percent}%)"), &[("percent", &ui_scale::percent(ui_scale::factor(None, app.system_text_scale)).to_string())]);
+        // Auto shows the size it draws at: the display's scale times the system's text scale.
+        let native = ui.ctx().native_pixels_per_point().unwrap_or(1.0);
+        let auto_percent = ui_scale::percent(ui_scale::drawn(None, app.system_text_scale, native));
+        let auto = crate::i18n::fmt(tl!("Auto ({percent}%)"), &[("percent", &auto_percent.to_string())]);
         let selected = app.ui_scale.map_or_else(|| auto.clone(), |f| format!("{}%", ui_scale::percent(f)));
         egui::ComboBox::from_id_salt("interface-size").selected_text(selected).show_ui(ui, |ui| {
             if ui.selectable_value(&mut app.ui_scale, None, auto).clicked() {
@@ -276,6 +278,22 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
             .small()
             .color(t.text_muted),
     );
+    ui.horizontal(|ui| {
+        ui.label(tl!("Tools panel side"));
+        let right = app.docking.tools_on_right();
+        if ui.selectable_label(!right, tl!("Left")).clicked()
+            && let Err(error) = app.docking.set_tools_on_right(false)
+        {
+            app.notify(error);
+        }
+        if ui.selectable_label(right, tl!("Right")).clicked()
+            && let Err(error) = app.docking.set_tools_on_right(true)
+        {
+            app.notify(error);
+        }
+    });
+    ui.add_space(8.0);
+    crate::appearance::preferences_section(ui, app, t);
     ui.add_space(8.0);
     ui.label(egui::RichText::new(tl!("Documents and view")).font(theme::semibold(13.0)));
     ui.horizontal(|ui| {
@@ -287,7 +305,7 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
             (crate::Mode::Convert, "Convert"),
             (crate::Mode::Sign, "E-Sign"),
         ] {
-            ui.radio_value(&mut app.default_mode, mode, tl!(label));
+            widgets::radio_value(ui, &mut app.default_mode, mode, tl!(label));
         }
     });
     ui.label(
@@ -299,15 +317,16 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
     ui.horizontal(|ui| {
         ui.label(tl!("Default page display"));
         for l in crate::canvas::PageLayout::ORDER {
-            ui.radio_value(&mut defaults.layout, l, tl!(l.label()));
+            widgets::radio_value(ui, &mut defaults.layout, l, tl!(l.label()));
         }
+        ui.add(widgets::checkbox(&mut defaults.continuous, tl!("Continuous scrolling")));
     });
     ui.horizontal(|ui| {
         use crate::canvas::Fit;
         ui.label(tl!("Default zoom"));
-        ui.radio_value(&mut defaults.fit, Fit::Width, tl!("Fit to width"));
-        ui.radio_value(&mut defaults.fit, Fit::Page, tl!("Zoom to page level"));
-        ui.radio_value(&mut defaults.fit, Fit::None, tl!("Custom"));
+        widgets::radio_value(ui, &mut defaults.fit, Fit::Width, tl!("Fit to width"));
+        widgets::radio_value(ui, &mut defaults.fit, Fit::Page, tl!("Zoom to page level"));
+        widgets::radio_value(ui, &mut defaults.fit, Fit::None, tl!("Custom"));
         // Editing the percentage selects Custom.
         let mut percent = defaults.zoom * 100.0;
         if ui.add(egui::DragValue::new(&mut percent).range(8.0..=6400.0).max_decimals(0).suffix("%")).changed() {
@@ -319,20 +338,35 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
             .small()
             .color(t.text_muted),
     );
+    ui.horizontal(|ui| {
+        ui.label(tl!("Units"));
+        for u in crate::units::Unit::ALL {
+            widgets::radio_value(ui, &mut app.units, u, u.label());
+        }
+    });
+    ui.label(egui::RichText::new(tl!("For page sizes and margins.")).small().color(t.text_muted));
     // The web build has no file paths to reopen.
     #[cfg(not(target_arch = "wasm32"))]
-    ui.checkbox(&mut app.reopen_last_session, tl!("Reopen the files that were open when PdfCraft last closed"));
+    ui.add(widgets::checkbox(&mut app.reopen_last_session, tl!("Reopen the files that were open when PdfCraft last closed")));
+    // The web build has no files on disk to watch.
+    #[cfg(not(target_arch = "wasm32"))]
+    ui.add(widgets::checkbox(&mut app.reload_changed_files, tl!("Reload documents when their files change on disk")));
+    ui.horizontal(|ui| {
+        ui.label(tl!("Mouse wheel scroll speed"));
+        for speed in crate::scroll_speed::ScrollSpeed::ALL {
+            widgets::radio_value(ui, &mut app.scroll_speed, speed, tl_ctx!("scroll speed", speed.label()));
+        }
+    });
     ui.add_space(8.0);
     // Identity: the author of new comments (Acrobat: Preferences ▸ Identity).
     ui.label(egui::RichText::new(tl!("Identity")).font(theme::semibold(13.0)));
     ui.horizontal(|ui| {
         let label = ui.label(tl!("Name on new comments"));
-        ui.add(egui::TextEdit::singleline(&mut app.comment_prefs.author).desired_width(220.0).char_limit(crate::MAX_AUTHOR_CHARS))
-            .labelled_by(label.id);
+        ui.add(crate::widgets::line(&mut app.comment_prefs.author).desired_width(220.0).char_limit(crate::MAX_AUTHOR_CHARS)).labelled_by(label.id);
     });
     ui.add_space(8.0);
     ui.label(egui::RichText::new(tl!("Fill & Sign")).font(theme::semibold(13.0)));
-    ui.checkbox(&mut app.flatten_fill_sign_on_save, tl!("Flatten Fill & Sign when saving"));
+    ui.add(widgets::checkbox(&mut app.flatten_fill_sign_on_save, tl!("Flatten Fill & Sign when saving")));
     ui.label(
         egui::RichText::new(tl!("Text, marks and signatures become part of the page. Other comments stay editable.")).small().color(t.text_muted),
     );
@@ -343,7 +377,7 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
     egui::Frame::new().fill(t.hover).corner_radius(egui::CornerRadius::same(6)).inner_margin(egui::Margin::same(10)).show(ui, |ui| {
         ui.set_width(ui.available_width());
         let mut on = app.session.javascript();
-        if ui.checkbox(&mut on, tl!("Enable Acrobat JavaScript")).changed() {
+        if ui.add(widgets::checkbox(&mut on, tl!("Enable Acrobat JavaScript"))).changed() {
             app.session.set_javascript(on);
         }
         ui.label(
