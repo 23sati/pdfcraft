@@ -1165,9 +1165,9 @@ tier = "P0"
 milestone = "M3"
 status = "shipped"
 commands = []
-tools = []
-evidence = ["crates/ui-egui/tests/view.rs::clicking_a_link_goes_to_its_destination", "crates/ui-egui/tests/view.rs::link_destinations_scroll_to_their_position", "crates/render/src/inspect.rs::bookmarks_and_links_keep_their_destination_view"]
-notes = "GoTo and URI links; other action types (JavaScript, Launch, named actions) arrive with M6. Destinations keep their position and zoom (/XYZ, /Fit, /FitH, /FitV, /FitR, named); the /FitB* content box is read as the whole page"
+tools = ["link_open"]
+evidence = ["crates/ui-egui/tests/view.rs::clicking_a_link_goes_to_its_destination", "crates/ui-egui/tests/view.rs::link_destinations_scroll_to_their_position", "crates/render/src/inspect.rs::bookmarks_and_links_keep_their_destination_view", "crates/render/src/inspect.rs::links_read_bounded_local_remote_go_to_actions", "crates/automation/tests/automation.rs::local_gotor_link_open_applies_destinations_and_honors_root", "crates/ui-egui/tests/document_links.rs::a_local_gotor_link_opens_in_a_tab_and_applies_its_destination"]
+notes = "GoTo and URI links plus local-PDF GoToR links: source-relative or local absolute /F paths, /UF preferred in file-spec dictionaries, explicit numeric page/view destinations, and internal tabs. link_open honors --root. Named remote destinations open at default view with a warning; /NewWindow is a tab hint. URL/network file systems, GoToE, Launch and other actions are not executed. Same-document destinations retain their supported /XYZ, /Fit, /FitH, /FitV and /FitR views; /FitB* is read as whole-page fit."
 
 [[feature]]
 id = "view.annotation-hover"
@@ -2191,7 +2191,7 @@ status = "shipped"
 commands = ["edit.link"]
 tools = ["link_edit"]
 evidence = ["crates/ui-egui/tests/ui_group/pdf_links.rs::drawing_editing_and_deleting_links", "crates/automation/tests/automation.rs::links_through_tools", "crates/annot/src/tests.rs::links_are_added_edited_listed_and_removed"]
-notes = "visible/invisible rectangle, highlight, thickness, solid/dashed/underline, colour; action"
+notes = "visible/invisible rectangle, highlight, thickness, solid/dashed/underline and colour; supported page/URI action editing. Appearance-only edits preserve unsupported actions, including GoToR."
 
 [[feature]]
 id = "edit.links-from-urls"
@@ -7900,8 +7900,8 @@ milestone = "M10"
 status = "shipped"
 commands = ["print.dialog"]
 tools = ["doc_print", "printers"]
-evidence = ["crates/ui-egui/tests/print.rs::print_dialog_lays_out_sheets_and_saves_a_pdf", "crates/engine/src/tests.rs::printing_lays_out_sheets_that_render"]
-notes = "⌘P; settings and live sheet preview"
+evidence = ["crates/ui-egui/tests/print.rs::print_dialog_lays_out_sheets_and_saves_a_pdf", "crates/engine/src/tests.rs::printing_lays_out_sheets_that_render", "crates/ui-egui/src/web_print.rs::a_job_draws_every_sheet_at_its_planned_resolution_then_builds_the_page", "crates/ui-egui/src/web_print.rs::the_print_page_turns_sideways_sheets_names_other_sizes_and_ends_without_a_blank_page"]
+notes = "⌘P; settings and live sheet preview; on the web the same dialog prints through the browser's print dialog"
 
 [[feature]]
 id = "print.printer-selection"
@@ -7912,8 +7912,8 @@ milestone = "M10"
 status = "shipped"
 commands = ["print.dialog"]
 tools = ["printers", "printer_options", "doc_print"]
-evidence = ["crates/print/src/tests.rs::spooler_arguments_and_printer_list", "crates/print/src/tests.rs::driverless_printers_join_the_list_without_a_queue", "crates/print/src/tests.rs::windows_printers_carry_one_default_and_keep_their_names", "crates/print/src/tests.rs::printer_options_come_from_the_ppd", "crates/print/src/tests.rs::printer_option_defaults_and_job_arguments", "crates/ui-egui/tests/print.rs::print_dialog_shows_the_printer_driver_options", "crates/ui-egui/tests/print.rs::printers_listed_in_the_background_preselect_the_default_unless_one_was_picked"]
-notes = "CUPS queues via lpstat -p -d and driverless destinations without a queue via lpstat -e; on Windows the queues and the default come from Win32_Printer (PowerShell CIM) and jobs are rendered with Windows.Data.Pdf and spooled through shared craft-print at each sheet's physical size and orientation, with bounded raster resolution up to 600 dpi (not vector passthrough); the printer list and submission run on workers without a console window. Native Windows regression execution is pending; Save as PDF on every platform. Properties…: on CUPS the driver's own PPD job options (tray, paper type, finishing …, not installable options or what the dialog sets) for this job, sent as lp -o; on Windows the driver's Printing Preferences window (printui), saved as that printer's per-user defaults rather than per job"
+evidence = ["crates/print/src/tests.rs::spooler_arguments_and_printer_list", "crates/print/src/tests.rs::driverless_printers_join_the_list_without_a_queue", "crates/print/src/tests.rs::windows_printers_carry_one_default_and_keep_their_names", "crates/print/src/tests.rs::printer_options_come_from_the_ppd", "crates/print/src/tests.rs::printer_option_defaults_and_job_arguments", "crates/ui-egui/tests/print.rs::print_dialog_shows_the_printer_driver_options", "crates/ui-egui/tests/print.rs::printers_listed_in_the_background_preselect_the_default_unless_one_was_picked", "crates/ui-egui/src/web_print.rs::resolution_falls_with_the_sheet_count_and_long_jobs_are_refused", "crates/ui-egui/src/web_print.rs::large_sheets_are_drawn_within_the_pixel_cap_and_bad_sizes_are_refused", "crates/ui-egui/src/web_print.rs::a_sink_error_or_a_page_that_isnt_there_stops_the_job"]
+notes = "CUPS queues via lpstat -p -d and driverless destinations without a queue via lpstat -e; on Windows the queues and the default come from Win32_Printer (PowerShell CIM) and jobs are rendered with Windows.Data.Pdf and spooled through shared craft-print at each sheet's physical size and orientation, with bounded raster resolution up to 600 dpi (not vector passthrough); the printer list and submission run on workers without a console window. Native Windows regression execution is pending; Save as PDF on every platform. Properties…: on CUPS the driver's own PPD job options (tray, paper type, finishing …, not installable options or what the dialog sets) for this job, sent as lp -o; on Windows the driver's Printing Preferences window (printui), saved as that printer's per-user defaults rather than per job. On the web: \"Browser's print dialog\" (the default there) reaches the system's printers through the browser; PdfCraft draws the sheets itself (300 dpi up to 100 sheets, 200 up to 300, 150 up to 1,000; at most 64 megapixels a sheet and 1 GiB a job) and prints them from a hidden iframe, one per printed page, a landscape sheet among portrait ones turned onto the paper; copies, two-sided and colour are chosen in the browser's dialog; a browser that refuses to print gets the print-ready PDF as a download. Checked in headless Chromium, not yet in Firefox or Safari; pictures, not vectors; sheets of another paper size print at their own size only where the browser honours named @page sizes (Chromium doesn't)"
 
 [[feature]]
 id = "print.copies-collate"
@@ -8396,8 +8396,8 @@ milestone = "M12"
 status = "shipped"
 commands = ["a11y.check"]
 tools = ["accessibility_check"]
-evidence = ["crates/a11y/src/tests.rs::an_untagged_document_fails_the_document_rules", "crates/a11y/src/tests.rs::a_well_tagged_document_passes", "crates/a11y/src/tests.rs::structure_findings_identify_indirect_elements_without_guessing_inline_objects", "crates/a11y/src/tests.rs::figures_are_listed_with_their_alt_text_and_place", "crates/a11y/src/tests.rs::annotation_findings_only_locate_valid_rectangles", "crates/automation/tests/automation.rs::accessibility_check_locates_field_description_on_page", "crates/ui-egui/tests/accessibility.rs::checking_fixing_skipping_and_reporting", "crates/ui-egui/tests/accessibility.rs::checker_shows_a_figure_finding_on_its_page", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools"]
-notes = "full check: options dialog (report, page range, 32 rules by category, 31 on by default), results panel by category with Passed / Failed / Needs manual check / Skipped and findings that go to their page. Locatable figure, annotation and form-widget findings flash their bounds on the page; accessibility_check exposes those bounds in PDF user space. Other findings navigate to their page. Structure findings expose the indirect tag object number and generation through accessibility_check, when available, for precise follow-up in the Tags Panel."
+evidence = ["crates/a11y/src/tests.rs::an_untagged_document_fails_the_document_rules", "crates/a11y/src/tests.rs::a_well_tagged_document_passes", "crates/a11y/src/tests.rs::structure_findings_identify_indirect_elements_without_guessing_inline_objects", "crates/a11y/src/tests.rs::figures_are_listed_with_their_alt_text_and_place", "crates/a11y/src/tests.rs::annotation_findings_only_locate_valid_rectangles", "crates/automation/tests/automation.rs::accessibility_check_locates_field_description_on_page", "crates/ui-egui/tests/accessibility.rs::checking_fixing_skipping_and_reporting", "crates/ui-egui/tests/accessibility.rs::checker_shows_a_figure_finding_on_its_page", "crates/ui-egui/tests/accessibility.rs::checker_summary_does_not_hide_manual_review", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools"]
+notes = "full check: options dialog (report, page range, 32 rules by category, 31 on by default), results panel by category with Passed / Failed / Needs manual check / Skipped and findings that go to their page. A zero-failure check reports manual or skipped rules rather than claiming no issues. Locatable figure, annotation and form-widget findings flash their bounds on the page; accessibility_check exposes those bounds in PDF user space. Other findings navigate to their page. Structure findings expose the indirect tag object number and generation through accessibility_check, when available, for precise follow-up in the Tags Panel."
 
 [[feature]]
 id = "a11y.checker-report"
@@ -8409,7 +8409,7 @@ status = "shipped"
 commands = ["a11y.report"]
 tools = ["accessibility_report", "accessibility_review_record", "accessibility_review_html"]
 evidence = ["crates/a11y/src/tests.rs::rules_have_ids_and_the_report_lists_them", "crates/ui-egui/tests/accessibility.rs::checking_fixing_skipping_and_reporting", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools", "crates/automation/tests/automation.rs::accessibility_review_record_compares_two_versions_without_changing_them", "crates/automation/src/a11y.rs::document_names_are_escaped_in_review_html"]
-notes = "HTML checker report: summary counts and a table per category with descriptions and findings. Headless comparison of two open versions exports the same before-and-after evidence as JSON or accessible, self-contained HTML with hashes, rule changes, and remaining review items."
+notes = "HTML checker report: summary counts and a table per category with descriptions and findings. The headline shows manual or skipped rules when there are no automated failures. Headless comparison of two open versions exports the same before-and-after evidence as JSON or accessible, self-contained HTML with hashes, rule changes, and remaining review items."
 
 [[feature]]
 id = "a11y.checker-fix"
@@ -8849,11 +8849,11 @@ title = "Tags panel (new, delete, find, change to artifact)"
 area = "M"
 tier = "P1"
 milestone = "M12"
-status = "planned"
-commands = []
-tools = []
-evidence = []
-notes = ""
+status = "partial"
+commands = ["a11y.tags"]
+tools = ["accessibility_tags"]
+evidence = ["crates/ui-egui/tests/accessibility.rs::tags_panel_edits_a_tag_property_and_undoes_it", "crates/ui-egui/tests/accessibility.rs::checker_finding_opens_its_structure_tag"]
+notes = "The right-side Tags panel lists reachable indirect tags as a collapsible hierarchy, filters by type or title with ancestors, navigates to their page and edits properties. Checker findings linked to indirect tags open the matching tag without losing unsaved edits. Inline tags, adding/deleting tags, artifact marking and finding content remain planned in #982."
 
 [[feature]]
 id = "a11y.tag-properties"
@@ -8862,10 +8862,10 @@ area = "M"
 tier = "P1"
 milestone = "M12"
 status = "partial"
-commands = []
+commands = ["a11y.tags"]
 tools = ["accessibility_tags", "accessibility_set_tag_property"]
-evidence = ["crates/a11y/src/tests.rs::reachable_tag_properties_round_trip_and_reject_unrelated_objects", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools"]
-notes = "The engine and headless tools list reachable indirect tags and edit type, title, actual text, alternate text and language with undo. An on-screen tag properties editor and inline tag dictionary support remain planned with the Tags Panel (#982)."
+evidence = ["crates/a11y/src/tests.rs::reachable_tag_properties_round_trip_and_reject_unrelated_objects", "crates/a11y/src/tests.rs::tag_hierarchy_keeps_indirect_parent_through_inline_tags", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools", "crates/ui-egui/tests/accessibility.rs::tags_panel_edits_a_tag_property_and_undoes_it"]
+notes = "The engine, headless tools and right-side editor list reachable indirect tags with parent and depth and edit type, title, actual text, alternate text and language with undo. Inline tag dictionaries and structural operations remain planned with the Tags Panel (#982)."
 
 [[feature]]
 id = "a11y.role-map"
@@ -9021,7 +9021,7 @@ status = "planned"
 commands = []
 tools = []
 evidence = []
-notes = ""
+notes = "Headless review sidecar tools save and reopen human decisions against the exact working PDF SHA-256. The guided GUI action and step-by-step remediation are still missing."
 
 [[feature]]
 id = "a11y.setup-assistant"
@@ -9033,7 +9033,7 @@ status = "planned"
 commands = []
 tools = []
 evidence = []
-notes = ""
+notes = "Review decisions can be saved and reopened through accessibility_review_save and accessibility_review_load. A GUI assistant is still missing."
 
 [[feature]]
 id = "a11y.read-aloud"
@@ -9065,11 +9065,11 @@ title = "Replace page colours (high contrast)"
 area = "M"
 tier = "P2"
 milestone = "M12"
-status = "planned"
+status = "shipped"
 commands = []
-tools = []
-evidence = []
-notes = ""
+tools = ["view_reading_colors"]
+evidence = ["crates/automation/tests/automation.rs::reading_colors_through_tools", "crates/render/src/raster.rs::reading_colors_map_solid_paints_and_leave_images", "crates/render/src/raster.rs::reading_colors_tiles_match_full_render", "crates/render/src/raster.rs::print_preview_requests_render_with_reading_colors_off", "crates/ui-egui/tests/reading_colors.rs::reading_colours_preference_round_trips", "crates/ui-egui/tests/reading_colors.rs::reading_colours_seed_on_open"]
+notes = "View only, off by default: Preferences ▸ Reading colours holds the app-wide preference, seeded into every document as it opens (including created ones), and view_reading_colors reads and sets it per document (Acrobat's Replace Document Colors). Solid text paints and, by default, line-art paints (including stencil-mask image paints) are remapped by luminance — each lerps between the preset's text and background colour by how dark or light the original paint is — while images, shadings and tiling patterns pass through untouched. Presets: black on white, white on black, yellow on black, green on black, or a custom #RRGGBB pair; only_black limits the mapping to near-black paints (a 10% luminance threshold — our choice; Acrobat's was not observed). Display only: the document is not changed and print and export are unaffected; print previews and view snapshots render with the document's true colours (a preview matches the uncoloured printout, and a snapshot is an export surface), so reading colours apply to the reading view only. Closes #897 (duplicate #488)."
 
 [[feature]]
 id = "a11y.reflow-tagged"

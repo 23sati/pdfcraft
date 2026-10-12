@@ -394,6 +394,7 @@ impl PdfCraftApp {
             }
             "a11y.report" => self.show_accessibility_report(),
             "a11y.alt_text" => self.start_alt_text(),
+            "a11y.tags" => self.choose_right_panel(Some(RightPanel::Tags)),
             "a11y.reading_options" => self.dialog = Some(Dialog::Properties(crate::PropsTab::Advanced)),
             "export.all_images" => self.dialog = Some(Dialog::Export(crate::export_ui::ExportKind::AllImages)),
             "edit.text" => {

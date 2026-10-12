@@ -2273,6 +2273,9 @@ comment menu	Edit	Επεξεργασία
 scroll speed	Slow	Αργή
 scroll speed	Normal	Κανονική
 scroll speed	Fast	Γρήγορη
+	Animation effects	Εφέ κίνησης
+animation effects	On	Ενεργά
+animation effects	Off	Ανενεργά
 	Enhance camera image	Βελτίωση εικόνας κάμερας
 	Drag the corners onto the document's edges, then choose Enhance page.	Σύρετε τις γωνίες στις άκρες του εγγράφου και επιλέξτε Βελτίωση σελίδας.
 	Enhance page	Βελτίωση σελίδας
@@ -2285,9 +2288,28 @@ scroll speed	Fast	Γρήγορη
 	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Το πρόγραμμα οδήγησης αυτού του εκτυπωτή δεν δέχεται ρυθμίσεις εκτύπωσης διπλής όψης από άλλα προγράμματα, οπότε ισχύει η δική του ρύθμιση. Αλλάξτε τη στις Ιδιότητες…
 	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Η γραμματοσειρά αυτού του πεδίου δεν μπορεί να σχεδιάσει το «{c}» ({code}), γι' αυτό το PdfCraft δείχνει ? στη θέση του. Η τιμή αποθηκεύεται και άλλα προγράμματα προβολής PDF επανασχεδιάζουν το πεδίο από αυτήν.
 	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Οι γραμματοσειρές με τις οποίες γράφει το PdfCraft δεν μπορούν να σχεδιάσουν το «{c}» ({code}), γι' αυτό εμφανίζεται ως ? σε κάθε πρόγραμμα προβολής PDF. Το κείμενο αποθηκεύεται.
+	Browser's print dialog	Παράθυρο εκτύπωσης του προγράμματος περιήγησης
+	Copies, two-sided printing and colour are chosen in the browser's print dialog.	Τα αντίγραφα, η εκτύπωση διπλής όψης και το χρώμα επιλέγονται στο παράθυρο εκτύπωσης του προγράμματος περιήγησης.
+	Preparing {n} sheets for printing…	Προετοιμασία {n} φύλλων για εκτύπωση…
+	Preparing sheet {done} of {total} for printing…	Προετοιμασία φύλλου {done} από {total} για εκτύπωση…
+	Opening the browser's print dialog…	Άνοιγμα του παραθύρου εκτύπωσης του προγράμματος περιήγησης…
+	Couldn't print from the browser ({e}); downloaded {name} to print instead	Δεν ήταν δυνατή η εκτύπωση από το πρόγραμμα περιήγησης ({e}); έγινε λήψη του {name} για εκτύπωση
 	Tools panel side	Πλευρά πλαισίου εργαλείων
 	Add comment	Προσθήκη σχολίου
 	Change tag properties	Αλλαγή ιδιοτήτων ετικέτας
+# Accessibility structure tags.
+	Tags panel	Πίνακας ετικετών
+	Tags	Ετικέτες
+	Tag type	Τύπος ετικέτας
+	Actual text	Πραγματικό κείμενο
+	Find a tag	Εύρεση ετικέτας
+	Collapse tag	Σύμπτυξη ετικέτας
+	Expand tag	Ανάπτυξη ετικέτας
+	Revert changes	Αναίρεση αλλαγών
+	Save tag properties	Αποθήκευση ιδιοτήτων ετικέτας
+	This document has no editable structure tags.	Αυτό το έγγραφο δεν έχει επεξεργάσιμες ετικέτες δομής.
+	{n} tags	{n} ετικέτες
+	Save or revert changes before selecting another tag.	Αποθηκεύστε ή αναιρέστε τις αλλαγές πριν επιλέξετε άλλη ετικέτα.
 	Left out: {names}	Παραλείφθηκαν: {names}
 	already a PDF	είναι ήδη PDF
 	no unused output name	δεν υπάρχει διαθέσιμο όνομα εξόδου
@@ -2302,3 +2324,26 @@ scroll speed	Fast	Γρήγορη
 	Ink sensitivity	Ευαισθησία μελανιού
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Δεν βρέθηκε υπογραφή στο πλαίσιο. Μετακινήστε το πλαίσιο πάνω από την υπογραφή ή αυξήστε την ευαισθησία μελανιού.
 	Couldn't use the photo: {e}	Δεν ήταν δυνατή η χρήση της φωτογραφίας: {e}
+
+# PDF tab context menu (#1233)
+	Close Tab	Κλείσιμο καρτέλας
+	Reopen Closed Tab	Επαναφορά κλειστής καρτέλας
+	Reveal in Finder	Εμφάνιση στο Finder
+	Reveal in File Explorer	Εμφάνιση στη διαχείριση αρχείων
+	Other colour…	Άλλο χρώμα…
+	Recent colours	Πρόσφατα χρώματα
+	Reading colours	Χρώματα ανάγνωσης
+	Replace document colours	Αντικατάσταση χρωμάτων εγγράφου
+	Page background	Φόντο σελίδας
+	Only change the colour of black text or line art	Αλλαγή χρώματος μόνο για μαύρο κείμενο ή γραμμικά σχέδια
+	Change the colour of line art as well as text	Αλλαγή χρώματος και στα γραμμικά σχέδια, όχι μόνο στο κείμενο
+	Colours are remapped while rendering; the document itself never changes.	Τα χρώματα αντιστοιχίζονται εκ νέου κατά την απόδοση· το ίδιο το έγγραφο δεν αλλάζει ποτέ.
+	Black on white	Μαύρο σε λευκό
+	White on black	Λευκό σε μαύρο
+	Yellow on black	Κίτρινο σε μαύρο
+	Green on black	Πράσινο σε μαύρο
+	Couldn't follow linked PDF: {reason}	Δεν ήταν δυνατό να ανοίξει το συνδεδεμένο PDF: {reason}
+	The linked PDF opened, but its named destination was not applied.	Το συνδεδεμένο PDF άνοιξε, αλλά ο ονομασμένος προορισμός του δεν εφαρμόστηκε.
+	The linked PDF opened, but its page destination was out of range.	Το συνδεδεμένο PDF άνοιξε, αλλά ο προορισμός σελίδας του είναι εκτός εύρους.
+	Local cross-PDF links require the desktop app	Οι τοπικοί σύνδεσμοι μεταξύ PDF απαιτούν την εφαρμογή υπολογιστή
+	The existing action will be preserved.	Η υπάρχουσα ενέργεια θα διατηρηθεί.
