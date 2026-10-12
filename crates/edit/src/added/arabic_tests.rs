@@ -131,6 +131,18 @@ fn an_item_below_the_old_limit_is_drawn_exactly_as_before() {
     let drawn = draw_laid_arabic(&mut doc, &item(), &laid, &Dict::new(), &mut fonts, &mut out, |id| Ok(boxed(0.5 + f64::from(id) * 0.01)));
     assert!(drawn.is_ok(), "{drawn:?}");
     assert_eq!(fonts.len(), 1);
+    // The synthetic outlines are fixed, but a build with craft-fonts labels their descriptor
+    // with the optional face's family. Check that label, then normalize only those two metadata
+    // values to the fontless golden. All geometry, streams and remaining objects stay exact.
+    let font = doc.dict(fonts.iter().next().unwrap().1).unwrap();
+    let descriptor_ref = font.get(b"FontDescriptor").unwrap().as_ref().unwrap();
+    let mut descriptor = doc.get(descriptor_ref).as_dict().unwrap().clone();
+    let family = pdfcraft_fonts::document_arabic_font().map_or("Arabic", |f| f.family);
+    assert_eq!(descriptor.get(b"FontName").unwrap().as_name().unwrap(), family.replace(' ', "").as_bytes());
+    assert_eq!(descriptor.get(b"FontFamily").unwrap().as_string().unwrap().bytes, family.as_bytes());
+    descriptor.set(b"FontName".to_vec(), Object::name("Arabic"));
+    descriptor.set(b"FontFamily".to_vec(), Object::String(PdfString::literal(b"Arabic".to_vec())));
+    doc.set(descriptor_ref, Object::Dict(descriptor));
     let mut bytes = out.clone();
     pdfcraft_cos::serialize(&Object::Dict(fonts.clone()), &mut bytes);
     bytes.extend(snapshot(&doc));

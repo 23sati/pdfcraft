@@ -135,6 +135,8 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 ## Progress log
 
+- **2026-10-11 (M11, optimizer safety and lossless profile):** Validate image/mask dimensions and decoded lengths before allocation, preserve other users of shared soft masks during resampling, and treat explicitly selected absent hidden information as a no-op. Add shared lossless settings and a headless `doc_optimize` profile retaining images and user data. Full-save reference generations remain tracked separately in #1143; monochrome compression and GUI preset management remain open. Overall estimates unchanged.
+
 - **2026-10-11 (M10.5, focused follow-up to #599):** Carry the architectural/ANSI/large ISO paper presets, current-page matching at 100%, and previewed PDF scale into the current print dialog and `doc_print`. Retains the #847/#1007 spooler and background discovery. Driver substitution, physical calibration, vector Windows printing and managed-endpoint restrictions remain separate gaps. Overall estimates unchanged.
 
 Newest first: the date, what moved, and the new overall estimate.
