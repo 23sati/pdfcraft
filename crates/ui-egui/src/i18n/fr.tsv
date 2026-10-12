@@ -2283,3 +2283,9 @@ scroll speed	Fast	Rapide
 	Ink sensitivity	Sensibilité à l’encre
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Aucune signature trouvée dans le cadre. Placez le cadre sur la signature ou augmentez la sensibilité à l’encre.
 	Couldn't use the photo: {e}	Impossible d’utiliser la photo : {e}
+
+# PDF tab context menu (#1233)
+	Close Tab	Fermer l’onglet
+	Reopen Closed Tab	Rouvrir l’onglet fermé
+	Reveal in Finder	Afficher dans le Finder
+	Reveal in File Explorer	Afficher dans l’explorateur de fichiers

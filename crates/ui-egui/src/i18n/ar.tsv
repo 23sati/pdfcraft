@@ -2304,3 +2304,9 @@ scroll speed	Fast	سريعة
 	Ink sensitivity	حساسية الحبر
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	لم يُعثر على توقيع داخل الإطار. حرّك الإطار فوق التوقيع أو ارفع حساسية الحبر.
 	Couldn't use the photo: {e}	تعذّر استخدام الصورة: {e}
+
+# PDF tab context menu (#1233)
+	Close Tab	إغلاق علامة التبويب
+	Reopen Closed Tab	إعادة فتح علامة التبويب المغلقة
+	Reveal in Finder	إظهار في Finder
+	Reveal in File Explorer	إظهار في مستكشف الملفات

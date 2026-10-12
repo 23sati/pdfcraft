@@ -2263,3 +2263,9 @@ scroll speed	Fast	Szybka
 	Ink sensitivity	Czułość na atrament
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	W ramce nie znaleziono podpisu. Przesuń ramkę na podpis lub zwiększ czułość na atrament.
 	Couldn't use the photo: {e}	Nie można użyć zdjęcia: {e}
+
+# PDF tab context menu (#1233)
+	Close Tab	Zamknij kartę
+	Reopen Closed Tab	Otwórz ponownie zamkniętą kartę
+	Reveal in Finder	Pokaż w Finderze
+	Reveal in File Explorer	Pokaż w Eksploratorze plików

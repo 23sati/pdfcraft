@@ -2288,3 +2288,9 @@ scroll speed	Fast	Hitro
 	Ink sensitivity	Občutljivost za črnilo
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	V okvirju ni bilo najdenega podpisa. Premaknite okvir nad podpis ali povečajte občutljivost za črnilo.
 	Couldn't use the photo: {e}	Fotografije ni bilo mogoče uporabiti: {e}
+
+# PDF tab context menu (#1233)
+	Close Tab	Zapri zavihek
+	Reopen Closed Tab	Znova odpri zaprti zavihek
+	Reveal in Finder	Prikaži v Finderju
+	Reveal in File Explorer	Prikaži v upravljalniku datotek

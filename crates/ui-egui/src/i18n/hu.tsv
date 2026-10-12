@@ -2282,3 +2282,9 @@ scroll speed	Fast	Gyors
 	Ink sensitivity	Tintaérzékenység
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	A keretben nem található aláírás. Húzza a keretet az aláírásra, vagy növelje a tintaérzékenységet.
 	Couldn't use the photo: {e}	A fénykép nem használható: {e}
+
+# PDF tab context menu (#1233)
+	Close Tab	Lap bezárása
+	Reopen Closed Tab	Bezárt lap újranyitása
+	Reveal in Finder	Megjelenítés a Finderben
+	Reveal in File Explorer	Megjelenítés a fájlkezelőben

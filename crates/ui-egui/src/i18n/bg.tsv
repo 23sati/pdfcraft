@@ -2246,3 +2246,9 @@ scroll speed	Fast	Висока
 	Ink sensitivity	Чувствителност към мастило
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	В рамката не е открит подпис. Преместете рамката върху подписа или увеличете чувствителността към мастило.
 	Couldn't use the photo: {e}	Снимката не може да се използва: {e}
+
+# PDF tab context menu (#1233)
+	Close Tab	Затваряне на раздела
+	Reopen Closed Tab	Отваряне на затворения раздел
+	Reveal in Finder	Показване във Finder
+	Reveal in File Explorer	Показване във файловия мениджър

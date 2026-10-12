@@ -2196,3 +2196,9 @@ scroll speed	Fast	వేగంగా
 	Ink sensitivity	ఇంక్ సున్నితత్వం
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	ఫ్రేమ్‌లో సంతకం కనబడలేదు. ఫ్రేమ్‌ను సంతకం మీదకు జరపండి లేదా ఇంక్ సున్నితత్వాన్ని పెంచండి.
 	Couldn't use the photo: {e}	ఫోటోను ఉపయోగించలేకపోయాం: {e}
+
+# PDF tab context menu (#1233)
+	Close Tab	ట్యాబ్‌ను మూసివేయి
+	Reopen Closed Tab	మూసివేసిన ట్యాబ్‌ను మళ్లీ తెరువు
+	Reveal in Finder	Finderలో చూపు
+	Reveal in File Explorer	ఫైల్ ఎక్స్‌ప్లోరర్‌లో చూపు
