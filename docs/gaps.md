@@ -1,6 +1,7 @@
 # Where PdfCraft falls short of Acrobat Pro
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (gap 4 closed: the web build prints through the browser's print dialog; earlier: Word invoice regression coverage, #773; Office fidelity still partial; gap 2: hayro patch counts after the native-gradient backport) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-12 · **Change:** gap 4 closed: the web build prints through the browser's print dialog; exclusive image-crop resize follow-up; minor (Word invoice regression coverage, #773; Office fidelity still partial; gap 2: hayro patch counts after the native-gradient backport) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-12 · **Change:** minor (gap 13: large-file memory measured, edits keep two copies instead of three, file-backed input blocked on gap 2) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (gap 1 closed by #836; fixed issues removed from gaps 3, 6 and 16) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (document-font subset completion and curved/shared image clips in the contributor fork; gap 2: hayro patch counts after the native-gradient backport) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
@@ -80,7 +81,7 @@ update the numbers.
   Page/path-clipped artwork bounds and text-first hit testing prevent large cropped images from
   blocking text. A separate private four-page regression opens all 73 detected text regions;
   curve/hole hit testing now evaluates clipping paths and fill rules. A clip the image owns
-  (`q re W n cm Do Q`) moves with it; shared path clips stay where they are.
+  moves with it across nested states and content streams; shared path clips stay where they are.
   Full matching document fonts complete absent subset glyphs; explicit installed/file font
   selection, TrueType/OpenType-CFF embedding, disjoint style ranges, marked paragraph boundaries
   and single-face OpenType shaping/bidi have regression coverage. Actual Chinese keyboard
@@ -208,7 +209,17 @@ update the numbers.
   memory budget, with budgets checked on Tier-1 platforms.
 - **Evidence:** #307 brought a 9,156-page file from > 10 GiB to ≈ 500 MiB inspection, but
   file-backed input and global memory budgets remain open; blurry fonts at common resolutions
-  (#730).
+  (#730). Measured 2026-10-12 on synthetic files (release build, Linux): a 1 GiB file opens at
+  1.0 GiB peak in 0.7 s, so viewing holds the whole file once; after edits it held two copies and
+  peaked at three (3.1 GiB after five edits), because the previous working file stayed alive while
+  the next was written. Edits now let go of it first: five edits peak at 2.1 GiB (8.5 s, was 16 s).
+  Saving still peaks at three copies (the saved file is assembled in memory beside the working
+  one), and display appearances for comments without one add a copy. A 100,000-page file (28 MB)
+  opens at 403 MiB in 5.5 s and each edit re-inspects it for ≈ 5 s.
+- **Blocked part:** reading a GB file from disk on demand (`ByteSource`) needs every reader to
+  take ranges, but the `hayro` renderer parses one contiguous buffer (`Pdf::new(PdfData)`), so it
+  waits on gap 2's renderer decision. Until then the budget is one copy of the file to view and two
+  to edit.
 - **Estimate:** 25–45 h. **Doc:** this file.
 
 ### 14. Arabic not mirrored; no Hindi, Indonesian, Korean, Vietnamese
@@ -299,6 +310,8 @@ update the numbers.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | Exclusive image crops resize with their pixels across nested states, intervening operators and content streams; shared clips remain fixed. Synthetic engine/tool regressions and private image save/reopen checks; estimates unchanged. |
+| 2026-10-12 | minor | Gap 13: measured large-file memory; edits no longer keep the previous working file while writing the next (peak 3 → 2 copies); file-backed input recorded as blocked on gap 2 |
 | 2026-10-11 | minor | Closed gap 4: the web build prints through the browser's print dialog (sheets drawn by PdfCraft at 150–300 dpi, one per printed page); number kept |
 | 2026-10-11 | minor | Word invoice failure #773 has synthetic regression coverage; broader Office conversion remains gap 8. |
 | 2026-10-11 | minor | Contributor fork: mixed-style visual regions, source-font space reuse and a read-only textless background. Embedded sfnt source faces and Mac subset Unicode mappings keep edit baselines stable; live frames follow Apply/Save geometry as text grows or shrinks. Engine/tool/UI regressions and private all-page checks cover the changes; full matching font import, CFF, range styles, shaping and private Chinese typing checks added; legacy programs and general fidelity remain open; estimates unchanged |

@@ -1476,7 +1476,7 @@
 	Couldn't optimize the file: {e}	Файлды оңтайландыру мүмкін болмады: {e}
 	Couldn't write {path}: {e}	{path} жолына жазу мүмкін болмады: {e}
 	The form asks to be submitted to {u}; PdfCraft doesn't send form data. Save the document to keep your entries.	Форма {u} адресіне жіберілуді сұрайды; PdfCraft форма деректерін жібермейді. Енгізген деректеріңізді сақтап қалу үшін құжатты сақтаңыз.
-	{s} actions run in the JavaScript engine (M6)	{s} әрекет JavaScript қозғалтқышында орындалады (M6)
+	This PDF uses the unsupported {s} action.	Бұл PDF қолдау көрсетілмейтін {s} әрекетін пайдаланады.
 	{name}: the {other} action isn't supported yet	{name}: {other} әрекеті әлі қолдау көрсетілмейді
 	{name} submits the form to {url}; PdfCraft doesn't send form data. Save the document to keep your entries.	{name} форманы {url} адресіне жібереді; PdfCraft форма деректерін жібермейді. Енгізген деректеріңізді сақтап қалу үшін құжатты сақтаңыз.
 	Export stopped: {e}	Экспорт тоқтатылды: {e}
