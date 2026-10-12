@@ -3097,6 +3097,7 @@ fn xfa_scripts_initialize_calculate_validate_toggle_and_add_rows() {
     assert_eq!(value(&s, "qty"), vec!["2".to_string()]);
     assert_eq!(value(&s, "total"), vec!["10".to_string()], "{:?}", s.take_js_output(id));
     assert_eq!(value(&s, "grand"), vec!["0".to_string()]);
+    assert!(!s.get(id).unwrap().xfa_scripts_off());
     assert!(!s.get(id).unwrap().dirty);
     assert!(!names(&s).iter().any(|n| n == "note"), "details is hidden");
     // A change recalculates.
@@ -3282,6 +3283,7 @@ fn xfa_scripts_stay_off_with_javascript_off() {
     let qty = s.get(id).unwrap().form.iter().find(|f| f.name == "qty").unwrap().value.clone();
     assert!(qty.is_empty(), "no initialize script ran");
     assert!(s.run_javascript(id, "", Some("addRow")).is_err());
+    assert!(!s.get(id).unwrap().xfa_scripts_off(), "the preference, not a script that ran away");
 }
 
 #[test]
@@ -3403,11 +3405,13 @@ fn runaway_xfa_calculations_at_open_end_quickly_with_a_report() {
     assert!(out.errors.iter().any(|e| e.contains("total") && e.contains("maximum number of iteration")), "{:?}", out.errors);
     assert!(out.errors.iter().any(|e| e.contains("abandoned")), "{:?}", out.errors);
     assert!(out.errors.iter().any(|e| e.contains("scripts are off")), "{:?}", out.errors);
+    assert!(s.get(id).unwrap().xfa_scripts_off());
     // The scripts stay off: a change runs nothing more.
     let started = std::time::Instant::now();
     s.apply(id, Edit::SetFieldValue { name: "qty".into(), value: FieldValue::Text("3".into()) }).unwrap();
     assert!(started.elapsed() < std::time::Duration::from_secs(2));
     assert!(s.take_js_output(id).errors.is_empty());
+    assert!(s.get(id).unwrap().xfa_scripts_off());
 }
 
 /// The page view's raster of `page` at 1 px/pt (the document's own render pool).

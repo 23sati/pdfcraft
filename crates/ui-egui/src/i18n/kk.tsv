@@ -1957,6 +1957,7 @@
 	DPI sets the printed page size without resampling the image.	DPI пиксельдер санын өзгертпей, басып шығарылатын беттің өлшемін орнатады.
 	Create	Жасау
 	Dynamic XFA form laid out from its template: {pages}, {fields}.	Ұлгісі бойынша құрылған динамикалық XFA формасы: {pages}, {fields}.
+	This form's scripts are turned off because one ran too long. Reopen the document to run them again.	Бұл форманың скрипттері өшірілді, себебі олардың бірі тым ұзақ орындалды. Оларды қайта іске қосу үшін құжатты қайта ашыңыз.
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	XFA формасы: өрістері мен XFA деректері өзара синхрондалып тұрады, сондықтан басқа қарау құралдары да сіз енгізген мәндерді көрсетеді.
 	Switch to two-page view first to show the cover page	Мұқабаны көрсету үшін алдымен екі беттік көрініске ауысыңыз
 	Page display: {layout}	Беттерді көрсету: {layout}

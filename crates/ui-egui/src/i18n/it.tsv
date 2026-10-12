@@ -2055,6 +2055,7 @@
 	DPI sets the printed page size without resampling the image.	I DPI determinano la dimensione della pagina stampata senza ricampionare l'immagine.
 	Create	Crea
 	Dynamic XFA form laid out from its template: {pages}, {fields}.	Modulo XFA dinamico impaginato dal suo modello: {pages}, {fields}.
+	This form's scripts are turned off because one ran too long. Reopen the document to run them again.	Gli script di questo modulo sono disattivati perché uno è rimasto in esecuzione troppo a lungo. Riapri il documento per eseguirli di nuovo.
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	Modulo XFA: i suoi campi e i dati XFA restano allineati, così gli altri visualizzatori mostrano ciò che compili.
 	Default page display	Visualizzazione pagina predefinita
 	Default zoom	Ingrandimento predefinito

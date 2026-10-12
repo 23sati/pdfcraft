@@ -2031,6 +2031,7 @@
 	DPI sets the printed page size without resampling the image.	قيمة DPI تحدد حجم الصفحة المطبوعة دون إعادة تشكيل الصورة.
 	Create	إنشاء
 	Dynamic XFA form laid out from its template: {pages}, {fields}.	نموذج XFA ديناميكي رُتِّب من قالبه: {pages}، {fields}.
+	This form's scripts are turned off because one ran too long. Reopen the document to run them again.	سكربتات هذا النموذج متوقفة لأن أحدها استغرق وقتًا طويلًا جدًا. أعد فتح المستند لتشغيلها من جديد.
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	نموذج XFA: حقوله وبيانات XFA فيه تبقى متطابقة، فتعرض العارضات الأخرى ما تعبئه.
 	Switch to two-page view first to show the cover page	انتقل أولًا إلى عرض الصفحتين لإظهار صفحة الغلاف
 	Page display: {layout}	عرض الصفحات: {layout}

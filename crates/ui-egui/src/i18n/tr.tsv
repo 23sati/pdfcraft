@@ -1929,6 +1929,7 @@
 	DPI sets the printed page size without resampling the image.	DPI, resmi yeniden örneklemeden yazdırılan sayfa boyutunu ayarlar.
 	Create	Oluştur
 	Dynamic XFA form laid out from its template: {pages}, {fields}.	Şablonundan oluşturulmuş dinamik XFA formu: {pages}, {fields}.
+	This form's scripts are turned off because one ran too long. Reopen the document to run them again.	Bu formun komut dosyaları kapatıldı, çünkü biri çok uzun süre çalıştı. Yeniden çalıştırmak için belgeyi yeniden açın.
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	XFA formu: Diğer görüntüleyicilerin doldurduklarınızı göstermesi için alanları ve XFA verileri eşitlenir.
 @plural	{n} page|{n} pages	{n} sayfa
 @plural	{n} field|{n} fields	{n} alan

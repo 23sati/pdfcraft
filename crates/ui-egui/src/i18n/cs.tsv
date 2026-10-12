@@ -2080,6 +2080,7 @@ key	Space	Mezerník
 	DPI sets the printed page size without resampling the image.	DPI určuje velikost tištěné stránky bez převzorkování obrázku.
 	Create	Vytvořit
 	Dynamic XFA form laid out from its template: {pages}, {fields}.	Dynamický formulář XFA rozvržený podle šablony: {pages}, {fields}.
+	This form's scripts are turned off because one ran too long. Reopen the document to run them again.	Skripty tohoto formuláře jsou vypnuté, protože jeden z nich běžel příliš dlouho. Chcete-li je znovu spustit, otevřete dokument znovu.
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	Formulář XFA: jeho pole a data XFA se udržují ve shodě, takže ostatní prohlížeče zobrazí, co vyplníte.
 	Switch to two-page view first to show the cover page	Titulní stránku zobrazíte, až přepnete na dvoustránkové zobrazení
 @plural	{n} page|{n} pages	{n} stránka|{n} stránky|{n} stránek

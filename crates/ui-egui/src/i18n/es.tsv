@@ -2046,6 +2046,7 @@ action wizard	Start	Iniciar
 	DPI sets the printed page size without resampling the image.	Los PPP determinan el tamaño de la página impresa sin remuestrear la imagen.
 	Create	Crear
 	Dynamic XFA form laid out from its template: {pages}, {fields}.	Formulario XFA dinámico maquetado a partir de su plantilla: {pages}, {fields}.
+	This form's scripts are turned off because one ran too long. Reopen the document to run them again.	Los scripts de este formulario están desactivados porque uno tardó demasiado en ejecutarse. Vuelve a abrir el documento para ejecutarlos de nuevo.
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	Formulario XFA: sus campos y sus datos XFA se mantienen sincronizados, para que otros visores muestren lo que rellenes.
 @plural	{n} page|{n} pages	{n} página|{n} páginas
 @plural	{n} field|{n} fields	{n} campo|{n} campos

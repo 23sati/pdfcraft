@@ -1781,6 +1781,7 @@
 	At least one signature has problems.	問題のある署名があります。
 	This document is secured. Some changes are restricted by its security settings.	この文書は保護されています。セキュリティ設定により一部の変更が制限されています。
 	This is a dynamic XFA form, which PdfCraft can't display yet. What you see is the file's placeholder page.	この文書は動的 XFA フォームで、PdfCraft はまだ表示できません。現在はファイルの代替ページを表示しています。
+	This form's scripts are turned off because one ran too long. Reopen the document to run them again.	このフォームのスクリプトは、実行に時間がかかりすぎたものがあったため無効になっています。もう一度実行するには、文書を再度開いてください。
 	This form also contains XFA data, which PdfCraft doesn't read yet. You can fill its fields, but Acrobat may show the XFA values instead.	このフォームには PdfCraft がまだ読み取れない XFA データも含まれます。フィールドには入力できますが、Acrobat は代わりに XFA の値を表示する場合があります。
 	This document contains {n} interactive form fields.	この文書には対話型フォームフィールドが {n} 個あります。
 	This file was damaged and has been repaired. Saving keeps the repaired version.	このファイルは破損していたため修復しました。保存すると修復済みの状態が保持されます。

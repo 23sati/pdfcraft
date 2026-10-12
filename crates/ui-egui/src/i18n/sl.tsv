@@ -654,6 +654,7 @@
 	Duplicate…	Podvoji…
 	Dynamic	Dinamično
 	Dynamic XFA form laid out from its template: {pages}, {fields}.	Dinamični obrazec XFA, razporejen iz predloge: {pages}, {fields}.
+	This form's scripts are turned off because one ran too long. Reopen the document to run them again.	Skripti tega obrazca so izklopljeni, ker se je eden izvajal predolgo. Če jih želite znova zagnati, znova odprite dokument.
 	E-Sign	E-podpis
 	Each field needs a tooltip that says what to enter. Add one in Field Properties > General > Tooltip.	Vsako polje potrebuje namig, ki pove, kaj vnesti. Dodajte ga v Lastnosti polja > Splošno > Namig.
 	Each file holds as many of the {n} pages as fit.	Vsaka datoteka vsebuje toliko od {n} strani, kot jih gre vanjo.

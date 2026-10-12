@@ -2097,6 +2097,9 @@ fn info(d: &Document) -> Value {
         // (laid out from the template by PdfCraft, see xfa_layout; placeholder pages when that failed).
         "xfa": i.xfa.map(|x| match x { pdfcraft_render::Xfa::Static => "static", pdfcraft_render::Xfa::Dynamic => "dynamic" }),
         "xfa_layout": d.xfa.as_ref().map(|x| json!({ "pages": x.pages, "fields": x.fields, "warnings": x.warnings })),
+        // A script of the form ran too long and was abandoned: its scripts no longer run in this
+        // document (calculations, buttons) until it is opened again.
+        "xfa_scripts_off": d.xfa_scripts_off(),
         // What was rewritten from, or could not be written to, the XFA data.
         "xfa_warnings": d.xfa_warnings,
         "security": security,

@@ -1952,6 +1952,7 @@
 	DPI sets the printed page size without resampling the image.	A DPI a nyomtatott oldalméretet állítja be, a kép újramintázása nélkül.
 	Create	Létrehozás
 	Dynamic XFA form laid out from its template: {pages}, {fields}.	Dinamikus XFA-űrlap, a sablonjából felépítve: {pages}, {fields}.
+	This form's scripts are turned off because one ran too long. Reopen the document to run them again.	Az űrlap szkriptjei ki vannak kapcsolva, mert az egyik túl sokáig futott. Nyisd meg újra a dokumentumot, hogy ismét fussanak.
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	XFA-űrlap: a mezői és az XFA-adatai együtt maradnak, így más megjelenítők azt mutatják, amit beírsz.
 @plural	{n} page|{n} pages	{n} oldal|{n} oldal
 @plural	{n} field|{n} fields	{n} mező|{n} mező

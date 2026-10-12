@@ -2032,6 +2032,7 @@
 	DPI sets the printed page size without resampling the image.	DPI задаёт размер печатной страницы без передискретизации изображения.
 	Create	Создать
 	Dynamic XFA form laid out from its template: {pages}, {fields}.	Динамическая форма XFA, сверстанная по шаблону: {pages}, {fields}.
+	This form's scripts are turned off because one ran too long. Reopen the document to run them again.	Скрипты этой формы выключены: один из них выполнялся слишком долго. Чтобы запустить их снова, откройте документ заново.
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	Форма XFA: её поля и данные XFA синхронизированы, поэтому другие просмотрщики показывают то, что вы заполняете.
 	Switch to two-page view first to show the cover page	Сначала переключитесь в двухстраничный вид, чтобы показать титульную страницу
 	Page display: {layout}	Отображение страниц: {layout}

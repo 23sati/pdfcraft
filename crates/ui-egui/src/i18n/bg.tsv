@@ -2086,6 +2086,7 @@
 	DPI sets the printed page size without resampling the image.	DPI определя размера на отпечатаната страница без преизчисляване на изображението.
 	Create	Създай
 	Dynamic XFA form laid out from its template: {pages}, {fields}.	Динамичен XFA формуляр, оформен по своя шаблон: {pages}, {fields}.
+	This form's scripts are turned off because one ran too long. Reopen the document to run them again.	Скриптовете на този формуляр са изключени, защото един от тях се изпълняваше твърде дълго. Отворете документа отново, за да се изпълнят пак.
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	XFA формуляр: полетата и XFA данните му се поддържат синхронизирани, така че другите програми за преглед показват попълненото от вас.
 @plural	{n} page|{n} pages	{n} страница|{n} страници
 @plural	{n} field|{n} fields	{n} поле|{n} полета
