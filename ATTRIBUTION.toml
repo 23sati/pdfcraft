@@ -7,7 +7,7 @@ licence = "MIT OR Apache-2.0"
 licence_file = "LICENSE-MIT"
 kind = "translation"
 usage = "Greek UI strings, compiled in by crates/ui-egui/src/i18n/mod.rs"
-sha256 = "af63461265989c9ec1372693a7b69eb654bc7bf27d48cb2e6110f0b28b99d08e"
+sha256 = "ce008d7bc145ff0509a8c6b20b07c0a42969edf4dc2df153d6f979d31fbb165a"
 
 # ATTRIBUTION.toml: one entry per asset (AGENTS.md §1). The source of truth for provenance and licences.
 # ATTRIBUTION.md is generated from this file: `cargo xtask assets --write`. Checked by `cargo xtask assets` (part of `xtask ci`).
