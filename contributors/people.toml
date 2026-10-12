@@ -118,3 +118,8 @@ sync_github_name = true
 
 [people.lollinoo]
 sync_github_name = true
+
+[people.asgeirtj]
+real_name = "Ásgeir Thor Johnson"
+display_name = "Ásgeir"
+sync_github_name = true
