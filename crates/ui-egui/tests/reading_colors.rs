@@ -81,8 +81,30 @@ fn reading_colours_seed_on_open() {
     h.state_mut().set_reading_colors(ReadingColors::YELLOW_ON_BLACK);
     h.run_steps(1);
     assert_eq!(h.state().session.reading_colors(id), Some(ReadingColors::YELLOW_ON_BLACK));
-    // And back off.
+
+    // Revisions and the signed version open through their own session calls, bypassing the
+    // ordinary open: they seed the new document the same way. A second revision comes from an
+    // incremental save.
+    {
+        let s = &mut h.state_mut().session;
+        s.apply(id, pdfcraft_engine::Edit::SetInfo { key: "Title".into(), value: "Second".into() }).unwrap();
+        let saved = s.save_bytes(id).unwrap();
+        s.mark_saved(id, saved, None).unwrap();
+    }
+    h.state_mut().open_revision(1);
+    let revision = h.state().views.last().unwrap().id;
+    assert_ne!(revision, id);
+    assert_eq!(h.state().session.reading_colors(revision), Some(ReadingColors::YELLOW_ON_BLACK));
+    let len = h.state().session.get(id).unwrap().bytes.len();
+    h.state_mut().view_signed_version(len);
+    let signed = h.state().views.last().unwrap().id;
+    assert_ne!(signed, id);
+    assert_eq!(h.state().session.reading_colors(signed), Some(ReadingColors::YELLOW_ON_BLACK));
+
+    // And back off, for every open document.
     h.state_mut().set_reading_colors(ReadingColors::default());
     h.run_steps(1);
-    assert_eq!(h.state().session.reading_colors(id), Some(ReadingColors::default()));
+    for view in &h.state().views {
+        assert_eq!(h.state().session.reading_colors(view.id), Some(ReadingColors::default()));
+    }
 }
