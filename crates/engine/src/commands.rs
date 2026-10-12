@@ -179,6 +179,7 @@ pub const COMMANDS: &[CommandSpec] = &[
     c("page.paste", "Paste pages", None, None, Assembly, "clipboard-paste"),
     c("create.file", "Create PDF from file…", FILE, None, Nothing, "file-input"),
     c("create.multiple", "Create PDF from multiple files…", FILE, None, Nothing, "files"),
+    c("create.multiple_separate", "Create separate PDFs…", FILE, None, Nothing, "files"),
     c("create.images", "Create PDF from images…", FILE, None, Nothing, "image"),
     c("create.clipboard", "Create PDF from clipboard", FILE, None, Nothing, "copy-plus"),
     c("page.combine", "Combine files…", FILE, None, Nothing, "files"),

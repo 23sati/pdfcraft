@@ -347,6 +347,7 @@
 	Create from	إنشاء من
 	Single file	ملف واحد
 	Multiple files	عدة ملفات
+	Separate PDFs	ملفات PDF منفصلة
 	Images	صور
 	Clipboard	الحافظة
 	Blank page	صفحة فارغة
@@ -1869,6 +1870,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	تغيير {key}
 	Insert pages from {name}	إدراج صفحات من {name}
+	Insert pages from {name} — 1 field renamed	إدراج صفحات من {name} — تمت إعادة تسمية حقل واحد
+	Insert pages from {name} — fields renamed	إدراج صفحات من {name} — تمت إعادة تسمية حقول
 	Fill in {name}	تعبئة {name}
 	Set the image of {name}	تعيين صورة {name}
 	Edit script of {name}	تحرير سكربت {name}
@@ -2035,7 +2038,9 @@
 	Couldn't import the signature image: {e}	تعذّر استيراد صورة التوقيع: {e}
 @plural	{n} page|{n} pages	{n} صفحة|{n} صفحة|{n} صفحتان|{n} صفحات|{n} صفحة|{n} صفحة
 @plural	{n} field|{n} fields	{n} حقل|{n} حقل|{n} حقلان|{n} حقول|{n} حقلًا|{n} حقل
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	يتعارض {n} من أسماء الحقول مع الملفات السابقة وسيتم تغيير أسمائها: {list}|يتعارض اسم {n} حقل مع الملفات السابقة وسيتم تغيير اسمه: {list}|يتعارض اسما {n} حقل مع الملفات السابقة وسيتم تغيير اسميهما: {list}|تتعارض أسماء {n} حقول مع الملفات السابقة وسيتم تغيير أسمائها: {list}|يتعارض {n} اسم حقل مع الملفات السابقة وسيتم تغيير أسمائها: {list}|يتعارض {n} من أسماء الحقول مع الملفات السابقة وسيتم تغيير أسمائها: {list}
 	Create PDF from multiple files…	إنشاء PDF من عدة ملفات…
+	Create separate PDFs…	إنشاء ملفات PDF منفصلة…
 	Optimizing… removing user data	جارٍ التحسين… إزالة بيانات المستخدم
 	Optimizing… image {d} of {t}	جارٍ التحسين… الصورة {d} من {t}
 	Optimizing… cleaning up	جارٍ التحسين… التنظيف
@@ -2285,3 +2290,16 @@ scroll speed	Fast	سريعة
 	Tools panel side	جانب لوحة الأدوات
 	Add comment	إضافة تعليق
 	Change tag properties	تغيير خصائص الوسم
+	Left out: {names}	تم استبعاد: {names}
+	already a PDF	ملف PDF بالفعل
+	no unused output name	لا يوجد اسم ناتج غير مستخدم
+	no output folder was chosen	لم يتم اختيار مجلد للإخراج
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	تم تنزيل {n} من ملفات PDF|تم تنزيل ملف PDF واحد ({n})|تم تنزيل ملفي PDF ({n})|تم تنزيل {n} ملفات PDF|تم تنزيل {n} ملف PDF|تم تنزيل {n} من ملفات PDF
+	Scan	مسح ضوئي
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	وقّع على ورقة بيضاء والتقط لها صورة في إضاءة ساطعة ومتساوية (استخدم الفلاش). اختر الصورة أو أفلتها هنا: يعثر PdfCraft على التوقيع ويزيل الورق.
+	Choose photo…	اختيار صورة…
+	No photo chosen	لم تُختر صورة
+	Photo	صورة
+	Ink sensitivity	حساسية الحبر
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	لم يُعثر على توقيع داخل الإطار. حرّك الإطار فوق التوقيع أو ارفع حساسية الحبر.
+	Couldn't use the photo: {e}	تعذّر استخدام الصورة: {e}

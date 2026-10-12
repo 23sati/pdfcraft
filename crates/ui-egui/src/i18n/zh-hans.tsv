@@ -94,6 +94,7 @@
 	Create PDF from file…	从文件创建 PDF…
 	Create PDF from images…	从图像创建 PDF…
 	Create PDF from multiple files…	从多个文件创建 PDF…
+	Create separate PDFs…	创建单独的 PDF…
 	Create PDF from clipboard	从剪贴板创建 PDF
 	Combine files…	合并文件…
 	Save	保存
@@ -958,6 +959,7 @@
 	Bring your own model (off by default)	自备模型（默认关闭）
 	Single file	单个文件
 	Multiple files	多个文件
+	Separate PDFs	单独的 PDF
 	Images	图像
 	Clipboard	剪贴板
 	Blank page	空白页
@@ -1970,6 +1972,8 @@
 	Images and text (converted to PDF)	图像和文本（转换为 PDF）
 	Import {name}	导入 {name}
 	Insert pages from {name}	从 {name} 插入页面
+	Insert pages from {name} — 1 field renamed	从 {name} 插入页面 — 已重命名 1 个字段
+	Insert pages from {name} — fields renamed	从 {name} 插入页面 — 已重命名字段
 	Items marked Ready work today.	标记为就绪的项目现已可用。
 	JavaScript	JavaScript
 	JavaScript, e.g. getField("total").value	JavaScript，例如 getField("total").value
@@ -2097,6 +2101,7 @@
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	XFA 表单：字段与 XFA 数据保持同步，以便其他阅读器显示您填写的内容。
 @plural	{n} page|{n} pages	{n} 页
 @plural	{n} field|{n} fields	{n} 个字段
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} 个字段名与之前的文件冲突，将被重命名: {list}
 	Created a PDF from {n} files	已从 {n} 个文件创建 PDF
 	PDF, images and text	PDF、图像和文本
 	Insert a file before page {label}	在第 {label} 页之前插入文件
@@ -2228,3 +2233,16 @@ scroll speed	Fast	快
 	Tools panel side	工具面板位置
 	Add comment	添加注释
 	Change tag properties	更改标签属性
+	Left out: {names}	已略过：{names}
+	already a PDF	已经是 PDF
+	no unused output name	没有可用的输出文件名
+	no output folder was chosen	未选择输出文件夹
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	已下载 {n} 个 PDF
+	Scan	扫描
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	在白纸上签名，并在明亮、均匀的光线下拍照（使用闪光灯）。选择照片或将其拖放到此处：PdfCraft 会找到签名并去除纸张背景。
+	Choose photo…	选择照片…
+	No photo chosen	未选择照片
+	Photo	照片
+	Ink sensitivity	墨迹灵敏度
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	框内未找到签名。请将框移到签名上，或提高墨迹灵敏度。
+	Couldn't use the photo: {e}	无法使用该照片：{e}
