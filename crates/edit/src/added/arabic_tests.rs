@@ -6,9 +6,9 @@ use std::cell::Cell;
 
 use super::*;
 
-/// The fingerprint of an item below the old limit, from the code before the change: its content
-/// stream, its new fonts and every object of the document.
-const SMALL_ITEM_FINGERPRINT: u64 = 14_135_892_979_695_233_112;
+/// Regression fingerprint for the small-item fixture: drawing bytes, font map and document
+/// objects, with generated streams decoded so Flate backend selection cannot change the hash.
+const SMALL_ITEM_FINGERPRINT: u64 = 4_811_174_621_764_261_623;
 
 /// A cluster that shows one character with the single glyph `id`, at `advance` em.
 fn cluster(id: u32, advance: f64) -> ShapedCluster {
@@ -37,6 +37,25 @@ fn snapshot(doc: &Document) -> Vec<u8> {
     let mut bytes = Vec::new();
     for num in doc.object_numbers() {
         let obj = doc.get(ObjRef { num, generation: doc.generation(num) });
+        pdfcraft_cos::serialize(&obj, &mut bytes);
+        bytes.push(b'\n');
+    }
+    bytes
+}
+
+/// Serialize generated objects with decoded stream bytes so the golden does not depend on which
+/// Flate backend Cargo's unified dependency features select for the test binary. Only the raw
+/// bytes (and so `/Length`, which the writer takes from them) are normalised: `/Filter` and
+/// `/DecodeParms` stay in the hash, so a change that stops compressing generated streams, or
+/// switches filters, still fails the golden.
+fn golden_snapshot(doc: &Document) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    for num in doc.object_numbers() {
+        let mut obj = (*doc.get(ObjRef { num, generation: doc.generation(num) })).clone();
+        if let Object::Stream(ref mut stream) = obj {
+            let decoded = stream.decoded_strict().expect("generated stream decodes");
+            stream.raw = decoded.into();
+        }
         pdfcraft_cos::serialize(&obj, &mut bytes);
         bytes.push(b'\n');
     }
@@ -131,15 +150,25 @@ fn an_item_below_the_old_limit_is_drawn_exactly_as_before() {
     let drawn = draw_laid_shaped(&mut doc, &item(), &laid, &Dict::new(), &mut fonts, &mut out, |_, id| Ok(boxed(0.5 + f64::from(id) * 0.01)));
     assert!(drawn.is_ok(), "{drawn:?}");
     assert_eq!(fonts.len(), 1);
+    // The injected outlines are fixed; only the descriptor's family comes from craft-fonts.
+    // Check that metadata separately, then normalize those two fields to the original golden.
+    // The drawing bytes and semantic object fields must match in both font build modes.
+    let family = pdfcraft_fonts::document_arabic_font().map_or("Arabic", |face| face.family);
+    for (_, font) in fonts.iter() {
+        let descriptor = doc.dict(font).unwrap().get(b"FontDescriptor").and_then(Object::as_ref).unwrap();
+        let dict = doc.dict(&Object::Ref(descriptor)).unwrap();
+        assert_eq!(dict.name(b"FontName"), Some(family.replace(' ', "").as_bytes()));
+        assert_eq!(dict.get(b"FontFamily").and_then(Object::as_string).unwrap().bytes, family.as_bytes());
+        doc.update_dict(descriptor, |d| {
+            d.set(b"FontName".to_vec(), Object::name("Arabic"));
+            d.set(b"FontFamily".to_vec(), Object::String(PdfString::literal(b"Arabic".to_vec())));
+        })
+        .unwrap();
+    }
     let mut bytes = out.clone();
     pdfcraft_cos::serialize(&Object::Dict(fonts.clone()), &mut bytes);
-    bytes.extend(snapshot(&doc));
-    // The golden was recorded without craft-fonts: with an Arabic face built in, the font's
-    // FontName and FontFamily carry that face's name instead of "Arabic", so only the build
-    // without it (CI's Windows job) can compare bytes.
-    if pdfcraft_fonts::document_arabic_font().is_none() {
-        assert_eq!(fnv1a(&bytes), SMALL_ITEM_FINGERPRINT, "output changed; the golden is the code before the sharding change");
-    }
+    bytes.extend(golden_snapshot(&doc));
+    assert_eq!(fnv1a(&bytes), SMALL_ITEM_FINGERPRINT, "small-item output changed");
 }
 
 #[test]

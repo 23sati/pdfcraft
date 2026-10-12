@@ -751,7 +751,7 @@ pub(crate) fn grid(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens, checks:
     app.combine_tab.card_focus_at = focused_card.map(|(_, file, nth)| (file, nth));
 
     // Pinch, or Ctrl/⌘ with the wheel, over the grid zooms it.
-    let pinch = ctx.input(|i| i.zoom_delta());
+    let pinch = crate::motion::zoom_delta(&ctx);
     if (pinch - 1.0).abs() > 0.001 && over_grid {
         app.combine_tab.zoom_request = Some(app.combine_zoom * pinch);
     }

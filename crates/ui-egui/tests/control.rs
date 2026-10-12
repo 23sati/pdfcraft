@@ -990,6 +990,12 @@ fn state_reports_the_selected_pages() {
     assert_eq!(ok(&mut h, &c, "ui.state", json!({}))["active"]["selected_pages"], json!([]));
     ok(&mut h, &c, "ui.set", json!({ "key": "select", "value": "2,4" }));
     assert_eq!(ok(&mut h, &c, "ui.state", json!({}))["active"]["selected_pages"], json!([2, 4]));
+    ok(&mut h, &c, "ui.set", json!({ "key": "select", "value": "4-2,3" }));
+    assert_eq!(ok(&mut h, &c, "ui.state", json!({}))["active"]["selected_pages"], json!([2, 3, 4]));
+    assert!(call(&mut h, &c, "ui.set", json!({ "key": "select", "value": "0,6" })).is_err());
+    assert_eq!(ok(&mut h, &c, "ui.state", json!({}))["active"]["selected_pages"], json!([2, 3, 4]));
+    ok(&mut h, &c, "ui.set", json!({ "key": "select", "value": "" }));
+    assert_eq!(ok(&mut h, &c, "ui.state", json!({}))["active"]["selected_pages"], json!([]));
 }
 
 #[test]
@@ -1383,7 +1389,7 @@ fn rail_reveals_its_remembered_inactive_inspector_then_closes_the_visible_panel(
 fn control_quit_retains_inactive_fill_sign_typing_after_cancel() {
     let (mut h, c) = harness();
     h.state_mut().views[0].fill_text =
-        Some(pdfcraft_ui_egui::fill_sign::TypeBox { page: 0, at: [40.0, 200.0], text: "Unsaved signature note".into(), focus: false });
+        Some(pdfcraft_ui_egui::fill_sign::TypeBox { page: 0, at: [40.0, 200.0], text: "Unsaved signature note".into(), size: 10.0, focus: false });
     h.state_mut().active = None;
     assert!(!h.state().session.get(h.state().views[0].id).unwrap().dirty);
     assert_eq!(ok(&mut h, &c, "ui.quit", json!({})), json!({"quitting":false,"needs_confirmation":true}));

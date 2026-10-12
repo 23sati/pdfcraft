@@ -1,4 +1,5 @@
-use crate::{RenderCache, derive_settings};
+use crate::{ColorReplacement, RenderCache, derive_settings};
+use hayro_interpret::color::Color;
 use hayro_interpret::encode::EncodedShadingPattern;
 use hayro_interpret::font::Glyph;
 use hayro_interpret::pattern::Pattern;
@@ -402,6 +403,9 @@ fn may_paint_rect(rect: Rect, transform: Affine, width: u16, height: u16) -> boo
 
 pub(crate) struct Renderer {
     pub(crate) ctx: RenderContext,
+    /// PdfCraft patch: when set, solid text and line-art paint colours are remapped
+    /// while rendering (the "reading colours" view setting).
+    color_replacement: Option<ColorReplacement>,
     pub(crate) inside_pattern: bool,
     /// Soft masks drawn during this render. PdfCraft note: it belongs to one `Renderer` (one
     /// render, every nested renderer starting empty) and so to one `preview` setting: a mask
@@ -430,10 +434,12 @@ impl Renderer {
         height: u16,
         settings: RenderSettings,
         cache: &RenderCache<'_>,
+        color_replacement: Option<ColorReplacement>,
         preview: bool,
     ) -> Self {
         Self {
             ctx: RenderContext::new_with(width, height, settings),
+            color_replacement,
             inside_pattern: false,
             soft_mask_cache: HashMap::default(),
             outline_cache: cache.outline_cache.clone(),
@@ -529,6 +535,9 @@ impl Renderer {
                     self.ctx.height(),
                     derive_settings(self.ctx.render_settings()),
                 ),
+                // PdfCraft patch: this renders an image's alpha mask, which must keep its
+                // original values, so it is never remapped by the reading-colours setting.
+                color_replacement: None,
                 inside_pattern: false,
                 soft_mask_cache: HashMap::default(),
                 outline_cache: self.outline_cache.clone(),
@@ -958,6 +967,25 @@ impl Renderer {
             .fill_rect(&Rect::new(0.0, 0.0, width as f64, height as f64));
     }
 
+    /// PdfCraft patch: remaps a solid paint colour through `color_replacement`, if one is
+    /// set. `Paint::Pattern` (images, shadings, tiling patterns) always passes through
+    /// untouched.
+    fn replaced<'a>(&self, paint: &Paint<'a>, is_text: bool) -> Paint<'a> {
+        let Some(replacement) = self.color_replacement else {
+            return paint.clone();
+        };
+        match paint {
+            Paint::Color(c) => {
+                let mapped = replacement.map(c.to_rgba().to_rgba8(), is_text);
+                let rgba = hayro_interpret::color::AlphaColor::from_rgba8(
+                    mapped[0], mapped[1], mapped[2], mapped[3],
+                );
+                Paint::Color(Color::from_rgba(rgba))
+            }
+            other => other.clone(),
+        }
+    }
+
     #[must_use]
     fn set_paint(&mut self, paint: &Paint<'_>, path: &BezPath, is_stroke: bool) -> Option<BezPath> {
         let mut paint_transform = Affine::IDENTITY;
@@ -1069,6 +1097,9 @@ impl Renderer {
                                 pix_height,
                                 derive_settings(self.ctx.render_settings()),
                             ),
+                            // PdfCraft patch: a pattern cell is painted as one artwork, so its
+                            // content is never remapped by the reading-colours setting.
+                            color_replacement: None,
                             cur_mask: None,
                             inside_pattern: true,
                             soft_mask_cache: HashMap::default(),
@@ -1137,7 +1168,9 @@ impl Renderer {
             return;
         }
 
-        let clip_path = self.set_paint(paint, path, true);
+        // PdfCraft patch: apply the reading-colours mapping before painting.
+        let paint = self.replaced(paint, is_text);
+        let clip_path = self.set_paint(&paint, path, true);
         if let Some(clip_path) = clip_path.as_ref() {
             self.push_clip_path_inner(clip_path, FillRule::NonZero);
         }
@@ -1153,6 +1186,9 @@ impl Renderer {
         transform: Affine,
         paint: &Paint<'_>,
         fill_rule: FillRule,
+        // PdfCraft patch: distinguishes glyph fills from plain line art for the
+        // reading-colours mapping.
+        is_text: bool,
     ) {
         self.ctx.set_fill_rule(convert_fill_rule(fill_rule));
         self.ctx.set_transform(transform);
@@ -1161,7 +1197,9 @@ impl Renderer {
             return;
         }
 
-        let clip_path = self.set_paint(paint, path, false);
+        // PdfCraft patch: apply the reading-colours mapping before painting.
+        let paint = self.replaced(paint, is_text);
+        let clip_path = self.set_paint(&paint, path, false);
         if let Some(clip_path) = clip_path.as_ref() {
             self.push_clip_path_inner(clip_path, fill_rule);
         }
@@ -1189,9 +1227,14 @@ impl Renderer {
                     transform * glyph_transform,
                     paint,
                     FillRule::NonZero,
+                    // PdfCraft patch: glyph outlines are text for the reading-colours mapping.
+                    true,
                 );
             }
             Glyph::Type3(s) => {
+                // PdfCraft patch: a type 3 glyph's content stream keeps painting as line art
+                // (its internal ops reach `fill_path`/`stroke_path` with `is_text: false`), so
+                // reading colours remap it only when line-art replacement is on.
                 self.in_type3_glyph = true;
                 s.interpret(self, transform, glyph_transform, paint);
                 self.in_type3_glyph = false;
@@ -1293,6 +1336,11 @@ impl<'a> Device<'a> for Renderer {
                             stencil.scale_factors.1 as f64,
                         );
 
+                        // PdfCraft patch: a stencil mask is line art in disguise, so its solid
+                        // paint goes through the reading-colours mapping (line-art gate) like
+                        // every other solid fill; baked in raw, its ink would stay at its
+                        // original colour and vanish into a mapped background.
+                        let paint = &self.replaced(paint, false);
                         match paint {
                             Paint::Color(c) => {
                                 let color = c.to_rgba().to_rgba8();
@@ -1363,6 +1411,10 @@ impl<'a> Device<'a> for Renderer {
                                             height,
                                             derive_settings(self.ctx.render_settings()),
                                         ),
+                                        // PdfCraft patch: a stencil mask must keep its original
+                                        // coverage values, so its content is never remapped by
+                                        // the reading-colours setting.
+                                        color_replacement: None,
                                         inside_pattern: false,
                                         soft_mask_cache: HashMap::default(),
                                         outline_cache: self.outline_cache.clone(),
@@ -1499,7 +1551,7 @@ impl<'a> Device<'a> for Renderer {
     ) {
         match draw_mode {
             PathDrawMode::Fill(f) => {
-                Self::fill_path(self, path, transform, paint, *f);
+                Self::fill_path(self, path, transform, paint, *f, false);
             }
             PathDrawMode::Stroke(s) => {
                 Self::stroke_path(self, path, transform, paint, s, false);
@@ -1524,7 +1576,9 @@ impl<'a> Device<'a> for Renderer {
                     return;
                 }
 
-                let clip_path = self.set_paint(paint, &path, false);
+                // PdfCraft patch: apply the reading-colours mapping before painting.
+                let paint = self.replaced(paint, false);
+                let clip_path = self.set_paint(&paint, &path, false);
                 if let Some(clip_path) = clip_path.as_ref() {
                     self.push_clip_path_inner(clip_path, *fill_rule);
                 }
@@ -1643,6 +1697,9 @@ fn render_shading_texture(
 fn draw_soft_mask(mask: &SoftMask<'_>, settings: RenderSettings, width: u16, height: u16, preview: bool) -> Mask {
     let mut renderer = Renderer {
         ctx: RenderContext::new_with(width, height, derive_settings(&settings)),
+        // PdfCraft patch: a soft mask must keep its original luminance values, so its
+        // content is never remapped by the reading-colours setting.
+        color_replacement: None,
         inside_pattern: false,
         cur_mask: None,
         soft_mask_cache: HashMap::default(),
