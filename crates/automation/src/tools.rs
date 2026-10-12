@@ -879,6 +879,12 @@ pub fn tools() -> Vec<ToolDef> {
                 }),
                 &["before", "after", "path"],
             )),
+        t("accessibility_review_save", "Save accessibility review decisions", "Write a local JSON sidecar for an open PDF with rule-level human review decisions. The sidecar records the PDF SHA-256; replacing one tied to different bytes requires replace: true. Does not change the PDF or assert compliance.")
+            .destructive()
+            .with(schema(json!({ "doc": doc(), "path": { "type": "string" }, "decisions": { "type": "array", "items": { "type": "object", "properties": { "rule": { "type": "string" }, "decision": { "type": "string", "enum": ["accepted", "needs_work", "skipped"] }, "page": { "type": "integer", "minimum": 1 }, "note": { "type": "string" } }, "required": ["rule", "decision"], "additionalProperties": false } }, "replace": { "type": "boolean" } }), &["doc", "path", "decisions"])),
+        t("accessibility_review_load", "Open accessibility review decisions", "Read a local review sidecar only when its recorded SHA-256 matches the open PDF. Returns the decisions without changing the PDF.")
+            .ro()
+            .with(schema(json!({ "doc": doc(), "path": { "type": "string" } }), &["doc", "path"])),
         t("accessibility_fix", "Fix an accessibility problem", "Apply the checker's automatic fix for a rule: primary-language (value: the language, e.g. en-US), title (value: the title; default the current title or file name; also shows it in the title bar) or tab-order (every page tabs in structure order). Returns the rule's new status. Undoable.")
             .with(schema(json!({ "doc": doc(), "rule": { "type": "string", "enum": ["primary-language", "title", "tab-order"] }, "value": { "type": "string" } }), &["doc", "rule"])),
         t("accessibility_figures", "List figures", "The tagged figures (Figure elements, through the role map) in document order: figure number, page, alternate text and where the figure is drawn (top-left-origin points).")
