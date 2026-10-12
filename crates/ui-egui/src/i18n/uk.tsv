@@ -223,6 +223,9 @@
 	Add or edit links	Додати або редагувати посилання
 	Create links from URLs	Створити посилання з URL
 	Remove all links	Видалити всі посилання
+	No links to remove	Немає посилань для вилучення
+	Removed 1 link	Вилучено 1 посилання
+	Removed {n} links	Вилучено посилань: {n}
 	Add Bates numbering…	Додати нумерацію Бейтса…
 	Add image…	Додати зображення…
 	Redact text and images	Вилучити текст і зображення
@@ -2026,6 +2029,7 @@
 	DPI sets the printed page size without resampling the image.	DPI задає розмір друкованої сторінки без зміни кількості пікселів зображення.
 	Create	Створити
 	Dynamic XFA form laid out from its template: {pages}, {fields}.	Динамічну форму XFA скомпоновано за її шаблоном: {pages}, {fields}.
+	This form's scripts are turned off because one ran too long. Reopen the document to run them again.	Сценарії цієї форми вимкнено, бо один із них виконувався надто довго. Щоб запустити їх знову, відкрийте документ повторно.
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	Форма XFA: її поля й дані XFA синхронізуються, тому інші засоби перегляду показують введені вами дані.
 	Switch to two-page view first to show the cover page	Спочатку перемкніть на двосторінковий вигляд, щоб показати обкладинку
 	Page display: {layout}	Відображення сторінок: {layout}
@@ -2338,6 +2342,14 @@ animation effects	Off	Вимкнено
 	Ink sensitivity	Чутливість до чорнила
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	У рамці не знайдено підпису. Наведіть рамку на підпис або збільште чутливість до чорнила.
 	Couldn't use the photo: {e}	Не вдалося використати фото: {e}
+
+# PDF tab context menu (#1233)
+	Close Tab	Закрити вкладку
+	Reopen Closed Tab	Відкрити закриту вкладку
+	Reveal in Finder	Показати у Finder
+	Reveal in File Explorer	Показати у файловому провіднику
+	Other colour…	Інший колір…
+	Recent colours	Нещодавні кольори
 	Couldn't follow linked PDF: {reason}	Не вдалося відкрити пов’язаний PDF: {reason}
 	The linked PDF opened, but its named destination was not applied.	Пов’язаний PDF відкрито, але його іменоване призначення не застосовано.
 	The linked PDF opened, but its page destination was out of range.	Пов’язаний PDF відкрито, але сторінка призначення поза межами діапазону.

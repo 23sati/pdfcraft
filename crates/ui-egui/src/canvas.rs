@@ -300,6 +300,8 @@ pub struct DocView {
     pub highlight_fields: bool,
     pub page_input: String,
     pub notice_dismissed: bool,
+    /// The user has been told that the form's scripts were turned off (it is said once).
+    pub scripts_off_noted: bool,
     /// The file changed on disk while this document had unsaved changes: the notice bar asks
     /// before replacing it (#431).
     pub disk_changed: bool,
@@ -581,6 +583,7 @@ impl DocView {
             highlight_fields: defaults.highlight_fields,
             page_input: "1".into(),
             notice_dismissed: false,
+            scripts_off_noted: false,
             disk_changed: false,
             cover: false,
             back: Vec::new(),
@@ -2046,6 +2049,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         Some(Notice::Unlock) => app.unlock_prompt = Some(crate::UnlockPrompt::new(doc, None)),
         Some(Notice::Signatures) => app.right = Some(RightPanel::Signatures),
         Some(Notice::FieldHighlights(on)) => app.view_defaults.highlight_fields = on,
+        Some(Notice::Console) => app.dialog = Some(crate::Dialog::JsConsole),
         None => {}
     }
     // No dialog, close prompt or palette over the page: only then does page input count.
@@ -2375,6 +2379,10 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         let mut current_overlap = -1.0f32;
         let mut current_height = f32::INFINITY;
         let pointer = ui.input(|i| i.pointer.hover_pos());
+        if resp.secondary_clicked() {
+            // Set again below when the right-click lands on a link.
+            view.links.context = None;
+        }
         for &i in &visible_pages {
             let r = snap_to_pixels(rects[i].translate(origin.to_vec2()), ppp);
             if !r.intersects(visible.expand(400.0)) {
@@ -2671,6 +2679,14 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                 text_used || image_used
             };
             let on_link = tool == QuickTool::Link && can_modify && crate::link_ui::page_input(ui, &resp, &xf, i, info, &doc_links, view);
+            if tool == QuickTool::Select
+                && resp.secondary_clicked()
+                && can_modify
+                && let Some(p) = pointer.filter(|p| xf.rect.contains(*p))
+                && let Some(l) = doc.links.iter().find(|l| l.page == i && crate::link_ui::screen_rect(&xf, info, i, l.rect).expand(2.0).contains(p))
+            {
+                view.links.context = Some((i, l.index));
+            }
             let consumed = on_objects || on_edit_text || on_link || on_content || boxing || on_field || comments::page_input(ui, &resp, &pcx, view);
 
             let preview_target =
@@ -2995,6 +3011,26 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                 let delete = if view.prepare.also.is_empty() { "Delete" } else { "Delete selected fields" };
                 if ui.add_enabled(can_modify, egui::Button::new(tl!(delete))).clicked() {
                     view.pending_edit = crate::prepare::delete_selected(view);
+                    ui.close();
+                }
+                return;
+            }
+            if let Some((page, index)) = view.links.context {
+                if ui.button(tl!("Properties…")).clicked() {
+                    view.links.open_existing = Some((page, index));
+                    ui.close();
+                }
+                if ui.add_enabled(can_modify, egui::Button::new(tl!("Delete"))).clicked() {
+                    view.pending_edit = Some(Edit::DeleteLink { page, index });
+                    view.links.selected = None;
+                    view.links.context = None;
+                    ui.close();
+                }
+                ui.separator();
+                if ui.add_enabled(can_modify, egui::Button::new(tl!("Remove all links"))).clicked() {
+                    view.pending_edit = Some(Edit::RemoveLinks { pages: None });
+                    view.links.selected = None;
+                    view.links.context = None;
                     ui.close();
                 }
                 return;
@@ -3574,12 +3610,14 @@ enum Notice {
     Repairs,
     /// Highlight fields was turned on or off.
     FieldHighlights(bool),
+    /// Open the JavaScript console (the form's scripts were turned off; the error is there).
+    Console,
     /// Unlock… (enter the permissions password).
     Unlock,
 }
 
 /// The notice bar above the pages: the signature status first (Acrobat's signature bar), then
-/// security, forms and warnings.
+/// a form's scripts having been turned off, security, forms and warnings.
 fn notices(
     view: &mut DocView,
     doc: &pdfcraft_engine::Document,
@@ -3627,8 +3665,14 @@ fn notices(
     let mut open_security = false;
     let mut unlock = false;
     let mut open_repairs = false;
+    let mut open_console = false;
     let mut toggled = None;
-    let msg = if secured {
+    // A form whose scripts were turned off no longer calculates or answers its buttons: that
+    // comes before what else there is to say about the document.
+    let scripts_off = doc.xfa_scripts_off();
+    let msg = if scripts_off {
+        Some(("triangle-alert", crate::js_ui::scripts_off_notice(), true))
+    } else if secured {
         Some(("lock", tl!("This document is secured. Some changes are restricted by its security settings.").to_string(), false))
     } else if let Some(x) = xfa {
         let lang = crate::i18n::current();
@@ -3680,6 +3724,9 @@ fn notices(
                 toggled = Some(Notice::FieldHighlights(view.highlight_fields));
             }
         }
+        if scripts_off && crate::widgets::pill_button(ui, tl!("JavaScript Console"), false).clicked() {
+            open_console = true;
+        }
         if secured && crate::widgets::pill_button(ui, tl!("Security settings"), false).clicked() {
             open_security = true;
         }
@@ -3692,6 +3739,9 @@ fn notices(
     });
     if open_repairs {
         return Some(Notice::Repairs);
+    }
+    if open_console {
+        return Some(Notice::Console);
     }
     if unlock {
         return Some(Notice::Unlock);

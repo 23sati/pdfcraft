@@ -291,6 +291,8 @@ pub struct Document {
     pub xfa: Option<XfaLayout>,
     /// The parsed template of a laid-out XFA form, for its scripts.
     xfa_template: Option<Arc<pdfcraft_xfa::model::Template>>,
+    /// A script of the XFA form ran away, so its scripts are off (see [`Document::xfa_scripts_off`]).
+    xfa_scripts_off: bool,
     /// A content-only refresh keeps `info` from before the edit; an edit may have added or
     /// embedded fonts, so the font list is read again on demand ([`Session::refresh_fonts`]).
     fonts_stale: bool,
@@ -380,6 +382,13 @@ impl Document {
     /// read for editing).
     pub fn accessibility_check(&self, options: &a11y::Options) -> Option<a11y::Report> {
         self.editor.as_ref().map(|e| a11y::check(&e.cos, options))
+    }
+
+    /// A script of this XFA form ran past its time limit and was abandoned, so the form's
+    /// scripts no longer run in this document (reopening it runs them again). The script's
+    /// error is in the JavaScript output; this is the state, for a viewer to show.
+    pub fn xfa_scripts_off(&self) -> bool {
+        self.xfa_scripts_off
     }
 
     /// PDF Optimizer ▸ Audit space usage.
@@ -2984,6 +2993,7 @@ impl Session {
             d.xfa_template = if ran_away { None } else { xfa_template };
             d.js_output.append(script_output);
             if ran_away {
+                d.xfa_scripts_off = true;
                 d.js_output.errors.push(XFA_SCRIPTS_OFF.into());
             }
             note_warnings(&mut d.xfa_warnings, &xfa_warnings);
@@ -3071,6 +3081,7 @@ impl Session {
             js_output: Default::default(),
             xfa,
             xfa_template: None,
+            xfa_scripts_off: false,
             fonts_stale: false,
             xfa_warnings: Vec::new(),
             edit_notices: Vec::new(),
@@ -3237,6 +3248,7 @@ impl Session {
         doc.js_output.append(cx.xfa_out);
         if cx.xfa_ran_away {
             doc.xfa_template = None;
+            doc.xfa_scripts_off = true;
             doc.js_output.errors.push(XFA_SCRIPTS_OFF.into());
         }
         Ok(())

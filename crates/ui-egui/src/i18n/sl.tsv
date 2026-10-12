@@ -654,6 +654,7 @@
 	Duplicate…	Podvoji…
 	Dynamic	Dinamično
 	Dynamic XFA form laid out from its template: {pages}, {fields}.	Dinamični obrazec XFA, razporejen iz predloge: {pages}, {fields}.
+	This form's scripts are turned off because one ran too long. Reopen the document to run them again.	Skripti tega obrazca so izklopljeni, ker se je eden izvajal predolgo. Če jih želite znova zagnati, znova odprite dokument.
 	E-Sign	E-podpis
 	Each field needs a tooltip that says what to enter. Add one in Field Properties > General > Tooltip.	Vsako polje potrebuje namig, ki pove, kaj vnesti. Dodajte ga v Lastnosti polja > Splošno > Namig.
 	Each file holds as many of the {n} pages as fit.	Vsaka datoteka vsebuje toliko od {n} strani, kot jih gre vanjo.
@@ -1429,6 +1430,9 @@
 	Reliable character encoding is provided	Zagotovljeno je zanesljivo kodiranje znakov
 	Remove	Odstrani
 	Remove all links	Odstrani vse povezave
+	No links to remove	Ni povezav za odstranitev
+	Removed 1 link	Odstranjena je 1 povezava
+	Removed {n} links	Odstranjene povezave: {n}
 	Remove background	Odstrani ozadje
 	Remove checkmark	Odstrani kljukico
 	Remove from Recent	Odstrani iz nedavnih
@@ -2321,6 +2325,14 @@ animation effects	Off	Izklopljeni
 	Ink sensitivity	Občutljivost za črnilo
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	V okvirju ni bilo najdenega podpisa. Premaknite okvir nad podpis ali povečajte občutljivost za črnilo.
 	Couldn't use the photo: {e}	Fotografije ni bilo mogoče uporabiti: {e}
+
+# PDF tab context menu (#1233)
+	Close Tab	Zapri zavihek
+	Reopen Closed Tab	Znova odpri zaprti zavihek
+	Reveal in Finder	Prikaži v Finderju
+	Reveal in File Explorer	Prikaži v upravljalniku datotek
+	Other colour…	Druga barva…
+	Recent colours	Nedavne barve
 	Couldn't follow linked PDF: {reason}	Povezanega PDF-ja ni bilo mogoče odpreti: {reason}
 	The linked PDF opened, but its named destination was not applied.	Povezani PDF se je odprl, vendar njegov poimenovani cilj ni bil uporabljen.
 	The linked PDF opened, but its page destination was out of range.	Povezani PDF se je odprl, vendar je ciljna stran zunaj obsega.

@@ -221,6 +221,9 @@
 	Add or edit links	Añadir o editar enlaces
 	Create links from URLs	Crear enlaces a partir de URL
 	Remove all links	Quitar todos los enlaces
+	No links to remove	No hay vínculos que quitar
+	Removed 1 link	Se quitó 1 vínculo
+	Removed {n} links	Se quitaron {n} vínculos
 	Add Bates numbering…	Añadir numeración Bates…
 	Add image…	Añadir imagen…
 	Redact text and images	Censurar texto e imágenes
@@ -2043,6 +2046,7 @@ action wizard	Start	Iniciar
 	DPI sets the printed page size without resampling the image.	Los PPP determinan el tamaño de la página impresa sin remuestrear la imagen.
 	Create	Crear
 	Dynamic XFA form laid out from its template: {pages}, {fields}.	Formulario XFA dinámico maquetado a partir de su plantilla: {pages}, {fields}.
+	This form's scripts are turned off because one ran too long. Reopen the document to run them again.	Los scripts de este formulario están desactivados porque uno tardó demasiado en ejecutarse. Vuelve a abrir el documento para ejecutarlos de nuevo.
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	Formulario XFA: sus campos y sus datos XFA se mantienen sincronizados, para que otros visores muestren lo que rellenes.
 @plural	{n} page|{n} pages	{n} página|{n} páginas
 @plural	{n} field|{n} fields	{n} campo|{n} campos
@@ -2435,6 +2439,14 @@ animation effects	Off	Desactivados
 	Ink sensitivity	Sensibilidad de la tinta
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	No se encontró ninguna firma en el marco. Mueva el marco sobre la firma o aumente la sensibilidad de la tinta.
 	Couldn't use the photo: {e}	No se puede usar la foto: {e}
+
+# PDF tab context menu (#1233)
+	Close Tab	Cerrar pestaña
+	Reopen Closed Tab	Reabrir pestaña cerrada
+	Reveal in Finder	Mostrar en Finder
+	Reveal in File Explorer	Mostrar en el explorador de archivos
+	Other colour…	Otro color…
+	Recent colours	Colores recientes
 	Reading colours	Colores de lectura
 	Replace document colours	Reemplazar colores del documento
 	Page background	Fondo de página

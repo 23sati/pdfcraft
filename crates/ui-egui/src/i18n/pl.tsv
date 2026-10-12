@@ -221,6 +221,9 @@
 	Add or edit links	Dodaj lub edytuj łącza
 	Create links from URLs	Utwórz łącza z adresów URL
 	Remove all links	Usuń wszystkie łącza
+	No links to remove	Brak łączy do usunięcia
+	Removed 1 link	Usunięto 1 łącze
+	Removed {n} links	Usunięte łącza: {n}
 	Add Bates numbering…	Dodaj numerację Batesa…
 	Add image…	Dodaj obraz…
 	Redact text and images	Utajnij tekst i obrazy
@@ -2285,6 +2288,14 @@ animation effects	Off	Wyłączone
 	Ink sensitivity	Czułość na atrament
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	W ramce nie znaleziono podpisu. Przesuń ramkę na podpis lub zwiększ czułość na atrament.
 	Couldn't use the photo: {e}	Nie można użyć zdjęcia: {e}
+
+# PDF tab context menu (#1233)
+	Close Tab	Zamknij kartę
+	Reopen Closed Tab	Otwórz ponownie zamkniętą kartę
+	Reveal in Finder	Pokaż w Finderze
+	Reveal in File Explorer	Pokaż w Eksploratorze plików
+	Other colour…	Inny kolor…
+	Recent colours	Ostatnie kolory
 	Reading colours	Kolory do czytania
 	Replace document colours	Zastąp kolory dokumentu
 	Page background	Tło strony
@@ -2300,3 +2311,4 @@ animation effects	Off	Wyłączone
 	The linked PDF opened, but its page destination was out of range.	Połączony plik PDF został otwarty, ale jego strona docelowa jest poza zakresem.
 	Local cross-PDF links require the desktop app	Lokalne łącza między plikami PDF wymagają aplikacji komputerowej
 	The existing action will be preserved.	Istniejąca akcja zostanie zachowana.
+	This form's scripts are turned off because one ran too long. Reopen the document to run them again.	Skrypty tego formularza są wyłączone, ponieważ jeden z nich działał zbyt długo. Otwórz dokument ponownie, aby znów je uruchomić.

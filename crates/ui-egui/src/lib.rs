@@ -122,6 +122,7 @@ mod recovery;
 pub mod scroll_speed;
 #[cfg(not(target_arch = "wasm32"))]
 mod system_fonts;
+mod tab_context;
 pub mod theme;
 pub mod ui_scale;
 pub mod updates;
@@ -434,6 +435,7 @@ pub struct PdfCraftApp {
     pub(crate) pending_panel_reveals: Vec<docking::Panel>,
     pub session: Session,
     pub views: Vec<DocView>,
+    pub(crate) closed_tabs: Vec<String>,
     /// `None` shows the Home tab.
     pub active: Option<usize>,
     pub mode: Mode,
@@ -784,6 +786,7 @@ impl PdfCraftApp {
         Self {
             session: Session::new(),
             views: Vec::new(),
+            closed_tabs: Vec::new(),
             active: None,
             mode: Mode::AllTools,
             default_mode: Mode::AllTools,
@@ -1430,6 +1433,13 @@ impl PdfCraftApp {
             return;
         }
         let id = self.views.remove(index).id;
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(path) = self.session.get(id).and_then(|d| d.path.clone()) {
+            if self.closed_tabs.len() == 10 {
+                self.closed_tabs.remove(0);
+            }
+            self.closed_tabs.push(path);
+        }
         self.forget_recovery(id);
         self.session.close(id);
         self.active = match self.active {

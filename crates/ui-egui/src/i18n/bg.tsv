@@ -1172,6 +1172,9 @@
 	Redact pages…	Заличи страници…
 	Redaction properties…	Свойства на заличаването…
 	Remove all links	Премахни всички връзки
+	No links to remove	Няма връзки за премахване
+	Removed 1 link	Премахната е 1 връзка
+	Removed {n} links	Премахнати връзки: {n}
 	Remove background	Премахни фона
 	Remove header & footer	Премахни горния и долния колонтитул
 	Remove hidden information…	Премахни скритата информация…
@@ -2083,6 +2086,7 @@
 	DPI sets the printed page size without resampling the image.	DPI определя размера на отпечатаната страница без преизчисляване на изображението.
 	Create	Създай
 	Dynamic XFA form laid out from its template: {pages}, {fields}.	Динамичен XFA формуляр, оформен по своя шаблон: {pages}, {fields}.
+	This form's scripts are turned off because one ran too long. Reopen the document to run them again.	Скриптовете на този формуляр са изключени, защото един от тях се изпълняваше твърде дълго. Отворете документа отново, за да се изпълнят пак.
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	XFA формуляр: полетата и XFA данните му се поддържат синхронизирани, така че другите програми за преглед показват попълненото от вас.
 @plural	{n} page|{n} pages	{n} страница|{n} страници
 @plural	{n} field|{n} fields	{n} поле|{n} полета
@@ -2279,6 +2283,14 @@ animation effects	Off	Изключени
 	Ink sensitivity	Чувствителност към мастило
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	В рамката не е открит подпис. Преместете рамката върху подписа или увеличете чувствителността към мастило.
 	Couldn't use the photo: {e}	Снимката не може да се използва: {e}
+
+# PDF tab context menu (#1233)
+	Close Tab	Затваряне на раздела
+	Reopen Closed Tab	Отваряне на затворения раздел
+	Reveal in Finder	Показване във Finder
+	Reveal in File Explorer	Показване във файловия мениджър
+	Other colour…	Друг цвят…
+	Recent colours	Последни цветове
 	Couldn't follow linked PDF: {reason}	Свързаният PDF не можа да бъде отворен: {reason}
 	The linked PDF opened, but its named destination was not applied.	Свързаният PDF се отвори, но именуваната му цел не беше приложена.
 	The linked PDF opened, but its page destination was out of range.	Свързаният PDF се отвори, но целевата му страница е извън обхвата.
