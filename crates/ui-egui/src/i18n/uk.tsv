@@ -2360,3 +2360,11 @@ animation effects	Off	Вимкнено
 	The linked PDF opened, but its named destination was not applied.	Пов’язаний PDF відкрито, але його іменоване призначення не застосовано.
 	The linked PDF opened, but its page destination was out of range.	Пов’язаний PDF відкрито, але сторінка призначення поза межами діапазону.
 	Local cross-PDF links require the desktop app	Локальні посилання між PDF працюють лише в настільному застосунку
+
+# Interface font preference.
+	Interface font	Шрифт інтерфейсу
+	Choose font…	Вибрати шрифт…
+	Use default font	Використовувати типовий шрифт
+	Applied immediately and saved for next time. Keep the font file in its current location.	Застосовується відразу та зберігається. Залиште файл шрифту в поточному розташуванні.
+	This font file cannot be used. Choose a readable TTF, OTF or TTC file.	Цей файл шрифту неможливо використати. Виберіть доступний для читання файл TTF, OTF або TTC.
+	The font must include Latin letters and numbers for interface controls.	Шрифт має містити латинські літери та цифри для елементів інтерфейсу.

@@ -226,6 +226,52 @@ fn chinese_ui_uses_an_installed_chinese_face() {
     }
 }
 
+/// The installed Chinese fallback shares Inter's baseline after raster translation, while
+/// its row size and advance widths stay unchanged. Run on a desktop with a Chinese face.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn chinese_ui_baseline_matches_inter_without_changing_layout() {
+    use std::sync::Arc;
+
+    for cjk in [theme::CjkPreference::SimplifiedChinese, theme::CjkPreference::TraditionalChinese] {
+        let defs = theme::installed_font_definitions(cjk);
+        let Some(data) = defs.font_data.get(theme::SYSTEM_FALLBACK) else {
+            assert!(std::env::var_os("PDFCRAFT_TEST_REQUIRE_CJK").is_none(), "a Chinese system face is required");
+            eprintln!("skipping baseline check: no installed Chinese face");
+            return;
+        };
+        let offset = data.tweak.y_offset_factor;
+        let mut unfixed = defs.clone();
+        Arc::make_mut(unfixed.font_data.get_mut(theme::SYSTEM_FALLBACK).unwrap()).tweak.y_offset_factor = 0.0;
+        let mut fonts = Fonts::new(TextOptions::default(), defs);
+        let mut before = Fonts::new(TextOptions::default(), unfixed);
+        for ppp in [1.0, 2.0] {
+            for size in [12.0, 17.0, 24.0] {
+                for id in [theme::regular(size), theme::medium(size), theme::semibold(size)] {
+                    let text = "H中文PDF".to_owned();
+                    let galley = fonts.with_pixels_per_point(ppp).layout_no_wrap(text.clone(), id.clone(), Color32::BLACK);
+                    let old = before.with_pixels_per_point(ppp).layout_no_wrap(text, id.clone(), Color32::BLACK);
+                    assert_eq!(galley.size(), old.size(), "layout must not move");
+                    let glyphs = &galley.rows[0].glyphs;
+                    let old_glyphs = &old.rows[0].glyphs;
+                    assert_eq!(glyphs[1].pos, old_glyphs[1].pos);
+                    // The actual raster's offset changes, so measure the movement from its UV rect.
+                    let translation = glyphs[1].uv_rect.offset.y - old_glyphs[1].uv_rect.offset.y;
+                    let before_gap = glyphs[1].pos.y - glyphs[0].pos.y;
+                    let after_gap = before_gap + translation;
+                    assert!(after_gap.abs() <= 1.0 / ppp + 0.05, "{cjk:?} {id:?} {ppp}x: gap {before_gap} -> {after_gap}, factor {offset}");
+                    if size == 24.0 && ppp == 2.0 {
+                        if before_gap.abs() > 1.0 {
+                            assert!(after_gap.abs() < before_gap.abs(), "a visible mismatch must improve");
+                        }
+                        eprintln!("{cjk:?} {id:?}: baseline gap {before_gap:.2} -> {after_gap:.2} pt; factor={offset:.6}");
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// Without craft-fonts the interface fonts still install and lay out any text (Japanese falls
 /// back to egui's replacement glyph) without panicking; Latin text is unaffected.
 #[test]

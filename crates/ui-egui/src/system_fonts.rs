@@ -62,7 +62,36 @@ fn load(need: Need) -> Option<Arc<FontData>> {
         Need::Hans => (HANS_PROBE, MAX_HAN_BYTES),
         Need::Hant => (HANT_PROBE, MAX_HAN_BYTES),
     };
-    candidates(need).iter().find_map(|path| read(path, probe, max))
+    let mut data = candidates(need).iter().find_map(|path| read(path, probe, max))?;
+    if matches!(need, Need::Hans | Need::Hant) {
+        let offset = ui_y_offset_factor(&data.font, data.index, pdfcraft_fonts::INTER_REGULAR);
+        Arc::make_mut(&mut data).tweak.y_offset_factor = offset;
+    }
+    Some(data)
+}
+
+/// `(ascent, row height)` as fractions of an em, using the same metrics as egui.
+pub(crate) fn metrics(bytes: &[u8], index: u32) -> Option<(f32, f32)> {
+    use skrifa::MetadataProvider as _;
+    use skrifa::instance::{LocationRef, Size};
+
+    let font = skrifa::FontRef::from_index(bytes, index).ok()?;
+    let m = font.metrics(Size::unscaled(), LocationRef::default());
+    let em = f32::from(m.units_per_em.max(1));
+    let row = m.ascent - m.descent + m.leading;
+    (m.ascent > 0.0 && row > 0.0 && (m.ascent + row).is_finite()).then(|| (m.ascent / em, row / em))
+}
+
+/// Align the installed Chinese face with Inter without changing any layout dimensions.
+/// Adapted from misswell's PR #687 (acc5fe3321793216946d8ee6a4d81cde4870ac9f):
+/// https://github.com/storytold/pdfcraft/pull/687
+/// egui positions a glyph at `ascent + (primary row - face row) / 2`; compensate for the
+/// difference between the two faces. Unreadable metrics retain the existing zero offset.
+fn ui_y_offset_factor(chinese: &[u8], index: u32, primary: &[u8]) -> f32 {
+    let (Some(han), Some(primary)) = (metrics(chinese, index), metrics(primary, 0)) else {
+        return 0.0;
+    };
+    (primary.0 - han.0) + 0.5 * (han.1 - primary.1)
 }
 
 /// The installed fallback face for Devanagari (Hindi), read once. `None` when it is turned off

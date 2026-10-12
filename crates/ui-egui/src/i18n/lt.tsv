@@ -2582,3 +2582,11 @@ key	Esc	Esc
 key	Home	Home
 key	End	End
 key	Space	Tarpas
+
+# Interface font preference.
+	Interface font	Sąsajos šriftas
+	Choose font…	Pasirinkti šriftą…
+	Use default font	Naudoti numatytąjį šriftą
+	Applied immediately and saved for next time. Keep the font file in its current location.	Pritaikoma iš karto ir išsaugoma kitam kartui. Palikite šrifto failą dabartinėje vietoje.
+	This font file cannot be used. Choose a readable TTF, OTF or TTC file.	Šio šrifto failo naudoti negalima. Pasirinkite skaitomą TTF, OTF arba TTC failą.
+	The font must include Latin letters and numbers for interface controls.	Šrifte turi būti lotyniškų raidžių ir skaičių, reikalingų sąsajos valdikliams.

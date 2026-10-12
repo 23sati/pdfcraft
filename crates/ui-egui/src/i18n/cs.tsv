@@ -2412,3 +2412,10 @@ animation effects	Off	Vypnuto
 	The linked PDF opened, but its named destination was not applied.	Odkazovaný PDF se otevřel, ale jeho pojmenovaný cíl nebyl použit.
 	The linked PDF opened, but its page destination was out of range.	Odkazovaný PDF se otevřel, ale cílová stránka je mimo rozsah.
 	Local cross-PDF links require the desktop app	Místní odkazy mezi soubory PDF vyžadují desktopovou aplikaci
+# Interface font preference.
+	Interface font	Písmo rozhraní
+	Choose font…	Vybrat písmo…
+	Use default font	Použít výchozí písmo
+	Applied immediately and saved for next time. Keep the font file in its current location.	Použije se okamžitě a uloží. Soubor písma ponechte v aktuálním umístění.
+	This font file cannot be used. Choose a readable TTF, OTF or TTC file.	Tento soubor písma nelze použít. Vyberte čitelný soubor TTF, OTF nebo TTC.
+	The font must include Latin letters and numbers for interface controls.	Písmo musí obsahovat latinská písmena a číslice pro ovládací prvky rozhraní.

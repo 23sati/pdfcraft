@@ -2336,3 +2336,11 @@ animation effects	Off	Өшірулі
 	The linked PDF opened, but its named destination was not applied.	Байланысты PDF ашылды, бірақ оның аталған мақсаты қолданылмады.
 	The linked PDF opened, but its page destination was out of range.	Байланысты PDF ашылды, бірақ оның мақсатты беті ауқымнан тыс.
 	Local cross-PDF links require the desktop app	PDF файлдары арасындағы жергілікті сілтемелер үшін жұмыс үстелі қолданбасы қажет
+
+# Interface font preference.
+	Interface font	Интерфейс қарпі
+	Choose font…	Қаріпті таңдау…
+	Use default font	Әдепкі қаріпті пайдалану
+	Applied immediately and saved for next time. Keep the font file in its current location.	Бірден қолданылады және келесі жолы үшін сақталады. Қаріп файлын қазіргі орнында сақтаңыз.
+	This font file cannot be used. Choose a readable TTF, OTF or TTC file.	Бұл қаріп файлын пайдалану мүмкін емес. Оқуға болатын TTF, OTF немесе TTC файлын таңдаңыз.
+	The font must include Latin letters and numbers for interface controls.	Қаріпте интерфейс элементтеріне арналған латын әріптері мен сандар болуы керек.

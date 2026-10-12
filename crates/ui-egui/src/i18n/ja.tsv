@@ -2338,3 +2338,11 @@ animation effects	Off	オフ
 	The linked PDF opened, but its named destination was not applied.	リンク先の PDF を開きましたが、名前付き移動先は適用されませんでした。
 	The linked PDF opened, but its page destination was out of range.	リンク先の PDF を開きましたが、移動先のページが範囲外です。
 	Local cross-PDF links require the desktop app	PDF 間のローカルリンクにはデスクトップアプリが必要です
+
+# Interface font preference.
+	Interface font	インターフェースのフォント
+	Choose font…	フォントを選択…
+	Use default font	既定のフォントに戻す
+	Applied immediately and saved for next time. Keep the font file in its current location.	すぐに適用され、次回のために保存されます。フォントファイルは現在の場所に残してください。
+	This font file cannot be used. Choose a readable TTF, OTF or TTC file.	このフォントファイルは使用できません。読み取り可能な TTF、OTF、TTC ファイルを選択してください。
+	The font must include Latin letters and numbers for interface controls.	フォントには操作に必要なラテン文字と数字が含まれている必要があります。

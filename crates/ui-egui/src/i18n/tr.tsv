@@ -2334,3 +2334,11 @@ animation effects	Off	Kapalı
 	The linked PDF opened, but its named destination was not applied.	Bağlantılı PDF açıldı, ancak adlandırılmış hedefi uygulanmadı.
 	The linked PDF opened, but its page destination was out of range.	Bağlantılı PDF açıldı, ancak sayfa hedefi aralık dışında.
 	Local cross-PDF links require the desktop app	PDF'ler arası yerel bağlantılar masaüstü uygulamasını gerektirir
+
+# Interface font preference.
+	Interface font	Arayüz yazı tipi
+	Choose font…	Yazı tipi seç…
+	Use default font	Varsayılan yazı tipini kullan
+	Applied immediately and saved for next time. Keep the font file in its current location.	Hemen uygulanır ve sonraki kullanım için kaydedilir. Yazı tipi dosyasını mevcut konumunda tutun.
+	This font file cannot be used. Choose a readable TTF, OTF or TTC file.	Bu yazı tipi dosyası kullanılamıyor. Okunabilir bir TTF, OTF veya TTC dosyası seçin.
+	The font must include Latin letters and numbers for interface controls.	Yazı tipi, arayüz denetimleri için Latin harfleri ve rakamlar içermelidir.

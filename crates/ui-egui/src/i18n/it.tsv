@@ -2347,3 +2347,11 @@ animation effects	Off	Disattivati
 	The linked PDF opened, but its named destination was not applied.	Il PDF collegato è stato aperto, ma la sua destinazione con nome non è stata applicata.
 	The linked PDF opened, but its page destination was out of range.	Il PDF collegato è stato aperto, ma la pagina di destinazione è fuori intervallo.
 	Local cross-PDF links require the desktop app	I collegamenti locali tra PDF richiedono l'app desktop
+
+# Interface font preference.
+	Interface font	Carattere dell’interfaccia
+	Choose font…	Scegli carattere…
+	Use default font	Usa il carattere predefinito
+	Applied immediately and saved for next time. Keep the font file in its current location.	Applicato subito e salvato. Mantieni il file del carattere nella posizione attuale.
+	This font file cannot be used. Choose a readable TTF, OTF or TTC file.	Impossibile usare questo file del carattere. Scegli un file TTF, OTF o TTC leggibile.
+	The font must include Latin letters and numbers for interface controls.	Il carattere deve includere lettere latine e numeri per i controlli dell’interfaccia.

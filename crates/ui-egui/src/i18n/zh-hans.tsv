@@ -2302,3 +2302,11 @@ animation effects	Off	关
 	The linked PDF opened, but its named destination was not applied.	已打开链接的 PDF，但未应用其命名目标。
 	The linked PDF opened, but its page destination was out of range.	已打开链接的 PDF，但其页面目标超出范围。
 	Local cross-PDF links require the desktop app	PDF 之间的本地链接需要桌面应用
+
+# Interface font preference.
+	Interface font	界面字体
+	Choose font…	选择字体…
+	Use default font	恢复默认字体
+	Applied immediately and saved for next time. Keep the font file in its current location.	立即生效并自动保存。请将字体文件保留在当前位置。
+	This font file cannot be used. Choose a readable TTF, OTF or TTC file.	无法使用此字体文件。请选择可读取的 TTF、OTF 或 TTC 文件。
+	The font must include Latin letters and numbers for interface controls.	字体必须包含界面控件需要的拉丁字母和数字。

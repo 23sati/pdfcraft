@@ -2468,3 +2468,11 @@ animation effects	Off	Desactivados
 	The linked PDF opened, but its page destination was out of range.	El PDF vinculado se abrió, pero su página de destino está fuera de rango.
 	Local cross-PDF links require the desktop app	Los enlaces locales entre PDF requieren la aplicación de escritorio
 	The existing action will be preserved.	Se conservará la acción existente.
+
+# Interface font preference.
+	Interface font	Fuente de la interfaz
+	Choose font…	Elegir fuente…
+	Use default font	Usar fuente predeterminada
+	Applied immediately and saved for next time. Keep the font file in its current location.	Se aplica inmediatamente y se guarda. Mantenga el archivo de fuente en su ubicación actual.
+	This font file cannot be used. Choose a readable TTF, OTF or TTC file.	No se puede usar este archivo de fuente. Elija un archivo TTF, OTF o TTC legible.
+	The font must include Latin letters and numbers for interface controls.	La fuente debe incluir letras latinas y números para los controles de la interfaz.

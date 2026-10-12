@@ -125,6 +125,7 @@ pub mod scroll_speed;
 mod system_fonts;
 mod tab_context;
 pub mod theme;
+pub mod ui_font;
 pub mod ui_scale;
 pub mod updates;
 mod wheel_pager;
@@ -489,6 +490,8 @@ pub struct PdfCraftApp {
     pub language: String,
     /// Preferences ▸ Interface size as a factor, or `None` to follow [`Self::system_text_scale`].
     pub ui_scale: Option<f32>,
+    /// A local face used only for interface text, with runtime validation and fallback.
+    pub ui_font: ui_font::UiFont,
     /// The desktop's text scaling (GNOME's text scaling factor), which the desktop app reads at
     /// launch. 1.0 elsewhere, so tests and screenshots don't depend on the machine.
     pub system_text_scale: f32,
@@ -825,6 +828,7 @@ impl PdfCraftApp {
             motion: motion::Motion::default(),
             language: i18n::AUTO.to_string(),
             ui_scale: None,
+            ui_font: ui_font::UiFont::default(),
             system_text_scale: 1.0,
             ui_scale_applied: None,
             flatten_fill_sign_on_save: false,
@@ -1767,6 +1771,7 @@ impl PdfCraftApp {
             "reading_colors": self.reading_colors,
             // Null follows the system's text scaling.
             "ui_scale": self.ui_scale,
+            "ui_font": self.ui_font.choice(),
             "flatten_fill_sign": self.flatten_fill_sign_on_save,
             "fill_text_size": self.fill_text_size,
             "date_format": self.session.date_format(),
@@ -1882,6 +1887,7 @@ impl PdfCraftApp {
         }
         // Settings are untrusted: a size out of range follows the system instead.
         self.ui_scale = v["ui_scale"].as_f64().and_then(ui_scale::valid);
+        self.ui_font.restore(&v["ui_font"]);
         // Settings are untrusted: an unusable pattern keeps the default.
         if let Some(f) = v["date_format"].as_str() {
             let _ = self.session.set_date_format(f);
@@ -2197,6 +2203,15 @@ impl PdfCraftApp {
             }
             ("author", _) => self.comment_prefs.author = value.to_string(),
             ("ui-scale", _) => self.ui_scale = ui_scale::parse(value)?,
+            ("ui-font", _) => {
+                let choice = if value == "default" { None } else { Some(ui_font::Choice { path: value.into(), index: 0 }) };
+                self.ui_font.select(choice)?;
+            }
+            ("ui-font-face", _) => {
+                let mut choice = self.ui_font.choice().cloned().ok_or("choose a ui-font before setting ui-font-face")?;
+                choice.index = value.parse().map_err(|_| "ui-font-face must be a non-negative font collection index")?;
+                self.ui_font.select(Some(choice))?;
+            }
             ("flatten-fill-sign", _) => {
                 self.flatten_fill_sign_on_save = match value {
                     "true" => true,
@@ -2399,15 +2414,15 @@ impl eframe::App for PdfCraftApp {
         let cjk = theme::CjkPreference::for_language(lang.code());
         if !self.styled {
             egui_extras::install_image_loaders(ctx);
-            theme::install_fonts_for(ctx, cjk);
+            self.ui_font.install(ctx, cjk);
             self.fonts_cjk = cjk;
             theme::apply(ctx, self.theme);
             self.styled = true;
         } else {
             self.fonts_ready = true;
-            if cjk != self.fonts_cjk {
+            if cjk != self.fonts_cjk || self.ui_font.dirty {
                 // Same family names as before, so named fonts stay valid while the new set loads.
-                theme::install_fonts_for(ctx, cjk);
+                self.ui_font.install(ctx, cjk);
                 self.fonts_cjk = cjk;
             }
         }
