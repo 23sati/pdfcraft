@@ -19,6 +19,7 @@ pub mod camera_edges;
 pub mod catalog;
 pub mod commands;
 pub mod compare;
+mod copy_image;
 pub mod dates;
 pub mod export;
 pub mod js;
