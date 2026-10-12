@@ -2253,3 +2253,4 @@ scroll speed	Fast	Hızlı
 	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	PdfCraft'ın yazdığı yazı tipleri “{c}” ({code}) karakterini çizemiyor, bu yüzden her PDF görüntüleyicide ? olarak görünür. Metin kaydedilir.
 	Tools panel side	Araçlar panelinin yeri
 	Add comment	Yorum ekle
+	Change tag properties	Etiket özelliklerini değiştir

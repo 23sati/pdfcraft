@@ -2331,3 +2331,4 @@ scroll speed	Fast	Rychlá
 	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Písma, kterými PdfCraft píše, neumí zobrazit „{c}“ ({code}), proto se ve všech prohlížečích PDF zobrazí jako ?. Text se uloží.
 	Tools panel side	Strana panelu nástrojů
 	Add comment	Přidat komentář
+	Change tag properties	Změnit vlastnosti značky

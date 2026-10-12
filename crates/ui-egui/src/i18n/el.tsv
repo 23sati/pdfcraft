@@ -2273,3 +2273,4 @@ scroll speed	Fast	Γρήγορη
 	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Οι γραμματοσειρές με τις οποίες γράφει το PdfCraft δεν μπορούν να σχεδιάσουν το «{c}» ({code}), γι' αυτό εμφανίζεται ως ? σε κάθε πρόγραμμα προβολής PDF. Το κείμενο αποθηκεύεται.
 	Tools panel side	Πλευρά πλαισίου εργαλείων
 	Add comment	Προσθήκη σχολίου
+	Change tag properties	Αλλαγή ιδιοτήτων ετικέτας
