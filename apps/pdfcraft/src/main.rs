@@ -680,6 +680,19 @@ mod tests {
         Ok(Endpoint { port: 4321, token: "0123456789abcdef".into() })
     }
 
+    /// Tests that open a real GPU device take this first, so only one of them is inside the
+    /// graphics libraries at a time. The test threads otherwise run them together, and on
+    /// FreeBSD's CI machine the test process then died with SIGSEGV, in about half the runs:
+    /// the first device was still being set up when the second test began its own. The UI
+    /// tests take turns the same way (`crates/ui-egui/tests/view.rs`). Hold it for the whole
+    /// test (declared before the instance, so it's released after the device is dropped).
+    static GPU: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn gpu() -> std::sync::MutexGuard<'static, ()> {
+        // A test that panicked while holding it leaves nothing to clean up.
+        GPU.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
     #[test]
     fn a_control_channel_that_cant_be_published_stops_the_app() {
         let dir = std::env::temp_dir().join(format!("pdfcraft-app-control-{}", std::process::id()));
@@ -886,6 +899,7 @@ mod tests {
         // and an error wgpu raises before anything reaches the driver: a texture one pixel wider
         // than the device allows.
         use eframe::wgpu;
+        let _gpu = gpu();
         let native = super::native_options(false, eframe::Renderer::Wgpu);
         let eframe::egui_wgpu::WgpuSetup::CreateNew(setup) = &native.wgpu_options.wgpu_setup else {
             panic!("default setup creates its own instance")
@@ -952,6 +966,7 @@ mod tests {
     #[test]
     fn pipeline_creation_error_is_returned_and_device_remains_usable() {
         use eframe::{egui_wgpu, wgpu};
+        let _gpu = gpu();
         let mut native = super::native_options(false, eframe::Renderer::Wgpu);
         let egui_wgpu::WgpuSetup::CreateNew(setup) = &native.wgpu_options.wgpu_setup else { panic!("default setup creates its own instance") };
         let instance = pollster::block_on(native.wgpu_options.wgpu_setup.new_instance());
