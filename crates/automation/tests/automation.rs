@@ -1638,6 +1638,35 @@ trailer << /Root 1 0 R >>
     )
     .unwrap();
     let fd = ok(&mut a, "doc_open", json!({ "path": "figures.pdf" }))["doc"].as_u64().unwrap();
+    let tags = ok(&mut a, "accessibility_tags", json!({ "doc": fd }));
+    assert_eq!(tags["count"], 3);
+    assert_eq!(tags["tags"][1]["object"], 7);
+    assert_eq!(tags["tags"][1]["type"], "Figure");
+    let changed = ok(
+        &mut a,
+        "accessibility_set_tag_property",
+        json!({
+            "doc": fd, "object": 7, "generation": 0, "property": "title", "value": "First shape"
+        }),
+    );
+    assert_eq!(changed["tags"][1]["title"], "First shape");
+    assert_eq!(ok(&mut a, "edit_undo", json!({ "doc": fd }))["undone"], "Change tag properties");
+    assert_eq!(ok(&mut a, "accessibility_tags", json!({ "doc": fd }))["tags"][1]["title"], Value::Null);
+    assert!(matches!(
+        a.call(
+            "accessibility_set_tag_property",
+            &json!({
+                "doc": fd, "object": 7, "generation": 1, "property": "title", "value": "Wrong generation"
+            })
+        ),
+        Err(ToolError::Failed(_))
+    ));
+    let findings = ok(&mut a, "accessibility_check", json!({ "doc": fd, "rules": ["figures-alt-text"] }));
+    let figures_rule = findings["results"].as_array().unwrap().iter().find(|x| x["rule"] == "figures-alt-text").unwrap();
+    assert_eq!(figures_rule["findings"][0]["object"], 7);
+    assert_eq!(figures_rule["findings"][0]["object_generation"], 0);
+    assert_eq!(figures_rule["findings"][1]["object"], 8);
+    assert_eq!(figures_rule["findings"][1]["object_generation"], 0);
     let figs = ok(&mut a, "accessibility_figures", json!({ "doc": fd }));
     assert_eq!(figs["count"], 2);
     assert_eq!(figs["figures"][0]["rect"], json!([10.0, 30.0, 50.0, 50.0]), "top-left-origin points");
@@ -1650,6 +1679,36 @@ trailer << /Root 1 0 R >>
     let check = ok(&mut a, "accessibility_check", json!({ "doc": fd, "rules": ["figures-alt-text", "tagged-content"] }));
     assert_eq!(check["failed"], 0, "{check}");
     assert!(matches!(a.call("accessibility_set_alt", &json!({ "doc": fd, "figure": 6, "alt": "x" })), Err(ToolError::Failed(_))));
+}
+
+#[test]
+fn accessibility_review_record_compares_two_versions_without_changing_them() {
+    let dir = workdir("a11y-review-record");
+    let source = std::fs::read(dir.join("a.pdf")).unwrap();
+    let mut a = auto(&dir);
+    let before = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    let after = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    ok(&mut a, "accessibility_fix", json!({ "doc": after, "rule": "primary-language", "value": "en-GB" }));
+
+    let output = ok(&mut a, "accessibility_review_record", json!({ "before": before, "after": after, "path": "review.json" }));
+    let file: Value = serde_json::from_slice(&std::fs::read(dir.join("review.json")).unwrap()).unwrap();
+    assert_eq!(output["record"], file);
+    assert_eq!(file["schema"], 1);
+    assert_eq!(file["before"]["sha256"].as_str().unwrap().len(), 64);
+    assert_eq!(file["after"]["sha256"].as_str().unwrap().len(), 64);
+    assert_ne!(file["before"]["sha256"], file["after"]["sha256"]);
+    assert_eq!(file["changed"], json!(["primary-language"]));
+    let language = file["rules"].as_array().unwrap().iter().find(|r| r["rule"] == "primary-language").unwrap();
+    assert_eq!(language["before"]["status"], "failed");
+    assert_eq!(language["after"]["status"], "passed");
+    assert!(file["review_required"].as_array().unwrap().iter().any(|r| r == "tagged-pdf"));
+    assert_eq!(std::fs::read(dir.join("a.pdf")).unwrap(), source);
+    assert!(matches!(
+        a.call("accessibility_review_record", &json!({ "before": before, "after": before, "path": "same.json" })),
+        Err(ToolError::InvalidArgs(_))
+    ));
+    assert!(!dir.join("same.json").exists());
+    assert!(a.call("accessibility_review_record", &json!({ "before": before, "after": after, "path": "../escape.json" })).is_err());
 }
 
 #[test]
