@@ -131,6 +131,8 @@ fn commands_and_options_apply_before_the_first_frame() {
 #[test]
 fn all_presets_switch_live_persist_and_preserve_unsaved_documents() {
     let mut h = harness();
+    // Repeated saves stamp ModDate. Freeze time so byte equality proves document preservation.
+    h.state_mut().session = pdfcraft_engine::Session::default().with_clock(|| 1_700_000_000);
     assert!(h.state_mut().execute("create.blank"));
     h.run_steps(3);
     let id = h.state().views[0].id;

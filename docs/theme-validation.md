@@ -63,12 +63,76 @@ without MCP, assets (269 repository, six dependency, 22 build inputs), layering
 (36 crates), and parity passed. WASM still fails for the missing target standard
 library; cargo-deny reports SKIPPED. Other operating systems were not built here.
 
+## 2026-10-12 upstream review and merge
+
+Reviewed and merged upstream `87b448b664e1b3c960b479cc0f2c2e7a82c7ac71` into the
+existing feature branch, preserving published history. The 27 conflicts below
+were resolved by retaining both independently added functionality. Upstream’s
+0.7.0 workspace version, press/hover interactions, animation preference, reading
+colors, localization and font/editing improvements remain intact. Reading colors
+remain document-render settings, separate from the application palette. The theme
+core and storage schema are unchanged; exact CLI JSON equality verifies all nine
+built-in names, IDs and all 31 colors. All 21 catalogs include the preset labels.
+
+Prior-head CI passed Linux, WASM, dependency audit, FreeBSD and both Windows ARM64
+jobs; scheduled fuzzing was skipped. Windows failed only the theme document-state
+regression: repeated saves differed by one byte in ModDate, crossing a second.
+The test now uses the engine’s fixed-clock API and retains exact PDF byte equality.
+No production save behavior was changed.
+
+Local final validation: **2,865 passed, zero failed, 13 upstream ignores**. Formatting,
+all-target Clippy, native macOS desktop/CLI builds, CLI without MCP, assets (269
+repository, six dependency, 22 build inputs), layering (36 crates), and parity pass.
+WASM still lacks its target standard library locally; cargo-deny reports SKIPPED.
+The 34-image visual check passed; the Executive selector was inspected.
+The additional upstream ignores require private document/font fixtures or are a
+Windows font-raster measurement probe. Hosted results for the new head are tracked
+in PR #1090; prior-head successes do not establish new-head success.
+
+No reviews or main-branch protection rule were visible at diagnosis; the listed
+repository ruleset applies only to release. Maintainer review remains appropriate.
+Keep this PR intact: palette, persistence, GUI selection and automation are one
+coherent API/state change. A graphical editor remains a separate future PR.
+
+The table attributes upstream additions in each conflicting hunk using git blame;
+several translation/progress append conflicts naturally span multiple commits.
+
+| Conflicting file | Upstream commits touching the conflicting additions |
+|---|---|
+| `ATTRIBUTION.toml` | `0cb311d`, `0e55d07`, `4bfd3c2` |
+| `Cargo.toml` | `78f00e4` |
+| `ROADMAP.md` | `09287e5`, `c52072b` |
+| `crates/automation/README.md` | `6d843a8` |
+| `crates/automation/tests/automation.rs` | `186c1dc`, `6d843a8` |
+| `crates/ui-egui/src/home.rs` | `a786c8f` |
+| `crates/ui-egui/src/i18n/ar.tsv` | `4541974` |
+| `crates/ui-egui/src/i18n/bg.tsv` | `4541974` |
+| `crates/ui-egui/src/i18n/de.tsv` | `4541974` |
+| `crates/ui-egui/src/i18n/el.tsv` | `012b34a`, `06480e3`, `09287e5`, `0e55d07`, `4541974`, `7183bf4`, `a8940f0`, `b1784fc`, `c1d9894` |
+| `crates/ui-egui/src/i18n/fr.tsv` | `4541974` |
+| `crates/ui-egui/src/i18n/hu.tsv` | `4541974` |
+| `crates/ui-egui/src/i18n/it.tsv` | `4541974` |
+| `crates/ui-egui/src/i18n/ja.tsv` | `4541974` |
+| `crates/ui-egui/src/i18n/kk.tsv` | `012b34a`, `06480e3`, `09287e5`, `4541974`, `7183bf4`, `a8940f0`, `b1784fc`, `c1d9894` |
+| `crates/ui-egui/src/i18n/pt-br.tsv` | `4541974` |
+| `crates/ui-egui/src/i18n/ru.tsv` | `4541974` |
+| `crates/ui-egui/src/i18n/sl.tsv` | `012b34a`, `06480e3`, `09287e5`, `7183bf4`, `a8940f0`, `b1784fc`, `c1d9894` |
+| `crates/ui-egui/src/i18n/te.tsv` | `2aea7dc` |
+| `crates/ui-egui/src/i18n/tr.tsv` | `012b34a`, `06480e3`, `09287e5`, `4541974`, `7183bf4`, `a8940f0`, `b1784fc`, `c1d9894` |
+| `crates/ui-egui/src/i18n/uk.tsv` | `4541974` |
+| `crates/ui-egui/src/i18n/zh-hans.tsv` | `4541974` |
+| `crates/ui-egui/src/icons.rs` | `a786c8f` |
+| `crates/ui-egui/src/lib.rs` | `4541974` |
+| `crates/ui-egui/src/panels.rs` | `a786c8f` |
+| `crates/ui-egui/src/widgets.rs` | `8cacb44`, `a786c8f` |
+| `docs/roadmap.md` | `13637b8`, `186c1dc`, `2839152`, `51982db`, `7caaa35`, `87b448b`, `8cacb44`, `c1d9894`, `c52072b`, `fcf6e39` |
+
 ## Passed
 
-- `cargo test --workspace --no-fail-fast`: **2,555 passed, zero failed, six ignored**.
+- `cargo test --workspace --no-fail-fast`: **2,865 passed, zero failed, 13 ignored**.
   This repeats and expands the original 1,765-test baseline after upstream integration.
-  The six existing ignores concern network access, two optional corpus tests, a
-  timing probe, a local signature diagnostic and a temporary macOS keychain test.
+  The upstream ignores require network, corpus, private document/font and local
+  signature/keychain inputs, or are timing/raster measurement probes.
 - `cargo fmt --all -- --check` and
   `cargo clippy --workspace --all-targets -- -D warnings`.
 - `cargo build -p pdfcraft -p pdfcraft-cli` on native macOS, plus
