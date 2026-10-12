@@ -4232,6 +4232,78 @@ fn xfa_data_files_export_and_import_through_tools() {
 }
 
 #[test]
+fn office_powerpoint_conversion_uses_deckcraft_through_the_tool() {
+    let dir = workdir("office-powerpoint-create");
+    let mut deck = deckcraft_model::Presentation::default();
+    if let Some(shape) = std::sync::Arc::make_mut(&mut deck.slides[0]).shapes.first_mut() {
+        shape.text = Some(deckcraft_model::TextBody::from_text("A synthetic slide"));
+    }
+    let pptx = deckcraft_pptx::export(&deck).unwrap();
+    std::fs::write(dir.join("slides.pptx"), pptx).unwrap();
+    let mut a = auto(&dir);
+    let made = ok(&mut a, "doc_create", json!({ "from": "office", "path": "slides.pptx" }));
+    assert_eq!(made["pages"], 1, "{made}");
+    assert_eq!(made["name"], "slides.pdf");
+    let doc = made["doc"].as_u64().unwrap();
+    assert!(page_text(&mut a, doc)[0].contains("A synthetic slide"));
+    ok(&mut a, "doc_save", json!({ "doc": doc, "path": "slides.pdf" }));
+    assert!(std::fs::read(dir.join("slides.pdf")).unwrap().starts_with(b"%PDF-"));
+    let error = a.call("doc_create", &json!({ "from": "office", "path": "slides.pdf" })).unwrap_err();
+    assert!(matches!(error, ToolError::Failed(_)));
+}
+
+#[test]
+fn office_word_conversion_uses_wordcraft_through_the_tool() {
+    let dir = workdir("office-word-create");
+    let mut a = auto(&dir);
+    let source = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    ok(&mut a, "doc_export_office", json!({ "doc": source, "path": "word.docx" }));
+    let made = ok(&mut a, "doc_create", json!({ "from": "office", "path": "word.docx" }));
+    assert!(made["pages"].as_u64().is_some_and(|pages| pages >= 1), "{made}");
+    let doc = made["doc"].as_u64().unwrap();
+    assert!(page_text(&mut a, doc).iter().any(|page| page.contains("Page 1")));
+}
+
+#[test]
+fn office_spreadsheet_conversion_reads_cells_with_gridcraft() {
+    use std::io::Write;
+    let dir = workdir("office-spreadsheet-create");
+    let file = std::fs::File::create(dir.join("budget.xlsx")).unwrap();
+    let mut zip = zip::ZipWriter::new(file);
+    let entries = [
+        (
+            "[Content_Types].xml",
+            r#"<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>"#,
+        ),
+        (
+            "_rels/.rels",
+            r#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>"#,
+        ),
+        (
+            "xl/workbook.xml",
+            r#"<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Budget" sheetId="1" r:id="rId1"/></sheets></workbook>"#,
+        ),
+        (
+            "xl/_rels/workbook.xml.rels",
+            r#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>"#,
+        ),
+        (
+            "xl/worksheets/sheet1.xml",
+            r#"<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>Budget sample</t></is></c><c r="B1"><v>42</v></c></row></sheetData></worksheet>"#,
+        ),
+    ];
+    for (name, content) in entries {
+        zip.start_file(name, zip::write::SimpleFileOptions::default()).unwrap();
+        zip.write_all(content.as_bytes()).unwrap();
+    }
+    zip.finish().unwrap();
+    let mut a = auto(&dir);
+    let made = ok(&mut a, "doc_create", json!({ "from": "office", "path": "budget.xlsx" }));
+    let doc = made["doc"].as_u64().unwrap();
+    assert!(page_text(&mut a, doc).iter().any(|page| page.contains("Budget sample")));
+}
+
+#[test]
 fn dynamic_xfa_forms_open_render_fill_and_save_through_tools() {
     let dir = workdir("xfa");
     std::fs::write(dir.join("xfa.pdf"), pdfcraft_xfa::fixtures::shell(&pdfcraft_xfa::fixtures::template(2))).unwrap();

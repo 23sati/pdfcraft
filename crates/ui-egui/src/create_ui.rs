@@ -86,10 +86,15 @@ fn stem(name: &str) -> &str {
 }
 
 impl PdfCraftApp {
-    /// Convert a non-PDF file (image, text) into a new tab. Returns `None` when `bytes` is not
+    /// Convert a non-PDF file (image, text or Office) into a new tab. Returns `None` when `bytes` is not
     /// something Create understands (the caller then tries to open it as a PDF).
     pub(crate) fn open_converted(&mut self, name: &str, bytes: &[u8]) -> Option<Result<(), String>> {
         use pdfcraft_engine::SourceKind;
+        #[cfg(not(target_arch = "wasm32"))]
+        if pdfcraft_platform::office::supports(name) {
+            let converted = pdfcraft_platform::office::to_pdf(name, bytes).map(Arc::new).map_err(|e| e.to_string());
+            return Some(self.open_created_bytes(&format!("{}.pdf", stem(name)), converted));
+        }
         if !matches!(pdfcraft_engine::source_kind(name, bytes), Some(SourceKind::Image | SourceKind::Text)) {
             return None;
         }

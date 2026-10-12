@@ -6861,15 +6861,15 @@ notes = ""
 
 [[feature]]
 id = "create.from-office"
-title = "Create PDF from Office documents (LibreOffice sidecar)"
+title = "Create PDF from Office documents (DeckCraft, WordCraft, GridCraft)"
 area = "J"
-tier = "P2"
+tier = "P1"
 milestone = "M10"
-status = "planned"
-commands = []
-tools = []
-evidence = []
-notes = ""
+status = "partial"
+commands = ["create.file"]
+tools = ["doc_create"]
+evidence = ["crates/platform/src/office.rs::deckcraft_presentation_becomes_a_pdf", "crates/automation/tests/automation.rs::office_powerpoint_conversion_uses_deckcraft_through_the_tool", "crates/automation/tests/automation.rs::office_word_conversion_uses_wordcraft_through_the_tool", "crates/automation/tests/automation.rs::office_spreadsheet_conversion_reads_cells_with_gridcraft", "crates/ui-egui/tests/create.rs::opening_a_powerpoint_uses_deckcraft_conversion"]
+notes = "On native builds, File ▸ Open and Create ▸ Single file convert PPTX/POTX/PPSX through the same pure-Rust PowerPoint importer and PDF exporter used by DeckCraft; doc_create from office exposes the path headlessly. DOC/DOCX/ODT/RTF use WordCraft and XLS/XLSX/ODS use GridCraft, both in process with source and output size limits. These routes use bundled attributed fonts only. The result is a new unsaved PDF. Missing: Office files in Combine/Create Multiple, background conversion with progress/cancel, stronger layout and content fidelity comparison to Acrobat/Office, other Office formats (Visio, Publisher), Office add-ins, PDF-to-Excel/PowerPoint and layout-faithful Word export. Browser builds do not run the desktop converter."
 
 [[feature]]
 id = "create.create-multiple"
@@ -7185,7 +7185,7 @@ status = "na"
 commands = []
 tools = []
 evidence = []
-notes = "Adobe cloud; LibreOffice sidecar instead"
+notes = "Adobe cloud service; local Office-to-PDF conversion uses DeckCraft, WordCraft and GridCraft engines"
 
 # ==================================================================================================
 # K. Optimize and standards

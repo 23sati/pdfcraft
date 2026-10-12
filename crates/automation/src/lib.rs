@@ -1255,6 +1255,17 @@ impl Automation {
                 })?;
                 (format!("{title}.pdf"), bytes)
             }
+            #[cfg(not(target_arch = "wasm32"))]
+            "office" => {
+                let path = self.resolve(a.str("path")?, false)?;
+                let source = std::fs::read(&path).map_err(|e| failed(format!("{}: {e}", path.display())))?;
+                let original = path.file_name().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+                let pdf = pdfcraft_platform::office::to_pdf(&original, &source).map_err(failed)?;
+                let name = format!("{}.pdf", path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default());
+                (name, std::sync::Arc::new(pdf))
+            }
+            #[cfg(target_arch = "wasm32")]
+            "office" => return Err(ToolError::Failed("Office conversion needs a desktop build".into())),
             other => return Err(ToolError::InvalidArgs(format!("unknown source {other:?}"))),
         };
         let name = a.opt_str("name")?.map(str::to_owned).unwrap_or(name);

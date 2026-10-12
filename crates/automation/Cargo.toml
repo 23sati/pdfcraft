@@ -31,3 +31,6 @@ flate2.workspace = true
 pdfcraft-model = { workspace = true }
 pdfcraft-xfa = { workspace = true }
 image = { version = "0.25", default-features = false, features = ["jpeg"] }
+deckcraft-model = { version = "0.5", git = "https://github.com/earlvanze/deckcraft", rev = "82f7b2def92175d936f35acc79856d1553608029" }
+deckcraft-pptx = { version = "0.5", git = "https://github.com/earlvanze/deckcraft", rev = "82f7b2def92175d936f35acc79856d1553608029" }
+zip = { version = "3", default-features = false }

@@ -69,6 +69,24 @@ fn opening_images_and_text_converts_them_to_new_pdfs() {
     assert!(app.open_bytes("junk.png", None, b"\x89PNG\r\n\x1a\nnot really".to_vec()).is_err());
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn opening_a_powerpoint_uses_deckcraft_conversion() {
+    let mut deck = deckcraft_model::Presentation::default();
+    if let Some(shape) = std::sync::Arc::make_mut(&mut deck.slides[0]).shapes.first_mut() {
+        shape.text = Some(deckcraft_model::TextBody::from_text("A synthetic slide"));
+    }
+    let source = deckcraft_pptx::export(&deck).unwrap();
+    let mut app = PdfCraftApp::new();
+    app.set_option("language", "en").unwrap();
+    app.open_bytes("slides.pptx", None, source).unwrap();
+    let docs = app.session.docs();
+    assert_eq!(docs.len(), 1);
+    assert_eq!(docs[0].name, "slides.pdf");
+    assert_eq!(docs[0].info.pages.len(), 1);
+    assert!(docs[0].dirty);
+}
+
 /// Open `name` and run Reduce File Size on it, saving to `out` without a dialog.
 fn reduce(name: &'static str, bytes: Vec<u8>, out: &std::path::Path) -> egui_kittest::Harness<'static, PdfCraftApp> {
     let out2 = out.to_path_buf();
