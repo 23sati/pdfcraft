@@ -2279,6 +2279,19 @@ scroll speed	Fast	Veloce
 	Tools panel side	Lato del pannello Strumenti
 	Add comment	Aggiungi commento
 	Change tag properties	Modifica proprietà del tag
+# Accessibility structure tags.
+	Tags panel	Pannello tag
+	Tags	Tag
+	Tag type	Tipo di tag
+	Actual text	Testo effettivo
+	Find a tag	Trova un tag
+	Collapse tag	Comprimi tag
+	Expand tag	Espandi tag
+	Revert changes	Annulla modifiche
+	Save tag properties	Salva proprietà del tag
+	This document has no editable structure tags.	Questo documento non contiene tag strutturali modificabili.
+	{n} tags	{n} tag
+	Save or revert changes before selecting another tag.	Salva o annulla le modifiche prima di selezionare un altro tag.
 	Left out: {names}	Esclusi: {names}
 	already a PDF	è già un PDF
 	no unused output name	nessun nome di output libero

@@ -2292,6 +2292,19 @@ scroll speed	Fast	Швидка
 	Tools panel side	Бік панелі інструментів
 	Add comment	Додати коментар
 	Change tag properties	Змінити властивості тегу
+# Accessibility structure tags.
+	Tags panel	Панель тегів
+	Tags	Теги
+	Tag type	Тип тегу
+	Actual text	Фактичний текст
+	Find a tag	Знайти тег
+	Collapse tag	Згорнути тег
+	Expand tag	Розгорнути тег
+	Revert changes	Скасувати зміни
+	Save tag properties	Зберегти властивості тегу
+	This document has no editable structure tags.	У цьому документі немає структурних тегів, доступних для редагування.
+	{n} tags	{n} тегів
+	Save or revert changes before selecting another tag.	Збережіть або скасуйте зміни, перш ніж вибрати інший тег.
 	Left out: {names}	Пропущено: {names}
 	already a PDF	вже PDF
 	no unused output name	немає вільної назви для вихідного файлу

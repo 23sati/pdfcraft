@@ -2233,6 +2233,19 @@ scroll speed	Fast	Висока
 	Tools panel side	Страна на панела с инструменти
 	Add comment	Добавяне на коментар
 	Change tag properties	Промяна на свойствата на етикета
+# Accessibility structure tags.
+	Tags panel	Панел с тагове
+	Tags	Тагове
+	Tag type	Тип на тага
+	Actual text	Действителен текст
+	Find a tag	Намери таг
+	Collapse tag	Свий тага
+	Expand tag	Разгъни тага
+	Revert changes	Отмени промените
+	Save tag properties	Запази свойствата на тага
+	This document has no editable structure tags.	Този документ няма структурни тагове за редактиране.
+	{n} tags	{n} тага
+	Save or revert changes before selecting another tag.	Запазете или отменете промените, преди да изберете друг таг.
 	Left out: {names}	Пропуснати: {names}
 	already a PDF	вече е PDF
 	no unused output name	няма свободно име за изходния файл

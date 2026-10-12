@@ -1724,6 +1724,8 @@ trailer << /Root 1 0 R >>
     assert_eq!(tags["count"], 3);
     assert_eq!(tags["tags"][1]["object"], 7);
     assert_eq!(tags["tags"][1]["type"], "Figure");
+    assert_eq!(tags["tags"][1]["parent"], json!({ "object": 6, "generation": 0 }));
+    assert_eq!(tags["tags"][1]["depth"], 1);
     let changed = ok(
         &mut a,
         "accessibility_set_tag_property",

@@ -8843,11 +8843,11 @@ title = "Tags panel (new, delete, find, change to artifact)"
 area = "M"
 tier = "P1"
 milestone = "M12"
-status = "planned"
-commands = []
-tools = []
-evidence = []
-notes = ""
+status = "partial"
+commands = ["a11y.tags"]
+tools = ["accessibility_tags"]
+evidence = ["crates/ui-egui/tests/accessibility.rs::tags_panel_edits_a_tag_property_and_undoes_it", "crates/ui-egui/tests/accessibility.rs::checker_finding_opens_its_structure_tag"]
+notes = "The right-side Tags panel lists reachable indirect tags as a collapsible hierarchy, filters by type or title with ancestors, navigates to their page and edits properties. Checker findings linked to indirect tags open the matching tag without losing unsaved edits. Inline tags, adding/deleting tags, artifact marking and finding content remain planned in #982."
 
 [[feature]]
 id = "a11y.tag-properties"
@@ -8856,10 +8856,10 @@ area = "M"
 tier = "P1"
 milestone = "M12"
 status = "partial"
-commands = []
+commands = ["a11y.tags"]
 tools = ["accessibility_tags", "accessibility_set_tag_property"]
-evidence = ["crates/a11y/src/tests.rs::reachable_tag_properties_round_trip_and_reject_unrelated_objects", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools"]
-notes = "The engine and headless tools list reachable indirect tags and edit type, title, actual text, alternate text and language with undo. An on-screen tag properties editor and inline tag dictionary support remain planned with the Tags Panel (#982)."
+evidence = ["crates/a11y/src/tests.rs::reachable_tag_properties_round_trip_and_reject_unrelated_objects", "crates/a11y/src/tests.rs::tag_hierarchy_keeps_indirect_parent_through_inline_tags", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools", "crates/ui-egui/tests/accessibility.rs::tags_panel_edits_a_tag_property_and_undoes_it"]
+notes = "The engine, headless tools and right-side editor list reachable indirect tags with parent and depth and edit type, title, actual text, alternate text and language with undo. Inline tag dictionaries and structural operations remain planned with the Tags Panel (#982)."
 
 [[feature]]
 id = "a11y.role-map"

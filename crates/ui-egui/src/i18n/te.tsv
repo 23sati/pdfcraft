@@ -2183,6 +2183,19 @@ scroll speed	Fast	వేగంగా
 	Tools panel side	టూల్స్ ప్యానెల్ వైపు
 	Add comment	వ్యాఖ్యను జోడించు
 	Change tag properties	ట్యాగ్ లక్షణాలను మార్చు
+# Accessibility structure tags.
+	Tags panel	ట్యాగ్‌ల ప్యానెల్
+	Tags	ట్యాగ్‌లు
+	Tag type	ట్యాగ్ రకం
+	Actual text	వాస్తవ వచనం
+	Find a tag	ట్యాగ్‌ను కనుగొను
+	Collapse tag	ట్యాగ్‌ను కుదించు
+	Expand tag	ట్యాగ్‌ను విస్తరించు
+	Revert changes	మార్పులను రద్దు చేయి
+	Save tag properties	ట్యాగ్ లక్షణాలను సేవ్ చేయి
+	This document has no editable structure tags.	ఈ పత్రంలో సవరించగల నిర్మాణ ట్యాగ్‌లు లేవు.
+	{n} tags	{n} ట్యాగ్‌లు
+	Save or revert changes before selecting another tag.	మరొక ట్యాగ్‌ను ఎంచుకునే ముందు మార్పులను సేవ్ చేయండి లేదా రద్దు చేయండి.
 	Left out: {names}	వదిలివేసినవి: {names}
 	already a PDF	ఇప్పటికే PDF
 	no unused output name	ఉపయోగించని అవుట్‌పుట్ పేరు లేదు

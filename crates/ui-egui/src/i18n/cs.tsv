@@ -2344,6 +2344,19 @@ scroll speed	Fast	Rychlá
 	Tools panel side	Strana panelu nástrojů
 	Add comment	Přidat komentář
 	Change tag properties	Změnit vlastnosti značky
+# Accessibility structure tags.
+	Tags panel	Panel značek
+	Tags	Značky
+	Tag type	Typ značky
+	Actual text	Skutečný text
+	Find a tag	Najít značku
+	Collapse tag	Sbalit značku
+	Expand tag	Rozbalit značku
+	Revert changes	Vrátit změny
+	Save tag properties	Uložit vlastnosti značky
+	This document has no editable structure tags.	Tento dokument nemá upravitelné značky struktury.
+	{n} tags	{n} značek
+	Save or revert changes before selecting another tag.	Před výběrem jiné značky změny uložte nebo vraťte.
 	Left out: {names}	Vynecháno: {names}
 	already a PDF	již je PDF
 	no unused output name	žádný volný název výstupního souboru

@@ -2274,6 +2274,19 @@ scroll speed	Fast	Hitro
 	Tools panel side	Stran podokna z orodji
 	Add comment	Dodaj komentar
 	Change tag properties	Spremeni lastnosti oznake
+# Accessibility structure tags.
+	Tags panel	Podokno oznak
+	Tags	Oznake
+	Tag type	Vrsta oznake
+	Actual text	Dejansko besedilo
+	Find a tag	Poišči oznako
+	Collapse tag	Strni oznako
+	Expand tag	Razširi oznako
+	Revert changes	Razveljavi spremembe
+	Save tag properties	Shrani lastnosti oznake
+	This document has no editable structure tags.	Ta dokument nima oznak strukture, ki bi jih bilo mogoče urejati.
+	{n} tags	{n} oznak
+	Save or revert changes before selecting another tag.	Preden izberete drugo oznako, shranite ali razveljavite spremembe.
 	Left out: {names}	Izpuščeno: {names}
 	already a PDF	je že PDF
 	no unused output name	ni prostega izhodnega imena

@@ -2270,6 +2270,19 @@ scroll speed	Fast	Rapide
 	Tools panel side	Côté du panneau Outils
 	Add comment	Ajouter un commentaire
 	Change tag properties	Modifier les propriétés de la balise
+# Accessibility structure tags.
+	Tags panel	Panneau des balises
+	Tags	Balises
+	Tag type	Type de balise
+	Actual text	Texte réel
+	Find a tag	Rechercher une balise
+	Collapse tag	Réduire la balise
+	Expand tag	Développer la balise
+	Revert changes	Annuler les modifications
+	Save tag properties	Enregistrer les propriétés de la balise
+	This document has no editable structure tags.	Ce document ne contient aucune balise de structure modifiable.
+	{n} tags	{n} balises
+	Save or revert changes before selecting another tag.	Enregistrez ou annulez les modifications avant de sélectionner une autre balise.
 	Left out: {names}	Ignorés : {names}
 	already a PDF	déjà un PDF
 	no unused output name	aucun nom de sortie libre

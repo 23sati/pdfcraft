@@ -2267,6 +2267,19 @@ scroll speed	Fast	Жылдам
 	Tools panel side	Құралдар панелінің жағы
 	Add comment	Түсініктеме қосу
 	Change tag properties	Тег қасиеттерін өзгерту
+# Accessibility structure tags.
+	Tags panel	Тегтер панелі
+	Tags	Тегтер
+	Tag type	Тег түрі
+	Actual text	Нақты мәтін
+	Find a tag	Тегті табу
+	Collapse tag	Тегті жинау
+	Expand tag	Тегті жаю
+	Revert changes	Өзгерістерді қайтару
+	Save tag properties	Тег қасиеттерін сақтау
+	This document has no editable structure tags.	Бұл құжатта өңделетін құрылымдық тегтер жоқ.
+	{n} tags	{n} тег
+	Save or revert changes before selecting another tag.	Басқа тегті таңдамас бұрын өзгерістерді сақтаңыз немесе қайтарыңыз.
 	Left out: {names}	Қалдырылды: {names}
 	already a PDF	бұл қазірдің өзінде PDF
 	no unused output name	бос шығыс атауы жоқ

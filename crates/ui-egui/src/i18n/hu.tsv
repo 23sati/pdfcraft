@@ -2269,6 +2269,19 @@ scroll speed	Fast	Gyors
 	Tools panel side	Az Eszközök panel oldala
 	Add comment	Megjegyzés hozzáadása
 	Change tag properties	Címke tulajdonságainak módosítása
+# Accessibility structure tags.
+	Tags panel	Címkék panel
+	Tags	Címkék
+	Tag type	Címke típusa
+	Actual text	Tényleges szöveg
+	Find a tag	Címke keresése
+	Collapse tag	Címke összecsukása
+	Expand tag	Címke kibontása
+	Revert changes	Módosítások visszavonása
+	Save tag properties	Címke tulajdonságainak mentése
+	This document has no editable structure tags.	Ebben a dokumentumban nincsenek szerkeszthető szerkezeti címkék.
+	{n} tags	{n} címke
+	Save or revert changes before selecting another tag.	Másik címke kiválasztása előtt mentse vagy vonja vissza a módosításokat.
 	Left out: {names}	Kihagyva: {names}
 	already a PDF	már PDF
 	no unused output name	nincs szabad kimeneti név

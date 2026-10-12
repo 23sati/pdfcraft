@@ -2250,6 +2250,19 @@ scroll speed	Fast	Szybka
 	Tools panel side	Strona panelu narzędzi
 	Add comment	Dodaj komentarz
 	Change tag properties	Zmień właściwości znacznika
+# Accessibility structure tags.
+	Tags panel	Panel znaczników
+	Tags	Znaczniki
+	Tag type	Typ znacznika
+	Actual text	Tekst rzeczywisty
+	Find a tag	Znajdź znacznik
+	Collapse tag	Zwiń znacznik
+	Expand tag	Rozwiń znacznik
+	Revert changes	Cofnij zmiany
+	Save tag properties	Zapisz właściwości znacznika
+	This document has no editable structure tags.	Ten dokument nie ma edytowalnych znaczników struktury.
+	{n} tags	{n} znaczników
+	Save or revert changes before selecting another tag.	Zapisz lub cofnij zmiany przed wybraniem innego znacznika.
 	Left out: {names}	Pominięto: {names}
 	already a PDF	to już jest PDF
 	no unused output name	brak wolnej nazwy pliku wyjściowego

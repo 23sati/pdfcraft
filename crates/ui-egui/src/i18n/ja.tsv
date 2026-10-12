@@ -2270,6 +2270,19 @@ scroll speed	Fast	速い
 	Tools panel side	ツールパネルの位置
 	Add comment	コメントを追加
 	Change tag properties	タグのプロパティを変更
+# Accessibility structure tags.
+	Tags panel	タグパネル
+	Tags	タグ
+	Tag type	タグの種類
+	Actual text	実際のテキスト
+	Find a tag	タグを検索
+	Collapse tag	タグを折りたたむ
+	Expand tag	タグを展開
+	Revert changes	変更を元に戻す
+	Save tag properties	タグのプロパティを保存
+	This document has no editable structure tags.	この文書には編集可能な構造タグがありません。
+	{n} tags	{n} 個のタグ
+	Save or revert changes before selecting another tag.	別のタグを選択する前に変更を保存するか元に戻してください。
 	Left out: {names}	除外: {names}
 	already a PDF	すでに PDF です
 	no unused output name	使用可能な出力名がありません

@@ -2285,6 +2285,19 @@ scroll speed	Fast	Γρήγορη
 	Tools panel side	Πλευρά πλαισίου εργαλείων
 	Add comment	Προσθήκη σχολίου
 	Change tag properties	Αλλαγή ιδιοτήτων ετικέτας
+# Accessibility structure tags.
+	Tags panel	Πίνακας ετικετών
+	Tags	Ετικέτες
+	Tag type	Τύπος ετικέτας
+	Actual text	Πραγματικό κείμενο
+	Find a tag	Εύρεση ετικέτας
+	Collapse tag	Σύμπτυξη ετικέτας
+	Expand tag	Ανάπτυξη ετικέτας
+	Revert changes	Αναίρεση αλλαγών
+	Save tag properties	Αποθήκευση ιδιοτήτων ετικέτας
+	This document has no editable structure tags.	Αυτό το έγγραφο δεν έχει επεξεργάσιμες ετικέτες δομής.
+	{n} tags	{n} ετικέτες
+	Save or revert changes before selecting another tag.	Αποθηκεύστε ή αναιρέστε τις αλλαγές πριν επιλέξετε άλλη ετικέτα.
 	Left out: {names}	Παραλείφθηκαν: {names}
 	already a PDF	είναι ήδη PDF
 	no unused output name	δεν υπάρχει διαθέσιμο όνομα εξόδου

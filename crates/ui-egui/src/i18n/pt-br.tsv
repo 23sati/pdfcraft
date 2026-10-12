@@ -2284,6 +2284,19 @@ scroll speed	Fast	Rápida
 	Tools panel side	Lado do painel Ferramentas
 	Add comment	Adicionar comentário
 	Change tag properties	Alterar propriedades da tag
+# Accessibility structure tags.
+	Tags panel	Painel de tags
+	Tags	Tags
+	Tag type	Tipo de tag
+	Actual text	Texto real
+	Find a tag	Localizar uma tag
+	Collapse tag	Recolher tag
+	Expand tag	Expandir tag
+	Revert changes	Reverter alterações
+	Save tag properties	Salvar propriedades da tag
+	This document has no editable structure tags.	Este documento não tem tags estruturais editáveis.
+	{n} tags	{n} tags
+	Save or revert changes before selecting another tag.	Salve ou reverta as alterações antes de selecionar outra tag.
 	Left out: {names}	Deixados de fora: {names}
 	already a PDF	já é um PDF
 	no unused output name	nenhum nome de saída disponível

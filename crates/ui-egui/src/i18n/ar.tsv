@@ -2291,6 +2291,19 @@ scroll speed	Fast	سريعة
 	Tools panel side	جانب لوحة الأدوات
 	Add comment	إضافة تعليق
 	Change tag properties	تغيير خصائص الوسم
+# Accessibility structure tags.
+	Tags panel	لوحة الوسوم
+	Tags	الوسوم
+	Tag type	نوع الوسم
+	Actual text	النص الفعلي
+	Find a tag	ابحث عن وسم
+	Collapse tag	طي الوسم
+	Expand tag	توسيع الوسم
+	Revert changes	التراجع عن التغييرات
+	Save tag properties	حفظ خصائص الوسم
+	This document has no editable structure tags.	لا يحتوي هذا المستند على وسوم بنيوية قابلة للتحرير.
+	{n} tags	{n} وسوم
+	Save or revert changes before selecting another tag.	احفظ التغييرات أو تراجع عنها قبل تحديد وسم آخر.
 	Left out: {names}	تم استبعاد: {names}
 	already a PDF	ملف PDF بالفعل
 	no unused output name	لا يوجد اسم ناتج غير مستخدم

@@ -2234,6 +2234,19 @@ scroll speed	Fast	快
 	Tools panel side	工具面板位置
 	Add comment	添加注释
 	Change tag properties	更改标签属性
+# Accessibility structure tags.
+	Tags panel	标签面板
+	Tags	标签
+	Tag type	标签类型
+	Actual text	实际文本
+	Find a tag	查找标签
+	Collapse tag	折叠标签
+	Expand tag	展开标签
+	Revert changes	撤销更改
+	Save tag properties	保存标签属性
+	This document has no editable structure tags.	此文档没有可编辑的结构标签。
+	{n} tags	{n} 个标签
+	Save or revert changes before selecting another tag.	选择其他标签前，请保存或撤销更改。
 	Left out: {names}	已略过：{names}
 	already a PDF	已经是 PDF
 	no unused output name	没有可用的输出文件名

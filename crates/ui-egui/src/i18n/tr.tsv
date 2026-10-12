@@ -2265,6 +2265,19 @@ scroll speed	Fast	Hızlı
 	Tools panel side	Araçlar panelinin yeri
 	Add comment	Yorum ekle
 	Change tag properties	Etiket özelliklerini değiştir
+# Accessibility structure tags.
+	Tags panel	Etiketler paneli
+	Tags	Etiketler
+	Tag type	Etiket türü
+	Actual text	Gerçek metin
+	Find a tag	Etiket bul
+	Collapse tag	Etiketi daralt
+	Expand tag	Etiketi genişlet
+	Revert changes	Değişiklikleri geri al
+	Save tag properties	Etiket özelliklerini kaydet
+	This document has no editable structure tags.	Bu belgede düzenlenebilir yapı etiketleri yok.
+	{n} tags	{n} etiket
+	Save or revert changes before selecting another tag.	Başka bir etiket seçmeden önce değişiklikleri kaydedin veya geri alın.
 	Left out: {names}	Dışarıda bırakılanlar: {names}
 	already a PDF	zaten bir PDF
 	no unused output name	kullanılmayan çıktı adı yok

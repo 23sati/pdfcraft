@@ -2183,6 +2183,19 @@ scroll speed	Fast	Высокая
 	Tools panel side	Сторона панели инструментов
 	Add comment	Добавить комментарий
 	Change tag properties	Изменить свойства тега
+# Accessibility structure tags.
+	Tags panel	Панель тегов
+	Tags	Теги
+	Tag type	Тип тега
+	Actual text	Фактический текст
+	Find a tag	Найти тег
+	Collapse tag	Свернуть тег
+	Expand tag	Развернуть тег
+	Revert changes	Отменить изменения
+	Save tag properties	Сохранить свойства тега
+	This document has no editable structure tags.	В этом документе нет редактируемых структурных тегов.
+	{n} tags	{n} тегов
+	Save or revert changes before selecting another tag.	Сохраните или отмените изменения перед выбором другого тега.
 	Left out: {names}	Пропущены: {names}
 	already a PDF	уже PDF
 	no unused output name	нет свободного имени для выходного файла

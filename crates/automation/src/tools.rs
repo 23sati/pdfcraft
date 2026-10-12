@@ -908,8 +908,9 @@ pub fn tools() -> Vec<ToolDef> {
         t("accessibility_set_alt", "Set alternate text", "Set a figure's alternate text (alt; empty or omitted clears it), or mark it decorative (decorative: true: its content becomes an artifact and the figure leaves the tags). figure is a number from accessibility_figures. Returns the figures. Undoable.")
             .cmd("a11y.alt_text")
             .with(schema(json!({ "doc": doc(), "figure": { "type": "integer", "minimum": 1 }, "alt": { "type": "string" }, "decorative": { "type": "boolean" } }), &["doc", "figure"])),
-        t("accessibility_tags", "List structure tags", "List reachable indirect structure tags in document order with PDF object number, generation, page, type, title, actual text, alternate text and language. Inline tag dictionaries have no stable object reference and are not listed.")
+        t("accessibility_tags", "List structure tags", "List reachable indirect structure tags in document order with PDF object number, generation, nearest indirect parent, depth, page, type, title, actual text, alternate text and language. Inline tag dictionaries have no stable object reference and are not listed.")
             .ro()
+            .cmd("a11y.tags")
             .with(schema(json!({ "doc": doc() }), &["doc"])),
         t("accessibility_set_tag_property", "Edit tag property", "Set or clear one property of a reachable indirect structure tag. Use object and generation from accessibility_tags. Properties: type, title, actual_text, alternate_text, language. Empty or omitted value clears text properties; type requires a nonempty PDF name. Undoable.")
             .with(schema(json!({
