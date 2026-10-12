@@ -5,7 +5,7 @@ use egui::{Align2, CornerRadius, Rect, Sense, Stroke, vec2};
 use pdfcraft_engine::catalog::{Availability, TOOL_GROUPS};
 
 use crate::theme::{self, Tokens};
-use crate::{LeftPanel, PdfCraftApp, icons, mirror};
+use crate::{PdfCraftApp, icons, mirror};
 
 struct Hit {
     /// The tool panel to open (tools and catalogue items); `None` for plain commands.
@@ -17,11 +17,12 @@ struct Hit {
     ready: bool,
 }
 
+/// Where `needle` (folded with [`pdfcraft_render::text::fold_case`]) matches `hay`, for ranking.
 fn score(hay: &str, needle: &str) -> Option<usize> {
     if needle.is_empty() {
         return Some(0);
     }
-    let h = hay.to_lowercase();
+    let h = pdfcraft_render::text::fold_case(hay);
     if let Some(p) = h.find(needle) {
         return Some(p);
     }
@@ -40,7 +41,7 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
         app.palette_open = false;
         return;
     }
-    let q = app.palette_query.trim().to_lowercase();
+    let q = pdfcraft_render::text::fold_case(app.palette_query.trim());
     let mut hits: Vec<(usize, Hit)> = Vec::new();
     let active = app.active_ids().map(|(_, id)| id);
     for spec in pdfcraft_engine::commands::COMMANDS {
@@ -145,24 +146,29 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 ui.separator();
                 for (_, h) in &hits {
                     let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), 36.0), Sense::click());
-                    if resp.hovered() {
-                        ui.painter().rect_filled(rect, CornerRadius::same(6), t.hover);
-                    }
-                    icons::paint(ui, mirror::rect_at(rect, vec2(8.0, 9.0), vec2(18.0, 18.0)), h.icon, 17.0, t.icon);
+                    let press = theme::Press::track(ui, &resp);
+                    press.wash(ui, rect, 6, false);
+                    let body = rect.translate(press.offset());
+                    icons::paint(ui, mirror::rect_at(body, vec2(8.0, 9.0), vec2(18.0, 18.0)), h.icon, 17.0, t.icon);
                     // Display is translated; matching above already considered both languages.
                     let shown = crate::i18n::command_label(&h.label);
                     let shown_detail = tl!(&h.detail).to_string();
                     resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, h.ready, &shown));
                     let fg = if h.ready { t.text } else { t.text_faint };
-                    ui.painter().text(mirror::start_center(rect, 36.0), mirror::align(Align2::LEFT_CENTER), shown, theme::regular(13.5), fg);
-                    ui.painter().text(
-                        mirror::end_center(rect, 10.0),
-                        mirror::align(Align2::RIGHT_CENTER),
-                        shown_detail,
-                        theme::regular(12.0),
-                        t.text_faint,
+                    let detail_font = theme::regular(12.0);
+                    let detail_max = (rect.width() * 0.42).clamp(0.0, 220.0);
+                    let detail = crate::widgets::fit_line(&shown_detail, detail_max, |s| crate::widgets::text_width(ui, s, &detail_font));
+                    let detail_w = crate::widgets::text_width(ui, &detail, &detail_font);
+                    ui.painter().text(mirror::end_center(body, 10.0), mirror::align(Align2::RIGHT_CENTER), detail, detail_font, t.text_faint);
+                    crate::widgets::paint_left(
+                        ui,
+                        mirror::start_center(body, 36.0),
+                        &shown,
+                        theme::regular(13.5),
+                        fg,
+                        (rect.width() - 36.0 - detail_w - 24.0).max(0.0),
                     );
-                    if resp.clicked() {
+                    if theme::hand(resp).clicked() {
                         chosen = Some((h.command, h.group));
                     }
                 }
@@ -182,11 +188,25 @@ pub fn show(app: &mut PdfCraftApp, ctx: &egui::Context) {
         app.palette_open = false;
         app.palette_query.clear();
         if let Some(g) = group {
-            app.left_open = true;
-            app.left = LeftPanel::Tool(g);
+            app.select_tool(g);
         }
         if let Some(c) = command {
             app.run_command(c);
         }
+    }
+}
+
+#[cfg(test)]
+mod search {
+    use super::score;
+    use pdfcraft_render::text::fold_case;
+
+    #[test]
+    fn commands_match_in_any_case_with_turkish_i() {
+        assert_eq!(score("İçe aktar", &fold_case("içe")), Some(0));
+        assert_eq!(score("Yazdır", &fold_case("YAZDIR")), Some(0));
+        assert_eq!(score("Insert Pages", &fold_case("ınsert")), Some(0));
+        assert_eq!(score("Print", &fold_case("print")), Some(0));
+        assert_eq!(score("Print", &fold_case("zz")), None);
     }
 }

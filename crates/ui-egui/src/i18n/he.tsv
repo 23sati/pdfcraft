@@ -19,10 +19,9 @@
 # the trailing "…" of dialog commands is kept. Digits are Western (0-9). Keyboard key caps (Ctrl,
 # Shift, Esc ...) stay as printed on Hebrew keyboards.
 #
-# Write every entry in logical (typing) order, without direction marks. The interface draws text
-# left to right, so i18n/mod.rs puts each entry into display order when it loads the catalog
-# (bidi::display_rtl); spaces and a colon at either end of an entry stay at that end, next to what
-# the code appends.
+# Write every entry in logical (typing) order, without direction marks. The text layout reads each entry right to left
+# (the vendored epaint's bidi patch); i18n/mod.rs starts it with a right-to-left mark
+# (bidi::rtl_label), so an entry that begins with a placeholder or a Latin name still does.
 
 	Menu	תפריט
 	File	קובץ
@@ -2216,3 +2215,156 @@ key	Space	רווח
 	Next (⌘G)	הבא (⌘G)
 	Creator	יוצר
 	Producer	מפיק
+
+# Added with the 2026-10-12 merge of upstream main.
+	Appearance mode	מצב מראה
+	Light	בהיר
+	Dark	כהה
+	Active	פעיל
+	Dark theme	ערכת נושא כהה
+	Appearance settings…	הגדרות מראה…
+	Save ({key})	שמירה ({key})
+	No links to remove	אין קישורים להסרה
+	Removed 1 link	הוסר קישור אחד
+	Removed {n} links	הוסרו {n} קישורים
+	Export to PowerPoint…	ייצוא ל-PowerPoint…
+	Separate PDFs	קובצי PDF נפרדים
+	Finding document fonts…	מתבצע חיפוש גופני מסמך…
+	Installed fonts…	גופנים מותקנים…
+	Keep source fonts	שמירת הגופנים המקוריים
+	Load font…	טעינת גופן…
+	No openly licensed document fonts found. Load a font file.	לא נמצאו גופני מסמך ברישיון פתוח. יש לטעון קובץ גופן.
+	Thai and Arabic use regular fallback fonts when available.	לתאית ולערבית משמשים גופני גיבוי רגילים כשהם זמינים.
+	Offset from centre	היסט מהמרכז
+	The existing action will be preserved.	הפעולה הקיימת תישמר.
+	Graphic	גרפיקה
+	Signer's name	שם החותם
+	Fill & Sign signature	חתימה של מילוי וחתימה
+	Choose image…	בחירת תמונה…
+	Also recognize pages that already have text	זיהוי גם של עמודים שכבר יש בהם טקסט
+	Pictures on those pages are recognized too; words already in the page's text are not added again	גם התמונות בעמודים אלה מזוהות; מילים שכבר נמצאות בטקסט העמוד לא נוספות שוב
+	This PDF uses the unsupported {s} action.	קובץ PDF זה משתמש בפעולה {s}, שאינה נתמכת.
+	Drop PDFs, images, text files or folders here, or choose them.	אפשר לשחרר כאן קובצי PDF, תמונות, קובצי טקסט או תיקיות, או לבחור אותם.
+	Every PDF, image and text file in the folder	כל קובצי ה-PDF, התמונות וקובצי הטקסט בתיקייה
+	Every PDF, image and text file in the folder and the folders inside it	כל קובצי ה-PDF, התמונות וקובצי הטקסט בתיקייה ובתיקיות שבתוכה
+	No PDFs, images or text files found in {folder}	לא נמצאו קובצי PDF, תמונות או קובצי טקסט ב-{folder}
+	Added the first {n} files in {folder}	נוספו {n} הקבצים הראשונים מ-{folder}
+	Add the files to combine	הוספת הקבצים לשילוב
+	Leave out files that can't be read?	להשמיט קבצים שלא ניתן לקרוא?
+	These files can't be read, so they won't be in the combined PDF:	לא ניתן לקרוא את הקבצים האלה, ולכן הם לא ייכללו בקובץ ה-PDF המשולב:
+	Combine the rest	שילוב השאר
+	and {n} more	ועוד {n}
+	Enter permissions password…	הזנת סיסמת הרשאות…
+	Permissions password	סיסמת הרשאות
+	“{name}” has security restrictions. Enter its permissions password to lift them.	ל-„{name}” יש הגבלות אבטחה. יש להזין את סיסמת ההרשאות שלו כדי להסיר אותן.
+	Restrictions lifted	ההגבלות הוסרו
+	Couldn't unlock {name}: {e}	לא ניתן היה לבטל את הנעילה של {name}: {e}
+	This document has no restrictions to lift	אין במסמך זה הגבלות להסרה
+	The document's security settings don't allow copying text and images	הגדרות האבטחה של המסמך לא מאפשרות העתקת טקסט ותמונות
+	Insert pages from {name} — 1 field renamed	הוספת עמודים מ-{name} — שם של שדה אחד שונה
+	Insert pages from {name} — fields renamed	הוספת עמודים מ-{name} — שמות שדות שונו
+	Load document font	טעינת גופן מסמך
+	This form's scripts are turned off because one ran too long. Reopen the document to run them again.	הסקריפטים של טופס זה כובו כי אחד מהם רץ זמן רב מדי. יש לפתוח את המסמך מחדש כדי להריץ אותם שוב.
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	שם שדה {n} מתנגש בקבצים קודמים וישונה: {list}|{n} שמות שדות מתנגשים בקבצים קודמים וישונו: {list}
+	Create separate PDFs…	יצירת קובצי PDF נפרדים…
+calendar date	January	ינואר
+calendar date	February	פברואר
+calendar date	March	מרץ
+calendar date	April	אפריל
+calendar date	May	מאי
+calendar date	June	יוני
+calendar date	July	יולי
+calendar date	August	אוגוסט
+calendar date	September	ספטמבר
+calendar date	October	אוקטובר
+calendar date	November	נובמבר
+calendar date	December	דצמבר
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	גופני הטקסט של PDF לא יכולים לצייר את „{c}” ({code}). יש לבחור טקסט נתמך.
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	הגופן של שדה זה לא יכול לצייר את „{c}” ({code}), ולכן PdfCraft מציג ? במקומו. הערך נשמר, ומציגי PDF אחרים מציירים את השדה מחדש לפיו.
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	הגופנים ש-PdfCraft כותב בהם לא יכולים לצייר את „{c}” ({code}), ולכן הוא מוצג כ-? בכל מציג PDF. הטקסט נשמר.
+	Margins	שוליים
+	For page sizes and margins.	לגודלי עמודים ולשוליים.
+	PDF page: {size}	עמוד PDF: {size}
+	Match page at 100%	התאמת העמוד ב-100%
+	PDF scale: {scale}%	קנה מידה של PDF: {scale}%
+	Printer paper and scaling may differ. Check driver settings.	הנייר וקנה המידה של המדפסת עשויים להיות שונים. כדאי לבדוק את הגדרות מנהל ההתקן.
+	Drawing scale changes. Use Actual size for full-scale plans.	קנה המידה של השרטוט משתנה. לתוכניות בקנה מידה מלא יש להשתמש בגודל בפועל.
+	Reload documents when their files change on disk	טעינה מחדש של מסמכים כשהקבצים שלהם משתנים בדיסק
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	קובץ זה השתנה בדיסק. טעינה מחדש תציג את הגרסה החדשה; שינויים שלא נשמרו יאבדו.
+	Reload	טעינה מחדש
+	Couldn't reload {name}: {e}	לא ניתן היה לטעון מחדש את {name}: {e}
+	Select page {label}	בחירת עמוד {label}
+	Rotate page {label} counterclockwise	סיבוב עמוד {label} נגד כיוון השעון
+	Rotate page {label} clockwise	סיבוב עמוד {label} בכיוון השעון
+	Delete page {label}	מחיקת עמוד {label}
+	Mouse wheel scroll speed	מהירות הגלילה בגלגלת העכבר
+scroll speed	Slow	איטית
+scroll speed	Normal	רגילה
+scroll speed	Fast	מהירה
+	Animation effects	אפקטי הנפשה
+animation effects	On	מופעלים
+animation effects	Off	כבויים
+	Enhance camera image	שיפור תמונת מצלמה
+	Drag the corners onto the document's edges, then choose Enhance page.	יש לגרור את הפינות אל קצוות המסמך, ואז לבחור „שיפור עמוד”.
+	Enhance page	שיפור עמוד
+	Done adding text	סיום הוספת טקסט
+	Discard this text (Esc)	ביטול טקסט זה (Esc)
+	Clean-up	ניקוי
+	Original	מקורי
+	Greyscale	גווני אפור
+	Black and white	שחור-לבן
+	Reading colours	צבעי קריאה
+	Replace document colours	החלפת צבעי המסמך
+	Black on white	שחור על לבן
+	White on black	לבן על שחור
+	Yellow on black	צהוב על שחור
+	Green on black	ירוק על שחור
+	Page background	רקע העמוד
+	Only change the colour of black text or line art	שינוי הצבע של טקסט או קווים שחורים בלבד
+	Change the colour of line art as well as text	שינוי הצבע של קווים וגם של טקסט
+	Colours are remapped while rendering; the document itself never changes.	הצבעים מוחלפים בזמן ההצגה; המסמך עצמו לא משתנה.
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	מנהל ההתקן של מדפסת זו לא מקבל הגדרות הדפסה דו-צדדית מתוכנות אחרות, ולכן חלה ההגדרה שלו עצמו. אפשר לשנות אותה במאפיינים…
+	Browser's print dialog	תיבת ההדפסה של הדפדפן
+	Copies, two-sided printing and colour are chosen in the browser's print dialog.	עותקים, הדפסה דו-צדדית וצבע נבחרים בתיבת ההדפסה של הדפדפן.
+	Preparing {n} sheets for printing…	מתבצעת הכנה של {n} גיליונות להדפסה…
+	Preparing sheet {done} of {total} for printing…	מתבצעת הכנה של גיליון {done} מתוך {total} להדפסה…
+	Opening the browser's print dialog…	תיבת ההדפסה של הדפדפן נפתחת…
+	Couldn't print from the browser ({e}); downloaded {name} to print instead	לא ניתן היה להדפיס מהדפדפן ({e}); הקובץ {name} הורד כדי להדפיס אותו בדרך אחרת
+	Tools panel side	צד חלונית הכלים
+	Add comment	הוספת הערה
+	Change tag properties	שינוי מאפייני תג
+	Tags panel	חלונית תגים
+	Tags	תגים
+	Tag type	סוג תג
+	Actual text	טקסט בפועל
+	Find a tag	חיפוש תג
+	Collapse tag	כיווץ תג
+	Expand tag	הרחבת תג
+	Revert changes	ביטול השינויים
+	Save tag properties	שמירת מאפייני התג
+	This document has no editable structure tags.	אין במסמך זה תגי מבנה שניתן לערוך.
+	{n} tags	{n} תגים
+	Save or revert changes before selecting another tag.	יש לשמור או לבטל את השינויים לפני בחירת תג אחר.
+	Left out: {names}	הושמטו: {names}
+	already a PDF	כבר PDF
+	no unused output name	אין שם פלט פנוי
+	no output folder was chosen	לא נבחרה תיקיית פלט
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	הורד קובץ PDF {n}|הורדו {n} קובצי PDF
+	Scan	סריקה
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	יש לחתום על דף נייר לבן ולצלם אותו באור חזק ואחיד (עם מבזק). אחר כך יש לבחור את התמונה או לשחרר אותה כאן: PdfCraft מאתר את החתימה ומסיר את הנייר.
+	Choose photo…	בחירת תמונה…
+	No photo chosen	לא נבחרה תמונה
+	Photo	תמונה
+	Ink sensitivity	רגישות לדיו
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	לא נמצאה חתימה במסגרת. יש להזיז את המסגרת אל החתימה או להגביר את הרגישות לדיו.
+	Couldn't use the photo: {e}	לא ניתן היה להשתמש בתמונה: {e}
+	Close Tab	סגירת כרטיסייה
+	Reopen Closed Tab	פתיחה מחדש של כרטיסייה סגורה
+	Reveal in Finder	הצגה ב-Finder
+	Reveal in File Explorer	הצגה בסייר הקבצים
+	Other colour…	צבע אחר…
+	Recent colours	צבעים אחרונים
+	Couldn't follow linked PDF: {reason}	לא ניתן היה לעבור ל-PDF המקושר: {reason}
+	The linked PDF opened, but its named destination was not applied.	ה-PDF המקושר נפתח, אבל היעד בעל השם שלו לא הוחל.
+	The linked PDF opened, but its page destination was out of range.	ה-PDF המקושר נפתח, אבל עמוד היעד שלו מחוץ לטווח.
+	Local cross-PDF links require the desktop app	קישורים מקומיים בין קובצי PDF דורשים את אפליקציית שולחן העבודה
