@@ -693,6 +693,14 @@
 	of the following fields:	из следующих полей:
 	Simplified field notation:	Упрощённая запись полей:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Имена полей с + - * / и скобками; ставьте \\ перед пробелами в именах.
+
+# Document font selection
+	Finding document fonts…	Поиск шрифтов для документа…
+	Installed fonts…	Установленные шрифты…
+	Keep source fonts	Сохранить исходные шрифты
+	Load font…	Загрузить шрифт…
+	No openly licensed document fonts found. Load a font file.	Шрифты с открытой лицензией не найдены. Загрузите файл шрифта.
+
 	Format text	Форматировать текст
 	Bold	Полужирный
 	Italic	Курсив
@@ -1863,6 +1871,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	Изменить {key}
 	Insert pages from {name}	Вставить страницы из {name}
+	Insert pages from {name} — 1 field renamed	Вставить страницы из {name} — 1 поле переименовано
+	Insert pages from {name} — fields renamed	Вставить страницы из {name} — поля переименованы
 	Fill in {name}	Заполнить {name}
 	Set the image of {name}	Задать изображение: {name}
 	Edit script of {name}	Редактировать скрипт: {name}
@@ -1893,6 +1903,7 @@
 	Delete document JavaScript	Удалить JavaScript документа
 	Edit document JavaScript	Редактировать JavaScript документа
 	Edit text	Редактировать текст
+	Load document font	Загрузить шрифт документа
 	Move image	Переместить изображение
 	Rotate image	Повернуть изображение
 	Flip image	Отразить изображение
@@ -2034,6 +2045,7 @@
 
 @plural	{n} page|{n} pages	{n} страница|{n} страницы|{n} страниц
 @plural	{n} field|{n} fields	{n} поле|{n} поля|{n} полей
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	Имя {n} поля конфликтует с предыдущими файлами и будет переименовано: {list}|Названия {n} полей конфликтуют с предыдущими файлами и будут переименованы: {list}|Названия {n} полей конфликтуют с предыдущими файлами и будут переименованы: {list}
 	Create PDF from multiple files…	Создать PDF из нескольких файлов…
 	Create separate PDFs…	Создать отдельные PDF…
 	Optimizing… removing user data	Оптимизация… удаление пользовательских данных
@@ -2175,3 +2187,11 @@ scroll speed	Fast	Высокая
 	no unused output name	нет свободного имени для выходного файла
 	no output folder was chosen	не выбрана папка для вывода
 @plural	Downloaded {n} PDF|Downloaded {n} PDFs	Скачан {n} PDF-файл|Скачано {n} PDF-файла|Скачано {n} PDF-файлов
+	Scan	Сканировать
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Распишитесь на листе белой бумаги и сфотографируйте его при ярком равномерном освещении (со вспышкой). Выберите фото или перетащите его сюда: PdfCraft найдёт подпись и уберёт бумагу.
+	Choose photo…	Выбрать фото…
+	No photo chosen	Фото не выбрано
+	Photo	Фото
+	Ink sensitivity	Чувствительность к чернилам
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	В рамке не найдена подпись. Наведите рамку на подпись или увеличьте чувствительность к чернилам.
+	Couldn't use the photo: {e}	Не удалось использовать фото: {e}

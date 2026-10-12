@@ -172,6 +172,7 @@
 
 # Multi-object selection and movement (#844)
 @plural	{n} object selected|{n} objects selected	Vybrán {n} objekt|Vybrány {n} objekty|Vybráno {n} objektů
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} název pole koliduje s dřívějšími soubory a bude přejmenován: {list}|Názvy {n} polí kolidují s dřívějšími soubory a budou přejmenovány: {list}|{n} názvů polí koliduje s dřívějšími soubory a bude přejmenováno: {list}
 	Drag the selection to move it. Esc clears the selection.	Přetažením výběr přesunete. Esc zruší výběr.
 	Shift-click to select several objects. Drag empty space to select an area.	Kliknutím se Shiftem vyberete více objektů. Tažením v prázdném místě vyberete oblast.
 	Select at most 1000 objects at a time.	Vyberte nejvýše 1000 objektů najednou.
@@ -777,6 +778,11 @@ key	Space	Mezerník
 	of the following fields:	následujících polí:
 	Simplified field notation:	Zjednodušený zápis polí:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Názvy polí s + - * / a závorkami; mezery v názvech uvozujte znakem \\.
+	Finding document fonts…	Hledání písem dokumentu…
+	Installed fonts…	Nainstalovaná písma…
+	Keep source fonts	Zachovat zdrojová písma
+	Load font…	Načíst písmo…
+	No openly licensed document fonts found. Load a font file.	Nebyla nalezena žádná otevřeně licencovaná písma dokumentu. Načtěte soubor písma.
 	Format text	Formát textu
 	Bold	Tučné
 	Italic	Kurzíva
@@ -1913,6 +1919,8 @@ key	Space	Mezerník
 	{month} {y}	{month} {y}
 	Change {key}	Změnit: {key}
 	Insert pages from {name}	Vložit stránky ze souboru {name}
+	Insert pages from {name} — 1 field renamed	Vložit stránky ze souboru {name} — 1 pole přejmenováno
+	Insert pages from {name} — fields renamed	Vložit stránky ze souboru {name} — pole přejmenována
 	Fill in {name}	Vyplnit {name}
 	Set the image of {name}	Nastavit obrázek pole {name}
 	Edit script of {name}	Upravit skript {name}
@@ -1943,6 +1951,7 @@ key	Space	Mezerník
 	Delete document JavaScript	Odstranit JavaScript dokumentu
 	Edit document JavaScript	Upravit JavaScript dokumentu
 	Edit text	Upravit text
+	Load document font	Načíst písmo dokumentu
 	Move image	Přesunout obrázek
 	Rotate image	Otočit obrázek
 	Flip image	Převrátit obrázek
@@ -2339,3 +2348,11 @@ scroll speed	Fast	Rychlá
 	no unused output name	žádný volný název výstupního souboru
 	no output folder was chosen	nebyla vybrána výstupní složka
 @plural	Downloaded {n} PDF|Downloaded {n} PDFs	Stažen {n} soubor PDF|Staženy {n} soubory PDF|Staženo {n} souborů PDF
+	Scan	Skenovat
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Podepište se na bílý list papíru a vyfoťte ho při jasném, rovnoměrném světle (použijte blesk). Vyberte fotografii nebo ji sem přetáhněte: PdfCraft najde podpis a odstraní papír.
+	Choose photo…	Vybrat fotografii…
+	No photo chosen	Není vybrána žádná fotografie
+	Photo	Fotografie
+	Ink sensitivity	Citlivost na inkoust
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	V rámečku nebyl nalezen žádný podpis. Přesuňte rámeček na podpis nebo zvyšte citlivost na inkoust.
+	Couldn't use the photo: {e}	Fotografii nelze použít: {e}
