@@ -5216,7 +5216,7 @@ trailer << /Root 1 0 R >>
             ..Default::default()
         });
         let req = RenderRequest { page: 0, kind: RequestKind::Text, ..Default::default() };
-        v.last_queue = vec![req.clone()];
+        v.last_queue = vec![req];
         let ctx = egui::Context::default();
         v.receive_result(
             &ctx,
