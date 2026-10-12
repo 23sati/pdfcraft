@@ -27,6 +27,11 @@ same properties; invalid or overlapping ranges fail atomically. Untouched source
 survives. OpenType shaping uses the selected/source face's substitution and positioning
 rules, preserves marks and ligatures, and applies Unicode bidi ordering for a single face.
 Logical text remains available after save/reopen through ToUnicode and ActualText.
+Added Arabic text records ActualText per shaped line for copying and searching in typing order.
+ActualText already supplies typing order, so the editor preserves it without applying
+a second bidi reversal; adjacent visual glyph runs still recover their own reading order.
+Only right-to-left ActualText is kept apart this way: left-to-right spans, such as the Latin
+ligatures (`fi`, `fl`) Word and Chrome wrap in ActualText mid-word, join their line as before.
 
 For headless editing, use `text_font_files` → `text_font_import` → `text_fonts` and pass a
 resource to `text_edit.font_resource`. `text_edit.ranges` holds selected range formatting.
