@@ -1,1 +1,1 @@
-//! pdfcraft-automation — agent control for PdfCraft (architecture §13).
+PLACEHOLDER_DO_NOT_COMMIT
