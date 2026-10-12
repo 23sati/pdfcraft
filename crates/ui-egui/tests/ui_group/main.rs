@@ -5,7 +5,10 @@
 
 mod animate;
 mod bulk_fields;
+mod camera;
 mod column_select;
+mod date_format;
+mod dialog_chrome;
 mod identity;
 mod layer_actions;
 mod links;
@@ -16,5 +19,6 @@ mod protect;
 mod redact;
 mod text_select;
 mod theme;
+mod theme_button;
 mod updates;
 mod xfa;
