@@ -143,6 +143,7 @@ M2 (renderer), M7 (content editing), M10 (OCR and Office), M11 (Preflight and st
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | M3: case-insensitive Find matches normal, final and capital Greek sigma; exact search, word boundaries, glyph ranges and match limits have regression coverage. The tab-menu test uses Finder on macOS. Estimates unchanged. |
 | 2026-10-12 | minor | M14: Windows low-DPI JetBrains Mono hinting candidate; raster and layout evidence recorded without a Windows runtime claim. Estimates unchanged. |
 | 2026-10-12 | minor | M7/#1200 candidate: bounded local GoToR opening, root-confined automation, and action-preserving appearance edits; named destinations and window behavior remain partial; estimates unchanged. |
 | 2026-10-12 | minor | Exclusive image crops resize with their pixels across nested states, intervening operators and content streams; shared clips remain fixed. Synthetic engine/tool regressions and private image save/reopen checks; estimates unchanged. |
