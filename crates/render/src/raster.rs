@@ -5200,7 +5200,7 @@ trailer << /Root 1 0 R >>
         );
         let render = || {
             let mut r = PageRenderer::new(Arc::new(pdf.clone().into_bytes()), RenderConfig::default());
-            let p = r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 1.0, tag: 0 });
+            let p = r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, scale: 1.0, ..Default::default() });
             assert!(p.error.is_none(), "{:?}", p.error);
             p.rgba
         };
