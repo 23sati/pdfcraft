@@ -1210,6 +1210,12 @@ pub enum Edit {
         property: a11y::TagProperty,
         value: Option<String>,
     },
+    /// Move a structure tag before or after a direct sibling in reading order.
+    MoveTag {
+        object: pdfcraft_cos::ObjRef,
+        anchor: pdfcraft_cos::ObjRef,
+        placement: a11y::TagPlacement,
+    },
     /// Add alternate text ▸ Decorative figure: the figure's content becomes an artifact.
     MarkDecorative {
         figure: u32,
@@ -1675,6 +1681,7 @@ impl Edit {
             Edit::SetInitialView(_) => Label::of("Change initial view"),
             Edit::SetAltText { .. } => Label::of("Set alternate text"),
             Edit::SetTagProperty { .. } => Label::of("Change tag properties"),
+            Edit::MoveTag { .. } => Label::of("Move object"),
             Edit::MarkDecorative { .. } => Label::of("Mark figure as decorative"),
             Edit::AddOcrText { .. } => Label::of("Recognize text"),
             Edit::ApplyScriptChanges { .. } => Label::of("Run JavaScript"),
@@ -1862,6 +1869,7 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::SetInitialView(_)
         | Edit::SetAltText { .. }
         | Edit::SetTagProperty { .. }
+        | Edit::MoveTag { .. }
         | Edit::MarkDecorative { .. }
         | Edit::AddOcrText { .. }
         | Edit::SetDocumentScript { .. }
@@ -2139,6 +2147,9 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         }
         Edit::SetTagProperty { object, property, value } => {
             a11y::set_tag_property(doc, *object, *property, value.as_deref()).map_err(|e| EditError::Accessibility(e.to_string()))?;
+        }
+        Edit::MoveTag { object, anchor, placement } => {
+            a11y::move_tag(doc, *object, *anchor, *placement).map_err(|e| EditError::Accessibility(e.to_string()))?;
         }
         Edit::EditTextLine { page, line, text } => {
             pdfcraft_edit::replace_line(doc, *page, *line, text)?;
@@ -3208,7 +3219,9 @@ impl Session {
                 ed.keys = keys;
             }
             Self::adopt_keys(doc);
-            let _ = guard(|| Self::refresh(doc));
+            if !matches!(guard(|| Self::refresh(doc)), Ok(Ok(()))) {
+                Self::show_released(doc);
+            }
             return Err(e);
         }
         doc.dirty = true;
@@ -3237,7 +3250,7 @@ impl Session {
         let current_keys = std::mem::replace(&mut editor.keys, keys);
         editor.redo.push((label.clone(), current, current_keys, scope));
         Self::adopt_keys(doc);
-        Self::refresh_scoped(doc, scope)?;
+        Self::refresh_scoped(doc, scope).inspect_err(|_| Self::show_released(doc))?;
         doc.dirty = true;
         doc.generation += 1;
         Ok(label)
@@ -3252,7 +3265,7 @@ impl Session {
         let current_keys = std::mem::replace(&mut editor.keys, keys);
         editor.undo.push((label.clone(), current, current_keys, scope));
         Self::adopt_keys(doc);
-        Self::refresh_scoped(doc, scope)?;
+        Self::refresh_scoped(doc, scope).inspect_err(|_| Self::show_released(doc))?;
         doc.dirty = true;
         doc.generation += 1;
         Ok(label)
@@ -3276,6 +3289,10 @@ impl Session {
         }
         if scope == Scope::Content {
             return Self::refresh_content(doc, None);
+        }
+        // Metadata edits keep the renderer, which holds the working file anyway.
+        if scope != Scope::Metadata {
+            Self::release_working(doc);
         }
         let Some(editor) = doc.editor.as_mut() else { return Ok(()) };
         // Comment edits, and form edits (a script may change annotation properties), may change
@@ -3369,6 +3386,7 @@ impl Session {
     /// from undo/redo, re-reads both: always correct, rarely paid). The cached display
     /// appearances are kept: content edits leave every annotation dictionary alone.
     fn refresh_content(doc: &mut Document, edit: Option<&Edit>) -> Result<(), EditError> {
+        Self::release_working(doc);
         let Some(editor) = doc.editor.as_mut() else { return Ok(()) };
         // A script may have laid an XFA form out again (rows added, subforms shown).
         if doc.xfa.is_some()
@@ -3401,6 +3419,28 @@ impl Session {
         Ok(())
     }
 
+    /// Let go of the working file before the next one is written (gap 13). The working file is
+    /// the original plus one appended revision, so on a 1 GiB file keeping the old one (in the
+    /// working bytes, the display bytes and the renderer) while writing the new one held three
+    /// copies at once; this keeps two. Until the refresh finishes, the working and display bytes
+    /// are the original's (already held by the editor, so free) and the renderer draws nothing.
+    /// A failed edit rolls back and refreshes again, which replaces all three; where a refresh
+    /// still fails, [`Self::show_released`] draws the original rather than nothing. Save writes
+    /// from the editor, never from these.
+    fn release_working(doc: &mut Document) {
+        let Some(original) = doc.editor.as_ref().map(|e| e.cos.bytes().clone()) else { return };
+        // Dropping the pool stops its workers; each lets go of the file when it exits.
+        doc.renderer = RenderPool::new_inline(Arc::new(Vec::new()), doc.config.clone());
+        doc.display = original.clone();
+        doc.bytes = original;
+    }
+
+    /// After a refresh failed: draw the display bytes it left (the original, once released),
+    /// so the page still shows a document.
+    fn show_released(doc: &mut Document) {
+        doc.renderer = RenderPool::new(doc.display.clone(), render_threads(), doc.config.clone());
+    }
+
     /// Rebuild working bytes, inspection and renderer from the current edit state.
     fn refresh(doc: &mut Document) -> Result<(), EditError> {
         // A full refresh may follow structural or annotation changes: cached appearances
@@ -3408,6 +3448,7 @@ impl Session {
         if let Some(editor) = doc.editor.as_mut() {
             editor.appearances.clear();
         }
+        Self::release_working(doc);
         let Some(editor) = doc.editor.as_mut() else { return Ok(()) };
         // A script may have laid an XFA form out again (rows added, subforms shown).
         if doc.xfa.is_some()
@@ -3484,7 +3525,7 @@ impl Session {
         }
         doc.dirty = false;
         doc.generation += 1;
-        Self::refresh(doc)
+        Self::refresh(doc).inspect_err(|_| Self::show_released(doc))
     }
 
     /// Enter the permissions (owner) password of a document opened with its user password,
@@ -3542,7 +3583,7 @@ impl Session {
         Self::adopt_keys(doc);
         doc.dirty = false;
         doc.generation += 1;
-        Self::refresh(doc)
+        Self::refresh(doc).inspect_err(|_| Self::show_released(doc))
     }
 
     /// The document's file changed on disk (a LaTeX or Typst build rewrote it, #431): open

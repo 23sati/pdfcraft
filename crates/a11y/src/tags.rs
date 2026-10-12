@@ -26,6 +26,13 @@ pub enum TagProperty {
     Language,
 }
 
+/// Where to place a structure tag relative to one of its direct siblings.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TagPlacement {
+    Before,
+    After,
+}
+
 impl TagProperty {
     pub fn from_id(id: &str) -> Option<Self> {
         match id {
@@ -57,8 +64,50 @@ pub enum TagError {
     InvalidType,
     #[error("tag property text is too long (maximum 65536 bytes)")]
     TooLong,
+    #[error("both tags must be distinct, reachable, direct children of the same structure parent")]
+    NotSiblings,
+    #[error("the parent must list each tag exactly once in its /K array")]
+    AmbiguousChildren,
+    #[error("the tag is already at the requested position")]
+    AlreadyThere,
     #[error(transparent)]
     Cos(#[from] CosError),
+}
+
+/// Reorder two direct sibling tags in their parent's `/K` array. Content and page appearance
+/// stay untouched; tagged reading order follows the new array order.
+pub fn move_tag(doc: &mut Document, object: ObjRef, anchor: ObjRef, placement: TagPlacement) -> Result<(), TagError> {
+    if object == anchor {
+        return Err(TagError::NotSiblings);
+    }
+    let reachable = alt::elements(doc);
+    if !reachable.iter().any(|e| e.0 == object) || !reachable.iter().any(|e| e.0 == anchor) {
+        return Err(TagError::NotSiblings);
+    }
+    let parent_of = |r| doc.get(r).as_dict().and_then(|d| d.get(b"P").and_then(Object::as_ref));
+    let Some(parent) = parent_of(object) else { return Err(TagError::NotSiblings) };
+    if parent_of(anchor) != Some(parent) {
+        return Err(TagError::NotSiblings);
+    }
+    let owner = doc.get(parent);
+    let Some(children) = owner.as_dict().and_then(|d| d.get(b"K").and_then(Object::as_array)) else {
+        return Err(TagError::AmbiguousChildren);
+    };
+    let one_position = |child| {
+        let mut matches = children.iter().enumerate().filter(|(_, item)| item.as_ref() == Some(child));
+        matches.next().and_then(|(index, _)| matches.next().is_none().then_some(index))
+    };
+    let (Some(from), Some(to)) = (one_position(object), one_position(anchor)) else { return Err(TagError::AmbiguousChildren) };
+    let mut reordered = children.clone();
+    let moved = reordered.remove(from);
+    let target = if from < to { to - 1 } else { to };
+    let destination = target + usize::from(placement == TagPlacement::After);
+    if destination == from {
+        return Err(TagError::AlreadyThere);
+    }
+    reordered.insert(destination, moved);
+    doc.update_dict(parent, |d| d.set(b"K".to_vec(), Object::Array(reordered)))?;
+    Ok(())
 }
 
 fn text(doc: &Document, d: &pdfcraft_cos::Dict, key: &[u8]) -> Option<String> {
