@@ -54,6 +54,7 @@
 	Create PDF from file…	Utwórz PDF z pliku…
 	Create PDF from images…	Utwórz PDF z obrazów…
 	Create PDF from multiple files…	Utwórz PDF z wielu plików…
+	Create separate PDFs…	Utwórz osobne pliki PDF…
 	Create PDF from clipboard	Utwórz PDF ze schowka
 	Combine files…	Połącz pliki…
 	Save	Zapisz
@@ -341,6 +342,7 @@
 	Create from	Utwórz z
 	Single file	Pojedynczy plik
 	Multiple files	Wiele plików
+	Separate PDFs	Osobne pliki PDF
 	Images	Obrazy
 	Clipboard	Schowek
 	Blank page	Pusta strona
@@ -1861,6 +1863,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	Zmień {key}
 	Insert pages from {name}	Wstaw strony z {name}
+	Insert pages from {name} — 1 field renamed	Wstaw strony z {name} — zmieniono nazwę 1 pola
+	Insert pages from {name} — fields renamed	Wstaw strony z {name} — zmieniono nazwy pól
 	Fill in {name}	Wypełnij {name}
 	Set the image of {name}	Ustaw obraz pola {name}
 	Edit script of {name}	Edytuj skrypt pola {name}
@@ -2138,6 +2142,7 @@
 	−Bin	−Bin
 	−LOC	−LOC
 @plural	{n} field|{n} fields	{n} pole|{n} pola|{n} pól
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	Nazwa {n} pola koliduje z wcześniejszymi plikami i zostanie zmieniona: {list}|Nazwy {n} pól kolidują z wcześniejszymi plikami i zostaną zmienione: {list}|{n} nazw pól koliduje z wcześniejszymi plikami i zostanie zmienionych: {list}
 @plural	{n} page|{n} pages	{n} strona|{n} strony|{n} stron
 signature pad	Type	Wpisz
 	Flatten Fill & Sign when saving	Spłaszczaj elementy Wypełnij i podpisz przy zapisie
@@ -2250,3 +2255,16 @@ scroll speed	Fast	Szybka
 	Tools panel side	Strona panelu narzędzi
 	Add comment	Dodaj komentarz
 	Change tag properties	Zmień właściwości znacznika
+	Left out: {names}	Pominięto: {names}
+	already a PDF	to już jest PDF
+	no unused output name	brak wolnej nazwy pliku wyjściowego
+	no output folder was chosen	nie wybrano folderu wyjściowego
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	Pobrano {n} plik PDF|Pobrano {n} pliki PDF|Pobrano {n} plików PDF
+	Scan	Skanuj
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Podpisz się na białej kartce i zrób jej zdjęcie przy jasnym, równomiernym świetle (użyj lampy błyskowej). Wybierz zdjęcie lub upuść je tutaj: PdfCraft znajdzie podpis i usunie papier.
+	Choose photo…	Wybierz zdjęcie…
+	No photo chosen	Nie wybrano zdjęcia
+	Photo	Zdjęcie
+	Ink sensitivity	Czułość na atrament
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	W ramce nie znaleziono podpisu. Przesuń ramkę na podpis lub zwiększ czułość na atrament.
+	Couldn't use the photo: {e}	Nie można użyć zdjęcia: {e}

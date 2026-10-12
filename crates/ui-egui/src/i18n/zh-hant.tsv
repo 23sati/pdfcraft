@@ -53,6 +53,7 @@
 	Create PDF from file…	從檔案建立 PDF…
 	Create PDF from images…	從圖片建立 PDF…
 	Create PDF from multiple files…	從多個檔案建立 PDF…
+	Create separate PDFs…	建立個別 PDF…
 	Create PDF from clipboard	從剪貼簿建立 PDF
 	Combine files…	合併檔案…
 	Save	儲存
@@ -903,6 +904,7 @@
 	Bring your own model (off by default)	使用自己的模型（預設關閉）
 	Single file	單一檔案
 	Multiple files	多個檔案
+	Separate PDFs	個別 PDF
 	Images	圖片
 	Clipboard	剪貼簿
 	Blank page	空白頁面
@@ -1868,6 +1870,8 @@
 	{month} {y}	{y} 年 {month}
 	Change {key}	變更{key}
 	Insert pages from {name}	從 {name} 插入頁面
+	Insert pages from {name} — 1 field renamed	從 {name} 插入頁面 — 已重新命名 1 個欄位
+	Insert pages from {name} — fields renamed	從 {name} 插入頁面 — 已重新命名欄位
 	Fill in {name}	填寫 {name}
 	Set the image of {name}	設定 {name} 的圖片
 	Edit script of {name}	編輯 {name} 的指令碼
@@ -2071,6 +2075,7 @@
 
 # Multi-object selection and movement (#844)
 @plural	{n} object selected|{n} objects selected	已選取 {n} 個物件
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} 個欄位名稱與先前的檔案衝突，將被重新命名: {list}
 	Drag the selection to move it. Esc clears the selection.	拖曳選取範圍即可移動。按 Esc 清除選取。
 	Shift-click to select several objects. Drag empty space to select an area.	按住 Shift 點選可選取多個物件。拖曳空白區域可框選。
 	Select at most 1000 objects at a time.	一次最多選取 1000 個物件。
@@ -2144,3 +2149,16 @@ scroll speed	Fast	快
 	Tools panel side	工具面板位置
 	Add comment	新增註解
 	Change tag properties	變更標籤屬性
+	Left out: {names}	已略過：{names}
+	already a PDF	已經是 PDF
+	no unused output name	沒有可用的輸出檔名
+	no output folder was chosen	未選擇輸出資料夾
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	已下載 {n} 個 PDF
+	Scan	掃描
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	在白紙上簽名，並在明亮、均勻的光線下拍照（使用閃光燈）。選擇相片或將其拖放到此處：PdfCraft 會找到簽名並去除紙張背景。
+	Choose photo…	選擇相片…
+	No photo chosen	未選擇相片
+	Photo	相片
+	Ink sensitivity	墨跡靈敏度
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	框內找不到簽名。請將框移到簽名上，或提高墨跡靈敏度。
+	Couldn't use the photo: {e}	無法使用此相片：{e}
