@@ -2343,3 +2343,6 @@ animation effects	Off	Izklopljeni
 	The linked PDF opened, but its named destination was not applied.	Povezani PDF se je odprl, vendar njegov poimenovani cilj ni bil uporabljen.
 	The linked PDF opened, but its page destination was out of range.	Povezani PDF se je odprl, vendar je ciljna stran zunaj obsega.
 	Local cross-PDF links require the desktop app	Lokalne povezave med PDF-ji zahtevajo namizno aplikacijo
+	Mark as artifact	Označi kot artefakt
+	Remove this leaf tag from reading order and mark its direct content as an artifact	Odstranite to listno oznako iz vrstnega reda branja in označite njeno neposredno vsebino kot artefakt
+	Mark content as artifact	Označi vsebino kot artefakt

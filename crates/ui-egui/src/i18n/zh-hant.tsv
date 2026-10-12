@@ -2212,3 +2212,6 @@ animation effects	Off	關
 	The linked PDF opened, but its page destination was out of range.	已開啟連結的 PDF，但其頁面目的地超出範圍。
 	Local cross-PDF links require the desktop app	PDF 之間的本機連結需要桌面應用程式
 	The existing action will be preserved.	將保留現有動作。
+	Mark as artifact	標記為成品
+	Remove this leaf tag from reading order and mark its direct content as an artifact	從閱讀順序中移除此葉標記，並將其直接內容標記為成品
+	Mark content as artifact	將內容標記為成品

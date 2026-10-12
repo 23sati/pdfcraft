@@ -2412,3 +2412,6 @@ animation effects	Off	Vypnuto
 	The linked PDF opened, but its named destination was not applied.	Odkazovaný PDF se otevřel, ale jeho pojmenovaný cíl nebyl použit.
 	The linked PDF opened, but its page destination was out of range.	Odkazovaný PDF se otevřel, ale cílová stránka je mimo rozsah.
 	Local cross-PDF links require the desktop app	Místní odkazy mezi soubory PDF vyžadují desktopovou aplikaci
+	Mark as artifact	Označit jako artefakt
+	Remove this leaf tag from reading order and mark its direct content as an artifact	Odeberte tuto značku listu z pořadí čtení a označte její přímý obsah jako artefakt
+	Mark content as artifact	Označit obsah jako artefakt

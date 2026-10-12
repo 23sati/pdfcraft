@@ -2334,3 +2334,6 @@ animation effects	Off	Kapalı
 	The linked PDF opened, but its named destination was not applied.	Bağlantılı PDF açıldı, ancak adlandırılmış hedefi uygulanmadı.
 	The linked PDF opened, but its page destination was out of range.	Bağlantılı PDF açıldı, ancak sayfa hedefi aralık dışında.
 	Local cross-PDF links require the desktop app	PDF'ler arası yerel bağlantılar masaüstü uygulamasını gerektirir
+	Mark as artifact	Yapıt olarak işaretle
+	Remove this leaf tag from reading order and mark its direct content as an artifact	Bu yaprak etiketini okuma sırasından kaldırın ve doğrudan içeriğini yapıt olarak işaretleyin
+	Mark content as artifact	İçeriği yapıt olarak işaretle

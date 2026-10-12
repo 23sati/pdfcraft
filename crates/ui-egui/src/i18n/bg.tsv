@@ -2301,3 +2301,6 @@ animation effects	Off	Изключени
 	The linked PDF opened, but its named destination was not applied.	Свързаният PDF се отвори, но именуваната му цел не беше приложена.
 	The linked PDF opened, but its page destination was out of range.	Свързаният PDF се отвори, но целевата му страница е извън обхвата.
 	Local cross-PDF links require the desktop app	Локалните връзки между PDF файлове изискват настолното приложение
+	Mark as artifact	Маркиране като артефакт
+	Remove this leaf tag from reading order and mark its direct content as an artifact	Премахнете този листов етикет от реда на четене и маркирайте прякото му съдържание като артефакт
+	Mark content as artifact	Маркиране на съдържание като артефакт

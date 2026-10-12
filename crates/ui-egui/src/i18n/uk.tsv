@@ -2360,3 +2360,6 @@ animation effects	Off	Вимкнено
 	The linked PDF opened, but its named destination was not applied.	Пов’язаний PDF відкрито, але його іменоване призначення не застосовано.
 	The linked PDF opened, but its page destination was out of range.	Пов’язаний PDF відкрито, але сторінка призначення поза межами діапазону.
 	Local cross-PDF links require the desktop app	Локальні посилання між PDF працюють лише в настільному застосунку
+	Mark as artifact	Позначити як артефакт
+	Remove this leaf tag from reading order and mark its direct content as an artifact	Вилучіть цей кінцевий тег із порядку читання та позначте його безпосередній вміст як артефакт
+	Mark content as artifact	Позначити вміст як артефакт
