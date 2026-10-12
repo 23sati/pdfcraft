@@ -2947,7 +2947,10 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                     if sr.contains(p) && hover_text.is_none() {
                         let who = a.author.clone().unwrap_or_else(|| a.subtype.clone());
                         let body = a.contents.clone().unwrap_or_default();
-                        hover_text = Some((p, if body.is_empty() { who } else { format!("{who}\n{body}") }));
+                        let is_highlight = a.subtype == "Highlight";
+                        if !prefs.hide_empty_highlight_hover || !is_highlight || !body.is_empty() {
+                            hover_text = Some((p, if body.is_empty() { who } else { format!("{who}\n{body}") }));
+                        }
                     }
                 }
             }
