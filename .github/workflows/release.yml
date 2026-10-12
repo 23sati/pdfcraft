@@ -24,6 +24,8 @@ jobs:
     with:
       app-name: pdfcraft
       app-title: PdfCraft
+      # Fork: packaging/linux doesn't cross-build riscv64 yet (the job leaves dist/release empty).
+      has-riscv64: false
       craft-fonts-ref: 3d9ab3a132ed0eff457e424226a435a901da30d3
       version: ${{ inputs.version }}
     secrets:
