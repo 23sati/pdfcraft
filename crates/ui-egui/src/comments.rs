@@ -1798,6 +1798,22 @@ mod tests {
     }
 
     #[test]
+    fn two_grids_in_one_parent_open_their_pickers_separately() {
+        // Redaction properties and Prepare a form draw two grids in one parent ui.
+        use egui_kittest::kittest::Queryable;
+        let mut h = egui_kittest::Harness::new_ui(|ui| {
+            let _ = swatch_grid(ui, Some([0.2, 0.4, 0.6]));
+            let _ = swatch_grid(ui, Some([0.6, 0.4, 0.2]));
+        });
+        h.run();
+        let plus = h.query_all_by_label("Other colour…").collect::<Vec<_>>();
+        assert_eq!(plus.len(), 2);
+        plus[0].click();
+        h.run();
+        assert_eq!(h.query_all_by_label("Apply").count(), 1, "only the first grid's picker opens");
+    }
+
+    #[test]
     fn proportional_corners_keep_the_opposite_anchor_and_edges_stretch_one_axis() {
         let r = Rect::from_min_max(pos2(100.0, 100.0), pos2(196.0, 132.0));
         for (hx, hy) in [(-1, -1), (1, -1), (-1, 1), (1, 1)] {
