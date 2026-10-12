@@ -1,6 +1,6 @@
 ---
-title: PdfCraft is missing from the Open with menu
-description: Why PdfCraft may not show in the Windows right-click menu for PDFs, and how to open PDFs with it anyway.
+title: Edit with PdfCraft is missing from the right-click menu
+description: Why the Edit with PdfCraft entry or PdfCraft in Open with may be missing on Windows 11, and how to open PDFs with it anyway.
 order: 30
 verified: 0.6.0
 ---
@@ -14,8 +14,8 @@ The MSI installer adds an **Edit with PdfCraft** entry to the right-click menu o
 
 The entry does not change which app opens PDFs by default.
 
-## Still missing after the MSI
+## Installed with the MSI and still missing
 
-One user installed `pdfcraft-0.6.0-windows-x64.msi` with administrator rights and still did not see PdfCraft in **Open with**. A fix for that, to the MSI installer, was proposed in a pull request and had not been merged when this page was written ([issue #1080](https://github.com/storytold/pdfcraft/issues/1080)). Use the second step above meanwhile.
+One user installed `pdfcraft-0.6.0-windows-x64.msi` with administrator rights and did not see PdfCraft in **Open with** ([issue #1080](https://github.com/storytold/pdfcraft/issues/1080), still open). Use the second step above, and tell us on the issue if you see the same.
 
 Ask in [Discord](https://discord.gg/artcraft) if this still does not work.

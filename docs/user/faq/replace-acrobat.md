@@ -17,7 +17,7 @@ The project lists these as good today:
 - filling and authoring forms
 - passwords, redaction and sanitizing
 - basic digital signatures
-- printing
+- printing (in 0.6.0 on Windows 11 the Print dialog lists no printers; see [No printers are listed](../troubleshooting/no-printers-listed.md))
 - the Accessibility Checker
 
 It opens files protected with every standard encryption level, from 40-bit RC4 to AES-256.
@@ -32,6 +32,7 @@ The project lists these as thin or missing:
 - signature tokens and online long-term validation
 - Preflight and PDF/X or PDF/UA
 - printing from the web build
+- physical printer fidelity
 - full XFA forms
 
 The project's own estimate, from October 2026, is that PdfCraft is about 55% of the way to replacing Acrobat for everyday work, such as viewing, commenting, filling and signing forms, and organizing pages. See the [roadmap](https://github.com/storytold/pdfcraft/blob/main/ROADMAP.md) for what comes next.

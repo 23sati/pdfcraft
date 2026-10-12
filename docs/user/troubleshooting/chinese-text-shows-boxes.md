@@ -25,7 +25,7 @@ A user in [issue #778](https://github.com/storytold/pdfcraft/issues/778) reporte
 
 PdfCraft's release builds embed Japanese fonts from craft-fonts but no Simplified Chinese interface font. Changing that is on the project's list ([ROADMAP](https://github.com/storytold/pdfcraft/blob/main/ROADMAP.md), issue #826).
 
-The change after 0.6.0 ([#925](https://github.com/storytold/pdfcraft/pull/925)) makes PdfCraft read one Chinese font that is already installed on your PC when the build has none. It does not copy or ship that font. It is in the main branch, not in 0.6.0.
+The change after 0.6.0 ([#925](https://github.com/storytold/pdfcraft/pull/925)) makes PdfCraft read one Chinese font that is already installed on your PC when the build has none. It does not copy or ship that font. It is in the main branch, not in 0.6.0: the 0.6.0 source of `system_fonts.rs` has no Chinese probe.
 
 ## Still stuck?
 

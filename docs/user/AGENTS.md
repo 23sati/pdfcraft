@@ -20,7 +20,7 @@ either. Write for an artist, not a developer.
 - No marketing copy, no "simply", no claims you have not checked in the code, a release or an issue.
 - Call the product "PdfCraft", as the app, its downloads and getartcraft.com do. Do not call it PrintCraft, its old name.
 - Name UI labels exactly as the app shows them, in **bold**. Check them in `crates/engine/src/commands.rs` and the `tl!(...)` strings in `crates/ui-egui/src/`.
-- Windows 11 is the supported Windows. Never write Windows 10.
+- Windows 11 is the only supported Windows version.
 - Troubleshooting pages: `## Symptoms`, `## Fix`, `## Why this happens` (optional),
   `## Still stuck?` (link the issue tracker or Discord).
 - Say when a fix is merged but not yet in a release.

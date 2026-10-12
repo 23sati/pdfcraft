@@ -12,7 +12,7 @@ Download PdfCraft from the [PdfCraft page on getartcraft.com](https://getartcraf
 1. Open the [latest release](https://github.com/storytold/pdfcraft/releases/latest).
 2. Download `pdfcraft-<version>-windows-x64.msi`. It fits most PCs (64-bit Intel and AMD).
 3. Run the installer. It installs for all users and needs administrator rights.
-4. Start PdfCraft.
+4. Start PdfCraft from the Start menu. The installer adds a Start menu shortcut and, unless you untick it, a desktop shortcut.
 
 Pick the file that matches your PC:
 
