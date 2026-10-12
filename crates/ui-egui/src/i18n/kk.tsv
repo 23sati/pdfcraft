@@ -2281,3 +2281,9 @@ scroll speed	Fast	Жылдам
 	Ink sensitivity	Сия сезімталдығы
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Жақтауда қолтаңба табылмады. Жақтауды қолтаңбаның үстіне жылжытыңыз немесе сия сезімталдығын арттырыңыз.
 	Couldn't use the photo: {e}	Суретті пайдалану мүмкін болмады: {e}
+	Applying also sanitizes the document: bookmarks, named destinations, attachments, document information, metadata and XFA form data are deleted, and hidden layers are locked hidden for good.	Қолдану құжатты да тазартады: бетбелгілер, атаулы нысаналар, тіркемелер, құжат туралы ақпарат, метадеректер және XFA пішін деректері жойылады, ал жасырын қабаттар біржола жасырын қалады.
+	Checked when applied: 1 region found clear of the removed text. Text that exists only as pixels of an image is not searched.	Қолдану кезінде тексерілді: 1 аймақта жойылған мәтін табылмады. Тек кескін пиксельдері түрінде бар мәтін ізделмейді.
+	Checked when applied: {n} regions found clear of the removed text. Text that exists only as pixels of an image is not searched.	Қолдану кезінде тексерілді: {n} аймақта жойылған мәтін табылмады. Тек кескін пиксельдері түрінде бар мәтін ізделмейді.
+	I understand that the redacted content is removed for good	Жасырылған мазмұнның біржола жойылатынын түсінемін
+	This cannot be undone: applying redactions clears the undo history.	Бұл әрекетті қайтару мүмкін емес: жасыруды қолдану қайтару тарихын тазартады.
+	Save the result under a new name: saving rewrites the whole file so no trace of the removed content stays in it, and the original file stays as it is.	Нәтижені жаңа атаумен сақтаңыз: сақтау бүкіл файлды қайта жазады, сондықтан жойылған мазмұнның ізі қалмайды, ал бастапқы файл өзгеріссіз қалады.

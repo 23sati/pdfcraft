@@ -2279,3 +2279,8 @@ scroll speed	Fast	Hızlı
 	Ink sensitivity	Mürekkep hassasiyeti
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Çerçevede imza bulunamadı. Çerçeveyi imzanın üzerine taşıyın veya mürekkep hassasiyetini artırın.
 	Couldn't use the photo: {e}	Fotoğraf kullanılamadı: {e}
+	Applying also sanitizes the document: bookmarks, named destinations, attachments, document information, metadata and XFA form data are deleted, and hidden layers are locked hidden for good.	Uygulama belgeyi de temizler: yer imleri, adlandırılmış hedefler, ekler, belge bilgileri, meta veriler ve XFA form verileri silinir; gizli katmanlar kalıcı olarak gizli kalır.
+	Checked when applied: 1 region found clear of the removed text. Text that exists only as pixels of an image is not searched.	Uygulama sırasında kontrol edildi: 1 bölgede kaldırılan metin bulunamadı. Yalnızca görüntü pikselleri olarak var olan metin aranmaz.
+	Checked when applied: {n} regions found clear of the removed text. Text that exists only as pixels of an image is not searched.	Uygulama sırasında kontrol edildi: {n} bölgede kaldırılan metin bulunamadı. Yalnızca görüntü pikselleri olarak var olan metin aranmaz.
+	I understand that the redacted content is removed for good	Karartılan içeriğin kalıcı olarak kaldırılacağını anlıyorum
+	This cannot be undone: applying redactions clears the undo history.	Bu işlem geri alınamaz: karartmaları uygulamak geri alma geçmişini temizler.

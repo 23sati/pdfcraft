@@ -2357,3 +2357,8 @@ scroll speed	Fast	Rychlá
 	Ink sensitivity	Citlivost na inkoust
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	V rámečku nebyl nalezen žádný podpis. Přesuňte rámeček na podpis nebo zvyšte citlivost na inkoust.
 	Couldn't use the photo: {e}	Fotografii nelze použít: {e}
+	Applying also sanitizes the document: bookmarks, named destinations, attachments, document information, metadata and XFA form data are deleted, and hidden layers are locked hidden for good.	Použití také vyčistí dokument: záložky, pojmenované cíle, přílohy, informace o dokumentu, metadata a data formulářů XFA se odstraní a skryté vrstvy zůstanou trvale skryté.
+	Checked when applied: 1 region found clear of the removed text. Text that exists only as pixels of an image is not searched.	Kontrola při použití: 1 oblast neobsahuje odstraněný text. Text existující pouze jako pixely obrázku se neprohledává.
+	Checked when applied: {n} regions found clear of the removed text. Text that exists only as pixels of an image is not searched.	Kontrola při použití: {n} oblastí neobsahuje odstraněný text. Text existující pouze jako pixely obrázku se neprohledává.
+	I understand that the redacted content is removed for good	Rozumím, že redigovaný obsah bude trvale odstraněn
+	This cannot be undone: applying redactions clears the undo history.	Tuto akci nelze vrátit: použití redakce vymaže historii vracení změn.
