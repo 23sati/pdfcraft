@@ -36,6 +36,9 @@ leave it unredacted.
 Structure cleanup resolves named MCIDs and indirect content references. Form content
 references are updated to the cleaned copy; unchanged sibling descriptions remain.
 
+Applying redaction removes the entire bookmark tree: bookmark titles can repeat removed text.
+A table of contents drawn on a page still needs its own redaction marks.
+
 ## Remove hidden information / Sanitize
 
 ```rust
