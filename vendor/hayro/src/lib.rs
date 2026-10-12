@@ -401,6 +401,7 @@ mod color_replacement_tests {
 #[cfg(test)]
 mod color_replacement_render_tests {
     use super::{ColorReplacement, InterpreterSettings, Pdf, Pixmap, render_pdf};
+    use vello_cpu::color::{AlphaColor, Srgb};
 
     /// A one-page 200×100 pt PDF with a white background rect, black Helvetica text,
     /// a solid red `rg` rect, a CMYK-filled rect and a 4×4 uncompressed `/DeviceRGB`
@@ -465,6 +466,86 @@ mod color_replacement_render_tests {
             only_black: false,
             line_art,
         }
+    }
+
+    /// A one-page 100×50 pt PDF whose only content is a 4×4 `/ImageMask` stencil (CCITT-style
+    /// line art) painted with the current fill colour, black. Each row's four samples are
+    /// `0011`: under `/Decode [0 1]` a sample value of 0 marks the painted area, so the left
+    /// half of the 40×40 pt image paints and the right half does not.
+    fn stencil_fixture() -> Vec<u8> {
+        let body = "0 0 0 rg q 40 0 0 40 30 5 cm /Im0 Do Q";
+        // Four rows, one byte each (a 4-wide row uses the top nibble): samples 0,0,1,1 —
+        // under Decode [0 1] the zeros paint, so the left half of every row is ink and the
+        // right half is unpainted.
+        let mask: [u8; 4] = [0x30, 0x30, 0x30, 0x30];
+
+        let objs: Vec<Vec<u8>> = vec![
+            b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+            b"<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 100 50] >>".to_vec(),
+            b"<< /Type /Page /Parent 2 0 R /Contents 4 0 R /Resources << /XObject << /Im0 5 0 R >> >> >>"
+                .to_vec(),
+            format!("<< /Length {} >>\nstream\n{body}\nendstream", body.len()).into_bytes(),
+            {
+                let mut o = format!(
+                    "<< /Type /XObject /Subtype /Image /Width 4 /Height 4 /ImageMask true \
+                     /BitsPerComponent 1 /Decode [0 1] /Length {} >>\nstream\n",
+                    mask.len()
+                )
+                .into_bytes();
+                o.extend_from_slice(&mask);
+                o.extend_from_slice(b"\nendstream");
+                o
+            },
+        ];
+
+        let mut out = b"%PDF-1.7\n".to_vec();
+        let mut offsets = Vec::new();
+        for (i, o) in objs.iter().enumerate() {
+            offsets.push(out.len());
+            out.extend_from_slice(format!("{} 0 obj\n", i + 1).as_bytes());
+            out.extend_from_slice(o);
+            out.extend_from_slice(b"\nendobj\n");
+        }
+        let xref = out.len();
+        out.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+        for o in offsets {
+            out.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+        }
+        out.extend_from_slice(
+            format!(
+                "trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n",
+                objs.len() + 1
+            )
+            .as_bytes(),
+        );
+        out
+    }
+
+    /// Renders the stencil fixture the way the app's render crate drives hayro for a
+    /// white-on-black user: the page clears to `bg` (`RenderSettings.bg_color`) while the
+    /// solid paints go through `color_replacement`. `render_pdf` cannot express the mapped
+    /// clear colour (it always clears white).
+    fn render_stencil_on(
+        bg: AlphaColor<Srgb>,
+        color_replacement: Option<ColorReplacement>,
+    ) -> Pixmap {
+        use super::{RenderCache, RenderSettings, render};
+
+        let pdf = Pdf::new(stencil_fixture()).unwrap();
+        let cache = RenderCache::new();
+        let settings = RenderSettings {
+            x_scale: 1.0,
+            y_scale: 1.0,
+            bg_color: bg,
+            color_replacement,
+            ..RenderSettings::default()
+        };
+        render(
+            pdf.pages().get(0).expect("the fixture has one page"),
+            &cache,
+            &InterpreterSettings::default(),
+            &settings,
+        )
     }
 
     fn render(color_replacement: Option<ColorReplacement>) -> Pixmap {
@@ -553,5 +634,35 @@ mod color_replacement_render_tests {
         assert_eq!(sample(&no_line_art, 45, 60), [255, 0, 0, 255]);
         assert_eq!(sample(&no_line_art, 5, 5), [255, 255, 255, 255]);
         assert!(count_pixels(&no_line_art, text_region, is_white) >= 10);
+    }
+
+    /// A stencil mask's ink paints with the mapped solid colour on the mapped background:
+    /// it is line art in disguise, so white-on-black must leave it visible (black ink on
+    /// black would disappear). The image occupies device x 30..70, y 5..45 (PDF 30..70 ×
+    /// 5..45 pt); its left half is painted ink, its right half shows the page background.
+    #[test]
+    fn color_replacement_maps_stencil_mask_ink() {
+        use vello_cpu::color::palette::css::{BLACK, WHITE};
+
+        let control = render_stencil_on(WHITE, None);
+        let replaced = render_stencil_on(BLACK, Some(replacement(true)));
+
+        // Control: the page clears white and the stencil's ink keeps its black fill colour.
+        assert_eq!(sample(&control, 5, 5), [255, 255, 255, 255]);
+        assert_eq!(sample(&control, 40, 25), [0, 0, 0, 255]);
+        // With white-on-black, the background clears black and the ink maps to white: ink
+        // and background stay distinguishable, and each matches its mapped colour exactly.
+        assert_eq!(sample(&replaced, 5, 5), [0, 0, 0, 255]);
+        let ink = sample(&replaced, 40, 25);
+        assert_eq!(ink, [255, 255, 255, 255]);
+        assert_ne!(ink[..3], sample(&replaced, 5, 5)[..3], "ink must differ from the background");
+        // The unpainted right half of the image area shows the mapped background.
+        assert_eq!(sample(&replaced, 60, 25), [0, 0, 0, 255]);
+
+        // The line-art gate holds: with line-art replacement off, the ink keeps its
+        // original colour while the page still clears to the background.
+        let no_line_art = render_stencil_on(BLACK, Some(replacement(false)));
+        assert_eq!(sample(&no_line_art, 5, 5), [0, 0, 0, 255]);
+        assert_eq!(sample(&no_line_art, 40, 25), [0, 0, 0, 255]);
     }
 }

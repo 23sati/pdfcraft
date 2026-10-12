@@ -1282,6 +1282,11 @@ impl<'a> Device<'a> for Renderer {
                             stencil.scale_factors.1 as f64,
                         );
 
+                        // PdfCraft patch: a stencil mask is line art in disguise, so its solid
+                        // paint goes through the reading-colours mapping (line-art gate) like
+                        // every other solid fill; baked in raw, its ink would stay at its
+                        // original colour and vanish into a mapped background.
+                        let paint = &self.replaced(paint, false);
                         match paint {
                             Paint::Color(c) => {
                                 let color = c.to_rgba().to_rgba8();
