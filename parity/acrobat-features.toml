@@ -3602,8 +3602,8 @@ milestone = "M5"
 status = "partial"
 commands = ["comment.caret"]
 tools = ["comment_add"]
-evidence = ["crates/annot/src/tests.rs::polygons_clouds_connected_lines_callouts_and_carets_are_drawn", "crates/ui-egui/tests/comments.rs::polygons_clouds_connected_lines_callouts_and_inserted_text", "crates/automation/tests/automation.rs::drawing_comments_through_tools"]
-notes = "caret at a click; not yet snapped to the text insertion point"
+evidence = ["crates/annot/src/tests.rs::polygons_clouds_connected_lines_callouts_and_carets_are_drawn", "crates/ui-egui/tests/comments.rs::polygons_clouds_connected_lines_callouts_and_inserted_text", "crates/ui-egui/tests/comments.rs::inserted_text_snaps_to_the_gap_between_characters_on_the_baseline", "crates/automation/tests/automation.rs::drawing_comments_through_tools"]
+notes = "in the UI the caret snaps to the nearer character edge, on the baseline and sized to the text, on upright horizontal text of unrotated pages; elsewhere it stays at the click. comment_add places it where it is told (no snapping)"
 
 [[feature]]
 id = "comment.typewriter"
