@@ -1,6 +1,6 @@
 # PdfCraft roadmap: milestones and what's next
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** patch (M1 #1337: exhausted xref ranges return errors; estimates unchanged); minor (M3: Windows' Animation effects setting is followed, and Preferences has Animation effects; earlier: exclusive image-crop resize follow-up; M2: short same-line redraws split before placement; estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (M3: Windows' Animation effects setting is followed, and Preferences has Animation effects; earlier: exclusive image-crop resize follow-up; M2: short same-line redraws split before placement; estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 > **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (M7: local GoToR links and confined automation candidate; estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 > **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** exclusive image-crop resize follow-up; minor (M2: short same-line redraws split before placement; estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 > **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** exclusive image-crop resize follow-up; minor (M2: short same-line redraws split before placement; earlier: M10, printing on the web through the browser's print dialog, gap 4, rank 1 65–120 → 50–90 h) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
@@ -14,6 +14,7 @@
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (M6: keep accepted form values when Tab reopens the same field before Save; estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (M13: reject malformed CLI --root options before dispatch; estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (Traditional Chinese accessibility semantics and Taiwan form/table terminology; estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** patch (M1 #1337: exhausted cross-reference ranges return errors; estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
 Forward-looking: the milestones, the current focus and what comes next. The parity numbers behind
 it are in [target-app-parity.md](target-app-parity.md), the ranked work list in [gaps.md](gaps.md),
@@ -143,8 +144,8 @@ M2 (renderer), M7 (content editing), M10 (OCR and Office), M11 (Preflight and st
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-12 | patch | M1 #1337: exhausted cross-reference object numbers return a descriptive error; classic-table/stream regressions and opening/allocation controls. Estimates unchanged. |
 | 2026-10-12 | minor | M7/#1200 candidate: bounded local GoToR opening, root-confined automation, and action-preserving appearance edits; named destinations and window behavior remain partial; estimates unchanged. |
+| 2026-10-12 | patch | M1 #1337: exhausted cross-reference object numbers return a descriptive error; classic-table/stream regressions and opening/allocation controls. Estimates unchanged. |
 | 2026-10-12 | minor | Exclusive image crops resize with their pixels across nested states, intervening operators and content streams; shared clips remain fixed. Synthetic engine/tool regressions and private image save/reopen checks; estimates unchanged. |
 | 2026-10-11 | minor | M4: editable Organize page-range selection (#1092), synchronized with thumbnails and available through UI control. Estimates unchanged. |
 | 2026-10-11 | minor | M10: Word invoice export regressions (#773); estimates unchanged. |
