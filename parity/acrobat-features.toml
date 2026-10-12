@@ -5554,8 +5554,8 @@ milestone = "M8"
 status = "shipped"
 commands = ["redact.search"]
 tools = ["redact_mark"]
-evidence = ["crates/redact/src/patterns.rs::word_lists_are_trimmed_unique_and_bounded", "crates/automation/tests/automation.rs::redacting_word_lists_through_tools", "crates/ui-egui/tests/ui_group/redact.rs::redacting_an_imported_word_list"]
-notes = "Find text and redact ▸ Multiple words or phrases: one per line, typed or imported from a .txt file (at most 1 MB, 1,000 entries of 256 characters); every match of each is marked in one undo step; redact_mark words reports marks per word. Not yet: whole-words-only and case-sensitive options, exporting the list"
+evidence = ["crates/redact/src/patterns.rs::word_lists_are_trimmed_unique_and_bounded", "crates/automation/tests/automation.rs::redacting_word_lists_through_tools", "crates/automation/tests/automation.rs::redaction_search_respects_case_and_word_boundaries", "crates/ui-egui/tests/ui_group/redact.rs::redacting_an_imported_word_list", "crates/ui-egui/tests/ui_group/redact.rs::redaction_search_can_match_case_and_whole_words"]
+notes = "Find text and redact ▸ Multiple words or phrases: one per line, typed or imported from a .txt file (at most 1 MB, 1,000 entries of 256 characters); every match of each is marked in one undo step; redact_mark words reports marks per word. Single phrase and word-list searches offer case-sensitive and whole-words-only options in the UI and headless tool. Not yet: exporting the list"
 
 [[feature]]
 id = "protect.redact-patterns"

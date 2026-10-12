@@ -2602,6 +2602,27 @@ fn redacting_word_lists_through_tools() {
 }
 
 #[test]
+fn redaction_search_respects_case_and_word_boundaries() {
+    let dir = workdir("redact-find-options");
+    std::fs::write(dir.join("memo.txt"), "Ada ada Adaline\nAda beta betamax").unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_create", json!({ "from": "text", "path": "memo.txt" }))["doc"].as_u64().unwrap();
+    let mark = |a: &mut Automation, args: Value| ok(a, "redact_mark", args)["marked"].as_u64().unwrap();
+    assert_eq!(mark(&mut a, json!({ "doc": doc, "find": "Ada", "case_sensitive": true, "whole_words": true })), 2);
+    ok(&mut a, "edit_undo", json!({ "doc": doc }));
+    assert_eq!(mark(&mut a, json!({ "doc": doc, "find": "Ada", "whole_words": true })), 3);
+    ok(&mut a, "edit_undo", json!({ "doc": doc }));
+    let result = ok(&mut a, "redact_mark", json!({ "doc": doc, "words": ["Ada", "beta"], "case_sensitive": true, "whole_words": true }));
+    assert_eq!(result["matched_words"], json!([{ "word": "Ada", "marked": 2 }, { "word": "beta", "marked": 1 }]));
+    ok(&mut a, "edit_undo", json!({ "doc": doc }));
+    assert!(matches!(a.call("redact_mark", &json!({ "doc": doc, "pattern": "email", "whole_words": true })), Err(ToolError::InvalidArgs(_))));
+    assert_eq!(mark(&mut a, json!({ "doc": doc, "find": "Ada", "case_sensitive": true, "whole_words": true })), 2);
+    ok(&mut a, "redact_apply", json!({ "doc": doc }));
+    let text = &page_text(&mut a, doc)[0];
+    assert!(text.contains("ada") && text.contains("Adaline") && text.contains("betamax"), "{text}");
+}
+
+#[test]
 fn removing_hidden_information_through_tools() {
     let dir = workdir("hidden");
     let mut a = auto(&dir);
