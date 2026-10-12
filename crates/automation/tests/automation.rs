@@ -1736,6 +1736,10 @@ fn accessibility_check_report_and_fixes_through_tools() {
     assert_eq!(r["failed"].as_u64(), Some(3), "tagging, tagged content and (undone) title");
     let html = std::fs::read_to_string(dir.join("report.html")).unwrap();
     assert!(html.contains("Accessibility Report") && html.contains("a.pdf"));
+    ok(&mut a, "accessibility_report", json!({ "doc": doc, "path": "manual-report.html", "rules": ["scripts"] }));
+    let manual_html = std::fs::read_to_string(dir.join("manual-report.html")).unwrap();
+    assert!(manual_html.contains("<p>Needs manual check: 1</p>"));
+    assert!(!manual_html.contains("no problems"));
     // Figures: list, describe, mark decorative.
     std::fs::write(
         dir.join("figures.pdf"),
@@ -3157,8 +3161,13 @@ fn links_through_tools() {
     let list = ok(&mut a, "link_list", json!({ "doc": doc }));
     assert!(list["links"].as_array().unwrap().iter().any(|l| l["url"] == "https://pdfcraft.dev"));
     ok(&mut a, "link_delete", json!({ "doc": doc, "page": 1, "index": added["index"] }));
-    let r = ok(&mut a, "links_remove", json!({ "doc": doc }));
+    let r = ok(&mut a, "links_remove", json!({ "doc": doc, "pages": [1] }));
     assert_eq!(r["removed"], 2);
+    assert_eq!(ok(&mut a, "link_list", json!({ "doc": doc }))["count"], 0);
+    // Add one more link and test links_remove across all pages
+    ok(&mut a, "link_add", json!({ "doc": doc, "page": 1, "rect": [72, 300, 200, 320], "url": "https://example.org" }));
+    let r2 = ok(&mut a, "links_remove", json!({ "doc": doc }));
+    assert_eq!(r2["removed"], 1);
     assert_eq!(ok(&mut a, "link_list", json!({ "doc": doc }))["count"], 0);
     assert!(matches!(a.call("link_add", &json!({ "doc": doc, "page": 1, "rect": [0, 0, 50, 20] })), Err(ToolError::InvalidArgs(_))));
 }
@@ -4403,6 +4412,7 @@ fn xfa_scripts_run_for_buttons_and_field_changes_through_tools() {
     // Filling recalculates; a bad value shows its message (the tool reports alerts in js output? no: it is applied, the value stays).
     ok(&mut a, "form_fill", json!({ "doc": doc, "values": { "qty": "4" } }));
     assert_eq!(field(&mut a, "total").unwrap()["value"], "20");
+    assert_eq!(ok(&mut a, "doc_info", json!({ "doc": doc }))["xfa_scripts_off"], false);
     // A button's XFA click script runs through js_run, like any button.
     let before = ok(&mut a, "doc_info", json!({ "doc": doc }))["xfa_layout"]["fields"].as_u64().unwrap();
     let r = ok(&mut a, "js_run", json!({ "doc": doc, "script": "", "field": "addRow" }));
@@ -4414,6 +4424,21 @@ fn xfa_scripts_run_for_buttons_and_field_changes_through_tools() {
     assert!(field(&mut a, "amount_2").is_none());
     let r = ok(&mut a, "js_run", json!({ "doc": doc, "script": "", "field": "hello" }));
     assert_eq!(r["alerts"], json!(["Hello 4"]));
+}
+
+#[test]
+fn doc_info_says_when_a_runaway_script_turned_the_forms_scripts_off() {
+    let dir = workdir("xfa-scripts-off");
+    // An initialize script whose loops are in nested calls runs until it is abandoned.
+    let tpl = pdfcraft_xfa::fixtures::scripted_template().replace(
+        "if (qty.rawValue === null) qty.rawValue = 2;",
+        "function f() { for (var j = 0; j &lt; 99999; j++) {} } for (var k = 0; k &lt; 5000; k++) f();",
+    );
+    std::fs::write(dir.join("runaway.pdf"), pdfcraft_xfa::fixtures::shell(&tpl)).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "runaway.pdf" }))["doc"].as_u64().unwrap();
+    assert_eq!(ok(&mut a, "doc_info", json!({ "doc": doc }))["xfa_scripts_off"], true);
+    let _ = std::fs::remove_dir_all(dir);
 }
 
 /// doc_info describes a link's set-layer-visibility action by layer name.
@@ -5113,6 +5138,128 @@ fn architectural_and_iso_papers_through_tools() {
     assert!(matches!(bad, Err(ToolError::InvalidArgs(m)) if m.contains("ARCH E1") && m.contains("A0")));
     assert_eq!(std::fs::read(dir.join("plot.pdf")).unwrap(), before);
     assert!(a.call("doc_print", &json!({"doc": doc, "paper": "ARCH D", "path": "../escape.pdf"})).is_err());
+}
+
+/// A 2-page 200×300 pt PDF in the `fixture()` style for the reading-colours test: bold black
+/// "Page N" text on a white page; page 2 also draws a 4×4 uncompressed `/DeviceRGB` image,
+/// scaled to 40×40 pt at 120, 200.
+fn reading_colors_fixture() -> Vec<u8> {
+    let body1 = "BT /F1 48 Tf 20 150 Td (Page 1) Tj ET";
+    let body2 = "BT /F1 48 Tf 20 150 Td (Page 2) Tj ET\nq 40 0 0 40 120 200 cm /Im1 Do Q";
+    // 16 opaque pure-red pixels; images are never remapped by the reading-colours setting.
+    let image: Vec<u8> = (0..16).flat_map(|_| [0xff_u8, 0x00, 0x00]).collect();
+    let mut objs: Vec<Vec<u8>> = vec![
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 /MediaBox [0 0 200 300] >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /Contents 5 0 R /Resources << /Font << /F1 7 0 R >> >> >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /Contents 6 0 R /Resources << /Font << /F1 7 0 R >> /XObject << /Im1 8 0 R >> >> >>".to_vec(),
+        format!("<< /Length {} >>\nstream\n{body1}\nendstream", body1.len()).into_bytes(),
+        format!("<< /Length {} >>\nstream\n{body2}\nendstream", body2.len()).into_bytes(),
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>".to_vec(),
+    ];
+    let mut image_obj = format!(
+        "<< /Type /XObject /Subtype /Image /Width 4 /Height 4 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Length {} >>\nstream\n",
+        image.len()
+    )
+    .into_bytes();
+    image_obj.extend_from_slice(&image);
+    image_obj.extend_from_slice(b"\nendstream");
+    objs.push(image_obj);
+    let mut out = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offsets.push(out.len());
+        out.extend_from_slice(format!("{} 0 obj\n", i + 1).as_bytes());
+        out.extend_from_slice(o);
+        out.extend_from_slice(b"\nendobj\n");
+    }
+    let xref = out.len();
+    out.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+    for o in offsets {
+        out.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+    }
+    out.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objs.len() + 1).as_bytes());
+    out
+}
+
+/// A fresh directory whose `a.pdf` is `reading_colors_fixture()`.
+fn reading_colors_workdir() -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("pdfcraft-automation-reading-colors-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("a.pdf"), reading_colors_fixture()).unwrap();
+    dir
+}
+
+/// Decodes a `page_render` PNG (pages here are 200×300 pt) into RGBA pixels.
+fn png_pixels(content: &Content) -> Vec<u8> {
+    let Content::Png { data, width, height } = content else { panic!("expected a PNG") };
+    assert_eq!((*width, *height), (200, 300));
+    let mut reader = png::Decoder::new(std::io::Cursor::new(data)).read_info().unwrap();
+    let mut pixels = vec![0; reader.output_buffer_size().unwrap()];
+    let info = reader.next_frame(&mut pixels).unwrap();
+    assert_eq!((info.width, info.height), (200, 300));
+    pixels
+}
+
+/// The RGBA pixel at (`x`, `y`), top-left origin, of a 200-wide image.
+fn pixel(pixels: &[u8], x: u32, y: u32) -> [u8; 4] {
+    let at = ((y * 200 + x) * 4) as usize;
+    pixels[at..at + 4].try_into().unwrap()
+}
+
+/// The `view_reading_colors` tool changes what `page_render` draws — text and background remap,
+/// images never do — without touching the file, and its errors name what's wrong (#897).
+#[test]
+fn reading_colors_through_tools() {
+    let dir = reading_colors_workdir();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    let render = |a: &mut Automation, page: u64| png_pixels(&a.call("page_render", &json!({ "doc": doc, "page": page, "dpi": 72 })).unwrap()[0]);
+
+    // Off: black text on a white page.
+    let page1_off = render(&mut a, 1);
+    let page2_off = render(&mut a, 2);
+    assert_eq!(pixel(&page1_off, 10, 290), [255, 255, 255, 255]);
+
+    let echo = ok(&mut a, "view_reading_colors", json!({ "doc": doc, "mode": "white-on-black" }));
+    assert_eq!(echo, json!({ "mode": "white-on-black", "text": "#ffffff", "background": "#000000", "only_black": false, "line_art": true }));
+
+    // The page clears to the setting's background, and the text paints with its colour.
+    let page1_on = render(&mut a, 1);
+    assert_eq!(pixel(&page1_on, 10, 290), [0, 0, 0, 255], "background clears to black");
+    // The brightest pixel inside the text band is a stroke interior: a 48 pt bold stem covers it.
+    let (tx, ty) = (20..172u32).flat_map(|x| (116..160u32).map(move |y| (x, y))).max_by_key(|&(x, y)| u32::from(pixel(&page1_on, x, y)[0])).unwrap();
+    let on = pixel(&page1_on, tx, ty);
+    assert!(on[0] >= 250, "a text-interior pixel renders white: {on:?}");
+    let off = pixel(&page1_off, tx, ty);
+    assert!(off[0] <= 60, "the same pixel is black ink without the setting: {off:?}");
+
+    // Images are never remapped: page 2's picture draws byte-identically in both modes.
+    let page2_on = render(&mut a, 2);
+    fn image_row(px: &[u8], y: u32) -> &[u8] {
+        let at = ((y * 200 + 122) * 4) as usize;
+        &px[at..at + 36 * 4]
+    }
+    assert_eq!(pixel(&page2_on, 140, 80), [255, 0, 0, 255], "the image keeps its colour");
+    for y in 62..98u32 {
+        assert_eq!(image_row(&page2_on, y), image_row(&page2_off, y), "image row {y}");
+    }
+
+    // Errors name the problem and the allowed values.
+    let missing = a.call("view_reading_colors", &json!({ "doc": doc, "mode": "custom", "text": "#00ff00" }));
+    assert!(matches!(&missing, Err(ToolError::InvalidArgs(m)) if m.contains("background")), "{missing:?}");
+    let unknown = a.call("view_reading_colors", &json!({ "doc": doc, "mode": "nope" }));
+    assert!(matches!(&unknown, Err(ToolError::InvalidArgs(m)) if m.contains("off") && m.contains("custom")), "{unknown:?}");
+    let no_mode = a.call("view_reading_colors", &json!({ "doc": doc }));
+    assert!(matches!(&no_mode, Err(ToolError::InvalidArgs(m)) if m.contains("mode")), "{no_mode:?}");
+
+    // Back off: the render matches the original one again.
+    assert_eq!(
+        ok(&mut a, "view_reading_colors", json!({ "doc": doc, "mode": "off" })),
+        json!({ "mode": "off", "text": null, "background": null, "only_black": false, "line_art": false })
+    );
+    assert_eq!(render(&mut a, 1), page1_off);
 }
 
 #[test]
