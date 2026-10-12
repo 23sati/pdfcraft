@@ -1810,7 +1810,7 @@ fn editing_form_artwork_through_tools() {
 
 #[test]
 fn auditing_space_through_tools() {
-    let dir = workdir("audit");
+    let dir = workdir("audit-space");
     let mut a = auto(&dir);
     let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
     let r = ok(&mut a, "doc_audit_space", json!({ "doc": doc }));
@@ -2422,7 +2422,7 @@ fn faux_redacted_fixture() -> Vec<u8> {
 
 #[test]
 fn auditing_faux_redactions_through_tools() {
-    let dir = workdir("audit");
+    let dir = workdir("audit-faux-redactions");
     std::fs::write(dir.join("redacted.pdf"), faux_redacted_fixture()).unwrap();
     let mut a = auto(&dir);
     let doc = ok(&mut a, "doc_open", json!({ "path": "redacted.pdf" }))["doc"].as_u64().unwrap();
