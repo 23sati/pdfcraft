@@ -2249,6 +2249,36 @@ fn fill_and_sign_through_tools() {
 }
 
 #[test]
+fn fill_sign_text_font_size_is_saved_and_validated() {
+    let dir = workdir("fill-sign-text-size");
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    ok(&mut a, "fill_sign_add", json!({ "doc": doc, "page": 1, "type": "text", "at": [20, 40], "text": "Big", "font_size": 24 }));
+    let comments = ok(&mut a, "comment_list", json!({ "doc": doc }));
+    let rect = comments["comments"][0]["rect"].as_array().unwrap();
+    let height = rect[3].as_f64().unwrap() - rect[1].as_f64().unwrap();
+    assert!(height > 30.0, "24 pt text has a taller annotation: {comments}");
+    ok(&mut a, "doc_save", json!({ "doc": doc, "path": "sized.pdf" }));
+    let saved = std::fs::read(dir.join("sized.pdf")).unwrap();
+    let pdf = pdfcraft_cos::Document::open(std::sync::Arc::new(saved)).unwrap();
+    let page = pdfcraft_model::pages(&pdf).remove(0);
+    let annotations = pdf.resolve(page.dict.get(b"Annots").unwrap());
+    let annotation = pdf.resolve(annotations.as_array().unwrap().first().unwrap());
+    let da = annotation.as_dict().unwrap().get(b"DA").unwrap().as_string().unwrap();
+    assert!(da.bytes.windows(b"/Helv 24 Tf".len()).any(|w| w == b"/Helv 24 Tf"), "saved annotation uses the requested font size");
+    for size in [0, 3, 301] {
+        assert!(matches!(
+            a.call("fill_sign_add", &json!({ "doc": doc, "page": 1, "type": "text", "at": [20, 80], "text": "No", "font_size": size })),
+            Err(ToolError::InvalidArgs(_))
+        ));
+    }
+    assert!(matches!(
+        a.call("fill_sign_add", &json!({ "doc": doc, "page": 1, "type": "signature", "at": [20, 80], "text": "Ada", "font_size": 24 })),
+        Err(ToolError::InvalidArgs(_))
+    ));
+}
+
+#[test]
 fn image_signatures_through_tools_preserve_transparency_and_survive_save() {
     let dir = workdir("image-signatures");
     let mut png = Vec::new();
