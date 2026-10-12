@@ -1509,7 +1509,7 @@ action wizard	Start	ప్రారంభించు
 	Couldn't optimize the file: {e}	ఫైల్‌ను ఆప్టిమైజ్ చేయడం సాధ్యం కాలేదు: {e}
 	Couldn't write {path}: {e}	{path}ను రాయడం సాధ్యం కాలేదు: {e}
 	The form asks to be submitted to {u}; PdfCraft doesn't send form data. Save the document to keep your entries.	ఈ ఫారం {u}కు సమర్పించమని అడుగుతోంది; PdfCraft ఫారం డేటాను పంపదు. మీరు నింపిన వివరాలను ఉంచుకోవడానికి పత్రాన్ని సేవ్ చేయండి.
-	{s} actions run in the JavaScript engine (M6)	{s} చర్యలు JavaScript ఇంజిన్‌లో అమలవుతాయి (M6)
+	This PDF uses the unsupported {s} action.	ఈ PDF మద్దతు లేని {s} చర్యను ఉపయోగిస్తోంది.
 	{name}: the {other} action isn't supported yet	{name}: {other} చర్యకు ఇంకా మద్దతు లేదు
 	{name} submits the form to {url}; PdfCraft doesn't send form data. Save the document to keep your entries.	{name} ఫారాన్ని {url}కు సమర్పిస్తుంది; PdfCraft ఫారం డేటాను పంపదు. మీరు నింపిన వివరాలను ఉంచుకోవడానికి పత్రాన్ని సేవ్ చేయండి.
 	Export stopped: {e}	ఎగుమతి ఆగిపోయింది: {e}

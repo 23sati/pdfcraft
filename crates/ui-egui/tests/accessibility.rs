@@ -61,10 +61,13 @@ fn checking_fixing_skipping_and_reporting() {
     h.get_by_label("Fix").click();
     h.run_steps(3);
     assert_eq!(status(&h, Rule::Title), Status::Passed);
+    assert_eq!(h.state().a11y.previous.as_ref().unwrap().1.result(Rule::Title).unwrap().status, Status::Failed);
     assert!(matches!(h.state().dialog, Some(Dialog::Properties(_))));
     assert_eq!(h.state().window_title, "notes — PdfCraft");
     h.state_mut().dialog = None;
     h.run_steps(2);
+    h.get_by_label("Compare");
+    h.get_by_label_contains("Title: Failed (2) → Passed (0)");
     // Skip a rule; it stays skipped when checking again.
     right_click(&mut h, "Tagged PDF - Failed");
     h.get_by_label("Skip Rule").click();
@@ -106,6 +109,25 @@ endstream endobj
 endstream endobj
 trailer << /Root 1 0 R >>
 %%EOF";
+
+#[test]
+fn checker_shows_a_figure_finding_on_its_page() {
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("figures.pdf", None, FIGURES.to_vec()).unwrap();
+        app
+    });
+    h.run_steps(4);
+    h.state_mut().run_accessibility_check();
+    h.run_steps(3);
+    h.get_by_label("Figures alternate text - Failed").click();
+    h.run_steps(2);
+    h.get_by_label_contains("Figure element on page 1: no alternate text").click();
+    h.run_steps(1);
+    let flash = h.state().views[0].flash.map(|(page, rect, _)| (page, rect));
+    assert_eq!(flash, Some((0, [10.0, 150.0, 50.0, 170.0])));
+}
 
 #[test]
 fn setting_alternate_text_figure_by_figure() {
