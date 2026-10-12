@@ -131,15 +131,25 @@ fn an_item_below_the_old_limit_is_drawn_exactly_as_before() {
     let drawn = draw_laid_shaped(&mut doc, &item(), &laid, &Dict::new(), &mut fonts, &mut out, |_, id| Ok(boxed(0.5 + f64::from(id) * 0.01)));
     assert!(drawn.is_ok(), "{drawn:?}");
     assert_eq!(fonts.len(), 1);
+    // The injected outlines are fixed; only the descriptor's family comes from craft-fonts.
+    // Check that metadata separately, then normalize those two fields to the original golden.
+    // Every drawing byte and every other object field must still match, in both build modes.
+    let family = pdfcraft_fonts::document_arabic_font().map_or("Arabic", |face| face.family);
+    for (_, font) in fonts.iter() {
+        let descriptor = doc.dict(font).unwrap().get(b"FontDescriptor").and_then(Object::as_ref).unwrap();
+        let dict = doc.dict(&Object::Ref(descriptor)).unwrap();
+        assert_eq!(dict.name(b"FontName"), Some(family.replace(' ', "").as_bytes()));
+        assert_eq!(dict.get(b"FontFamily").and_then(Object::as_string).unwrap().bytes, family.as_bytes());
+        doc.update_dict(descriptor, |d| {
+            d.set(b"FontName".to_vec(), Object::name("Arabic"));
+            d.set(b"FontFamily".to_vec(), Object::String(PdfString::literal(b"Arabic".to_vec())));
+        })
+        .unwrap();
+    }
     let mut bytes = out.clone();
     pdfcraft_cos::serialize(&Object::Dict(fonts.clone()), &mut bytes);
     bytes.extend(snapshot(&doc));
-    // The golden was recorded without craft-fonts: with an Arabic face built in, the font's
-    // FontName and FontFamily carry that face's name instead of "Arabic", so only the build
-    // without it (CI's Windows job) can compare bytes.
-    if pdfcraft_fonts::document_arabic_font().is_none() {
-        assert_eq!(fnv1a(&bytes), SMALL_ITEM_FINGERPRINT, "output changed; the golden is the code before the sharding change");
-    }
+    assert_eq!(fnv1a(&bytes), SMALL_ITEM_FINGERPRINT, "output changed; the golden is the code before the sharding change");
 }
 
 #[test]

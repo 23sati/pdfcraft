@@ -392,6 +392,7 @@ pub struct DocView {
     /// line being edited.
     pub(crate) edit_lines: HashMap<usize, (u64, Vec<pdfcraft_engine::TextBlock>)>,
     pub line_editor: Option<crate::edit_text_ui::LineEditor>,
+    pub(crate) text_background: crate::edit_text_ui::TextBackground,
     /// Edit text & images: the images per page (by document generation), and the selected one.
     pub(crate) edit_images: HashMap<usize, (u64, Vec<pdfcraft_engine::PageImage>)>,
     pub(crate) objects: crate::object_ui::ObjectSelection,
@@ -628,6 +629,7 @@ impl DocView {
             pending_edit: None,
             edit_lines: HashMap::new(),
             line_editor: None,
+            text_background: Default::default(),
             edit_images: HashMap::new(),
             objects: Default::default(),
             image_selection: None,
@@ -768,7 +770,7 @@ impl DocView {
     }
 
     pub fn render_pending(&self) -> bool {
-        !self.last_queue.is_empty()
+        !self.last_queue.is_empty() || self.text_background.pending()
     }
 
     /// Re-render every page and text layer (the document's appearance changed, e.g. a layer
@@ -1320,6 +1322,7 @@ impl DocView {
         self.waiting_since.clear();
         // Signature previews own a separate renderer and image/background textures.
         self.signature_drag = Default::default();
+        self.text_background = Default::default();
         if !self.last_queue.is_empty() {
             pool.set_queue(Vec::new());
             self.last_queue.clear();
@@ -2303,6 +2306,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         view.prepare.selected = None;
     }
     view.objects.prepare(doc, tool == QuickTool::EditText && can_modify, ui.ctx());
+    view.text_background.prepare(ui.ctx(), doc, view.line_editor.as_ref(), scale);
     let added = doc.added.clone();
     let doc_links = if tool == QuickTool::Link { doc.links.clone() } else { Vec::new() };
     if editing_content {
@@ -2504,6 +2508,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                     }
                 }
             }
+            view.text_background.paint(painter, &xf, i, view.line_editor.as_ref());
             painter.rect_stroke(r, CornerRadius::ZERO, Stroke::new(0.5, t.border.gamma_multiply(0.8)), egui::StrokeKind::Outside);
 
             // Comments: tools, selection, moving and resizing come before text selection.
@@ -2625,7 +2630,9 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                 };
                 crate::redact_ui::page_input(ui, &resp, &xf, i, info, over_text, view)
             };
-            let on_objects = tool == QuickTool::EditText && can_modify && crate::object_ui::page_input(ui, &resp, &xf, i, doc, view);
+            let image_owns_pointer = tool == QuickTool::EditText && crate::edit_text_ui::image_owns_pointer(ui, &xf, i, info, view);
+            let on_objects =
+                !image_owns_pointer && tool == QuickTool::EditText && can_modify && crate::object_ui::page_input(ui, &resp, &xf, i, doc, view);
             let on_content = !on_objects && editing_content && can_modify && {
                 crate::content_ui::page_input(ui, &resp, &xf, i, info, &added, tool == QuickTool::AddText, &text_style, view)
                     || tool == QuickTool::AddText
@@ -2649,9 +2656,12 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                         l
                     }
                 };
-                // Images first (they can sit under text boxes' corners); then paragraphs.
-                crate::edit_text_ui::image_input(ui, &resp, &xf, i, info, &images, view, &mut image_action)
-                    || crate::edit_text_ui::page_input(ui, &resp, &xf, i, doc, &lines, view)
+                // Editable text takes precedence over background/overlapping artwork. Both
+                // inventories are painted every frame, even when text owns the pointer.
+                let text_used = crate::edit_text_ui::page_input(ui, &resp, &xf, i, doc, &lines, view, !image_owns_pointer);
+                let image_used =
+                    crate::edit_text_ui::image_input(ui, &resp, &xf, i, info, &images, view, &mut image_action, image_owns_pointer || !text_used);
+                text_used || image_used
             };
             let on_link = tool == QuickTool::Link && can_modify && crate::link_ui::page_input(ui, &resp, &xf, i, info, &doc_links, view);
             let consumed = on_objects || on_edit_text || on_link || on_content || boxing || on_field || comments::page_input(ui, &resp, &pcx, view);
@@ -3716,9 +3726,9 @@ fn quick_bar(app: &mut PdfCraftApp, area: Rect, ui: &mut egui::Ui) {
         egui::Frame::NONE
             .fill(t.card)
             .stroke(Stroke::new(1.0, t.border))
-            .corner_radius(CornerRadius::same(10))
-            .shadow(egui::Shadow { offset: [0, 2], blur: 10, spread: 0, color: Color32::from_black_alpha(if t.dark() { 80 } else { 22 }) })
-            .inner_margin(egui::Margin::same(4))
+            .corner_radius(CornerRadius::same(12))
+            .shadow(egui::Shadow { offset: [0, 4], blur: 16, spread: 0, color: Color32::from_black_alpha(if t.dark() { 100 } else { 28 }) })
+            .inner_margin(egui::Margin::same(6))
             .show(ui, |ui| {
                 ui.spacing_mut().item_spacing.y = 2.0;
                 ui.vertical(|ui| {
@@ -3737,7 +3747,7 @@ fn quick_bar(app: &mut PdfCraftApp, area: Rect, ui: &mut egui::Ui) {
                         // A small corner triangle marks the flyout.
                         let r = resp.rect;
                         let tri = [r.right_bottom() + vec2(-4.0, -4.0), r.right_bottom() + vec2(-9.0, -4.0), r.right_bottom() + vec2(-4.0, -9.0)];
-                        ui.painter().add(egui::Shape::convex_polygon(tri.to_vec(), if active { Color32::WHITE } else { t.text_muted }, Stroke::NONE));
+                        ui.painter().add(egui::Shape::convex_polygon(tri.to_vec(), if active { t.accent } else { t.text_faint }, Stroke::NONE));
                         let open = (resp.clicked() && active) || resp.secondary_clicked();
                         if resp.clicked() && !active {
                             app.execute(current.command());
@@ -3750,14 +3760,14 @@ fn quick_bar(app: &mut PdfCraftApp, area: Rect, ui: &mut egui::Ui) {
                                 for tool in comments::GROUPS[g] {
                                     let on = app.quick_tool == QuickTool::Comment(*tool);
                                     let (row, click) = ui.allocate_exact_size(vec2(180.0, 28.0), Sense::click());
-                                    if click.hovered() {
-                                        ui.painter().rect_filled(row, CornerRadius::same(4), t.hover);
-                                    }
-                                    icons::paint(ui, Rect::from_min_size(row.min + vec2(8.0, 6.0), vec2(16.0, 16.0)), tool.icon(), 16.0, t.text);
+                                    let press = theme::Press::track(ui, &click);
+                                    press.wash(ui, row, 4, on);
+                                    let body = row.translate(press.offset());
+                                    icons::paint(ui, Rect::from_min_size(body.min + vec2(8.0, 6.0), vec2(16.0, 16.0)), tool.icon(), 16.0, t.text);
                                     let reserve = if on { 28.0 } else { 8.0 };
                                     crate::widgets::paint_left(
                                         ui,
-                                        row.left_center() + vec2(34.0, 0.0),
+                                        body.left_center() + vec2(34.0, 0.0),
                                         tl!(tool.label()),
                                         theme::regular(13.0),
                                         t.text,
@@ -3766,13 +3776,13 @@ fn quick_bar(app: &mut PdfCraftApp, area: Rect, ui: &mut egui::Ui) {
                                     if on {
                                         icons::paint(
                                             ui,
-                                            Rect::from_min_size(row.right_top() + vec2(-24.0, 7.0), vec2(14.0, 14.0)),
+                                            Rect::from_min_size(body.right_top() + vec2(-24.0, 7.0), vec2(14.0, 14.0)),
                                             "check",
                                             14.0,
                                             t.accent,
                                         );
                                     }
-                                    let click = click.on_hover_cursor(egui::CursorIcon::PointingHand);
+                                    let click = theme::hand(click);
                                     let info = tl!(tool.label()).to_string();
                                     click.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Button, true, on, info.clone()));
                                     if click.clicked() {
@@ -3799,7 +3809,7 @@ fn quick_bar(app: &mut PdfCraftApp, area: Rect, ui: &mut egui::Ui) {
                     let tri = [r.right_bottom() + vec2(-4.0, -4.0), r.right_bottom() + vec2(-9.0, -4.0), r.right_bottom() + vec2(-4.0, -9.0)];
                     ui.painter().add(egui::Shape::convex_polygon(
                         tri.to_vec(),
-                        if current_fill.is_some() { Color32::WHITE } else { t.text_muted },
+                        if current_fill.is_some() { t.accent } else { t.text_faint },
                         Stroke::NONE,
                     ));
                     if resp.clicked() && current_fill.is_none() {
@@ -3817,14 +3827,14 @@ fn quick_bar(app: &mut PdfCraftApp, area: Rect, ui: &mut egui::Ui) {
                                 }
                                 let on = current_fill == Some(tool);
                                 let (row, click) = ui.allocate_exact_size(vec2(180.0, 28.0), Sense::click());
-                                if click.hovered() {
-                                    ui.painter().rect_filled(row, CornerRadius::same(4), t.hover);
-                                }
-                                icons::paint(ui, Rect::from_min_size(row.min + vec2(8.0, 6.0), vec2(16.0, 16.0)), tool.icon(), 16.0, t.text);
+                                let press = theme::Press::track(ui, &click);
+                                press.wash(ui, row, 4, on);
+                                let body = row.translate(press.offset());
+                                icons::paint(ui, Rect::from_min_size(body.min + vec2(8.0, 6.0), vec2(16.0, 16.0)), tool.icon(), 16.0, t.text);
                                 let reserve = if on { 28.0 } else { 8.0 };
                                 crate::widgets::paint_left(
                                     ui,
-                                    row.left_center() + vec2(34.0, 0.0),
+                                    body.left_center() + vec2(34.0, 0.0),
                                     tl!(tool.label()),
                                     theme::regular(13.0),
                                     t.text,
@@ -3833,12 +3843,13 @@ fn quick_bar(app: &mut PdfCraftApp, area: Rect, ui: &mut egui::Ui) {
                                 if on {
                                     icons::paint(
                                         ui,
-                                        Rect::from_min_size(row.right_top() + vec2(-24.0, 7.0), vec2(14.0, 14.0)),
+                                        Rect::from_min_size(body.right_top() + vec2(-24.0, 7.0), vec2(14.0, 14.0)),
                                         "check",
                                         14.0,
                                         t.accent,
                                     );
                                 }
+                                let click = theme::hand(click);
                                 let info = tl!(tool.label()).to_string();
                                 click.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Button, true, on, info.clone()));
                                 if click.clicked() {
