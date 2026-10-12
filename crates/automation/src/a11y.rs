@@ -41,6 +41,7 @@ pub(crate) fn report_json(r: &Report) -> Value {
                         "page": f.page.map(|p| p + 1),
                         "object": f.object.map(|r| r.num),
                         "object_generation": f.object.map(|r| r.generation),
+                        "bbox_user_space": f.bbox,
                         "message": f.message,
                     })
                 })
@@ -55,6 +56,74 @@ pub(crate) fn report_json(r: &Report) -> Value {
         "skipped": r.count(Status::Skipped),
         "results": results,
     })
+}
+
+fn html_escape(value: &str) -> String {
+    value.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;").replace('\'', "&#39;")
+}
+
+/// A self-contained, human-readable view of the same evidence as the JSON review record.
+fn review_html(record: &Value) -> Result<String> {
+    let str_at = |value: &Value, key: &str| -> Result<String> {
+        value.get(key).and_then(Value::as_str).map(html_escape).ok_or_else(|| failed(format!("review record is missing {key}")))
+    };
+    let count = |value: &Value, key: &str| -> Result<u64> {
+        value.get(key).and_then(Value::as_u64).ok_or_else(|| failed(format!("review record is missing {key}")))
+    };
+    let before = &record["before"];
+    let after = &record["after"];
+    let mut html = format!(
+        "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><title>Accessibility review</title><style>\
+         body{{font:15px/1.5 system-ui,sans-serif;max-width:1100px;margin:2rem auto;padding:0 1rem;color:#1d1d1f}}\
+         table{{border-collapse:collapse;width:100%;margin:1rem 0}}th,td{{border:1px solid #aaa;padding:.45rem;text-align:left;vertical-align:top}}\
+         th{{background:#f2f2f2}}.hash{{overflow-wrap:anywhere;font-family:monospace}}\
+         </style></head><body><main><h1>Accessibility review</h1><p>Record created: {}</p>\n",
+        str_at(record, "date")?
+    );
+    html.push_str("<h2>Before and after</h2><table><caption>Accessibility checker outcomes</caption><thead><tr><th scope=\"col\">Version</th><th scope=\"col\">Document</th><th scope=\"col\">Passed</th><th scope=\"col\">Failed</th><th scope=\"col\">Needs manual check</th><th scope=\"col\">Skipped</th></tr></thead><tbody>");
+    for (label, version) in [("Before", before), ("After", after)] {
+        let summary = &version["summary"];
+        html.push_str(&format!(
+            "<tr><th scope=\"row\">{label}</th><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+            str_at(version, "name")?,
+            count(summary, "passed")?,
+            count(summary, "failed")?,
+            count(summary, "manual")?,
+            count(summary, "skipped")?
+        ));
+    }
+    html.push_str("</tbody></table>");
+    html.push_str(&format!(
+        "<p>Before SHA-256: <span class=\"hash\">{}</span><br>After SHA-256: <span class=\"hash\">{}</span></p>",
+        str_at(before, "sha256")?,
+        str_at(after, "sha256")?
+    ));
+    html.push_str("<h2>Rule comparison</h2><table><caption>Before and after checker results</caption><thead><tr><th scope=\"col\">Rule</th><th scope=\"col\">Before</th><th scope=\"col\">Before findings</th><th scope=\"col\">After</th><th scope=\"col\">After findings</th><th scope=\"col\">Change</th></tr></thead><tbody>");
+    let rules = record["rules"].as_array().ok_or_else(|| failed("review record is missing rules"))?;
+    for row in rules {
+        let id = row["rule"].as_str().ok_or_else(|| failed("review record has a rule without an id"))?;
+        let name = Rule::from_id(id).map(Rule::name).unwrap_or(id);
+        let old = &row["before"];
+        let new = &row["after"];
+        let old_status = str_at(old, "status")?;
+        let new_status = str_at(new, "status")?;
+        let old_findings = count(old, "findings")?;
+        let new_findings = count(new, "findings")?;
+        let changed = old_status != new_status || old_findings != new_findings;
+        html.push_str(&format!(
+            "<tr><th scope=\"row\">{}</th><td>{old_status}</td><td>{old_findings}</td><td>{new_status}</td><td>{new_findings}</td><td>{}</td></tr>",
+            html_escape(name),
+            if changed { "Changed" } else { "Unchanged" }
+        ));
+    }
+    html.push_str("</tbody></table><h2>Still requiring review</h2><ul>");
+    for id in record["review_required"].as_array().ok_or_else(|| failed("review record is missing review_required"))? {
+        let id = id.as_str().ok_or_else(|| failed("review record has an invalid review_required entry"))?;
+        html.push_str(&format!("<li>{}</li>", html_escape(Rule::from_id(id).map(Rule::name).unwrap_or(id))));
+    }
+    html.push_str("</ul>");
+    html.push_str(&format!("<p>{}</p></main></body></html>\n", str_at(record, "note")?));
+    Ok(html)
 }
 
 impl Automation {
@@ -106,7 +175,7 @@ impl Automation {
         Ok(out)
     }
 
-    pub(crate) fn a11y_review_record(&self, a: &Args) -> Result<Value> {
+    fn review_record_value(&self, a: &Args) -> Result<Value> {
         let id = |key| -> Result<DocId> {
             let n = u64::try_from(a.int(key)?).map_err(|_| ToolError::InvalidArgs(format!("{key} must be positive")))?;
             if n == 0 {
@@ -172,9 +241,22 @@ impl Automation {
             "review_required": review_required,
             "note": "Automated checks cover only part of accessibility. Review remaining findings manually and validate the final PDF independently.",
         });
+        Ok(record)
+    }
+
+    pub(crate) fn a11y_review_record(&self, a: &Args) -> Result<Value> {
+        let record = self.review_record_value(a)?;
         let path = self.resolve(a.str("path")?, true)?;
         let bytes = serde_json::to_vec_pretty(&record).map_err(failed)?;
         write_atomic(&path, &bytes)?;
+        Ok(json!({ "path": path.to_string_lossy(), "record": record }))
+    }
+
+    pub(crate) fn a11y_review_html(&self, a: &Args) -> Result<Value> {
+        let record = self.review_record_value(a)?;
+        let html = review_html(&record)?;
+        let path = self.resolve(a.str("path")?, true)?;
+        write_atomic(&path, html.as_bytes())?;
         Ok(json!({ "path": path.to_string_lossy(), "record": record }))
     }
 
@@ -252,6 +334,28 @@ impl Automation {
         self.session
             .apply(id, pdfcraft_engine::Edit::SetTagProperty { object: pdfcraft_cos::ObjRef::new(object, generation), property, value })
             .map_err(failed)?;
+        self.accessibility_tags(a)
+    }
+
+    pub(crate) fn accessibility_move_tag(&mut self, a: &Args) -> Result<Value> {
+        let reference = |number: &str, generation: &str| -> Result<pdfcraft_cos::ObjRef> {
+            let n = u32::try_from(a.int(number)?).map_err(|_| ToolError::InvalidArgs(format!("{number} must be a positive tag object number")))?;
+            if n == 0 {
+                return Err(ToolError::InvalidArgs(format!("{number} must be a positive tag object number")));
+            }
+            let g = u16::try_from(a.int(generation)?)
+                .map_err(|_| ToolError::InvalidArgs(format!("{generation} must be a PDF object generation from accessibility_tags")))?;
+            Ok(pdfcraft_cos::ObjRef::new(n, g))
+        };
+        let object = reference("object", "generation")?;
+        let anchor = reference("anchor", "anchor_generation")?;
+        let placement = match a.str("placement")? {
+            "before" => pdfcraft_engine::a11y::TagPlacement::Before,
+            "after" => pdfcraft_engine::a11y::TagPlacement::After,
+            other => return Err(ToolError::InvalidArgs(format!("placement must be before or after, not {other:?}"))),
+        };
+        let id = self.doc(a)?.id;
+        self.session.apply(id, pdfcraft_engine::Edit::MoveTag { object, anchor, placement }).map_err(failed)?;
         self.accessibility_tags(a)
     }
 }
@@ -633,5 +737,25 @@ impl Automation {
             self.session.set_javascript(on);
         }
         Ok(json!({ "enabled": self.session.javascript() }))
+    }
+}
+
+#[cfg(test)]
+mod review_html_tests {
+    use super::*;
+
+    #[test]
+    fn document_names_are_escaped_in_review_html() {
+        let record = json!({
+            "date": "2026-10-12",
+            "before": { "name": "<script>alert('x')</script>.pdf", "sha256": "a", "summary": { "passed": 0, "failed": 1, "manual": 0, "skipped": 0 } },
+            "after": { "name": "safe.pdf", "sha256": "b", "summary": { "passed": 1, "failed": 0, "manual": 0, "skipped": 0 } },
+            "rules": [{ "rule": "primary-language", "before": { "status": "failed", "findings": 1 }, "after": { "status": "passed", "findings": 0 } }],
+            "review_required": [],
+            "note": "Review independently.",
+        });
+        let html = review_html(&record).unwrap();
+        assert!(html.contains("&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;.pdf"));
+        assert!(!html.contains("<script>"));
     }
 }
