@@ -928,6 +928,28 @@ pub fn tools() -> Vec<ToolDef> {
         t("pdfa_convert", "Save as PDF/A", "Standards ▸ Save as PDF/A: fix what can be fixed for PDF/A-2b or 3b (XMP identification and metadata, an sRGB output intent, forbidden actions and JavaScript, annotation print flags, image interpolation, encryption). Returns what was fixed and what remains (e.g. fonts that aren't embedded). Undoable; save the document to keep it.")
             .cmd("standards.pdfa")
             .with(schema(json!({ "doc": doc(), "level": { "type": "string", "enum": ["2b", "3b"] } }), &["doc"])),
+        t("pdfx_verify", "Verify PDF/X", "Standards ▸ Verify PDF/X compliance: ISO 15930 (PDF/X-1a:2001, PDF/X-3:2002, PDF/X-4) rules broken, output intent, color restrictions, transparency, and page box checks.")
+            .ro()
+            .cmd("standards.pdfx")
+            .with(schema(json!({ "doc": doc(), "level": { "type": "string", "enum": ["1a", "3", "4"], "description": "Default 1a." } }), &["doc"])),
+        t("pdfx_convert", "Save as PDF/X", "Standards ▸ Save as PDF/X: fix what can be fixed for PDF/X-1a, PDF/X-3 or PDF/X-4 (OutputIntent, page boxes, Trapped key, encryption, metadata). Returns what was fixed and what remains.")
+            .cmd("standards.pdfx")
+            .with(schema(json!({ "doc": doc(), "level": { "type": "string", "enum": ["1a", "3", "4"] } }), &["doc"])),
+        t("preflight_profiles", "List Preflight Profiles", "Preflight ▸ List available built-in preflight profiles (id, name, description, target standard, image DPI rules, color rules).")
+            .ro()
+            .cmd("preflight.run")
+            .with(schema(json!({}), &[])),
+        t("preflight_run", "Run Preflight Profile", "Preflight ▸ Analyze document against a preflight profile, returning passed status, errors, warnings, info, and fixable counts.")
+            .ro()
+            .cmd("preflight.run")
+            .with(schema(json!({ "doc": doc(), "profile": { "type": "string", "description": "Profile id (e.g. prepress-sheetfed-cmyk, prepress-web-offset, magazine-ads, digital-printing, pdfx-1a-2001, pdfx-3-2002, pdfx-4, pdfa-1b, pdfa-2b, pdfa-3b, web-friendly)." } }), &["doc"])),
+        t("preflight_fix", "Preflight Analyze and Fix", "Preflight ▸ Analyze and fix document according to a preflight profile. Performs automatic repair of hairlines, page boxes, OutputIntent, and actions.")
+            .cmd("preflight.run")
+            .with(schema(json!({ "doc": doc(), "profile": { "type": "string", "description": "Profile id." } }), &["doc"])),
+        t("preflight_report", "Generate Preflight Report", "Preflight ▸ Generate preflight report in XML, text, or PDF format. If path is provided, writes report to disk.")
+            .ro()
+            .cmd("preflight.run")
+            .with(schema(json!({ "doc": doc(), "profile": { "type": "string" }, "format": { "type": "string", "enum": ["xml", "text", "pdf"], "description": "Default xml." }, "path": { "type": "string" } }), &["doc"])),
         t("action_list", "List actions", "Action Wizard: the built-in actions (name, description, steps) and every step an action can use (id, label, whether it takes a text argument).")
             .ro()
             .cmd("actions.wizard")

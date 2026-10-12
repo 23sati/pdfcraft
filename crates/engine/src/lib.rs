@@ -114,6 +114,9 @@ pub use pdfcraft_annot::{
 pub use pdfcraft_forms::detect;
 pub use pdfcraft_optimize as optimize;
 pub use pdfcraft_preflight as pdfa;
+pub use pdfcraft_preflight as preflight;
+pub use pdfcraft_preflight::pdfx;
+pub use pdfcraft_preflight::profile;
 pub use pdfcraft_print as print;
 pub use pdfcraft_redact::codes::{CODE_SETS as REDACTION_CODE_SETS, CodeSet as RedactionCodeSet};
 pub use pdfcraft_redact::patterns::{
@@ -1217,6 +1220,14 @@ pub enum Edit {
     ConvertPdfA {
         level: pdfcraft_preflight::Level,
     },
+    /// Standards ▸ Save as PDF/X: fix what can be fixed for `level`.
+    ConvertPdfX {
+        level: pdfcraft_preflight::PdfxLevel,
+    },
+    /// Preflight ▸ Analyze and fix according to a preflight profile.
+    PreflightFix {
+        profile_id: String,
+    },
     /// What a script (button or console) changed in form fields: values, read-only, required
     /// and visibility.
     ApplyScriptChanges {
@@ -1658,6 +1669,8 @@ impl Edit {
             Edit::XfaEvent { .. } => Label::of("Run form script"),
             // The level is the standard's own name ("PDF/A-2b"), so it goes in as it stands.
             Edit::ConvertPdfA { level } => Label::with("Save as {level}", level.label()),
+            Edit::ConvertPdfX { level } => Label::with("Save as {level}", level.label()),
+            Edit::PreflightFix { profile_id } => Label::with("Preflight fix {profile}", profile_id.as_str()),
             Edit::SetFieldScript { name, .. } => Label::with("Edit script of {name}", name.as_str()),
             Edit::SetDocumentScript { script: None, .. } => Label::of("Delete document JavaScript"),
             Edit::SetDocumentScript { .. } => Label::of("Edit document JavaScript"),
@@ -1843,6 +1856,8 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::SetDocumentScript { .. }
         | Edit::SetFieldScript { .. }
         | Edit::ConvertPdfA { .. }
+        | Edit::ConvertPdfX { .. }
+        | Edit::PreflightFix { .. }
         | Edit::EditTextLine { .. }
         | Edit::EditTextBlock { .. }
         | Edit::EditPageImage { .. }
@@ -2122,6 +2137,14 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         }
         Edit::ConvertPdfA { level } => {
             pdfcraft_preflight::convert(doc, *level).map_err(|e| EditError::Invalid(e.to_string()))?;
+        }
+        Edit::ConvertPdfX { level } => {
+            pdfcraft_preflight::pdfx::convert(doc, *level).map_err(|e| EditError::Invalid(e.to_string()))?;
+        }
+        Edit::PreflightFix { profile_id } => {
+            let profile = pdfcraft_preflight::profile::find_profile(profile_id)
+                .ok_or_else(|| EditError::Invalid(format!("unknown preflight profile: {profile_id}")))?;
+            pdfcraft_preflight::fixup::run_profile_fixups(doc, &profile).map_err(|e| EditError::Invalid(e.to_string()))?;
         }
         Edit::SetDocumentScript { name, script } => pdfcraft_forms::set_document_script(doc, name, script.as_deref())?,
         Edit::AddOcrText { page, words } => {

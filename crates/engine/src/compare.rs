@@ -22,6 +22,22 @@ impl crate::Document {
         self.editor.as_ref().map(|e| pdfcraft_preflight::verify(&e.cos, level)).unwrap_or_default()
     }
 
+    /// Standards ▸ Verify PDF/X: rules broken for `level`.
+    pub fn pdfx_verify(&self, level: pdfcraft_preflight::PdfxLevel) -> Vec<pdfcraft_preflight::Issue> {
+        self.editor.as_ref().map(|e| pdfcraft_preflight::pdfx::verify(&e.cos, level)).unwrap_or_default()
+    }
+
+    /// Preflight ▸ Evaluate document against a preflight profile.
+    pub fn preflight_run(&self, profile_id: &str) -> Option<pdfcraft_preflight::PreflightResult> {
+        let profile = pdfcraft_preflight::profile::find_profile(profile_id)?;
+        self.editor.as_ref().map(|e| pdfcraft_preflight::profile::evaluate_profile(&e.cos, &profile))
+    }
+
+    /// Preflight ▸ Available built-in profiles.
+    pub fn preflight_profiles(&self) -> Vec<pdfcraft_preflight::PreflightProfile> {
+        pdfcraft_preflight::profile::builtin_profiles()
+    }
+
     /// The standards the document declares (Standards panel).
     pub fn standards(&self) -> pdfcraft_preflight::Declared {
         self.editor.as_ref().map(|e| pdfcraft_preflight::declared(&e.cos)).unwrap_or_default()

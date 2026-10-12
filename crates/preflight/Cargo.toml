@@ -13,3 +13,5 @@ workspace = true
 [dependencies]
 pdfcraft-cos = { workspace = true }
 pdfcraft-model = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

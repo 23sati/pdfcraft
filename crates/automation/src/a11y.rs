@@ -426,6 +426,111 @@ impl Automation {
         self.pdfa_verify(a)
     }
 
+    fn pdfx_level(&self, a: &Args) -> Result<pdfcraft_engine::pdfa::PdfxLevel> {
+        let l = a.opt_str("level")?.unwrap_or("1a");
+        pdfcraft_engine::pdfa::PdfxLevel::from_id(l).ok_or_else(|| ToolError::InvalidArgs(format!("unknown PDF/X level {l:?} (1a, 3, or 4)")))
+    }
+
+    pub(crate) fn pdfx_verify(&self, a: &Args) -> Result<Value> {
+        let level = self.pdfx_level(a)?;
+        let doc = self.doc(a)?;
+        let issues: Vec<Value> = doc
+            .pdfx_verify(level)
+            .iter()
+            .map(|i| json!({ "clause": i.clause, "message": i.message, "page": i.page.map(|p| p + 1), "fixable": i.fixable }))
+            .collect();
+        let d = doc.standards();
+        Ok(json!({
+            "level": level.label(),
+            "compliant": issues.is_empty(),
+            "issues": issues,
+            "declared": { "pdfx": d.pdfx, "output_intents": d.output_intents },
+        }))
+    }
+
+    pub(crate) fn pdfx_convert(&mut self, a: &Args) -> Result<Value> {
+        let level = self.pdfx_level(a)?;
+        let id = self.doc(a)?.id;
+        self.session.apply(id, pdfcraft_engine::Edit::ConvertPdfX { level }).map_err(failed)?;
+        self.pdfx_verify(a)
+    }
+
+    pub(crate) fn preflight_profiles(&self) -> Result<Value> {
+        let profiles: Vec<Value> = pdfcraft_engine::pdfa::profile::builtin_profiles()
+            .iter()
+            .map(|p| {
+                json!({
+                    "id": p.id,
+                    "name": p.name,
+                    "description": p.description,
+                    "target_standard": p.target_standard,
+                    "min_image_dpi": p.min_image_dpi,
+                    "disallow_rgb": p.disallow_rgb,
+                    "disallow_transparency": p.disallow_transparency,
+                    "check_hairlines": p.check_hairlines,
+                })
+            })
+            .collect();
+        Ok(json!({ "profiles": profiles }))
+    }
+
+    pub(crate) fn preflight_run(&self, a: &Args) -> Result<Value> {
+        let profile_id = a.opt_str("profile")?.unwrap_or("prepress-sheetfed-cmyk");
+        let doc = self.doc(a)?;
+        let res = doc.preflight_run(profile_id).ok_or_else(|| ToolError::InvalidArgs(format!("unknown preflight profile {profile_id:?}")))?;
+        serde_json::to_value(&res).map_err(|e| ToolError::InvalidArgs(e.to_string()))
+    }
+
+    pub(crate) fn preflight_fix(&mut self, a: &Args) -> Result<Value> {
+        let profile_id = a.opt_str("profile")?.unwrap_or("prepress-sheetfed-cmyk");
+        let id = self.doc(a)?.id;
+        self.session.apply(id, pdfcraft_engine::Edit::PreflightFix { profile_id: profile_id.to_string() }).map_err(failed)?;
+        self.preflight_run(a)
+    }
+
+    pub(crate) fn preflight_report(&self, a: &Args) -> Result<Value> {
+        let profile_id = a.opt_str("profile")?.unwrap_or("prepress-sheetfed-cmyk");
+        let format_str = a.opt_str("format")?.unwrap_or("xml");
+        let format = pdfcraft_engine::pdfa::report::ReportFormat::from_str_id(format_str)
+            .ok_or_else(|| ToolError::InvalidArgs(format!("unknown format {format_str:?} (xml, text, or pdf)")))?;
+        let doc = self.doc(a)?;
+        let res = doc.preflight_run(profile_id).ok_or_else(|| ToolError::InvalidArgs(format!("unknown preflight profile {profile_id:?}")))?;
+        let title = doc.info.title.clone().unwrap_or_default();
+        match format {
+            pdfcraft_engine::pdfa::report::ReportFormat::Xml => {
+                let xml = pdfcraft_engine::pdfa::report::export_xml(&res, &title);
+                if let Some(p) = a.opt_str("path")? {
+                    let path = self.resolve(p, true)?;
+                    write_atomic(&path, xml.as_bytes())?;
+                    Ok(json!({ "saved": path.to_string_lossy(), "format": "xml" }))
+                } else {
+                    Ok(json!({ "report": xml, "format": "xml" }))
+                }
+            }
+            pdfcraft_engine::pdfa::report::ReportFormat::Text => {
+                let text = pdfcraft_engine::pdfa::report::export_text(&res, &title);
+                if let Some(p) = a.opt_str("path")? {
+                    let path = self.resolve(p, true)?;
+                    write_atomic(&path, text.as_bytes())?;
+                    Ok(json!({ "saved": path.to_string_lossy(), "format": "text" }))
+                } else {
+                    Ok(json!({ "report": text, "format": "text" }))
+                }
+            }
+            pdfcraft_engine::pdfa::report::ReportFormat::Pdf => {
+                let pdf_bytes =
+                    pdfcraft_engine::pdfa::report::export_pdf_bytes(&res, &title).map_err(|e| failed(format!("generating PDF report: {e}")))?;
+                if let Some(p) = a.opt_str("path")? {
+                    let path = self.resolve(p, true)?;
+                    write_atomic(&path, &pdf_bytes)?;
+                    Ok(json!({ "saved": path.to_string_lossy(), "format": "pdf" }))
+                } else {
+                    Ok(json!({ "format": "pdf", "bytes": pdf_bytes.len() }))
+                }
+            }
+        }
+    }
+
     pub(crate) fn action_list(&self) -> Result<Value> {
         use pdfcraft_engine::actions::{Step, builtin};
         let step_json = |s: &Step| json!({ "step": s.id(), "arg": s.arg() });

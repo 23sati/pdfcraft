@@ -108,6 +108,54 @@ pub fn srgb() -> Vec<u8> {
     h
 }
 
+/// A small CMYK ICC profile (version 2, output class), used as the PDF/X and CMYK PDF/A output intent's destination profile.
+pub fn cmyk_swop() -> Vec<u8> {
+    let tags: Vec<(&[u8; 4], Vec<u8>)> = vec![
+        (b"desc", desc("U.S. Web Coated (SWOP) v2 (PdfCraft)")),
+        (b"cprt", text("No copyright, use freely")),
+        (b"wtpt", xyz(0.9642, 1.0, 0.8249)),
+    ];
+    let count = tags.len();
+    let table_len = 4 + count * 12;
+    let mut offset = 128 + table_len;
+    let mut table = (count as u32).to_be_bytes().to_vec();
+    let mut data = Vec::new();
+    for (sig, body) in &tags {
+        let len = body.len();
+        table.extend(*sig);
+        table.extend((offset as u32).to_be_bytes());
+        table.extend((len as u32).to_be_bytes());
+        data.extend(body);
+        let pad = (4 - len % 4) % 4;
+        data.extend(std::iter::repeat_n(0u8, pad));
+        offset += len + pad;
+    }
+    let size = 128 + table.len() + data.len();
+    let mut h = Vec::with_capacity(size);
+    h.extend((size as u32).to_be_bytes());
+    h.extend(b"\0\0\0\0"); // preferred CMM
+    h.extend([2, 0x10, 0, 0]); // version 2.1
+    h.extend(b"prtr");
+    h.extend(b"CMYK");
+    h.extend(b"XYZ ");
+    h.extend([0u8; 12]); // date
+    h.extend(b"acsp");
+    h.extend(b"\0\0\0\0"); // platform
+    h.extend([0u8; 4]); // flags
+    h.extend([0u8; 4]); // manufacturer
+    h.extend([0u8; 4]); // model
+    h.extend([0u8; 8]); // attributes
+    h.extend([0, 0, 0, 0]); // perceptual intent
+    h.extend(s15f16(0.9642));
+    h.extend(s15f16(1.0));
+    h.extend(s15f16(0.8249));
+    h.extend([0u8; 4]); // creator
+    h.resize(128, 0);
+    h.extend(table);
+    h.extend(data);
+    h
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -124,5 +172,10 @@ mod tests {
             let len = u32::from_be_bytes(p[e + 8..e + 12].try_into().unwrap()) as usize;
             assert!(off.is_multiple_of(4) && off + len <= p.len(), "tag {i}");
         }
+
+        let c = super::cmyk_swop();
+        assert_eq!(u32::from_be_bytes(c[0..4].try_into().unwrap()) as usize, c.len());
+        assert_eq!(&c[36..40], b"acsp");
+        assert_eq!(&c[12..20], b"prtrCMYK");
     }
 }

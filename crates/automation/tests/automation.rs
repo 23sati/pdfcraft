@@ -4465,3 +4465,52 @@ fn architectural_and_iso_papers_through_tools() {
     assert_eq!(std::fs::read(dir.join("plot.pdf")).unwrap(), before);
     assert!(a.call("doc_print", &json!({"doc": doc, "paper": "ARCH D", "path": "../escape.pdf"})).is_err());
 }
+
+#[test]
+fn preflight_and_pdfx_tools_end_to_end() {
+    let dir = workdir("preflight-tools");
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+
+    // 1. pdfx_verify
+    let verify_res = ok(&mut a, "pdfx_verify", json!({ "doc": doc, "level": "1a" }));
+    assert_eq!(verify_res["level"], "PDF/X-1a:2001");
+    assert!(verify_res["issues"].as_array().is_some());
+
+    // 2. pdfx_convert
+    let convert_res = ok(&mut a, "pdfx_convert", json!({ "doc": doc, "level": "1a" }));
+    assert_eq!(convert_res["level"], "PDF/X-1a:2001");
+    assert!(convert_res["issues"].as_array().is_some());
+
+    // 3. preflight_profiles
+    let profiles = ok(&mut a, "preflight_profiles", json!({}));
+    assert!(profiles["profiles"].as_array().unwrap().len() >= 10);
+
+    // 4. preflight_run
+    let run_res = ok(&mut a, "preflight_run", json!({ "doc": doc, "profile": "prepress-sheetfed-cmyk" }));
+    assert_eq!(run_res["profile_id"], "prepress-sheetfed-cmyk");
+    assert!(run_res["total_issues"].as_u64().is_some());
+
+    // 5. preflight_fix
+    let fix_res = ok(&mut a, "preflight_fix", json!({ "doc": doc, "profile": "prepress-sheetfed-cmyk" }));
+    assert_eq!(fix_res["profile_id"], "prepress-sheetfed-cmyk");
+    assert!(fix_res["total_issues"].as_u64().is_some());
+
+    // 6. preflight_report (XML, text, PDF)
+    let rep_xml = ok(&mut a, "preflight_report", json!({ "doc": doc, "profile": "prepress-sheetfed-cmyk", "format": "xml" }));
+    assert_eq!(rep_xml["format"], "xml");
+    assert!(rep_xml["report"].as_str().unwrap().contains("<preflightReport"));
+
+    let rep_text = ok(&mut a, "preflight_report", json!({ "doc": doc, "profile": "prepress-sheetfed-cmyk", "format": "text" }));
+    assert_eq!(rep_text["format"], "text");
+    assert!(rep_text["report"].as_str().unwrap().contains("PdfCraft Preflight Inspection Report"));
+
+    let rep_file = ok(&mut a, "preflight_report", json!({ "doc": doc, "profile": "prepress-sheetfed-cmyk", "format": "xml", "path": "report.xml" }));
+    assert_eq!(rep_file["format"], "xml");
+    assert!(std::fs::metadata(dir.join("report.xml")).is_ok());
+
+    let rep_pdf = ok(&mut a, "preflight_report", json!({ "doc": doc, "profile": "prepress-sheetfed-cmyk", "format": "pdf", "path": "report.pdf" }));
+    assert_eq!(rep_pdf["format"], "pdf");
+    let pdf_bytes = std::fs::read(dir.join("report.pdf")).unwrap();
+    assert!(pdf_bytes.starts_with(b"%PDF-"));
+}

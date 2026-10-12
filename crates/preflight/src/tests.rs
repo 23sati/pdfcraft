@@ -214,3 +214,61 @@ fn verify_reports_an_output_intent_that_does_not_match_device_colour() {
     let headed = format!("<< /Length 128 >>\nstream\n{header}\nendstream");
     assert!(!messages(&verify(&cmyk_page(intent, "/Im0 Do", &[&headed]), Level::A2b)).contains(&cmyk_msg));
 }
+
+#[test]
+fn pdfx_verification_and_conversion() {
+    let mut doc = messy();
+    let issues = pdfx::verify(&doc, PdfxLevel::X1a2001);
+    assert!(issues.iter().any(|i| i.clause.contains("15930")), "has PDF/X issues: {issues:#?}");
+    assert!(issues.iter().any(|i| i.message.contains("OutputIntent") || i.message.contains("output intent")));
+
+    let report = pdfx::convert(&mut doc, PdfxLevel::X1a2001).unwrap();
+    assert!(!report.fixed.is_empty(), "fixed: {:?}", report.fixed);
+    assert!(pdfx::has_pdfx_intent(&doc));
+    let dec = declared(&doc);
+    assert_eq!(dec.pdfx.as_deref(), Some("PDF/X-1:2001"));
+}
+
+#[test]
+fn preflight_profile_evaluation() {
+    let doc = messy();
+    let profile = profile::find_profile("prepress-sheetfed-cmyk").unwrap();
+    let res = profile::evaluate_profile(&doc, &profile);
+    assert!(!res.passed);
+    assert!(!res.errors.is_empty());
+    assert!(res.total_issues > 0);
+
+    let pdfa1b_prof = profile::find_profile("pdfa-1b").unwrap();
+    let pdfa1b_res = profile::evaluate_profile(&doc, &pdfa1b_prof);
+    assert!(!pdfa1b_res.passed);
+    assert!(pdfa1b_res.errors.iter().any(|e| e.rule_id == "pdfa-1b-compliance"));
+}
+
+#[test]
+fn preflight_fixups_hairlines_and_boxes() {
+    let mut doc = messy();
+    let profile = profile::find_profile("prepress-sheetfed-cmyk").unwrap();
+    let rep = fixup::run_profile_fixups(&mut doc, &profile).unwrap();
+    assert!(!rep.applied_fixups.is_empty());
+    for p in pdfcraft_model::pages(&doc) {
+        assert!(p.dict.get(b"TrimBox").is_some());
+        assert!(p.dict.get(b"BleedBox").is_some());
+    }
+}
+
+#[test]
+fn preflight_reports_xml_text_pdf() {
+    let doc = messy();
+    let profile = profile::find_profile("prepress-sheetfed-cmyk").unwrap();
+    let res = profile::evaluate_profile(&doc, &profile);
+
+    let xml = report::export_xml(&res, "Messy Doc");
+    assert!(xml.contains("<preflightReport"));
+    assert!(xml.contains("profileId=\"prepress-sheetfed-cmyk\""));
+
+    let text = report::export_text(&res, "Messy Doc");
+    assert!(text.contains("PdfCraft Preflight Inspection Report"));
+
+    let pdf_rep = report::export_pdf(&res, "Messy Doc");
+    assert_eq!(pdfcraft_model::pages(&pdf_rep).len(), 1);
+}

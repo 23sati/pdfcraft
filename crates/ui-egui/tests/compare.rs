@@ -106,3 +106,43 @@ fn export_to_word_html_and_rtf() {
     }
     assert!(std::fs::read_to_string(dir.join("e.html")).unwrap().contains("Exported words"));
 }
+
+#[test]
+fn pdfx_dialog_verifies_and_converts() {
+    let doc = Session::new().create_from_text("t", "Print on press").unwrap().to_vec();
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("press.pdf", None, doc.clone()).unwrap();
+        app
+    });
+    h.run_steps(4);
+    assert!(h.state_mut().execute("standards.pdfx"));
+    h.run_steps(2);
+    h.get_by_label("Declared conformance: none");
+    h.get_by_label("Verify").click();
+    h.run_steps(3);
+    assert!(h.state().pdfx.issues.is_some());
+    h.get_by_label("Save as PDF/X").click();
+    h.run_steps(3);
+    let id = h.state().active_ids().unwrap().1;
+    assert_eq!(h.state().session.get(id).unwrap().can_undo(), Some("Save as PDF/X-1a:2001"));
+}
+
+#[test]
+fn preflight_dialog_runs_and_fixes() {
+    let doc = Session::new().create_from_text("t", "Preflight target").unwrap().to_vec();
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("preflight.pdf", None, doc.clone()).unwrap();
+        app
+    });
+    h.run_steps(4);
+    assert!(h.state_mut().execute("preflight.run"));
+    h.run_steps(2);
+    h.get_by_label("Analyze and Fix").click();
+    h.run_steps(3);
+    let id = h.state().active_ids().unwrap().1;
+    assert_eq!(h.state().session.get(id).unwrap().can_undo(), Some("Preflight fix prepress-sheetfed-cmyk"));
+}

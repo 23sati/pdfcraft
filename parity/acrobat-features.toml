@@ -7571,11 +7571,15 @@ title = "Preflight analysis"
 area = "K"
 tier = "P1"
 milestone = "M11"
-status = "planned"
-commands = []
-tools = []
-evidence = []
-notes = ""
+status = "shipped"
+commands = ["preflight.run"]
+tools = ["preflight_run"]
+evidence = [
+    "crates/preflight/src/tests.rs::preflight_profile_evaluation",
+    "crates/automation/tests/automation.rs::preflight_and_pdfx_tools_end_to_end",
+    "crates/ui-egui/tests/compare.rs::preflight_dialog_runs_and_fixes",
+]
+notes = "Preflight inspection engine evaluating documents against profile rules: page geometry, resolution thresholds (color, grayscale, bitmap), color space restrictions (RGB vs CMYK), font embedding, transparency, actions, and security."
 
 [[feature]]
 id = "optimize.preflight-fix"
@@ -7583,11 +7587,15 @@ title = "Preflight analyze and fix"
 area = "K"
 tier = "P1"
 milestone = "M11"
-status = "planned"
-commands = []
-tools = []
-evidence = []
-notes = ""
+status = "shipped"
+commands = ["preflight.run"]
+tools = ["preflight_fix"]
+evidence = [
+    "crates/preflight/src/tests.rs::preflight_fixups_hairlines_and_boxes",
+    "crates/automation/tests/automation.rs::preflight_and_pdfx_tools_end_to_end",
+    "crates/ui-egui/tests/compare.rs::preflight_dialog_runs_and_fixes",
+]
+notes = "Automated preflight repair performing hairlines fixup (<0.25 pt widened to 0.25 pt), page box creation, Trapped key repair, OutputIntent embedding, interactive action stripping, and annotation flag adjustments."
 
 [[feature]]
 id = "optimize.preflight-profiles"
@@ -7595,11 +7603,14 @@ title = "Built-in preflight profiles"
 area = "K"
 tier = "P1"
 milestone = "M11"
-status = "planned"
-commands = []
-tools = []
-evidence = []
-notes = ""
+status = "shipped"
+commands = ["preflight.run"]
+tools = ["preflight_profiles"]
+evidence = [
+    "crates/preflight/src/tests.rs::preflight_profile_evaluation",
+    "crates/automation/tests/automation.rs::preflight_and_pdfx_tools_end_to_end",
+]
+notes = "11 built-in preflight profiles covering prepress sheetfed CMYK, web offset, magazine ads, digital printing, PDF/X-1a, PDF/X-3, PDF/X-4, PDF/A-1b, PDF/A-2b, PDF/A-3b, and web-friendly publishing."
 
 [[feature]]
 id = "optimize.preflight-single-checks"
@@ -7607,11 +7618,14 @@ title = "Single checks"
 area = "K"
 tier = "P1"
 milestone = "M11"
-status = "planned"
-commands = []
-tools = []
-evidence = []
-notes = ""
+status = "shipped"
+commands = ["preflight.run"]
+tools = ["preflight_run"]
+evidence = [
+    "crates/preflight/src/tests.rs::preflight_profile_evaluation",
+    "crates/automation/tests/automation.rs::preflight_and_pdfx_tools_end_to_end",
+]
+notes = "Individual preflight checks for hairlines, image resolution, color models, font embedding, encryption, page boxes, and actions."
 
 [[feature]]
 id = "optimize.preflight-single-fixups"
@@ -7619,11 +7633,14 @@ title = "Single fixups"
 area = "K"
 tier = "P1"
 milestone = "M11"
-status = "planned"
-commands = []
-tools = []
-evidence = []
-notes = ""
+status = "shipped"
+commands = ["preflight.run"]
+tools = ["preflight_fix"]
+evidence = [
+    "crates/preflight/src/tests.rs::preflight_fixups_hairlines_and_boxes",
+    "crates/automation/tests/automation.rs::preflight_and_pdfx_tools_end_to_end",
+]
+notes = "Individual automated fixups for hairlines, page boxes, Trapped flag, OutputIntent, actions, annotation flags, and encryption."
 
 [[feature]]
 id = "optimize.preflight-custom-profiles"
@@ -7655,11 +7672,15 @@ title = "Preflight results tree with object details"
 area = "K"
 tier = "P1"
 milestone = "M11"
-status = "planned"
-commands = []
-tools = []
-evidence = []
-notes = ""
+status = "shipped"
+commands = ["preflight.run"]
+tools = ["preflight_run"]
+evidence = [
+    "crates/preflight/src/tests.rs::preflight_profile_evaluation",
+    "crates/automation/tests/automation.rs::preflight_and_pdfx_tools_end_to_end",
+    "crates/ui-egui/tests/compare.rs::preflight_dialog_runs_and_fixes",
+]
+notes = "Detailed preflight result categorized by errors, warnings, and info with rule categories, messages, affected pages, and fixable status."
 
 [[feature]]
 id = "optimize.preflight-snap-view"
@@ -7679,11 +7700,14 @@ title = "Preflight reports (PDF, XML, text)"
 area = "K"
 tier = "P1"
 milestone = "M11"
-status = "planned"
-commands = []
-tools = []
-evidence = []
-notes = ""
+status = "shipped"
+commands = ["preflight.run"]
+tools = ["preflight_report"]
+evidence = [
+    "crates/preflight/src/tests.rs::preflight_reports_xml_text_pdf",
+    "crates/automation/tests/automation.rs::preflight_and_pdfx_tools_end_to_end",
+]
+notes = "Exports preflight audit reports in structured XML, human-readable text, or standalone formatted PDF."
 
 [[feature]]
 id = "optimize.preflight-droplets"
@@ -7751,11 +7775,15 @@ title = "Verify PDF/X compliance"
 area = "K"
 tier = "P1"
 milestone = "M11"
-status = "planned"
-commands = []
-tools = []
-evidence = []
-notes = ""
+status = "shipped"
+commands = ["standards.pdfx"]
+tools = ["pdfx_verify"]
+evidence = [
+    "crates/preflight/src/tests.rs::pdfx_verification_and_conversion",
+    "crates/automation/tests/automation.rs::preflight_and_pdfx_tools_end_to_end",
+    "crates/ui-egui/tests/compare.rs::pdfx_dialog_verifies_and_converts",
+]
+notes = "Verifies ISO 15930 conformance for PDF/X-1a:2001, PDF/X-3:2002, and PDF/X-4: checks GTS_PDFXVersion and GTS_PDFXConformance, output intent dictionary, page boxes (TrimBox/BleedBox), trapped key, transparency rules, forbidden actions, and encryption."
 
 [[feature]]
 id = "optimize.pdfx-convert"
@@ -7763,11 +7791,15 @@ title = "Save as PDF/X (1a, 3, 4)"
 area = "K"
 tier = "P1"
 milestone = "M11"
-status = "planned"
-commands = []
-tools = []
-evidence = []
-notes = ""
+status = "shipped"
+commands = ["standards.pdfx"]
+tools = ["pdfx_convert"]
+evidence = [
+    "crates/preflight/src/tests.rs::pdfx_verification_and_conversion",
+    "crates/automation/tests/automation.rs::preflight_and_pdfx_tools_end_to_end",
+    "crates/ui-egui/tests/compare.rs::pdfx_dialog_verifies_and_converts",
+]
+notes = "Converts and repairs documents for PDF/X-1a:2001, PDF/X-3:2002, and PDF/X-4: embeds SWOP CMYK OutputIntent when missing, defaults missing page boxes, sets Trapped flag, removes encryption and interactive actions, and writes PDF/X XMP metadata."
 
 [[feature]]
 id = "optimize.output-intents"

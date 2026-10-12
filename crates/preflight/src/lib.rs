@@ -21,37 +21,54 @@
 
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
+pub mod fixup;
 pub mod icc;
+pub mod pdfx;
+pub mod profile;
+pub mod report;
 mod xmp;
+
+pub use fixup::PreflightFixReport;
+pub use pdfx::PdfxLevel;
+pub use profile::{PreflightFinding, PreflightProfile, PreflightResult, PreflightRule, RuleCategory, Severity};
+pub use report::ReportFormat;
 
 use pdfcraft_cos::{Dict, Document, ObjRef, Object, PdfString, Stream};
 
 /// The PDF/A part and conformance level.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Level {
+    A1b,
     A2b,
     A3b,
+    A4,
 }
 
 impl Level {
     pub fn part(self) -> u8 {
         match self {
+            Level::A1b => 1,
             Level::A2b => 2,
             Level::A3b => 3,
+            Level::A4 => 4,
         }
     }
 
     pub fn label(self) -> &'static str {
         match self {
+            Level::A1b => "PDF/A-1b",
             Level::A2b => "PDF/A-2b",
             Level::A3b => "PDF/A-3b",
+            Level::A4 => "PDF/A-4",
         }
     }
 
     pub fn from_id(id: &str) -> Option<Level> {
         match id.to_ascii_lowercase().replace(['/', '-', ' '], "").as_str() {
+            "pdfa1b" | "a1b" | "1b" => Some(Level::A1b),
             "pdfa2b" | "a2b" | "2b" => Some(Level::A2b),
             "pdfa3b" | "a3b" | "3b" => Some(Level::A3b),
+            "pdfa4" | "a4" | "4" => Some(Level::A4),
             _ => None,
         }
     }
@@ -64,7 +81,7 @@ impl Level {
 /// the pattern is wording of ours, listed in [`WORDINGS`], and the value — when there is one — is
 /// the document's own name for something, a PDF keyword that reads the same in every language.
 /// [`Issue::said`] does that.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
 pub struct Issue {
     /// The ISO 19005-2 clause.
     pub clause: &'static str,
@@ -143,11 +160,12 @@ pub const WORDINGS: &[&str] = &[
 ];
 
 /// What a document declares (the Standards panel).
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Declared {
     /// `pdfaid:part` and `pdfaid:conformance`, e.g. (2, "B").
     pub pdfa: Option<(u8, String)>,
     pub pdfua: Option<u8>,
+    pub pdfx: Option<String>,
     /// Output intents' condition identifiers.
     pub output_intents: Vec<String>,
 }
@@ -178,6 +196,10 @@ pub fn declared(doc: &Document) -> Declared {
         let conf = xmp::value(&x, "pdfaid:conformance").unwrap_or_default();
         d.pdfa = part.map(|p| (p, conf.to_uppercase()));
         d.pdfua = xmp::value(&x, "pdfuaid:part").and_then(|p| p.parse().ok());
+        d.pdfx = xmp::value(&x, "pdfxid:GTS_PDFXVersion").or_else(|| xmp::value(&x, "pdfx:GTS_PDFXVersion"));
+    }
+    if d.pdfx.is_none() {
+        d.pdfx = info(doc, "GTS_PDFXVersion");
     }
     let cat = catalog(doc);
     if let Some(list) = cat.get(b"OutputIntents").map(|o| doc.resolve(o)).and_then(|o| o.as_array().cloned()) {
@@ -462,8 +484,8 @@ pub fn verify(doc: &Document, level: Level) -> Vec<Issue> {
         // Embedded files.
         if ty == Some(b"Filespec") && d.get(b"EF").is_some() {
             match level {
-                Level::A2b => issue("6.8", "Embedded files must be PDF/A files themselves (use PDF/A-3 for others)", None, None, false),
-                Level::A3b => {
+                Level::A1b | Level::A2b => issue("6.8", "Embedded files must be PDF/A files themselves (use PDF/A-3 for others)", None, None, false),
+                Level::A3b | Level::A4 => {
                     if d.get(b"AFRelationship").is_none() {
                         issue("6.8", "An embedded file has no AFRelationship", None, None, true);
                     }
@@ -512,7 +534,7 @@ fn info(doc: &Document, key: &str) -> Option<String> {
 }
 
 /// What [`convert`] did.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize)]
 pub struct Report {
     pub fixed: Vec<String>,
     /// Problems left (the document isn't conforming while any remain).
@@ -669,7 +691,11 @@ pub fn convert(doc: &mut Document, level: Level) -> Result<Report, pdfcraft_cos:
             }
             continue;
         }
-        if level == Level::A3b && ty.as_deref() == Some(b"Filespec") && d.get(b"EF").is_some() && d.get(b"AFRelationship").is_none() {
+        if (level == Level::A3b || level == Level::A4)
+            && ty.as_deref() == Some(b"Filespec")
+            && d.get(b"EF").is_some()
+            && d.get(b"AFRelationship").is_none()
+        {
             let mut nd = d.clone();
             nd.set(b"AFRelationship".to_vec(), Object::name("Unspecified"));
             doc.set(r, Object::Dict(nd));
