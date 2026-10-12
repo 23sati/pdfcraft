@@ -56,8 +56,9 @@ pdfcraft-cli extract <in.pdf> --pages 1,3,5 --out out.pdf
 pdfcraft-cli split   <in.pdf> (--every N | --before 3,7) [--out-dir DIR]
 pdfcraft-cli check  <files or dirs…> [--timeout 20] [--dpi 36] [--json out.json]
 pdfcraft-cli audit  <file.pdf> [--password PW]            find faux redactions (fails when found)
-pdfcraft-cli tools                                       automation tools and their JSON Schemas
+pdfcraft-cli tools                                       automation tools and their JSON Schemas (including all theme_* operations)
 pdfcraft-cli run    <tool> [key=value …] [--root DIR] [--out image.png]
+pdfcraft-cli run    theme_list store=themes.json          headless theme library; see tools for create/inspect/clone/update/rename/activate/delete/import/export
 pdfcraft-cli run    --script steps.json [--root DIR]      [{\"tool\": \"doc_open\", \"args\": {…}}, …]
 ",
     mcp_usage!(),
@@ -100,6 +101,14 @@ fn main() -> ExitCode {
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(CliError::Stdout(e)) if e.kind() == std::io::ErrorKind::BrokenPipe => ExitCode::SUCCESS,
+        Err(CliError::Structured(error)) => {
+            let _ = writeln!(
+                std::io::stderr().lock(),
+                "{}",
+                serde_json::to_string(&error).unwrap_or_else(|_| "{\"error\":{\"code\":\"serialization_error\"}}".into())
+            );
+            ExitCode::FAILURE
+        }
         Err(e) => {
             let _ = writeln!(std::io::stderr().lock(), "pdfcraft-cli: {e}");
             ExitCode::FAILURE
@@ -112,6 +121,7 @@ fn main() -> ExitCode {
 enum CliError {
     Message(String),
     Stdout(std::io::Error),
+    Structured(serde_json::Value),
 }
 
 impl From<String> for CliError {
@@ -131,6 +141,7 @@ impl std::fmt::Display for CliError {
         match self {
             Self::Message(message) => f.write_str(message),
             Self::Stdout(error) => write!(f, "stdout: {error}"),
+            Self::Structured(value) => write!(f, "{value}"),
         }
     }
 }
@@ -736,7 +747,7 @@ fn run(args: &[String]) -> Result<(), CliError> {
         let steps: Vec<serde_json::Value> = serde_json::from_str(&text).map_err(|e| format!("{script}: {e}"))?;
         for (i, step) in steps.iter().enumerate() {
             let tool = step["tool"].as_str().ok_or(format!("step {}: missing \"tool\"", i + 1))?;
-            let content = auto.call(tool, &step["args"]).map_err(|e| format!("step {} ({tool}): {e}", i + 1))?;
+            let content = auto.call(tool, &step["args"]).map_err(|e| theme_cli_error(tool, e, Some(i + 1)))?;
             print_output(&auto, content, step["out"].as_str()).map_err(|e| match e {
                 CliError::Message(message) => CliError::Message(format!("step {} ({tool}): {message}", i + 1)),
                 stdout => stdout,
@@ -751,8 +762,22 @@ fn run(args: &[String]) -> Result<(), CliError> {
         let value = serde_json::from_str(v).unwrap_or_else(|_| serde_json::Value::String(v.to_string()));
         obj.insert(k.to_string(), value);
     }
-    let content = auto.call(tool, &serde_json::Value::Object(obj)).map_err(|e| e.to_string())?;
+    let content = auto.call(tool, &serde_json::Value::Object(obj)).map_err(|e| theme_cli_error(tool, e, None))?;
     print_output(&auto, content, flag(args, "--out"))
+}
+
+fn theme_cli_error(tool: &str, error: pdfcraft_automation::ToolError, step: Option<usize>) -> CliError {
+    if let pdfcraft_automation::ToolError::Theme { code, message } = error {
+        let mut body = serde_json::json!({ "code": code, "message": message, "tool": tool });
+        if let Some(step) = step {
+            body["step"] = serde_json::json!(step);
+        }
+        CliError::Structured(serde_json::json!({ "error": body }))
+    } else if let Some(step) = step {
+        CliError::Message(format!("step {step} ({tool}): {error}"))
+    } else {
+        CliError::Message(error.to_string())
+    }
 }
 
 #[cfg(feature = "mcp")]
