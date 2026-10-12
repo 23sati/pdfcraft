@@ -724,8 +724,8 @@ impl PdfCraftApp {
             quick_tool: QuickTool::Select,
             space_hand: None,
             comment_prefs: Default::default(),
-            theme: ThemeKind::Light,
-            theme_preference: ThemePreference::Light,
+            theme: ThemeKind::Light, // fallback until the first frame resolves the system theme
+            theme_preference: ThemePreference::System,
             desktop_theme: pdfcraft_platform::desktop_theme::DesktopTheme::start(),
             desktop_dark: None,
             language: i18n::AUTO.to_string(),

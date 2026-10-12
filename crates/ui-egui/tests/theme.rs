@@ -48,18 +48,19 @@ fn open_view_menu(h: &mut Harness<'static, PdfCraftApp>) {
 #[test]
 fn toolbar_and_view_menu_share_three_state_preferences() {
     let mut h = harness();
-    // Explicit light wins even on a dark desktop, including egui's popup style.
+    // A fresh install defaults to System: it follows the dark desktop, including egui's popup style.
+    assert_theme(&h, ThemePreference::System, ThemeKind::Dark);
+    open_toolbar(&mut h, "Use system setting");
+    h.get_by_label("Light gray").click();
+    h.run_steps(3);
+    // An explicit light choice wins even on a dark desktop.
     assert_theme(&h, ThemePreference::Light, ThemeKind::Light);
-    open_toolbar(&mut h, "Light gray");
+
+    open_view_menu(&mut h);
     h.get_by_label("Use system setting").click();
     h.run_steps(3);
     assert_theme(&h, ThemePreference::System, ThemeKind::Dark);
-
-    open_view_menu(&mut h);
-    h.get_by_label("Light gray").click();
-    h.run_steps(3);
-    assert_theme(&h, ThemePreference::Light, ThemeKind::Light);
-    open_toolbar(&mut h, "Light gray");
+    open_toolbar(&mut h, "Use system setting");
     h.get_by_label("Dark gray").click();
     h.run_steps(3);
     assert_theme(&h, ThemePreference::Dark, ThemeKind::Dark);
