@@ -19,6 +19,7 @@ pub mod camera_edges;
 pub mod catalog;
 pub mod commands;
 pub mod compare;
+mod copy_image;
 pub mod dates;
 pub mod export;
 pub mod js;
@@ -734,6 +735,12 @@ impl Document {
     /// revision). Unsaved edits aren't a revision yet.
     pub fn revision_ends(&self) -> Vec<usize> {
         self.editor.as_ref().map(|e| e.cos.revision_ends()).unwrap_or_default()
+    }
+
+    /// The file as last opened or saved, without unsaved edits: what an incremental save appends
+    /// to.
+    pub fn saved_bytes(&self) -> Arc<Vec<u8>> {
+        self.editor.as_ref().map_or_else(|| self.bytes.clone(), |e| e.cos.bytes().clone())
     }
 
     /// Notes about damage repaired while opening (Document Properties ▸ Advanced, notices).

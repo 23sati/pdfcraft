@@ -36,6 +36,10 @@ fn fixture(n: usize) -> Vec<u8> {
 }
 
 fn remote_link_pdf(file: &str, destination: Option<&str>) -> Vec<u8> {
+    // canonicalize() uses a Windows device prefix; a PDF file specification uses the ordinary drive path.
+    #[cfg(windows)]
+    let file = file.strip_prefix(r"\\?\").filter(|path| path.as_bytes().get(1) == Some(&b':')).unwrap_or(file);
+    let file = file.replace('\\', "\\\\").replace('(', "\\(").replace(')', "\\)");
     let destination = destination.map_or_else(String::new, |d| format!("/D {d}"));
     let objects: Vec<Vec<u8>> = vec![
         b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
@@ -394,6 +398,30 @@ fn edit_undo_redo_and_save_round_trip() {
     let after = std::fs::read(dir.join("out/edited.pdf")).unwrap();
     assert!(after.len() as u64 > before);
     assert_eq!(after.windows(5).filter(|w| w == b"%%EOF").count(), 2);
+}
+
+/// Issue #1329: an in-place save says it was incremental only when it kept the file it was
+/// saving over: protecting or sanitizing rewrites the file, and the result says so.
+#[test]
+fn an_in_place_save_reports_a_required_rewrite_as_not_incremental() {
+    let dir = workdir("save-incremental-flag");
+    let original = std::fs::read(dir.join("a.pdf")).unwrap();
+    let cases = [
+        ("page_rotate", json!({ "pages": [1], "degrees": 90 }), true),
+        ("doc_protect", json!({ "open_password": "openme" }), false),
+        ("doc_remove_hidden", json!({}), false),
+    ];
+    for (tool, args, incremental) in cases {
+        std::fs::write(dir.join("a.pdf"), &original).unwrap();
+        let mut a = auto(&dir);
+        let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+        let mut args = args;
+        args["doc"] = json!(doc);
+        ok(&mut a, tool, args);
+        let saved = ok(&mut a, "doc_save", json!({ "doc": doc }));
+        let kept = std::fs::read(dir.join("a.pdf")).unwrap().starts_with(&original);
+        assert_eq!((saved["incremental"].as_bool(), kept), (Some(incremental), incremental), "{tool}");
+    }
 }
 
 /// organize.field-name-conflicts: combining files whose forms share a field name keeps the
