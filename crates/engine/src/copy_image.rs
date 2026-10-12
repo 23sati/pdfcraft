@@ -1,5 +1,5 @@
-//! Copy Image (fork feature, see docs/fork.md): find the picture under a point and hand it to
-//! the clipboard, as pixels or as a file in its original format. A picture drawn through grouped
+//! Copy Image: find the picture under a point and hand it to the clipboard, as pixels or as a
+//! file in its original format. A picture drawn through grouped
 //! Form artwork (as Word, InDesign and many scanners write them) is found inside the group.
 
 use std::collections::HashSet;

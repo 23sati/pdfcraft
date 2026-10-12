@@ -3,7 +3,7 @@
 
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable;
-use pdfcraft_engine::{Session, export};
+use pdfcraft_engine::{AddedText, Edit, Session, export};
 use pdfcraft_ui_egui::PdfCraftApp;
 
 /// A one-page PDF that is only a picture of a sentence.
@@ -64,4 +64,53 @@ fn recognize_text_in_multiple_files_writes_searchable_copies() {
         let bytes = std::fs::read(dir.join(name)).unwrap();
         assert!(bytes.len() > scan().len(), "an incremental update was appended");
     }
+}
+
+/// #1028: "Also recognize pages that already have text" reads a picture on a page that has its own
+/// text, without adding that text a second time.
+#[test]
+fn recognize_text_can_read_pictures_on_pages_with_text() {
+    let hybrid = {
+        let mut s = Session::new();
+        let id = s.open("scan.pdf", None, std::sync::Arc::new(scan()), None).unwrap();
+        let (w, h) = {
+            let p = &s.get(id).unwrap().info.pages[0];
+            (p.width as f64, p.height as f64)
+        };
+        let note =
+            AddedText { rect: [w * 0.1, h * 0.75, w * 0.9, h * 0.85], text: "Invoice reference 4711".into(), size: 18.0, ..Default::default() };
+        s.apply(id, Edit::AddText { page: 0, text: note }).unwrap();
+        s.save_bytes(id).unwrap().to_vec()
+    };
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(|_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("hybrid.pdf", None, hybrid).unwrap();
+        app.run_inline = true;
+        app
+    });
+    h.run_steps(4);
+    assert!(h.state_mut().execute("ocr.recognize"));
+    h.run_steps(2);
+    assert!(h.state().ocr_draft.settings().skip_text_pages, "pages with text are skipped by default");
+    h.get_by_label("Also recognize pages that already have text").click();
+    h.run_steps(2);
+    assert!(!h.state().ocr_draft.settings().skip_text_pages);
+    if !pdfcraft_engine::ocr::available() {
+        eprintln!("skipped: OCR models not installed");
+        return;
+    }
+    h.get_by_label("Recognize text").click();
+    h.run_steps(3);
+    assert!(h.state().ocr_run.is_none(), "finished");
+    let toast = h.state().toast.clone().unwrap().0;
+    assert!(toast.starts_with("Recognized ") && toast.ends_with("on 1 page"), "{toast}");
+    let app = h.state();
+    let id = app.active_ids().unwrap().1;
+    let doc = app.session.get(id).unwrap();
+    assert_eq!(doc.can_undo(), Some("Recognize text"));
+    let mut r = pdfcraft_render::PageRenderer::new(doc.bytes.clone(), Default::default());
+    let text = r.render(pdfcraft_render::RenderRequest { page: 0, kind: pdfcraft_render::RequestKind::Text, scale: 1.0, ..Default::default() });
+    let text = text.text.unwrap().plain_text().to_lowercase();
+    assert_eq!((text.matches("invoice").count(), text.matches("scanned").count()), (1, 1), "{text}");
 }

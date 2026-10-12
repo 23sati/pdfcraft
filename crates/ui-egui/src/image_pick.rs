@@ -1,8 +1,7 @@
 //! Select tool: click a picture on the page to select it, then ⌘C / Ctrl+C (or the right-click
 //! menu) copies it in its original format: a JPEG image as the JPEG file stored in the PDF, any
 //! other image as a lossless PNG (with its transparency). The clipboard gets the file, as when a
-//! file is copied in Finder or Explorer; Copy Image copies the pixels instead (fork feature, see
-//! docs/fork.md).
+//! file is copied in Finder or Explorer; Copy Image copies the pixels instead.
 
 use egui::{Color32, CornerRadius, Pos2, Stroke};
 
@@ -95,6 +94,9 @@ impl PdfCraftApp {
     /// as stored in the PDF, otherwise PNG).
     pub(crate) fn copy_page_image_file(&mut self, page: usize, index: usize) {
         let Some((_, id)) = self.active_ids() else { return };
+        if !self.may_copy(id) {
+            return;
+        }
         let Some(doc) = self.session.get(id) else { return };
         let stem = safe_name(doc.name.rsplit_once('.').map_or(doc.name.as_str(), |(s, _)| s));
         let file = doc.page_image_copy_file(page, index);

@@ -1,0 +1,51 @@
+# Editing existing text and source subsets
+
+Click a text region in **Edit a PDF → Edit text and images**. One editor contains its
+source rows and mixed styles. Embedded TrueType and OpenType/CFF faces are used in memory;
+source font programs, colour, size and baseline anchors stay intact. A textless preview
+prevents a second copy underneath. The frame shows the live extent as text grows or shrinks.
+
+A subset font contains only some of the original face's glyphs. A new character cannot be
+reconstructed from a glyph the PDF does not contain. **Load font…** imports an openly licensed,
+embeddable standalone `.ttf` or `.otf` face. **Installed fonts…** discovers eligible user-installed
+faces on request, off the UI thread; the document-font menu selects resources already on the
+page. Select **Keep source fonts** to preserve each run's original face. A matching full face
+completes its subsets automatically, including new Chinese characters. Choosing another face
+is explicit. Fonts with restricted embedding, unsupported collections, excluded families or
+no open-licence declaration are refused. Interface fallback fonts are never exported.
+
+The full selected program, glyph mappings, widths and Unicode text are embedded in the PDF.
+Saving and reopening therefore needs no locally installed font. Original subset bytes are
+preserved. Optional matching faces from `CRAFT_FONTS_DIR` can also complete source subsets;
+this works only when that build input actually contains the full face. This change does not
+add a font binary or change the release font pin. Fonts shared by releases belong in
+`storytold/craft-fonts` under the repository's asset rules.
+
+Select text within the editor before changing size, colour, font, underline or spacing to
+format that selection. Automation supports up to 1024 disjoint UTF-8 byte ranges with the
+same properties; invalid or overlapping ranges fail atomically. Untouched source formatting
+survives. OpenType shaping uses the selected/source face's substitution and positioning
+rules, preserves marks and ligatures, and applies Unicode bidi ordering for a single face.
+Logical text remains available after save/reopen through ToUnicode and ActualText.
+
+For headless editing, use `text_font_files` → `text_font_import` → `text_fonts` and pass a
+resource to `text_edit.font_resource`. `text_edit.ranges` holds selected range formatting.
+`text_edit_layout` accepts resource/ranges too and measures a draft without applying it.
+All file inputs respect CLI root confinement; importing a font and applying text are undoable.
+
+Explicit marked paragraph/heading scopes prevent unrelated tagged regions from merging.
+Compatible geometry groups untagged content, including runs split across content streams
+or equivalent graphics transforms. Geometry cannot infer author intent in every untagged
+PDF. Semantic structure-tree preservation, legacy Type 1/Type 3 inline font preview,
+font collections/variable-font instances, mixed-font/style contextual runs and complete rotated
+layout fidelity still need broader coverage. Do not interpret the passing real-file checks
+as a guarantee for every PDF.
+
+Private acceptance tests are opt-in and keep inputs unmodified. They exercise actual Chinese
+keyboard insertion/deletion on all four pages, source-face/baseline checks and identical
+in-memory renders before and after saving/reopening. Synthetic tests cover full TrueType
+mapping, OpenType/CFF, Arabic marks/ligatures/mixed bidi, repeated edits, disjoint styles,
+invalid ranges, font selection and root confinement. CLI acceptance repeats insertion/deletion
+and two saves/reopens on four pages; independent PDFium checks extraction and rendering.
+No private document, font or screenshot
+is included in the repository.
