@@ -36,6 +36,10 @@ fn fixture(n: usize) -> Vec<u8> {
 }
 
 fn remote_link_pdf(file: &str, destination: Option<&str>) -> Vec<u8> {
+    // canonicalize() uses a Windows device prefix; a PDF file specification uses the ordinary drive path.
+    #[cfg(windows)]
+    let file = file.strip_prefix(r"\\?\").filter(|path| path.as_bytes().get(1) == Some(&b':')).unwrap_or(file);
+    let file = file.replace('\\', "\\\\").replace('(', "\\(").replace(')', "\\)");
     let destination = destination.map_or_else(String::new, |d| format!("/D {d}"));
     let objects: Vec<Vec<u8>> = vec![
         b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
