@@ -1503,10 +1503,14 @@ fn other_colour_swatch(ui: &mut egui::Ui, open: bool) -> egui::Response {
 pub fn swatch_grid(ui: &mut egui::Ui, current: Option<Rgb>) -> Option<Rgb> {
     let mut picked = None;
     let on = |c: &Rgb| current.is_some_and(|cur| same_colour(&cur, c));
-    let open_id = ui.id().with("other-colour");
+    // Keyed on this grid's own place in the parent, so two grids in one dialog open their
+    // pickers separately.
+    let base = ui.next_auto_id();
+    ui.skip_ahead_auto_ids(1);
+    let open_id = base.with("other-colour");
     let value_id = open_id.with("value");
     let mut open = ui.data(|d| d.get_temp::<bool>(open_id)).unwrap_or(false);
-    egui::Grid::new(ui.id().with("swatches")).spacing(vec2(6.0, 6.0)).show(ui, |ui| {
+    egui::Grid::new(base.with("swatches")).spacing(vec2(6.0, 6.0)).show(ui, |ui| {
         for (i, (name, c)) in SWATCHES.iter().enumerate() {
             if swatch(ui, *c, on(c), tl!(name)).clicked() {
                 picked = Some(*c);
