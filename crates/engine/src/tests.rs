@@ -2173,27 +2173,36 @@ fn signing_saving_trusting_and_commenting_afterwards() {
     // After the test certificate's start date (2026-10-02).
     let mut s = Session::new().with_clock(|| 1_800_000_000);
     let id = s.open("fixture.pdf", None, Arc::new(fixture(2)), None).unwrap();
-    assert!(s.get(id).unwrap().signatures.is_empty());
+    let doc = s.get(id).unwrap();
+    assert!(doc.validated_signatures().is_none(), "ordinary open defers validation");
+    assert!(!doc.is_signed());
+    assert!(doc.validated_signatures().is_none(), "exact presence checks do not validate");
     let opts = SignOptions { page: 1, rect: Some([20.0, 20.0, 180.0, 60.0]), reason: Some("Approved".into()), ..SignOptions::default() };
     let signed = s.sign(id, &digital_id, opts).unwrap();
     s.mark_signed(id, signed, Some("/tmp/signed.pdf".into())).unwrap();
     let doc = s.get(id).unwrap();
     assert_eq!(doc.name, "signed.pdf");
     assert!(doc.is_signed() && !doc.dirty && doc.can_undo().is_none(), "signing can't be undone");
-    let sig = &doc.signatures[0];
+    assert!(doc.validated_signatures().is_none(), "signed presence does not perform validation");
+    let sig = &doc.signatures()[0];
+    let first = doc.validated_signatures().unwrap();
+    assert!(std::ptr::eq(sig, &first[0]));
+    assert!(std::ptr::eq(first.as_ptr(), doc.signatures().as_ptr()), "repeated reads reuse validation");
     assert_eq!((sig.status, sig.page, sig.date.as_deref()), (SignatureStatus::Unknown, Some(1), Some("D:20270115080000Z")));
     assert_eq!(s.save_full_bytes(id).unwrap_err(), EditError::Signed);
     // Trusting the signer makes it valid; a later comment is permitted.
     s.set_trusted_certificates(vec![digital_id.certificate.clone()]);
-    assert_eq!(s.get(id).unwrap().signatures[0].status, SignatureStatus::Valid);
+    assert!(s.get(id).unwrap().validated_signatures().is_none(), "trust changes invalidate validated details");
+    assert_eq!(s.get(id).unwrap().signatures()[0].status, SignatureStatus::Valid);
     s.apply(id, rect_comment(0, [80.0, 80.0, 120.0, 120.0])).unwrap();
-    let sig = &s.get(id).unwrap().signatures[0];
+    assert!(s.get(id).unwrap().validated_signatures().is_none(), "edits invalidate revision classification");
+    let sig = &s.get(id).unwrap().signatures()[0];
     let comments = sign::Modification::Allowed(vec![sign::kind::COMMENTS]);
     assert_eq!((sig.status, sig.modification.clone()), (SignatureStatus::Valid, comments));
     // Saving keeps the signature (incremental).
     let saved = s.save_bytes(id).unwrap();
     s.mark_saved(id, saved, None).unwrap();
-    assert_eq!(s.get(id).unwrap().signatures[0].status, SignatureStatus::Valid);
+    assert_eq!(s.get(id).unwrap().signatures()[0].status, SignatureStatus::Valid);
     // Edits that would need a full rewrite are refused, and change nothing.
     let before = s.get(id).unwrap().can_undo().map(str::to_owned);
     assert!(matches!(s.apply(id, Edit::Sanitize), Err(EditError::SignedRewrite(_))));
@@ -3616,13 +3625,18 @@ fn signed_state_covers_adopted_signature_fields_before_validation() {
     };
 
     let (session, id) = open(make_pdf(false, None));
-    assert!(!session.get(id).unwrap().is_signed(), "no signature field");
+    let doc = session.get(id).unwrap();
+    assert!(!doc.is_signed(), "no signature field");
+    assert!(doc.validated_signatures().is_none());
     let (session, id) = open(make_pdf(true, None));
-    assert!(!session.get(id).unwrap().is_signed(), "empty signature field");
+    let doc = session.get(id).unwrap();
+    assert!(!doc.is_signed(), "empty signature field");
+    assert!(doc.validated_signatures().is_none());
     let (session, id) = open(make_pdf(true, Some(" /V 6 0 R")));
     let doc = session.get(id).unwrap();
     assert!(doc.is_signed(), "a malformed signature dictionary still blocks full rewrites");
-    assert!(doc.signatures.is_empty(), "the adopted page-only field is outside current validation output");
+    assert!(doc.validated_signatures().is_none());
+    assert!(doc.signatures().is_empty(), "the adopted page-only field is outside current validation output");
 }
 
 #[test]
@@ -3650,7 +3664,8 @@ fn signed_state_covers_standalone_document_timestamps() {
     let id = session.open("timestamp.pdf", None, Arc::new(bytes), None).unwrap();
     let doc = session.get(id).unwrap();
     assert!(doc.is_signed());
-    assert!(doc.signatures.iter().any(|signature| signature.doc_timestamp));
+    assert!(doc.validated_signatures().is_none());
+    assert!(doc.signatures().iter().any(|signature| signature.doc_timestamp));
 }
 
 /// A page too large for the renderer at the asked resolution exports at the most it allows (and
