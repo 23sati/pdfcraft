@@ -65,6 +65,84 @@ fn safe_name(s: &str) -> String {
     if cleaned.is_empty() { "PdfCraft".into() } else { cleaned }
 }
 
+/// The per-user folder that holds the file of the last Copy Image in Original Format: `Clipboard`
+/// in the portable data folder in portable mode ([`crate::portable`]), otherwise the platform's
+/// per-user cache folder: `~/Library/Caches/PdfCraft/Clipboard` (macOS),
+/// `%LOCALAPPDATA%\PdfCraft\Clipboard` (Windows), or `$XDG_CACHE_HOME/pdfcraft/clipboard` /
+/// `~/.cache/pdfcraft/clipboard` (others). Never the shared temporary folder, where another user
+/// could plant a link or a folder of their own.
+#[cfg(not(target_arch = "wasm32"))]
+fn clipboard_dir() -> Option<std::path::PathBuf> {
+    use std::path::PathBuf;
+    if let Some(dir) = crate::portable::data_dir() {
+        return Some(dir.join("Clipboard"));
+    }
+    let env = |k: &str| std::env::var_os(k).filter(|v| !v.is_empty()).map(PathBuf::from).filter(|p| p.is_absolute());
+    if cfg!(target_os = "macos") {
+        env("HOME").map(|h| h.join("Library/Caches/PdfCraft/Clipboard"))
+    } else if cfg!(windows) {
+        env("LOCALAPPDATA").map(|d| d.join("PdfCraft").join("Clipboard"))
+    } else {
+        env("XDG_CACHE_HOME").or_else(|| env("HOME").map(|h| h.join(".cache"))).map(|d| d.join("pdfcraft/clipboard"))
+    }
+}
+
+/// Whether `name` is a file Copy Image in Original Format writes: `<stem> p<page> img<index>.<ext>`
+/// with a JPEG or PNG extension. Only such files are ever removed from the clipboard folder.
+#[cfg(not(target_arch = "wasm32"))]
+fn is_copied_image_name(name: &str) -> bool {
+    let digits = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
+    let Some((rest, ext)) = name.rsplit_once('.') else { return false };
+    if !matches!(ext, "jpg" | "png") {
+        return false;
+    }
+    let Some((rest, index)) = rest.rsplit_once(" img") else { return false };
+    let Some((stem, page)) = rest.rsplit_once(" p") else { return false };
+    !stem.is_empty() && digits(index) && digits(page)
+}
+
+/// Makes `dir` (a real folder, not a link, owned by us and private to us on Unix), removes the
+/// earlier copies PdfCraft wrote there, and writes `bytes` as a new file `name`. Links are never
+/// followed and nothing else in the folder is touched.
+#[cfg(not(target_arch = "wasm32"))]
+fn write_clipboard_file(dir: &std::path::Path, name: &str, bytes: &[u8]) -> Result<std::path::PathBuf, String> {
+    use std::io::Write;
+    if !is_copied_image_name(name) || name.contains(['/', '\\']) {
+        return Err("the file name is not valid".into());
+    }
+    std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    let meta = std::fs::symlink_metadata(dir).map_err(|e| e.to_string())?;
+    if !meta.is_dir() {
+        return Err(format!("{} is not a folder", dir.display()));
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        // Only the owner may change a folder's permissions, so this also refuses a folder that
+        // belongs to someone else.
+        std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700)).map_err(|e| format!("{}: {e}", dir.display()))?;
+    }
+    // Only the latest copy needs to exist; older ones are removed (best effort). Only regular
+    // files with the copy's name pattern: links and anything else are left alone.
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for e in entries.flatten() {
+            let ours = e.file_name().to_str().is_some_and(is_copied_image_name);
+            if ours && e.file_type().is_ok_and(|t| t.is_file()) {
+                let _ = std::fs::remove_file(e.path());
+            }
+        }
+    }
+    let path = dir.join(name);
+    // `create_new` fails on anything already there, a link included, instead of following it.
+    let mut file = std::fs::OpenOptions::new().write(true).create_new(true).open(&path).map_err(|e| e.to_string())?;
+    if let Err(e) = file.write_all(bytes) {
+        drop(file);
+        let _ = std::fs::remove_file(&path);
+        return Err(e.to_string());
+    }
+    Ok(path)
+}
+
 impl PdfCraftApp {
     /// ⌘C / Ctrl+C copies the selected picture in its original format; Escape deselects it.
     pub(crate) fn image_pick_keys(&mut self, i: usize, ctx: &egui::Context) {
@@ -112,23 +190,15 @@ impl PdfCraftApp {
         }
     }
 
-    /// Writes `bytes` to a PdfCraft folder in the temporary directory (replacing the previous
-    /// copy) and puts that file on the system clipboard.
+    /// Writes `bytes` to PdfCraft's private clipboard folder ([`clipboard_dir`]), replacing the
+    /// previous copy, and puts that file on the system clipboard.
     #[cfg(not(target_arch = "wasm32"))]
     fn put_file_on_clipboard(&self, name: &str, bytes: &[u8]) -> Result<(), String> {
         if !self.system_clipboard {
             return Ok(());
         }
-        let dir = std::env::temp_dir().join("pdfcraft-clipboard");
-        // Only the latest copy needs to exist; older ones are removed (best effort).
-        if let Ok(entries) = std::fs::read_dir(&dir) {
-            for e in entries.flatten() {
-                let _ = std::fs::remove_file(e.path());
-            }
-        }
-        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-        let path = dir.join(name);
-        std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
+        let dir = clipboard_dir().ok_or("there is no folder for the copied file")?;
+        let path = write_clipboard_file(&dir, name, bytes)?;
         arboard::Clipboard::new().and_then(|mut c| c.set().file_list(&[path])).map_err(|e| e.to_string())
     }
 
@@ -144,11 +214,60 @@ impl PdfCraftApp {
 #[cfg(test)]
 mod tests {
     use super::safe_name;
+    #[cfg(not(target_arch = "wasm32"))]
+    use super::{is_copied_image_name, write_clipboard_file};
 
     #[test]
     fn file_names_are_safe() {
         assert_eq!(safe_name("a/b:c"), "a_b_c");
         assert_eq!(safe_name("  ..  "), "PdfCraft");
         assert_eq!(safe_name("Relazione 2026"), "Relazione 2026");
+    }
+
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn copied_image_names_are_recognised() {
+        assert!(is_copied_image_name("Report p1 img2.jpg"));
+        assert!(is_copied_image_name("a p12 img3.png"));
+        assert!(!is_copied_image_name("notes.txt"));
+        assert!(!is_copied_image_name("Report p1 img2.pdf"));
+        assert!(!is_copied_image_name(" p1 img2.png"));
+        assert!(!is_copied_image_name("Report px img2.png"));
+    }
+
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn clipboard_folder_only_replaces_our_own_copies() {
+        let dir = std::env::temp_dir().join(format!("pdfcraft-clipboard-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("keep.txt"), b"other").unwrap();
+        std::fs::write(dir.join("Old p1 img1.png"), b"old").unwrap();
+        let path = write_clipboard_file(&dir, "New p2 img1.jpg", b"new").unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), b"new");
+        assert!(dir.join("keep.txt").exists(), "files PdfCraft didn't write are kept");
+        assert!(!dir.join("Old p1 img1.png").exists(), "the previous copy is removed");
+        assert!(write_clipboard_file(&dir, "../escape p1 img1.png", b"x").is_err());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(std::fs::metadata(&dir).unwrap().permissions().mode() & 0o777, 0o700);
+            // A link with a copy's name is neither followed nor removed.
+            let target = dir.join("keep.txt");
+            let link = dir.join("Link p1 img1.png");
+            std::os::unix::fs::symlink(&target, &link).unwrap();
+            write_clipboard_file(&dir, "Again p1 img1.png", b"again").unwrap();
+            assert!(std::fs::symlink_metadata(&link).is_ok(), "links are left alone");
+            assert_eq!(std::fs::read(&target).unwrap(), b"other");
+            assert!(write_clipboard_file(&dir, "Link p1 img1.png", b"x").is_err(), "writing never follows a link");
+            assert_eq!(std::fs::read(&target).unwrap(), b"other");
+            // A link in place of the folder is refused.
+            let linked = std::env::temp_dir().join(format!("pdfcraft-clipboard-test-link-{}", std::process::id()));
+            let _ = std::fs::remove_file(&linked);
+            std::os::unix::fs::symlink(&dir, &linked).unwrap();
+            assert!(write_clipboard_file(&linked, "X p1 img1.png", b"x").is_err());
+            let _ = std::fs::remove_file(&linked);
+        }
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
