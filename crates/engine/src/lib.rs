@@ -472,6 +472,11 @@ impl Document {
         self.editor.as_ref().map(|e| a11y::figures(&e.cos)).unwrap_or_default()
     }
 
+    /// Reachable indirect structure tags, in document order.
+    pub fn tags(&self) -> Vec<a11y::TagInfo> {
+        self.editor.as_ref().map(|e| a11y::tags(&e.cos)).unwrap_or_default()
+    }
+
     /// The edit that fixes `rule`, for the rules with an automatic fix: the document language
     /// (`value` is the language), the title (`value` replaces it; else the current title or the
     /// file name) and the tab order.
@@ -1184,6 +1189,12 @@ pub enum Edit {
         figure: u32,
         alt: Option<String>,
     },
+    /// Change one property on a reachable indirect structure tag.
+    SetTagProperty {
+        object: pdfcraft_cos::ObjRef,
+        property: a11y::TagProperty,
+        value: Option<String>,
+    },
     /// Add alternate text ▸ Decorative figure: the figure's content becomes an artifact.
     MarkDecorative {
         figure: u32,
@@ -1438,6 +1449,7 @@ impl std::fmt::Display for Label {
 /// [`BATCH_LABELS`]).
 pub const EDIT_LABELS: &[&str] = &[
     "Rotate page",
+    "Change tag properties",
     "Rotate pages",
     "Delete page",
     "Delete pages",
@@ -1639,6 +1651,7 @@ impl Edit {
             Edit::SetTabOrder { .. } | Edit::MoveInTabOrder { .. } => Label::of("Set tab order"),
             Edit::SetInitialView(_) => Label::of("Change initial view"),
             Edit::SetAltText { .. } => Label::of("Set alternate text"),
+            Edit::SetTagProperty { .. } => Label::of("Change tag properties"),
             Edit::MarkDecorative { .. } => Label::of("Mark figure as decorative"),
             Edit::AddOcrText { .. } => Label::of("Recognize text"),
             Edit::ApplyScriptChanges { .. } => Label::of("Run JavaScript"),
@@ -1824,6 +1837,7 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::MoveInTabOrder { .. }
         | Edit::SetInitialView(_)
         | Edit::SetAltText { .. }
+        | Edit::SetTagProperty { .. }
         | Edit::MarkDecorative { .. }
         | Edit::AddOcrText { .. }
         | Edit::SetDocumentScript { .. }
@@ -2092,6 +2106,9 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         Edit::SetAltText { figure, alt } => {
             let r = pdfcraft_cos::ObjRef::new(*figure, doc.generation(*figure));
             a11y::set_alt(doc, r, alt.as_deref()).map_err(|e| EditError::Accessibility(e.to_string()))?;
+        }
+        Edit::SetTagProperty { object, property, value } => {
+            a11y::set_tag_property(doc, *object, *property, value.as_deref()).map_err(|e| EditError::Accessibility(e.to_string()))?;
         }
         Edit::EditTextLine { page, line, text } => {
             pdfcraft_edit::replace_line(doc, *page, *line, text)?;

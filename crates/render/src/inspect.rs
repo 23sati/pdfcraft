@@ -14,7 +14,9 @@ use hayro::hayro_syntax::DecryptionError;
 use hayro::hayro_syntax::LoadPdfError;
 use hayro::hayro_syntax::Pdf;
 use lopdf::{Dictionary, Document, LoadOptions, Object, ObjectId};
-use pdfcraft_cos::page_labels::{MAX_LABEL_BYTES, MAX_LABEL_TOTAL_BYTES, MAX_LABEL_TREE_DEPTH, MAX_LABEL_TREE_WORK, MAX_PREFIX_BYTES, alpha, roman};
+use pdfcraft_cos::page_labels::{
+    MAX_LABEL_BYTES, MAX_LABEL_TOTAL_BYTES, MAX_LABEL_TREE_DEPTH, MAX_LABEL_TREE_WORK, MAX_PREFIX_BYTES, MAX_PREFIX_TOTAL_BYTES, alpha, roman,
+};
 
 use crate::OpenError;
 use crate::structure::{LazyStructure, Structure};
@@ -814,6 +816,7 @@ impl<'a> Inspector<'a> {
         }
         // Decode each bounded prefix once, rather than once for every page in its range.
         let mut specs = BTreeMap::new();
+        let mut prefix_total = 0usize;
         for (start, d) in ranges {
             let first = d.get(b"St").ok().and_then(|o| self.resolve(o).as_i64().ok()).unwrap_or(1).max(1) as u64;
             let prefix = match d.get(b"P").ok().map(|o| self.resolve(o)) {
@@ -827,6 +830,11 @@ impl<'a> Inspector<'a> {
             };
             if prefix.len() > MAX_LABEL_BYTES {
                 return Err("a decoded prefix exceeds 1024 UTF-8 bytes");
+            }
+            // A prefix object shared by many ranges is decoded once per range: count every copy.
+            prefix_total = prefix_total.saturating_add(prefix.len());
+            if prefix_total > MAX_PREFIX_TOTAL_BYTES {
+                return Err("decoded prefixes exceed 4 MiB in total");
             }
             let style = d.get(b"S").ok().and_then(|o| self.resolve(o).as_name().ok());
             specs.insert(start, (first, prefix, style));
@@ -1766,6 +1774,36 @@ mod tests {
         assert!(pages.iter().enumerate().all(|(i, p)| p.label == (i + 1).to_string()));
         // Exact aggregate boundary remains supported.
         pages.pop();
+        Inspector::new(&doc).page_labels(&catalog, &mut pages).unwrap();
+        assert!(pages.iter().all(|p| p.label.len() == MAX_LABEL_BYTES));
+    }
+
+    #[test]
+    fn page_label_limits_bound_the_total_of_decoded_prefixes() {
+        // `ranges` ranges naming one shared prefix object of `prefix` bytes, without a style.
+        let shared = |ranges: i64, prefix: usize| {
+            let mut doc = Document::with_version("1.7");
+            doc.objects.insert((7, 0), Object::String(vec![b'x'; prefix], lopdf::StringFormat::Literal));
+            let mut spec = Dictionary::new();
+            spec.set("P", Object::Reference((7, 0)));
+            doc.objects.insert((8, 0), Object::Dictionary(spec));
+            let mut tree = Dictionary::new();
+            tree.set("Nums", (0..ranges).flat_map(|i| [Object::Integer(i), Object::Reference((8, 0))]).collect::<Vec<_>>());
+            let mut catalog = Dictionary::new();
+            catalog.set("PageLabels", Object::Dictionary(tree));
+            (doc, catalog)
+        };
+        let mut pages: Vec<_> =
+            (1..=3).map(|n| PageInfo { width: 200.0, height: 300.0, crop: [0.0, 0.0, 200.0, 300.0], rotation: 0, label: n.to_string() }).collect();
+        // Each range decodes its prefix, so a small file sharing one prefix object asks for a
+        // copy per range: 5,000 ranges and a 1,000-byte prefix make 5 MB, past the 4 MiB total.
+        // Three pages make three labels, far below the label total: the prefixes alone refuse it.
+        let (doc, catalog) = shared(5000, 1000);
+        let err = Inspector::new(&doc).page_labels(&catalog, &mut pages).unwrap_err();
+        assert!(err.contains("prefixes exceed 4 MiB"), "{err}");
+        assert!(pages.iter().enumerate().all(|(i, p)| p.label == (i + 1).to_string()));
+        // Exactly 4 MiB of prefixes is still read.
+        let (doc, catalog) = shared((MAX_PREFIX_TOTAL_BYTES / MAX_LABEL_BYTES) as i64, MAX_LABEL_BYTES);
         Inspector::new(&doc).page_labels(&catalog, &mut pages).unwrap();
         assert!(pages.iter().all(|p| p.label.len() == MAX_LABEL_BYTES));
     }

@@ -85,6 +85,15 @@ moves 1–1000 references atomically in displayed points (right/down), preservin
 and fonts. A refusal changes nothing; success is one undo step. See
 [the selection and movement guide](../../docs/editing-multiple-objects.md) for limits and examples.
 
+## Accessibility review record
+
+Open the original and edited PDFs as separate documents, then call
+`accessibility_review_record {before, after, path}`. The tool writes a JSON record atomically within
+`--root`: SHA-256 hashes of both working PDFs, rule statuses and finding counts before and after,
+changed rules, and rules still failed or requiring manual review. `all: true` also includes the
+colour-contrast rule. It does not change either PDF or certify accessibility. Keep the original open
+while making edits to the second document so the comparison has a stable baseline.
+
 ## Common command tools
 
 Following FilmCraft's MCP conventions, `command_list {doc?, filter?, enabled_only?}` keeps its
