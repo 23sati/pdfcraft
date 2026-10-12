@@ -3770,6 +3770,7 @@ name = "pdfcraft-fonts"
 version = "0.6.0"
 dependencies = [
  "harfrust",
+ "hayro-interpret",
  "pdfcraft-cos",
  "skrifa 0.44.0",
  "unicode-bidi",
@@ -3889,6 +3890,7 @@ dependencies = [
  "pdfcraft-fonts",
  "pdfcraft-forms",
  "pdfcraft-model",
+ "sha2",
  "thiserror 2.0.21",
 ]
 
