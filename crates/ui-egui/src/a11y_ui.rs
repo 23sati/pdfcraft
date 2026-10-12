@@ -45,6 +45,9 @@ impl Default for A11yOptions {
 #[derive(Clone, Debug, Default)]
 pub struct A11yState {
     pub report: Option<(DocId, Report)>,
+    /// The prior check of the same document with the same checker options.
+    pub previous: Option<(DocId, Report)>,
+    pub options: Option<Options>,
     /// Collapsed categories and expanded rules.
     pub collapsed: BTreeSet<Category>,
     pub expanded: BTreeSet<Rule>,
@@ -59,7 +62,7 @@ pub(crate) enum PanelAction {
     CheckAgain,
     ShowReport,
     Options,
-    GoTo(usize),
+    GoTo(usize, Option<[f64; 4]>),
 }
 
 /// Rules with an automatic (or guided) fix.
@@ -83,12 +86,12 @@ pub(crate) fn options_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens)
         ui.add_space(8.0);
     };
     group(ui, "Report Options", &mut |ui| {
-        ui.checkbox(&mut o.create_report, tl!("Create accessibility report"));
+        ui.add(widgets::checkbox(&mut o.create_report, tl!("Create accessibility report")));
     });
     group(ui, "Page Range", &mut |ui| {
         ui.horizontal(|ui| {
-            ui.radio_value(&mut o.all_pages, true, tl!("All pages in document"));
-            ui.radio_value(&mut o.all_pages, false, tl!("Pages from"));
+            widgets::radio_value(ui, &mut o.all_pages, true, tl!("All pages in document"));
+            widgets::radio_value(ui, &mut o.all_pages, false, tl!("Pages from"));
             ui.add_enabled(!o.all_pages, egui::DragValue::new(&mut o.from).range(1..=pages));
             ui.label(tl!("to"));
             ui.add_enabled(!o.all_pages, egui::DragValue::new(&mut o.to).range(1..=pages));
@@ -107,7 +110,7 @@ pub(crate) fn options_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens)
         ui.add_space(4.0);
         for r in Rule::ALL.into_iter().filter(|r| r.category() == o.category) {
             let mut checked = o.rules.contains(&r);
-            if ui.checkbox(&mut checked, tl!(r.description())).changed() {
+            if ui.add(widgets::checkbox(&mut checked, tl!(r.description()))).changed() {
                 if checked {
                     o.rules.insert(r);
                 } else {
@@ -126,7 +129,7 @@ pub(crate) fn options_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens)
             }
         });
     });
-    ui.checkbox(&mut o.show_dialog, tl!("Show this dialog when the Checker starts"));
+    ui.add(widgets::checkbox(&mut o.show_dialog, tl!("Show this dialog when the Checker starts")));
     ui.add_space(10.0);
     let (mut start, mut cancel) = (false, false);
     ui.horizontal(|ui| {
@@ -191,6 +194,26 @@ pub(crate) fn panel(ui: &mut egui::Ui, t: &Tokens, state: &mut A11yState, doc: D
             }
         });
     });
+    if let Some((_, previous)) = state.previous.as_ref().filter(|(d, _)| *d == doc) {
+        egui::CollapsingHeader::new(tl!("Compare")).default_open(true).show(ui, |ui| {
+            for status in [Status::Passed, Status::Failed, Status::Manual, Status::Skipped] {
+                ui.label(format!("{}: {} → {}", tl!(status.label()), previous.count(status), report.count(status)));
+            }
+            for current in &report.results {
+                let Some(prior) = previous.result(current.rule) else { continue };
+                if prior.status != current.status || prior.findings.len() != current.findings.len() {
+                    ui.label(format!(
+                        "{}: {} ({}) → {} ({})",
+                        tl!(current.rule.name()),
+                        tl!(prior.status.label()),
+                        prior.findings.len(),
+                        tl!(current.status.label()),
+                        current.findings.len()
+                    ));
+                }
+            }
+        });
+    }
     ui.add_space(6.0);
     for c in Category::ALL {
         let rules: Vec<_> = report.in_category(c).collect();
@@ -287,11 +310,14 @@ pub(crate) fn panel(ui: &mut egui::Ui, t: &Tokens, state: &mut A11yState, doc: D
                 egui::Frame::NONE.inner_margin(egui::Margin { left: 46, right: 4, top: 0, bottom: 6 }).show(ui, |ui| {
                     ui.spacing_mut().item_spacing.y = 2.0;
                     for f in &r.findings {
-                        let l = ui.add(egui::Label::new(egui::RichText::new(&f.message).small().color(t.text_muted)).sense(egui::Sense::click()));
+                        // The checker hands over the sentence and the document's own words apart, so
+                        // the sentence is said in the panel's language with those words still in it.
+                        let said = f.said(&crate::i18n::words);
+                        let l = ui.add(egui::Label::new(egui::RichText::new(said).small().color(t.text_muted)).sense(egui::Sense::click()));
                         if let Some(p) = f.page
                             && l.on_hover_text(tl!("Go to the page")).clicked()
                         {
-                            action = Some(PanelAction::GoTo(p));
+                            action = Some(PanelAction::GoTo(p, f.bbox));
                         }
                     }
                 });
@@ -328,6 +354,9 @@ impl PdfCraftApp {
             r.findings.clear();
         }
         let failed = report.count(Status::Failed);
+        self.a11y.previous =
+            if self.a11y.options.as_ref() == Some(&options) { self.a11y.report.take().filter(|(prior_id, _)| *prior_id == id) } else { None };
+        self.a11y.options = Some(options);
         self.a11y.report = Some((id, report));
         self.right = Some(RightPanel::Accessibility);
         self.notify(if failed == 0 {
@@ -356,7 +385,9 @@ impl PdfCraftApp {
         let Some((_, report)) = self.a11y.report.as_ref().filter(|(d, _)| *d == id) else { return };
         let Some(doc) = self.session.get(id) else { return };
         let (y, m, d) = self.session.today();
-        let html = pdfcraft_engine::a11y::report_html(report, &doc.name, &format!("{y}-{m:02}-{d:02}"));
+        // The saved report reads the way the interface reads, down to its `lang` attribute.
+        let lang = crate::i18n::current();
+        let html = pdfcraft_engine::a11y::report_html(report, &doc.name, &format!("{y}-{m:02}-{d:02}"), lang.code(), &crate::i18n::words);
         let stem = doc.name.trim_end_matches(".pdf").trim_end_matches(".PDF").to_string();
         let title = tl!("Save the accessibility report").to_string();
         self.write_files(&[(format!("{stem} Accessibility Report.html"), std::sync::Arc::new(html.into_bytes()))], &title);
@@ -367,7 +398,13 @@ impl PdfCraftApp {
             PanelAction::CheckAgain => self.run_accessibility_check(),
             PanelAction::Options => self.dialog = Some(Dialog::AccessibilityOptions),
             PanelAction::ShowReport => self.show_accessibility_report(),
-            PanelAction::GoTo(p) => self.views[index].go_to_page(p),
+            PanelAction::GoTo(p, bbox) => {
+                let view = &mut self.views[index];
+                view.go_to_page(p);
+                if let Some(bbox) = bbox {
+                    view.flash = Some((p, bbox.map(|v| v as f32), 0.0));
+                }
+            }
             PanelAction::Skip(rule) => {
                 self.a11y_skipped.insert(rule);
                 if let Some((_, r)) = self.a11y.report.as_mut()
@@ -440,7 +477,14 @@ fn figure_picture(ctx: &egui::Context, doc: &pdfcraft_engine::Document, f: &pdfc
     };
     let config = pdfcraft_render::RenderConfig { password: doc.password.as_deref().map(std::sync::Arc::from), ..Default::default() };
     let mut r = pdfcraft_render::PageRenderer::new(doc.bytes.clone(), config);
-    let out = r.render(pdfcraft_render::RenderRequest { page, kind: pdfcraft_render::RequestKind::Pixels, tile: Some(tile), scale, tag: 0 });
+    let out = r.render(pdfcraft_render::RenderRequest {
+        page,
+        kind: pdfcraft_render::RequestKind::Pixels,
+        tile: Some(tile),
+        scale,
+        tag: 0,
+        preview: false,
+    });
     if out.error.is_some() || out.width == 0 {
         return None;
     }
@@ -493,10 +537,9 @@ pub(crate) fn alt_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> 
     ui.add_space(8.0);
     ui.add_enabled_ui(!d.decorative[i], |ui| {
         let l = ui.label(tl!("Alternate text"));
-        ui.add(egui::TextEdit::multiline(&mut d.texts[i]).desired_rows(3).desired_width(380.0).hint_text(tl!("Describe the figure")))
-            .labelled_by(l.id);
+        ui.add(crate::widgets::block(&mut d.texts[i]).desired_rows(3).desired_width(380.0).hint_text(tl!("Describe the figure"))).labelled_by(l.id);
     });
-    ui.checkbox(&mut d.decorative[i], tl!("Decorative figure"));
+    ui.add(widgets::checkbox(&mut d.decorative[i], tl!("Decorative figure")));
     ui.add_space(10.0);
     let (mut save, mut cancel) = (false, false);
     ui.horizontal(|ui| {
