@@ -120,6 +120,10 @@ PdfCraft opens files from strangers, and people trust it with their work. A malf
 
 Follow `CLAUDE.md`. It covers quality gates, layering, commit rules and how to run and look at the app.
 
+## 6. User docs
+
+User docs live in `docs/user/` and are published at https://getartcraft.com/docs/pdfcraft. If a change alters something a user sees or does (menu or dialog labels, install, saving, printing, errors), update the matching page in `docs/user/` in the same PR, or add one. Never write Windows 10 in them. Rules: `docs/user/AGENTS.md`.
+
 ## Contributor credits (About window)
 
 - About ▸ Contributors/Models are compiled into the binary from `contributors/contributors.json`
