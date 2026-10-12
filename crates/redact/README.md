@@ -36,6 +36,9 @@ leave it unredacted.
 Structure cleanup resolves named MCIDs and indirect content references. Form content
 references are updated to the cleaned copy; unchanged sibling descriptions remain.
 
+Replacement descriptions are removed only from marked-content spans changed by cleanup.
+Unchanged spans retain their descriptions; unused property entries are retired.
+
 ## Remove hidden information / Sanitize
 
 ```rust
