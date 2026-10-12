@@ -79,8 +79,9 @@ jobs:
           if [ "$merged_ok" = false ]; then
             git merge --abort
             title="Fork sync: merge conflict with storytold/pdfcraft"
+            list="$(while IFS= read -r f; do printf -- "- \`%s\`\n" "$f"; done <<<"$files")"
             body="$(printf 'Upstream main (%s) could not be merged automatically. These files conflict:\n\n%s\n\nResolve it locally:\n\n    git remote add upstream %s   # once\n    git fetch upstream\n    git merge upstream/main\n    # fix the files, then commit and push to main\n\nThe next scheduled sync continues from there. See docs/fork.md.' \
-              "$(git rev-parse --short upstream/main)" "$(printf '%s\n' "$files" | sed 's/^/- `/; s/$/`/')" "$UPSTREAM")"
+              "$(git rev-parse --short upstream/main)" "$list" "$UPSTREAM")"
             gh label create fork-sync --color D93F0B --description "Upstream sync needs attention" 2>/dev/null || true
             existing="$(gh issue list --label fork-sync --state open --json number --jq '.[0].number')"
             if [ -n "$existing" ]; then
