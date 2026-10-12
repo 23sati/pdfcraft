@@ -139,6 +139,8 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 ## Progress log
 
+- **2026-10-12 (M1, #1337):** COS opening checks the next-object addition and returns a descriptive error for exhausted cross-reference object numbers. Classic-table and stream regressions reproduce the former panic; ordinary, zero-offset and repaired-range controls preserve opening and allocation. Estimates unchanged.
+
 - **2026-10-12 (M7, #1200 candidate):** Bounded local GoToR file specifications open in desktop tabs; explicit numeric page views apply, while named destinations open at the default view with a warning. The automation tool resolves relative to the source and uses existing `--root` confinement. Appearance-only Link Properties edits preserve the existing action. URL/network paths remain refused; `/NewWindow` is a tab hint. Estimates unchanged.
 - **2026-10-12 (M7, private image crops):** Exclusive image crops resize with their pixels across nested states, intervening operators and content streams; shared clips remain fixed. Synthetic engine/tool regressions and private image save/reopen checks; estimates unchanged.
 
