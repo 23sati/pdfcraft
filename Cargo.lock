@@ -3545,10 +3545,14 @@ dependencies = [
 name = "pdfcraft"
 version = "0.5.0"
 dependencies = [
+ "android-activity",
  "eframe",
  "egui",
  "fmv-macos-events",
+ "jni",
  "log",
+ "ndk",
+ "ndk-context",
  "pdfcraft-ui-egui",
  "pollster 1.0.1",
  "rustls-native-certs",
