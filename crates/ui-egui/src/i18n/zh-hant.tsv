@@ -2131,9 +2131,9 @@ key	Space	空格
 scroll speed	Slow	慢
 scroll speed	Normal	正常
 scroll speed	Fast	快
-	Smooth scrolling	平滑捲動
-smooth scrolling	On	開
-smooth scrolling	Off	關
+	Animation effects	動畫效果
+animation effects	On	開
+animation effects	Off	關
 	Table rows belong directly in a table or its head, body or foot. Fix the table's tags.	表格列應直接位於表格或其表頭、主體、表尾內。請修正表格標記。
 	Enhance camera image	增強相機影像
 	Drag the corners onto the document's edges, then choose Enhance page.	將四個角拖曳到文件邊緣，然後選擇「增強頁面」。

@@ -314,8 +314,8 @@ fn app_creator<'a>(
         }
         app.integrated_titlebar = integrated;
         app.system_text_scale = text_scale::system();
-        // Windows' Animation effects setting: with it off nothing animates, and the wheel doesn't
-        // ease unless Preferences ▸ Smooth scrolling says so.
+        // Windows' Animation effects setting, which Preferences ▸ Animation effects follows unless
+        // it is set to On or Off.
         #[cfg(target_os = "windows")]
         {
             app.motion.source = Some(motion::source());

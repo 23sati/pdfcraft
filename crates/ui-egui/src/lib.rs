@@ -468,8 +468,8 @@ pub struct PdfCraftApp {
     desktop_theme_enabled: bool,
     /// How far a mouse-wheel notch scrolls.
     pub scroll_speed: scroll_speed::ScrollSpeed,
-    /// Preferences ▸ Smooth scrolling: eased, at once, or as the system's animation setting says.
-    pub smooth_scrolling: motion::SmoothScrolling,
+    /// Preferences ▸ Animation effects: on, off, or as the system's animation setting says.
+    pub animation_effects: motion::AnimationEffects,
     /// Whether the system asked for no animations, and how the desktop app asks it.
     pub motion: motion::Motion,
     /// Interface language preference: `auto` (follow the system) or a code from [`i18n::LANGUAGES`].
@@ -797,7 +797,7 @@ impl PdfCraftApp {
             #[cfg(target_os = "linux")]
             desktop_theme_enabled: false,
             scroll_speed: scroll_speed::ScrollSpeed::default(),
-            smooth_scrolling: motion::SmoothScrolling::default(),
+            animation_effects: motion::AnimationEffects::default(),
             motion: motion::Motion::default(),
             language: i18n::AUTO.to_string(),
             ui_scale: None,
@@ -1636,7 +1636,7 @@ impl PdfCraftApp {
             "pinned_folders": self.pinned.folders,
             "theme": self.theme_preference,
             "scroll_speed": self.scroll_speed,
-            "smooth_scrolling": self.smooth_scrolling,
+            "animation_effects": self.animation_effects,
             "default_mode": self.default_mode,
             "default_layout": canvas::display_token(self.view_defaults.layout, self.view_defaults.continuous),
             "default_zoom": self.view_defaults.zoom_name(),
@@ -1722,8 +1722,8 @@ impl PdfCraftApp {
         if let Ok(speed) = serde_json::from_value::<scroll_speed::ScrollSpeed>(v["scroll_speed"].clone()) {
             self.scroll_speed = speed;
         }
-        if let Ok(smooth) = serde_json::from_value::<motion::SmoothScrolling>(v["smooth_scrolling"].clone()) {
-            self.smooth_scrolling = smooth;
+        if let Ok(effects) = serde_json::from_value::<motion::AnimationEffects>(v["animation_effects"].clone()) {
+            self.animation_effects = effects;
         }
         if let Ok(mode) = serde_json::from_value::<Mode>(v["default_mode"].clone()) {
             self.default_mode = mode;
@@ -1851,8 +1851,8 @@ impl PdfCraftApp {
             ("scroll_speed", _) => {
                 self.scroll_speed = scroll_speed::ScrollSpeed::parse(value).ok_or("scroll_speed must be slow, normal, or fast")?;
             }
-            ("smooth_scrolling", _) => {
-                self.smooth_scrolling = motion::SmoothScrolling::parse(value).ok_or("smooth_scrolling must be system, on, or off")?;
+            ("animation_effects", _) => {
+                self.animation_effects = motion::AnimationEffects::parse(value).ok_or("animation_effects must be system, on, or off")?;
             }
             ("panel", _) => {
                 self.right = match value {
@@ -2285,8 +2285,8 @@ impl eframe::App for PdfCraftApp {
         self.startup_superseded |= !self.views.is_empty() || self.combine_showing() || self.dialog.is_some() || self.password_prompt.is_some();
         // Also done in `raw_input_hook`, before input; here for hosts that don't call the hook.
         self.scroll_speed.set_line_speed(ctx);
-        // Before anything reads this frame's wheel input, and with the line speed just set.
-        self.motion.begin_pass(ctx, self.smooth_scrolling);
+        // Before anything reads this frame's wheel input or draws, and with the line speed just set.
+        self.motion.begin_pass(ctx, self.animation_effects);
         // Before taking this frame's drop: the grid must be drawn once with the pointer where
         // the files were let go before the gap is read.
         self.finish_grid_drop(ctx);

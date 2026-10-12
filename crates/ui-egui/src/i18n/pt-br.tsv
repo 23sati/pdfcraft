@@ -2270,9 +2270,9 @@ calendar date	December	dezembro
 scroll speed	Slow	Lenta
 scroll speed	Normal	Normal
 scroll speed	Fast	Rápida
-	Smooth scrolling	Rolagem suave
-smooth scrolling	On	Ativada
-smooth scrolling	Off	Desativada
+	Animation effects	Efeitos de animação
+animation effects	On	Ativados
+animation effects	Off	Desativados
 	Enhance camera image	Aprimorar foto da câmera
 	Drag the corners onto the document's edges, then choose Enhance page.	Arraste os cantos até as bordas do documento e escolha Aprimorar página.
 	Enhance page	Aprimorar página

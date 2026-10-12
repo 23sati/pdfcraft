@@ -2256,9 +2256,9 @@ key	Space	Espace
 scroll speed	Slow	Lente
 scroll speed	Normal	Normale
 scroll speed	Fast	Rapide
-	Smooth scrolling	Défilement fluide
-smooth scrolling	On	Activé
-smooth scrolling	Off	Désactivé
+	Animation effects	Effets d'animation
+animation effects	On	Activés
+animation effects	Off	Désactivés
 	Enhance camera image	Améliorer la photo d'un document
 	Drag the corners onto the document's edges, then choose Enhance page.	Faites glisser les coins sur les bords du document, puis choisissez Améliorer la page.
 	Enhance page	Améliorer la page

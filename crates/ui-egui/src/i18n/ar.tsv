@@ -2277,9 +2277,9 @@ key	Space	مسافة
 scroll speed	Slow	بطيئة
 scroll speed	Normal	عادية
 scroll speed	Fast	سريعة
-	Smooth scrolling	التمرير السلس
-smooth scrolling	On	مفعّل
-smooth scrolling	Off	معطّل
+	Animation effects	تأثيرات الحركة
+animation effects	On	مفعّلة
+animation effects	Off	معطّلة
 	Enhance camera image	تحسين صورة الكاميرا
 	Drag the corners onto the document's edges, then choose Enhance page.	اسحب الزوايا إلى حواف المستند، ثم اختر تحسين الصفحة.
 	Enhance page	تحسين الصفحة

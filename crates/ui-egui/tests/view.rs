@@ -257,12 +257,12 @@ fn precise_touchpad_wheel_scrolls_one_to_one() {
 }
 
 /// The 40 frames from one wheel notch on, with the system asking for no animations (Windows'
-/// Animation effects turned off) or not, and Preferences ▸ Smooth scrolling as given: how far
+/// Animation effects turned off) or not, and Preferences ▸ Animation effects as given: how far
 /// page 1 has moved up in each frame, or with ⌘/Ctrl held, the view's zoom.
-fn frames_after_a_notch(system_reduced: bool, smooth_scrolling: &str, zooming: bool) -> Vec<f32> {
+fn frames_after_a_notch(system_reduced: bool, animation_effects: &str, zooming: bool) -> Vec<f32> {
     let mut h = harness_stepping(1.0 / 60.0, &[("layout", "continuous"), ("zoom", "100")]);
     h.state_mut().motion.reduced = system_reduced;
-    h.state_mut().set_option("smooth_scrolling", smooth_scrolling).unwrap();
+    h.state_mut().set_option("animation_effects", animation_effects).unwrap();
     let at = h.state().views[0].viewport_rect().center();
     h.hover_at(at);
     h.run_steps(2);
@@ -277,52 +277,55 @@ fn frames_after_a_notch(system_reduced: bool, smooth_scrolling: &str, zooming: b
         .collect()
 }
 
-/// The system's answer and the Smooth scrolling choice, for each way to scroll at once and each
-/// way to ease.
+/// The system's answer and the Animation effects choice, for each way to have them off and
+/// each way to have them on.
 const AT_ONCE: [(bool, &str); 3] = [(true, "system"), (false, "off"), (true, "off")];
 const EASED: [(bool, &str); 3] = [(false, "system"), (false, "on"), (true, "on")];
 
 #[test]
-fn a_wheel_notch_scrolls_at_once_unless_scrolling_is_smooth() {
+fn a_wheel_notch_scrolls_at_once_with_animation_effects_off() {
     // Eased, egui spreads a notch over about a quarter of a second. At once, the page moves the
     // notch's whole distance in one frame.
     let notch = pdfcraft_ui_egui::scroll_speed::ScrollSpeed::default().line_points();
-    for (system_reduced, smooth) in AT_ONCE {
-        let moved = frames_after_a_notch(system_reduced, smooth, false);
+    for (system_reduced, effects) in AT_ONCE {
+        let moved = frames_after_a_notch(system_reduced, effects, false);
         // The frame the notch arrives in scrolls; the next one draws the page where it stays.
         assert!(
             moved[2..].iter().all(|y| (y - notch).abs() < 0.5),
-            "{smooth}, system reduced {system_reduced}: one notch is {notch} points, all at once: {moved:?}"
+            "{effects}, system reduced {system_reduced}: one notch is {notch} points, all at once: {moved:?}"
         );
     }
-    for (system_reduced, smooth) in EASED {
-        let moved = frames_after_a_notch(system_reduced, smooth, false);
-        assert!(moved[2] < notch * 0.75, "{smooth}, system reduced {system_reduced}: egui eases the notch: {moved:?}");
+    for (system_reduced, effects) in EASED {
+        let moved = frames_after_a_notch(system_reduced, effects, false);
+        assert!(moved[2] < notch * 0.75, "{effects}, system reduced {system_reduced}: egui eases the notch: {moved:?}");
         assert!(
             (moved[39] - notch).abs() < 1.0,
-            "{smooth}, system reduced {system_reduced}: easing changes how long a notch takes, not how far it goes: {moved:?}"
+            "{effects}, system reduced {system_reduced}: easing changes how long a notch takes, not how far it goes: {moved:?}"
         );
     }
 }
 
 #[test]
-fn the_wheel_zooms_a_whole_step_at_once_unless_scrolling_is_smooth() {
+fn the_wheel_zooms_a_whole_step_at_once_with_animation_effects_off() {
     // ⌘/Ctrl with the wheel: egui eases the zoom as it eases scrolling.
     let step = frames_after_a_notch(true, "system", true)[0];
     assert!(step > 1.1, "the notch zoomed in: {step}");
-    for (system_reduced, smooth) in AT_ONCE {
-        let zooms = frames_after_a_notch(system_reduced, smooth, true);
+    for (system_reduced, effects) in AT_ONCE {
+        let zooms = frames_after_a_notch(system_reduced, effects, true);
         assert!(
             zooms.iter().all(|zoom| *zoom == step),
-            "{smooth}, system reduced {system_reduced}: the whole step in the frame the notch arrives, and no more after it: {zooms:?}"
+            "{effects}, system reduced {system_reduced}: the whole step in the frame the notch arrives, and no more after it: {zooms:?}"
         );
     }
-    for (system_reduced, smooth) in EASED {
-        let zooms = frames_after_a_notch(system_reduced, smooth, true);
-        assert!(zooms[0] > 1.0 && zooms[0] < 1.0 + (step - 1.0) * 0.75, "{smooth}, system reduced {system_reduced}: egui eases the notch: {zooms:?}");
+    for (system_reduced, effects) in EASED {
+        let zooms = frames_after_a_notch(system_reduced, effects, true);
+        assert!(
+            zooms[0] > 1.0 && zooms[0] < 1.0 + (step - 1.0) * 0.75,
+            "{effects}, system reduced {system_reduced}: egui eases the notch: {zooms:?}"
+        );
         assert!(
             (zooms[39] / step - 1.0).abs() < 0.01,
-            "{smooth}, system reduced {system_reduced}: easing changes how long a zoom step takes, not how far it goes: {zooms:?}"
+            "{effects}, system reduced {system_reduced}: easing changes how long a zoom step takes, not how far it goes: {zooms:?}"
         );
     }
 }

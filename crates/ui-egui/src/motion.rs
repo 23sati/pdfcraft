@@ -1,8 +1,10 @@
-//! Motion the system asked to do without.
+//! Animation effects, and the system's request to do without them.
 //!
 //! Windows' Settings ▸ Accessibility ▸ Visual effects ▸ Animation effects, turned off, asks
 //! apps not to animate (other systems have a Reduce motion switch for it). The desktop app
-//! reads the setting ([`MotionSource`]); while motion is reduced, nothing in the window eases:
+//! reads the setting ([`MotionSource`]), and Preferences ▸ Animation effects
+//! ([`AnimationEffects`]) follows it unless the user chose On or Off there. With animation
+//! effects off, nothing in the window eases:
 //!
 //! - A wheel notch scrolls its whole distance in the frame it arrives. egui spreads a notch
 //!   over about a quarter of a second and has no switch for that, so each frame's wheel input
@@ -11,29 +13,27 @@
 //! - ⌘/Ctrl-wheel zooms by a notch's whole step at once: egui makes its zoom factor from the
 //!   same eased wheel motion. Views read [`zoom_delta`] instead of egui's.
 //! - Scrolling to a place (a row revealed by the keys, the Hand tool's drag) takes no time.
-//! - egui's other animations (menus fading in, sections opening) take no time.
-//!
-//! Preferences ▸ Smooth scrolling ([`SmoothScrolling`]) decides the first three by itself when
-//! it is On or Off, whatever the system says; the last always follows the system.
+//! - egui's other animations (menus fading in, sections opening) take no time: its style's
+//!   animation time is zero, which the app's own fades and sweeps ask about too ([`animated`]).
 //!
 //! How far anything scrolls or zooms doesn't change, only how long it takes.
 
 use egui::style::ScrollAnimation;
 use egui::{Event, Modifiers, MouseWheelUnit, TouchPhase, Vec2, vec2};
 
-/// Preferences ▸ Smooth scrolling: whether the wheel's scrolling and zooming, and scrolling to
-/// a place, are eased.
+/// Preferences ▸ Animation effects: whether anything in the window is animated, the wheel's
+/// scrolling and zooming included.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum SmoothScrolling {
-    /// Eased unless the system asks for no animations ([`Motion::reduced`]).
+pub enum AnimationEffects {
+    /// Animated unless the system asks for no animations ([`Motion::reduced`]).
     #[default]
     System,
     On,
     Off,
 }
 
-impl SmoothScrolling {
+impl AnimationEffects {
     pub const ALL: [Self; 3] = [Self::System, Self::On, Self::Off];
 
     pub fn label(self) -> &'static str {
@@ -57,8 +57,8 @@ impl SmoothScrolling {
         Self::ALL.into_iter().find(|choice| choice.name().eq_ignore_ascii_case(value))
     }
 
-    /// Whether scrolling is eased, given whether the system asks for no animations.
-    pub fn eases(self, system_reduced: bool) -> bool {
+    /// Whether the window animates, given whether the system asks for no animations.
+    pub fn animates(self, system_reduced: bool) -> bool {
         match self {
             Self::System => !system_reduced,
             Self::On => true,
@@ -76,7 +76,7 @@ pub type MotionSource = Box<dyn Fn() -> Option<bool>>;
 /// this away from the window, so the first frame back already follows it.
 const ASK_EVERY: f64 = 2.0;
 
-/// Whether the window animates, and what it takes to stop egui from doing so.
+/// What the system says about animations, and what it takes to stop egui's.
 pub struct Motion {
     /// The system asks for no animations. The desktop app's [`Self::source`] sets it; false
     /// elsewhere, so tests and screenshots don't depend on the machine.
@@ -97,8 +97,8 @@ impl Default for Motion {
 }
 
 impl Motion {
-    /// Call once at the start of every pass, before any ui reads the wheel.
-    pub(crate) fn begin_pass(&mut self, ctx: &egui::Context, smooth: SmoothScrolling) {
+    /// Call once at the start of every pass, before any ui reads the wheel or draws.
+    pub(crate) fn begin_pass(&mut self, ctx: &egui::Context, effects: AnimationEffects) {
         let now = ctx.input(|i| i.time);
         // `>=` is false for a NaN time, which then never asks.
         if now - self.asked_at >= ASK_EVERY
@@ -109,9 +109,9 @@ impl Motion {
                 self.reduced = reduced;
             }
         }
-        let eases = smooth.eases(self.reduced);
-        self.sync_style(ctx, eases);
-        if eases {
+        let animate = effects.animates(self.reduced);
+        self.sync_style(ctx, animate);
+        if animate {
             // A gesture begun while easing is egui's to finish.
             self.wheel = WheelReader::default();
             return;
@@ -123,24 +123,29 @@ impl Motion {
         ctx.data_mut(|d| d.insert_temp(zoom_id(), (pass, motion.zoom)));
     }
 
-    /// egui's animations take no time while the system asks for none, and scrolling to a place
-    /// takes none unless scrolling `eases`; otherwise both keep the times egui had.
-    fn sync_style(&mut self, ctx: &egui::Context, eases: bool) {
-        let unchanged = !self.reduced && eases;
-        if unchanged && self.egui_times.is_none() {
+    /// egui's animations, and its scrolling to a place, take no time unless the window is to
+    /// `animate`; then both get back the times egui had.
+    fn sync_style(&mut self, ctx: &egui::Context, animate: bool) {
+        if animate && self.egui_times.is_none() {
             return;
         }
         // Checked every pass, so a style replaced since can't bring the animations back.
         let style = ctx.global_style();
-        let (time, scroll) = *self.egui_times.get_or_insert((style.animation_time, style.scroll_animation));
-        let wanted = (if self.reduced { 0.0 } else { time }, if eases { scroll } else { ScrollAnimation::none() });
+        let egui_times = *self.egui_times.get_or_insert((style.animation_time, style.scroll_animation));
+        let wanted = if animate { egui_times } else { (0.0, ScrollAnimation::none()) };
         if (style.animation_time, style.scroll_animation) != wanted {
             ctx.all_styles_mut(|s| (s.animation_time, s.scroll_animation) = wanted);
         }
-        if unchanged {
+        if animate {
             self.egui_times = None;
         }
     }
+}
+
+/// Whether the window animates this pass. The app's own fades and sweeps, which have their own
+/// durations, ask this; egui's animations stop by themselves ([`Motion::begin_pass`]).
+pub(crate) fn animated(ctx: &egui::Context) -> bool {
+    ctx.global_style().animation_time > 0.0
 }
 
 fn zoom_id() -> egui::Id {
@@ -148,7 +153,7 @@ fn zoom_id() -> egui::Id {
 }
 
 /// This pass's zoom factor from a pinch or ⌘/Ctrl with the wheel (1.0 for none): egui's
-/// `zoom_delta`, without the easing unless scrolling is eased.
+/// `zoom_delta`, without the easing while animation effects are off.
 pub(crate) fn zoom_delta(ctx: &egui::Context) -> f32 {
     let read: Option<(u64, f32)> = ctx.data(|d| d.get_temp(zoom_id()));
     let pass = ctx.cumulative_pass_nr();
@@ -374,7 +379,7 @@ mod tests {
         let mut events = vec![notch(-1.0, Modifiers::NONE)];
         for _ in 0..30 {
             pass(&ctx, &mut time, std::mem::take(&mut events), |ctx| {
-                motion.begin_pass(ctx, SmoothScrolling::System);
+                motion.begin_pass(ctx, AnimationEffects::System);
                 seen.push(ctx.input(|i| i.smooth_scroll_delta));
             });
         }
@@ -392,7 +397,7 @@ mod tests {
         let mut events = vec![notch(1.0, Modifiers::COMMAND)];
         for _ in 0..30 {
             pass(&ctx, &mut time, std::mem::take(&mut events), |ctx| {
-                motion.begin_pass(ctx, SmoothScrolling::System);
+                motion.begin_pass(ctx, AnimationEffects::System);
                 zooms.push(zoom_delta(ctx));
             });
         }
@@ -405,7 +410,7 @@ mod tests {
         let mut events = vec![notch(1.0, Modifiers::COMMAND)];
         for _ in 0..3 {
             pass(&ctx, &mut time, std::mem::take(&mut events), |ctx| {
-                motion.begin_pass(ctx, SmoothScrolling::System);
+                motion.begin_pass(ctx, AnimationEffects::System);
                 eased.push((zoom_delta(ctx), ctx.input(|i| i.zoom_delta())));
             });
         }
@@ -416,56 +421,89 @@ mod tests {
     }
 
     #[test]
-    fn the_preference_decides_scrolling_and_the_system_the_other_animations() {
-        use SmoothScrolling::{Off, On, System};
-        assert_eq!(SmoothScrolling::default(), System, "the system's setting is followed unless the user chooses");
-        for choice in SmoothScrolling::ALL {
-            assert_eq!(SmoothScrolling::parse(choice.name()), Some(choice));
+    fn the_preference_overrides_the_system_for_every_animation() {
+        use AnimationEffects::{Off, On, System};
+        assert_eq!(AnimationEffects::default(), System, "the system's setting is followed unless the user chooses");
+        for choice in AnimationEffects::ALL {
+            assert_eq!(AnimationEffects::parse(choice.name()), Some(choice));
         }
-        assert_eq!((SmoothScrolling::parse("OFF"), SmoothScrolling::parse("smooth")), (Some(Off), None));
+        assert_eq!((AnimationEffects::parse("OFF"), AnimationEffects::parse("smooth")), (Some(Off), None));
         let (line, egui_default) = (egui::InputOptions::default().line_scroll_speed, egui::Style::default());
-        // The system's answer, the choice, and whether a notch then lands whole in its pass.
-        for (reduced, smooth, at_once) in
-            [(false, System, false), (true, System, true), (false, On, false), (true, On, false), (false, Off, true), (true, Off, true)]
+        let egui_times = (egui_default.animation_time, egui_default.scroll_animation);
+        // The system's answer, the choice, and whether the window then animates.
+        for (reduced, effects, animates) in
+            [(false, System, true), (true, System, false), (false, On, true), (true, On, true), (false, Off, false), (true, Off, false)]
         {
-            assert_eq!(smooth.eases(reduced), !at_once, "{smooth:?}, system reduced: {reduced}");
+            assert_eq!(effects.animates(reduced), animates, "{effects:?}, system reduced: {reduced}");
             let ctx = egui::Context::default();
             let mut motion = Motion { reduced, ..Default::default() };
             let (mut time, mut first) = (0.0, None);
             pass(&ctx, &mut time, vec![notch(-1.0, Modifiers::NONE)], |ctx| {
-                motion.begin_pass(ctx, smooth);
-                first = Some(ctx.input(|i| i.smooth_scroll_delta));
+                motion.begin_pass(ctx, effects);
+                first = Some((ctx.input(|i| i.smooth_scroll_delta), animated(ctx)));
             });
-            assert_eq!(first == Some(vec2(0.0, -line)), at_once, "{smooth:?}, system reduced: {reduced}: {first:?}");
+            // The wheel, egui's animations and the app's own fades all go the same way.
+            let whole_notch = first.map(|(scroll, _)| scroll) == Some(vec2(0.0, -line));
+            assert_eq!(
+                (whole_notch, first.map(|(_, animated)| animated)),
+                (!animates, Some(animates)),
+                "{effects:?}, system reduced: {reduced}: {first:?}"
+            );
             let style = ctx.global_style();
-            // Scrolling to a place goes with the wheel; menus and sections follow the system alone.
-            let scroll_to = if at_once { ScrollAnimation::none() } else { egui_default.scroll_animation };
-            let other = if reduced { 0.0 } else { egui_default.animation_time };
-            assert_eq!((style.scroll_animation, style.animation_time), (scroll_to, other), "{smooth:?}, system reduced: {reduced}");
+            let times = if animates { egui_times } else { (0.0, ScrollAnimation::none()) };
+            assert_eq!((style.animation_time, style.scroll_animation), times, "{effects:?}, system reduced: {reduced}");
         }
         // A choice made while running applies from the next pass, and choosing back undoes it.
         let ctx = egui::Context::default();
         let mut motion = Motion::default();
         let mut time = 0.0;
-        for (smooth, scroll_to) in [(Off, ScrollAnimation::none()), (System, egui_default.scroll_animation), (Off, ScrollAnimation::none())] {
-            pass(&ctx, &mut time, Vec::new(), |ctx| motion.begin_pass(ctx, smooth));
+        for (effects, times) in [(Off, (0.0, ScrollAnimation::none())), (System, egui_times), (Off, (0.0, ScrollAnimation::none())), (On, egui_times)]
+        {
+            pass(&ctx, &mut time, Vec::new(), |ctx| motion.begin_pass(ctx, effects));
             let style = ctx.global_style();
-            assert_eq!((style.scroll_animation, style.animation_time), (scroll_to, egui_default.animation_time), "{smooth:?}");
+            assert_eq!((style.animation_time, style.scroll_animation), times, "{effects:?}");
         }
         // The row's labels are translated: the heading, and On and Off as they suit it.
         let de = crate::i18n::Lang::from_code("de").expect("German ships");
-        assert_eq!(crate::i18n::tr(de, "Smooth scrolling"), "Sanftes Scrollen");
-        let labels: Vec<&str> = SmoothScrolling::ALL.into_iter().map(|choice| crate::i18n::tr_ctx(de, "smooth scrolling", choice.label())).collect();
+        assert_eq!(crate::i18n::tr(de, "Animation effects"), "Animationseffekte");
+        let labels: Vec<&str> =
+            AnimationEffects::ALL.into_iter().map(|choice| crate::i18n::tr_ctx(de, "animation effects", choice.label())).collect();
         assert_eq!(labels, ["Systemeinstellung verwenden", "Ein", "Aus"]);
         for lang in crate::i18n::Lang::all() {
-            for english in ["Smooth scrolling", "On", "Off"] {
-                let shown = if english == "Smooth scrolling" {
+            for english in ["Animation effects", "On", "Off"] {
+                let shown = if english == "Animation effects" {
                     crate::i18n::tr(lang, english)
                 } else {
-                    crate::i18n::tr_ctx(lang, "smooth scrolling", english)
+                    crate::i18n::tr_ctx(lang, "animation effects", english)
                 };
                 assert!(lang.code() == "en" || shown != english, "{}: {english} is not translated", lang.code());
             }
+        }
+    }
+
+    /// The chrome's hover wash has a duration of its own (`theme::Press`): it eases in with
+    /// animation effects on and is simply there with them off.
+    #[test]
+    fn the_hover_wash_eases_only_with_animation_effects_on() {
+        for (effects, eased) in [(AnimationEffects::On, true), (AnimationEffects::Off, false)] {
+            let ctx = egui::Context::default();
+            let mut motion = Motion::default();
+            let (mut time, mut hover) = (0.0, Vec::new());
+            for _ in 0..12 {
+                time += 1.0 / 60.0;
+                let raw = egui::RawInput { time: Some(time), events: vec![Event::PointerMoved(egui::pos2(20.0, 20.0))], ..Default::default() };
+                ctx.run_ui(raw, |ui| {
+                    motion.begin_pass(ui.ctx(), effects);
+                    let (_, response) = ui.allocate_exact_size(vec2(100.0, 40.0), egui::Sense::click());
+                    hover.push(crate::theme::Press::track(ui, &response).hover);
+                })
+                .textures_delta
+                .clear();
+            }
+            // The first frame the pointer is found over the control.
+            let first = hover.iter().copied().find(|amount| *amount > 0.0).expect("the pointer is over the control");
+            assert_eq!(first < 1.0, eased, "{effects:?}: {hover:?}");
+            assert_eq!(hover.last(), Some(&1.0), "{effects:?}: the wash is whole in the end either way: {hover:?}");
         }
     }
 
@@ -475,7 +513,7 @@ mod tests {
         let mut motion = Motion { reduced: true, ..Default::default() };
         let mut time = 0.0;
         pass(&ctx, &mut time, vec![notch(1.0, Modifiers::COMMAND)], |ctx| {
-            motion.begin_pass(ctx, SmoothScrolling::System);
+            motion.begin_pass(ctx, AnimationEffects::System);
             assert!(zoom_delta(ctx) > 1.0);
         });
         // A pass that didn't begin here (a host that draws without `logic`): egui's own answer.
@@ -499,21 +537,21 @@ mod tests {
             ..Default::default()
         };
         let mut time = 0.0;
-        pass(&ctx, &mut time, Vec::new(), |ctx| motion.begin_pass(ctx, SmoothScrolling::System));
+        pass(&ctx, &mut time, Vec::new(), |ctx| motion.begin_pass(ctx, AnimationEffects::System));
         assert!(motion.reduced, "asked in the first pass");
         answer.set(Some(false));
         for _ in 0..30 {
-            pass(&ctx, &mut time, Vec::new(), |ctx| motion.begin_pass(ctx, SmoothScrolling::System));
+            pass(&ctx, &mut time, Vec::new(), |ctx| motion.begin_pass(ctx, AnimationEffects::System));
         }
         assert!(motion.reduced && asked.get() == 1, "not asked again within half a second ({} times)", asked.get());
         // Back at the window later: the first pass asks.
         time += ASK_EVERY;
-        pass(&ctx, &mut time, Vec::new(), |ctx| motion.begin_pass(ctx, SmoothScrolling::System));
+        pass(&ctx, &mut time, Vec::new(), |ctx| motion.begin_pass(ctx, AnimationEffects::System));
         assert!(!motion.reduced);
         answer.set(None);
         motion.reduced = true;
         time += ASK_EVERY;
-        pass(&ctx, &mut time, Vec::new(), |ctx| motion.begin_pass(ctx, SmoothScrolling::System));
+        pass(&ctx, &mut time, Vec::new(), |ctx| motion.begin_pass(ctx, AnimationEffects::System));
         assert!(motion.reduced && asked.get() == 3, "no answer leaves the last one standing");
     }
 }

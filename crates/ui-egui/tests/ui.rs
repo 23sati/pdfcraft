@@ -856,37 +856,40 @@ fn preferences_selects_default_workspace_for_next_open() {
     assert_eq!(h.state().mode, Mode::Read);
 }
 
-/// Preferences ▸ Smooth scrolling: the system's animation setting until the user chooses On or
+/// Preferences ▸ Animation effects: the system's animation setting until the user chooses On or
 /// Off. The choice is saved, and settings holding anything else leave it alone.
 #[test]
-fn preferences_choose_smooth_scrolling_and_the_choice_is_saved() {
+fn preferences_choose_animation_effects_and_the_choice_is_saved() {
     use egui::accesskit::Role;
-    use pdfcraft_ui_egui::motion::SmoothScrolling;
+    use pdfcraft_ui_egui::motion::AnimationEffects;
     let mut h = harness(|app| app.set_option("dialog", "preferences").unwrap());
-    assert_eq!(h.state().smooth_scrolling, SmoothScrolling::System);
-    h.get_by_label("Smooth scrolling");
-    for (label, choice) in
-        [("Off", SmoothScrolling::Off), ("On", SmoothScrolling::On), ("Use system setting", SmoothScrolling::System), ("Off", SmoothScrolling::Off)]
-    {
+    assert_eq!(h.state().animation_effects, AnimationEffects::System);
+    h.get_by_label("Animation effects");
+    for (label, choice) in [
+        ("Off", AnimationEffects::Off),
+        ("On", AnimationEffects::On),
+        ("Use system setting", AnimationEffects::System),
+        ("Off", AnimationEffects::Off),
+    ] {
         h.get_by_role_and_label(Role::RadioButton, label).scroll_to_me();
         h.run_steps(4);
         h.get_by_role_and_label(Role::RadioButton, label).click();
         h.run_steps(2);
-        assert_eq!(h.state().smooth_scrolling, choice, "{label}");
+        assert_eq!(h.state().animation_effects, choice, "{label}");
     }
     let saved = h.state().persist();
-    assert!(saved.contains(r#""smooth_scrolling":"off""#), "{saved}");
+    assert!(saved.contains(r#""animation_effects":"off""#), "{saved}");
     let mut restored = PdfCraftApp::new();
     restored.restore(&saved);
-    assert_eq!(restored.smooth_scrolling, SmoothScrolling::Off);
+    assert_eq!(restored.animation_effects, AnimationEffects::Off);
     let mut fresh = PdfCraftApp::new();
-    fresh.restore(&saved.replace(r#""smooth_scrolling":"off""#, r#""smooth_scrolling":"sideways""#));
-    assert_eq!(fresh.smooth_scrolling, SmoothScrolling::System);
+    fresh.restore(&saved.replace(r#""animation_effects":"off""#, r#""animation_effects":"sideways""#));
+    assert_eq!(fresh.animation_effects, AnimationEffects::System);
     // The control channel and the command line take the same three names.
-    fresh.set_option("smooth_scrolling", "ON").unwrap();
-    assert_eq!(fresh.smooth_scrolling, SmoothScrolling::On);
-    assert!(fresh.set_option("smooth_scrolling", "sideways").unwrap_err().contains("system, on, or off"));
-    assert_eq!(fresh.smooth_scrolling, SmoothScrolling::On);
+    fresh.set_option("animation_effects", "ON").unwrap();
+    assert_eq!(fresh.animation_effects, AnimationEffects::On);
+    assert!(fresh.set_option("animation_effects", "sideways").unwrap_err().contains("system, on, or off"));
+    assert_eq!(fresh.animation_effects, AnimationEffects::On);
 }
 
 #[test]

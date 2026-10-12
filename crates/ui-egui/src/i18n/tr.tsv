@@ -2249,9 +2249,9 @@ key	Space	Boşluk
 scroll speed	Slow	Yavaş
 scroll speed	Normal	Orta
 scroll speed	Fast	Hızlı
-	Smooth scrolling	Yumuşak kaydırma
-smooth scrolling	On	Açık
-smooth scrolling	Off	Kapalı
+	Animation effects	Animasyon efektleri
+animation effects	On	Açık
+animation effects	Off	Kapalı
 	Enhance camera image	Kamera görüntüsünü iyileştir
 	Drag the corners onto the document's edges, then choose Enhance page.	Köşeleri belgenin kenarlarına sürükleyin, ardından Sayfayı iyileştir'i seçin.
 	Enhance page	Sayfayı iyileştir

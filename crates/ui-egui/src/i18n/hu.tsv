@@ -2255,9 +2255,9 @@ key	Space	Szóköz
 scroll speed	Slow	Lassú
 scroll speed	Normal	Normál
 scroll speed	Fast	Gyors
-	Smooth scrolling	Finom görgetés
-smooth scrolling	On	Be
-smooth scrolling	Off	Ki
+	Animation effects	Animációs effektusok
+animation effects	On	Be
+animation effects	Off	Ki
 	Enhance camera image	Kamerakép javítása
 	Drag the corners onto the document's edges, then choose Enhance page.	Húzza a sarkokat a dokumentum széleire, majd válassza az Oldal javítása lehetőséget.
 	Enhance page	Oldal javítása

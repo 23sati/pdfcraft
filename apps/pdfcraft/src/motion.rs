@@ -1,5 +1,5 @@
-//! The system's "no animations" setting, which `pdfcraft_ui_egui::motion` follows (and Preferences ▸
-//! Smooth scrolling, unless it is set to On or Off).
+//! The system's "no animations" setting, which Preferences ▸ Animation effects follows unless it is
+//! set to On or Off (`pdfcraft_ui_egui::motion`).
 //!
 //! Windows: Settings ▸ Accessibility ▸ Visual effects ▸ Animation effects (in the Control Panel,
 //! "Show animations in Windows"), read through WinRT's `UISettings.AnimationsEnabled`. Other
