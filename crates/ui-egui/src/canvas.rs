@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use egui::{Align2, Color32, CornerRadius, Pos2, Rect, Sense, Stroke, TextureHandle, TextureOptions, Vec2, pos2, vec2};
 use pdfcraft_engine::{DocId, Edit};
-use pdfcraft_render::{DestView, DocInfo, LayerOp, LinkTarget, PageText, RenderPool, RenderRequest, RequestKind, Tile, device_pixels};
+use pdfcraft_render::{DestView, DocInfo, LayerOp, LinkTarget, PRINT_TAG, PageText, RenderPool, RenderRequest, RequestKind, Tile, device_pixels};
 
 use crate::theme::{self, Tokens};
 use crate::{PdfCraftApp, QuickTool, RightPanel, comments, icons, widgets};
@@ -34,8 +34,6 @@ const TILE_THRESHOLD: f32 = 4096.0;
 const TILE: u32 = 1024;
 /// Longest side of the backdrop drawn under tiles, and of a live page preview (signature drag).
 pub(crate) const BASE_SIDE: f32 = 2048.0;
-/// Print-preview rasters (distinct from thumbnails and from organize-grid renders).
-const PRINT_TAG: u64 = 1 << 60;
 /// Thumbnail slot before density scaling. The pages panel draws at most 150 logical points and
 /// the organize grid about 146; when the byte budget allows, density reaches the screen so those
 /// images are sampled down instead of stretched.
@@ -1713,6 +1711,8 @@ impl DocView {
     }
 
     /// Queue sharp rasters for the print preview. Pages that leave the nearby sheets are dropped.
+    /// Previews render with reading colours off (the request's tag tells the renderer): they must
+    /// match the printout, which is imposed from the uncoloured document.
     pub(crate) fn queue_print_previews(&mut self, pages: &[(usize, f32)]) {
         self.print_pages.retain(|page, _| pages.iter().any(|(p, _)| p == page));
         for &(page, scale) in pages {
@@ -2082,7 +2082,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     }
 
     // Pinch / ctrl+scroll zoom, anchored on the current page.
-    let zoom_delta = ui.input(|i| i.zoom_delta());
+    let zoom_delta = crate::motion::zoom_delta(ui.ctx());
     // Exclude the previous frame's scrollbar tracks from gesture activation.
     let navigation_rect = if view.viewport_screen.is_positive() { avail.intersect(view.viewport_screen) } else { avail };
     let navigation_enabled = app.dialog.is_none() && app.close_request.is_none() && !app.palette_open && ui.is_enabled() && ui.input(|i| i.focused);
@@ -2300,6 +2300,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         || app.pending_link.is_some()
         || app.updates.open;
     let mut clicked_link: Option<LinkTarget> = None;
+    let mut remote_open: Option<(pdfcraft_engine::DocId, String, pdfcraft_render::RemoteDestination)> = None;
     let mut canvas_action: Option<comments::CanvasAction> = None;
     let mut field_menu: Option<FieldMenu> = None;
     let mut open_props: Option<(usize, usize)> = None;
@@ -2885,6 +2886,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                             }
                             LinkTarget::Uri(u) => u.clone(),
                             LinkTarget::SetLayers { .. } => tl!("Set layer visibility").to_string(),
+                            LinkTarget::RemoteGoTo { file, .. } => file.clone(),
                             LinkTarget::Other(s) => crate::i18n::fmt(tl!("{s} action"), &[("s", s)]),
                         };
                         hover_text = Some((p, label));
@@ -3184,6 +3186,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         Some(LinkTarget::Page(p, dest)) => view.go_to_dest(p, dest, info),
         Some(LinkTarget::Uri(u)) => app.request_document_url(&u, crate::LinkOrigin::Link),
         Some(LinkTarget::SetLayers { changes, preserve_rb }) => set_layers(app, index, &changes, preserve_rb),
+        Some(LinkTarget::RemoteGoTo { file, destination, .. }) => remote_open = Some((view.id, file, destination)),
         Some(LinkTarget::Other(s)) => app.notify_fmt("This PDF uses the unsupported {s} action.", &[("s", &s)]),
         None => {}
     }
@@ -3280,6 +3283,9 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         run_button(app, index, &name, action);
     }
     quick_bar(app, avail, ui);
+    if let Some((source, file, destination)) = remote_open {
+        app.open_remote_link(source, file, destination);
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -4329,7 +4335,7 @@ fn organize_grid(view: &mut DocView, info: &DocInfo, editable: bool, dirty: bool
     }
     view.auto_scroll.paint(ui, viewport);
     // Pinch, or Ctrl/⌘ with the wheel, zooms the grid about the page under the pointer.
-    let pinch = ui.input(|i| i.zoom_delta());
+    let pinch = crate::motion::zoom_delta(ui.ctx());
     if (pinch - 1.0).abs() > 0.001 && pointer.is_some() && !middle_gesture {
         view.grid_zoom_request = Some(view.grid_zoom * pinch);
     }
