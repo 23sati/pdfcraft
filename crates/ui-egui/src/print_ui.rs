@@ -195,6 +195,34 @@ pub(crate) struct PrintTasks {
     printers: Option<std::sync::mpsc::Receiver<Vec<spool::Printer>>>,
     #[cfg(not(target_arch = "wasm32"))]
     jobs: Vec<(String, std::sync::mpsc::Receiver<Result<String, String>>)>,
+    /// The browser print being drawn, a sheet a frame (`web_print`).
+    #[cfg(target_arch = "wasm32")]
+    web_job: Option<crate::web_print::WebPrintJob>,
+    /// What went wrong after the browser print page was handed over, with the print-ready PDF
+    /// to download instead.
+    #[cfg(target_arch = "wasm32")]
+    web_failed: std::sync::Arc<std::sync::Mutex<Vec<String>>>,
+    /// The last browser print's PDF and name, for that fallback.
+    #[cfg(target_arch = "wasm32")]
+    web_last: Option<(String, std::sync::Arc<Vec<u8>>)>,
+}
+
+/// The printers to offer when no [`PrinterSource`] is set: the spooler's, or in a browser its
+/// print dialog.
+fn listed_printers() -> Vec<spool::Printer> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        vec![spool::Printer { name: crate::web_print::BROWSER_PRINTER.to_string(), default: true, two_sided: None }]
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        spool::printers()
+    }
+}
+
+/// A printer's name as the dialog shows it.
+fn printer_label(name: &str) -> String {
+    if name == crate::web_print::BROWSER_PRINTER { crate::web_print::browser_printer_label().to_string() } else { name.to_string() }
 }
 
 /// The printer the dialog preselects: the system default, else the first.
@@ -212,7 +240,7 @@ impl PdfCraftApp {
                 self.list_printers_in_background(source);
                 (self.print_draft.printers.clone(), true)
             }
-            _ => (spool::printers(), false),
+            _ => (listed_printers(), false),
         };
         let default = default_printer(&printers);
         let current = self.views[i].current;
@@ -260,6 +288,8 @@ impl PdfCraftApp {
 
     /// Pick up a printer list or a spooled job that finished (each frame).
     pub(crate) fn poll_print(&mut self) {
+        #[cfg(target_arch = "wasm32")]
+        self.poll_web_print();
         #[cfg(not(target_arch = "wasm32"))]
         {
             if let Some(rx) = &self.print_tasks.printers {
@@ -332,6 +362,17 @@ impl PdfCraftApp {
             }
         };
         match self.print_draft.printer.clone() {
+            #[cfg(target_arch = "wasm32")]
+            Some(printer) if printer == crate::web_print::BROWSER_PRINTER => {
+                let sizes: Vec<(f64, f64)> = doc.info.pages.iter().map(|p| (f64::from(p.width), f64::from(p.height))).collect();
+                match print::layout(&sizes, &settings) {
+                    Ok(sheets) => self.print_in_browser(name, bytes, sheets.iter().map(|s| s.size).collect()),
+                    Err(e) => {
+                        self.notify_error(e);
+                        false
+                    }
+                }
+            }
             Some(printer) => self.send_to_printer(printer, bytes, self.print_draft.job(&name)),
             None => self.save_print_pdf(&name, bytes),
         }
@@ -362,6 +403,75 @@ impl PdfCraftApp {
         let ok = result.is_ok();
         self.report_print_job(&printer, result);
         ok
+    }
+
+    /// Print through the browser's print dialog: start drawing `sheets` (the pages of the
+    /// print-ready `bytes`), a sheet a frame in [`PdfCraftApp::poll_print`]. A print still being
+    /// prepared is replaced. The dialog closes at once.
+    #[cfg(target_arch = "wasm32")]
+    fn print_in_browser(&mut self, name: String, bytes: Vec<u8>, sheets: Vec<(f64, f64)>) -> bool {
+        match crate::web_print::WebPrintJob::new(bytes, sheets, name) {
+            Ok(job) => {
+                let n = job.total().to_string();
+                self.print_tasks.web_job = Some(job);
+                self.notify_fmt("Preparing {n} sheets for printing…", &[("n", &n)]);
+                if let Some(ctx) = &self.ctx {
+                    ctx.request_repaint();
+                }
+                true
+            }
+            Err(e) => {
+                self.notify_error(e);
+                false
+            }
+        }
+    }
+
+    /// Draw the next sheet of the browser print, and hand the finished page to the browser.
+    #[cfg(target_arch = "wasm32")]
+    fn poll_web_print(&mut self) {
+        let failed: Vec<String> = self.print_tasks.web_failed.lock().map(|mut q| std::mem::take(&mut *q)).unwrap_or_default();
+        if let Some(e) = failed.into_iter().next() {
+            self.web_print_failed(&e);
+        }
+        let Some(job) = self.print_tasks.web_job.as_mut() else { return };
+        if !job.finished() {
+            if let Err(e) = job.step(&mut crate::web_print::blob_url) {
+                self.print_tasks.web_job = None;
+                self.notify_error(e);
+                return;
+            }
+            let (done, total) = (job.done().to_string(), job.total().to_string());
+            self.notify_fmt("Preparing sheet {done} of {total} for printing…", &[("done", &done), ("total", &total)]);
+            if let Some(ctx) = &self.ctx {
+                ctx.request_repaint();
+            }
+            return;
+        }
+        let Some(mut job) = self.print_tasks.web_job.take() else { return };
+        let html = job.html();
+        let urls = job.take_urls();
+        self.print_tasks.web_last = Some((job.name.clone(), job.pdf.clone()));
+        match crate::web_print::print_in_iframe(&html, urls, self.print_tasks.web_failed.clone(), self.ctx.clone()) {
+            Ok(()) => self.notify_tr("Opening the browser's print dialog…"),
+            Err(e) => self.web_print_failed(&e),
+        }
+    }
+
+    /// The browser wouldn't print (a sandboxed frame, a picture it couldn't decode): offer the
+    /// print-ready PDF as a download instead, so the work isn't lost.
+    #[cfg(target_arch = "wasm32")]
+    fn web_print_failed(&mut self, error: &str) {
+        let Some((name, pdf)) = self.print_tasks.web_last.take() else {
+            self.notify_error(error);
+            return;
+        };
+        let stem = name.trim_end_matches(".pdf").trim_end_matches(".PDF");
+        let file = format!("{stem} (print).pdf");
+        match crate::editing::download(&file, &pdf) {
+            Ok(()) => self.notify_fmt("Couldn't print from the browser ({e}); downloaded {name} to print instead", &[("e", error), ("name", &file)]),
+            Err(_) => self.notify_error(error),
+        }
     }
 
     /// Print ▸ Save as PDF on the desktop: write to `save_override` (tests and automation), or
@@ -551,14 +661,21 @@ pub(crate) fn body(
             egui::Grid::new("print-top").num_columns(2).spacing([10.0, 8.0]).show(ui, |ui| {
                 ui.label(tl!("Printer:"));
                 let before = d.printer.clone();
+                // The browser's print dialog sets copies, two-sided printing and colour itself.
+                let browser = d.printer.as_deref() == Some(crate::web_print::BROWSER_PRINTER);
                 ui.horizontal(|ui| {
-                    let shown = d.printer.clone().unwrap_or_else(|| tl!("Save as PDF").to_string());
+                    let shown = d.printer.as_deref().map_or_else(|| tl!("Save as PDF").to_string(), printer_label);
                     egui::ComboBox::from_id_salt("printer").selected_text(shown).width(260.0).show_ui(ui, |ui| {
                         if d.printers_loading {
                             ui.add_enabled(false, egui::Label::new(tl!("Looking for printers…")));
                         }
                         for p in &d.printers {
-                            let label = if p.default { crate::i18n::fmt(tl!("{name} (default)"), &[("name", &p.name)]) } else { p.name.clone() };
+                            let name = printer_label(&p.name);
+                            let label = if p.default && p.name != crate::web_print::BROWSER_PRINTER {
+                                crate::i18n::fmt(tl!("{name} (default)"), &[("name", &name)])
+                            } else {
+                                name
+                            };
                             ui.selectable_value(&mut d.printer, Some(p.name.clone()), label);
                         }
                         ui.selectable_value(&mut d.printer, None, tl!("Save as PDF"));
@@ -568,7 +685,7 @@ pub(crate) fn body(
                     } else {
                         tl!("The printer driver's own settings for this print: paper tray, paper type, finishing and more.")
                     };
-                    let properties = ui.add_enabled(d.printer.is_some(), egui::Button::new(tl!("Properties…"))).on_hover_text(tip);
+                    let properties = ui.add_enabled(d.printer.is_some() && !browser, egui::Button::new(tl!("Properties…"))).on_hover_text(tip);
                     if properties.clicked()
                         && let Some(p) = d.printer.clone()
                     {
@@ -590,24 +707,28 @@ pub(crate) fn body(
                 }
                 ui.end_row();
                 ui.label(tl!("Copies:"));
-                ui.horizontal(|ui| {
-                    ui.add(egui::DragValue::new(&mut d.copies).range(1..=999));
-                    ui.add(widgets::checkbox(&mut d.collate, tl!("Collate")));
-                    ui.add(widgets::checkbox(&mut d.grayscale, tl!("Print in grayscale")));
+                ui.add_enabled_ui(!browser, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.add(egui::DragValue::new(&mut d.copies).range(1..=999));
+                        ui.add(widgets::checkbox(&mut d.collate, tl!("Collate")));
+                        ui.add(widgets::checkbox(&mut d.grayscale, tl!("Print in grayscale")));
+                    });
                 });
                 ui.end_row();
                 ui.label(tl!("Two-sided:"));
-                combo(
-                    ui,
-                    "duplex",
-                    &mut d.duplex,
-                    &[
-                        (spool::Duplex::Off, tl!("Off")),
-                        (spool::Duplex::LongEdge, tl!("Flip on long edge")),
-                        (spool::Duplex::ShortEdge, tl!("Flip on short edge")),
-                    ],
-                    160.0,
-                );
+                ui.add_enabled_ui(!browser, |ui| {
+                    combo(
+                        ui,
+                        "duplex",
+                        &mut d.duplex,
+                        &[
+                            (spool::Duplex::Off, tl!("Off")),
+                            (spool::Duplex::LongEdge, tl!("Flip on long edge")),
+                            (spool::Duplex::ShortEdge, tl!("Flip on short edge")),
+                        ],
+                        160.0,
+                    );
+                });
                 ui.end_row();
                 ui.label(tl!("Paper:"));
                 let paper_name = PAPERS.get(d.paper).map_or("US Letter", |p| p.0);
@@ -624,6 +745,9 @@ pub(crate) fn body(
                 && p.two_sided == Some(false)
             {
                 ui.label(egui::RichText::new(tl!("This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…")).small().color(t.text_muted));
+            }
+            if d.printer.as_deref() == Some(crate::web_print::BROWSER_PRINTER) {
+                ui.label(egui::RichText::new(tl!("Copies, two-sided printing and colour are chosen in the browser's print dialog.")).small().color(t.text_muted));
             }
             if let Some(e) = &d.driver_error {
                 ui.label(egui::RichText::new(crate::i18n::fmt(tl!("Couldn't open the printer's preferences: {e}"), &[("e", e)])).small().color(t.text_muted));

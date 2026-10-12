@@ -2047,6 +2047,12 @@ fn links_from_urls_and_link_edits() {
     assert_eq!(d.links.len(), 1);
     assert_eq!(d.info.links.len(), 1, "the viewer follows it");
     assert!(s.find_urls(id).is_empty(), "already linked");
+    // Remove all links and undo.
+    s.apply(id, Edit::RemoveLinks { pages: None }).unwrap();
+    assert!(s.get(id).unwrap().links.is_empty());
+    assert_eq!(s.get(id).unwrap().can_undo(), Some("Remove all links"));
+    s.undo(id).unwrap();
+    assert_eq!(s.get(id).unwrap().links.len(), 1);
     // Link Properties and delete.
     let l = s.get(id).unwrap().links[0].clone();
     s.apply(id, Edit::SetLink { page: 0, index: l.index, rect: None, action: Some(LinkAction::Page(0)), style: None }).unwrap();
@@ -2054,6 +2060,42 @@ fn links_from_urls_and_link_edits() {
     s.apply(id, Edit::DeleteLink { page: 0, index: l.index }).unwrap();
     assert!(s.get(id).unwrap().links.is_empty());
     assert!(s.apply(id, Edit::RemoveLinks { pages: None }).is_err(), "nothing left to remove");
+}
+
+#[test]
+fn appearance_only_edit_preserves_gotor_action_semantics() {
+    let objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 200 300] >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /Annots [4 0 R] >>".to_vec(),
+        b"<< /Type /Annot /Subtype /Link /Rect [10 10 80 30] /A << /S /GoToR /F (target.pdf) /D [2 /FitH 180] /NewWindow true >> >>".to_vec(),
+    ];
+    let mut bytes = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, object) in objects.iter().enumerate() {
+        offsets.push(bytes.len());
+        bytes.extend_from_slice(format!("{} 0 obj\n", i + 1).as_bytes());
+        bytes.extend_from_slice(object);
+        bytes.extend_from_slice(b"\nendobj\n");
+    }
+    let xref = bytes.len();
+    bytes.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objects.len() + 1).as_bytes());
+    for offset in offsets {
+        bytes.extend_from_slice(format!("{offset:010} 00000 n \n").as_bytes());
+    }
+    bytes.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objects.len() + 1).as_bytes());
+
+    let mut session = Session::new();
+    let id = session.open("source.pdf", Some("/docs/source.pdf".into()), Arc::new(bytes), None).unwrap();
+    let before = session.get(id).unwrap().info.links[0].target.clone();
+    let mut style = session.get(id).unwrap().links[0].style;
+    style.visible = true;
+    style.width = 2.0;
+    session.apply(id, Edit::SetLink { page: 0, index: 0, rect: None, action: None, style: Some(style) }).unwrap();
+
+    let after = &session.get(id).unwrap().info.links[0].target;
+    assert_eq!(*after, before, "the GoToR file, destination and /NewWindow hint must remain unchanged");
+    assert_eq!(session.get(id).unwrap().links[0].style, style, "the appearance edit is applied");
 }
 
 #[test]
@@ -2106,6 +2148,21 @@ fn comment_summary_includes_replies_to_replies() {
     assert!(text.contains("FIRST_REPLY"), "{text}");
     assert!(text.contains("NESTED_REPLY"), "replies to replies are summarized: {text}");
     assert!(text.contains("        NESTED_REPLY"), "the nested reply is indented under its parent: {text}");
+}
+
+#[test]
+fn reading_colors_set_and_invalidated() {
+    let (mut s, id) = session_with(1);
+    // Every open document holds a value; the default is Off.
+    assert_eq!(s.reading_colors(id), Some(ReadingColors::default()));
+    assert!(s.set_reading_colors(id, ReadingColors::WHITE_ON_BLACK));
+    assert_eq!(s.reading_colors(id), Some(ReadingColors::WHITE_ON_BLACK));
+    assert!(!s.set_reading_colors(id, ReadingColors::WHITE_ON_BLACK), "unchanged");
+    assert!(s.set_reading_colors(id, ReadingColors::default()), "back to Off");
+    assert_eq!(s.reading_colors(id), Some(ReadingColors::default()));
+    // No such document.
+    assert_eq!(s.reading_colors(DocId(u64::MAX)), None);
+    assert!(!s.set_reading_colors(DocId(u64::MAX), ReadingColors::WHITE_ON_BLACK));
 }
 
 #[test]
@@ -3040,6 +3097,7 @@ fn xfa_scripts_initialize_calculate_validate_toggle_and_add_rows() {
     assert_eq!(value(&s, "qty"), vec!["2".to_string()]);
     assert_eq!(value(&s, "total"), vec!["10".to_string()], "{:?}", s.take_js_output(id));
     assert_eq!(value(&s, "grand"), vec!["0".to_string()]);
+    assert!(!s.get(id).unwrap().xfa_scripts_off());
     assert!(!s.get(id).unwrap().dirty);
     assert!(!names(&s).iter().any(|n| n == "note"), "details is hidden");
     // A change recalculates.
@@ -3225,6 +3283,7 @@ fn xfa_scripts_stay_off_with_javascript_off() {
     let qty = s.get(id).unwrap().form.iter().find(|f| f.name == "qty").unwrap().value.clone();
     assert!(qty.is_empty(), "no initialize script ran");
     assert!(s.run_javascript(id, "", Some("addRow")).is_err());
+    assert!(!s.get(id).unwrap().xfa_scripts_off(), "the preference, not a script that ran away");
 }
 
 #[test]
@@ -3346,11 +3405,13 @@ fn runaway_xfa_calculations_at_open_end_quickly_with_a_report() {
     assert!(out.errors.iter().any(|e| e.contains("total") && e.contains("maximum number of iteration")), "{:?}", out.errors);
     assert!(out.errors.iter().any(|e| e.contains("abandoned")), "{:?}", out.errors);
     assert!(out.errors.iter().any(|e| e.contains("scripts are off")), "{:?}", out.errors);
+    assert!(s.get(id).unwrap().xfa_scripts_off());
     // The scripts stay off: a change runs nothing more.
     let started = std::time::Instant::now();
     s.apply(id, Edit::SetFieldValue { name: "qty".into(), value: FieldValue::Text("3".into()) }).unwrap();
     assert!(started.elapsed() < std::time::Duration::from_secs(2));
     assert!(s.take_js_output(id).errors.is_empty());
+    assert!(s.get(id).unwrap().xfa_scripts_off());
 }
 
 /// The page view's raster of `page` at 1 px/pt (the document's own render pool).
