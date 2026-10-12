@@ -342,6 +342,19 @@ fn page_content_and_annotation_problems_are_found() {
     assert_eq!(got, [Rule::TaggedContent, Rule::TaggedAnnotations, Rule::TabOrder, Rule::FieldDescriptions]);
     assert_eq!(r.result(Rule::TaggedContent).unwrap().findings[0].message, "Page 1: 1 untagged content item");
     assert!(r.result(Rule::FieldDescriptions).unwrap().findings[0].message.contains("\"name\""));
+    assert_eq!(r.result(Rule::TaggedAnnotations).unwrap().findings[0].bbox, Some([20.0, 20.0, 80.0, 40.0]));
+    assert_eq!(r.result(Rule::FieldDescriptions).unwrap().findings[0].bbox, Some([20.0, 60.0, 120.0, 80.0]));
+}
+
+#[test]
+fn annotation_findings_only_locate_valid_rectangles() {
+    let cases = [("[80 40 20 20]", Some([20.0, 20.0, 80.0, 40.0])), ("[20 20 20 40]", None), ("[20 20 80]", None), ("[20 20 80 (bad)]", None)];
+    for (rect, expected) in cases {
+        let mut objs = good();
+        objs[8] = format!("<< /Type /Annot /Subtype /Link /Rect {rect} >>");
+        let r = checked(&pdf(&objs, "/Info 8 0 R"), &[Rule::TaggedAnnotations]);
+        assert_eq!(r.result(Rule::TaggedAnnotations).unwrap().findings[0].bbox, expected, "{rect}");
+    }
 }
 
 #[test]
@@ -430,6 +443,49 @@ fn figures_are_listed_with_their_alt_text_and_place() {
     assert_eq!(f.len(), 2, "role-mapped Photo counts");
     assert_eq!((f[0].page, f[0].alt.as_deref(), f[0].bbox), (Some(0), None, Some([10.0, 150.0, 50.0, 170.0])));
     assert_eq!((f[1].alt.as_deref(), f[1].bbox), (Some("A bar"), Some([100.0, 100.0, 150.0, 130.0])));
+    let report = check(&doc, &Options { rules: [Rule::FiguresAltText].into(), pages: None });
+    let finding = &report.result(Rule::FiguresAltText).unwrap().findings[0];
+    assert_eq!((finding.object, finding.page, finding.bbox), (Some(f[0].obj), Some(0), f[0].bbox));
+}
+
+#[test]
+fn sibling_tags_move_in_reading_order_without_changing_content() {
+    let mut doc = figures_doc();
+    let before: Vec<_> = tags(&doc).into_iter().map(|tag| tag.object.num).collect();
+    assert_eq!(before, [6, 7, 8]);
+    let content = doc.get(pdfcraft_cos::ObjRef::new(4, 0));
+    move_tag(&mut doc, pdfcraft_cos::ObjRef::new(8, 0), pdfcraft_cos::ObjRef::new(7, 0), TagPlacement::Before).unwrap();
+    assert_eq!(tags(&doc).into_iter().map(|tag| tag.object.num).collect::<Vec<_>>(), [6, 8, 7]);
+    assert_eq!(doc.get(pdfcraft_cos::ObjRef::new(4, 0)), content, "page content stays unchanged");
+    assert_eq!(
+        move_tag(&mut doc, pdfcraft_cos::ObjRef::new(8, 0), pdfcraft_cos::ObjRef::new(7, 0), TagPlacement::Before),
+        Err(TagError::AlreadyThere)
+    );
+    move_tag(&mut doc, pdfcraft_cos::ObjRef::new(8, 0), pdfcraft_cos::ObjRef::new(7, 0), TagPlacement::After).unwrap();
+    assert_eq!(tags(&doc).into_iter().map(|tag| tag.object.num).collect::<Vec<_>>(), [6, 7, 8]);
+    assert_eq!(
+        move_tag(&mut doc, pdfcraft_cos::ObjRef::new(8, 0), pdfcraft_cos::ObjRef::new(6, 0), TagPlacement::Before),
+        Err(TagError::NotSiblings)
+    );
+    assert_eq!(
+        move_tag(&mut doc, pdfcraft_cos::ObjRef::new(8, 1), pdfcraft_cos::ObjRef::new(7, 0), TagPlacement::Before),
+        Err(TagError::NotSiblings)
+    );
+    doc.update_dict(pdfcraft_cos::ObjRef::new(6, 0), |d| {
+        d.set(
+            b"K".to_vec(),
+            pdfcraft_cos::Object::Array(vec![
+                pdfcraft_cos::Object::Ref(pdfcraft_cos::ObjRef::new(7, 0)),
+                pdfcraft_cos::Object::Ref(pdfcraft_cos::ObjRef::new(8, 0)),
+                pdfcraft_cos::Object::Ref(pdfcraft_cos::ObjRef::new(7, 0)),
+            ]),
+        );
+    })
+    .unwrap();
+    assert_eq!(
+        move_tag(&mut doc, pdfcraft_cos::ObjRef::new(8, 0), pdfcraft_cos::ObjRef::new(7, 0), TagPlacement::After),
+        Err(TagError::AmbiguousChildren)
+    );
 }
 
 #[test]
