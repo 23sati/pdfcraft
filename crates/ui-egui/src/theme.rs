@@ -218,6 +218,9 @@ pub fn install_fonts_for(ctx: &egui::Context, cjk: CjkPreference) {
 pub const SYSTEM_FALLBACK: &str = "system-fallback";
 /// The name of the installed Devanagari (Hindi) face [`installed_font_definitions`] may add.
 pub const SYSTEM_DEVANAGARI_FALLBACK: &str = "system-devanagari-fallback";
+/// The name of the installed Chinese face [`installed_font_definitions`] may add outside a
+/// Chinese interface.
+pub const SYSTEM_HAN_FALLBACK: &str = "system-han-fallback";
 
 /// What [`install_fonts_for`] installs: [`font_definitions_for`], then, on desktop, one face
 /// already installed on this machine. It only draws characters no embedded face has.
@@ -228,7 +231,8 @@ pub const SYSTEM_DEVANAGARI_FALLBACK: &str = "system-devanagari-fallback";
 ///   and one line drawn from two faces with different vertical metrics would not sit on one
 ///   baseline.
 /// - Otherwise it is the last fallback of every family (an Arabic file name in a build without
-///   craft-fonts).
+///   craft-fonts). In a build without a `Hans` face an installed Chinese face follows it, so the
+///   language picker's 简体中文, 繁體中文 and 日本語 draw in every interface language.
 ///
 /// An installed Devanagari face, when there is one, ends every family just before that one, so
 /// Hindi text draws in a build without a Devanagari face.
@@ -262,6 +266,16 @@ pub fn installed_font_definitions(cjk: CjkPreference) -> FontDefinitions {
                     Need::Hans | Need::Hant => stack.iter().position(|n| japanese.contains(n)),
                 };
                 stack.insert(at.unwrap_or(stack.len()), SYSTEM_FALLBACK.to_owned());
+            }
+        }
+        // Outside Chinese the language picker still shows 简体中文, 繁體中文 and 日本語.
+        if need == Need::Other
+            && pdfcraft_fonts::ui_chinese_fonts().is_empty()
+            && let Some(data) = fallback(Need::Hans)
+        {
+            fonts.font_data.insert(SYSTEM_HAN_FALLBACK.to_owned(), data);
+            for stack in fonts.families.values_mut() {
+                stack.push(SYSTEM_HAN_FALLBACK.to_owned());
             }
         }
     }
