@@ -12,6 +12,9 @@ use crate::PdfCraftApp;
 /// Why files were picked.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FilePurpose {
+    TextFont {
+        page: usize,
+    },
     Combine,
     InsertPages,
     ReplacePages,
@@ -23,9 +26,41 @@ pub enum FilePurpose {
     RedactWords,
 }
 
+/// Discover installed document fonts off the GUI thread, only when the picker is opened.
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) fn installed_font_files(ctx: &egui::Context) -> Option<Vec<pdfcraft_engine::text_fonts::FontFile>> {
+    use std::sync::{Mutex, OnceLock};
+    type Files = Arc<Mutex<Option<Vec<pdfcraft_engine::text_fonts::FontFile>>>>;
+    static CACHE: OnceLock<Files> = OnceLock::new();
+    let files = CACHE.get_or_init(|| {
+        let files: Files = Arc::new(Mutex::new(None));
+        let result = files.clone();
+        let ctx = ctx.clone();
+        if std::thread::Builder::new()
+            .name("document-font-discovery".into())
+            .spawn(move || {
+                let fonts = pdfcraft_engine::text_fonts::discover(&pdfcraft_engine::text_fonts::installed_directories());
+                if let Ok(mut result) = result.lock() {
+                    *result = Some(fonts);
+                }
+                ctx.request_repaint();
+            })
+            .is_err()
+            && let Ok(mut result) = files.lock()
+        {
+            *result = Some(Vec::new());
+        }
+        files
+    });
+    files.lock().ok().and_then(|f| f.clone())
+}
+
 /// The picker for `purpose`: PDFs, and for Create and Insert also what they convert.
 fn files_picker(purpose: FilePurpose) -> rfd::AsyncFileDialog {
     let dialog = rfd::AsyncFileDialog::new();
+    if matches!(purpose, FilePurpose::TextFont { .. }) {
+        return dialog.add_filter("TrueType / OpenType font", &["ttf", "otf"]);
+    }
     if purpose == FilePurpose::RedactWords {
         return dialog.add_filter(tl!("Text"), &["txt"]);
     }
@@ -53,7 +88,7 @@ pub struct ReplaceDraft {
 impl FilePurpose {
     /// Insert and Replace edit the active document, at its selection.
     pub(crate) fn edits_active_document(self) -> bool {
-        matches!(self, Self::InsertPages | Self::ReplacePages)
+        matches!(self, Self::InsertPages | Self::ReplacePages | Self::TextFont { .. })
     }
 }
 
@@ -264,7 +299,17 @@ impl PdfCraftApp {
                 self.notify_fmt("{name} is too large for a word list (at most 1 MB).", &[("name", &name)]);
                 return;
             }
-            match std::fs::read(p) {
+            let read = if matches!(purpose, FilePurpose::TextFont { .. }) {
+                use std::io::Read;
+                std::fs::File::open(p).and_then(|f| {
+                    let mut bytes = Vec::new();
+                    f.take((16 << 20) + 1).read_to_end(&mut bytes)?;
+                    Ok(bytes)
+                })
+            } else {
+                std::fs::read(p)
+            };
+            match read {
                 Ok(b) => files.push((name, b)),
                 Err(e) => {
                     self.notify_fmt("Couldn't read {name}: {e}", &[("name", &name), ("e", &e.to_string())]);
@@ -368,6 +413,17 @@ impl PdfCraftApp {
     /// Use picked files (also the entry point for tests and automation).
     pub fn use_files(&mut self, purpose: FilePurpose, files: Vec<(String, Vec<u8>)>) {
         match purpose {
+            FilePurpose::TextFont { page } => {
+                let Some((_, bytes)) = files.into_iter().next() else { return };
+                if self.apply_edit(Edit::RegisterTextFont { page, bytes: Arc::new(bytes) })
+                    && let Some((index, id)) = self.active_ids()
+                    && let Some(doc) = self.session.get(id)
+                    && let Some(ed) = self.views[index].line_editor.as_mut()
+                    && let Some(ctx) = self.ctx.as_ref()
+                {
+                    ed.fonts = crate::edit_text_ui::install_source_fonts(ctx, doc, page);
+                }
+            }
             FilePurpose::Combine => self.stage_combine(files),
             FilePurpose::InsertPages => self.insert_files(files),
             FilePurpose::ReplacePages => {

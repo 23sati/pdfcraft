@@ -332,6 +332,14 @@
 	of the following fields:	dos seguintes campos:
 	Simplified field notation:	Notação simplificada de campo:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Nomes de campos com + - * / e parênteses; coloque \\ antes de espaços em nomes.
+
+# Document font selection
+	Finding document fonts…	Buscando fontes para o documento…
+	Installed fonts…	Fontes instaladas…
+	Keep source fonts	Manter fontes originais
+	Load font…	Carregar fonte…
+	No openly licensed document fonts found. Load a font file.	Nenhuma fonte com licença aberta encontrada. Carregue um arquivo de fonte.
+
 	Format text	Formatar texto
 	Bold	Negrito
 	Italic	Itálico
@@ -1808,6 +1816,7 @@
 	Edit document JavaScript	Editar JavaScript do documento
 	Edit script of {name}	Editar script de {name}
 	Edit text	Editar texto
+	Load document font	Carregar fonte do documento
 	Embedded files must be PDF/A files themselves (use PDF/A-3 for others)	Os arquivos incorporados devem ser arquivos PDF/A por si mesmos (use PDF/A-3 para outros)
 	Erase	Apagar
 	Fill & Sign: change initials	Preencher e assinar: alterar rubrica

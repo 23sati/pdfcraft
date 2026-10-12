@@ -340,6 +340,11 @@
 	of the following fields:	以下欄位的：
 	Simplified field notation:	簡化欄位表示法：
 	Field names with + - * / and parentheses; put \\ before spaces in names.	欄位名支援 + - * / 和括號；名稱中的空格前加 \\。
+	Finding document fonts…	正在尋找文件字型…
+	Installed fonts…	已安裝的字型…
+	Keep source fonts	保留原始字型
+	Load font…	載入字型…
+	No openly licensed document fonts found. Load a font file.	找不到開放授權的文件字型。請載入字型檔。
 	Format text	設定文字格式
 	Bold	粗體
 	Italic	斜體
@@ -1893,6 +1898,7 @@
 	Delete document JavaScript	刪除文件 JavaScript
 	Edit document JavaScript	編輯文件 JavaScript
 	Edit text	編輯文字
+	Load document font	載入文件字型
 	Move image	移動圖片
 	Rotate image	旋轉圖片
 	Flip image	翻轉圖片

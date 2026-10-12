@@ -656,6 +656,11 @@
 	of the following fields:	aşağıdaki alanların:
 	Simplified field notation:	Basitleştirilmiş alan gösterimi:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Adlarda + - * / ve parantez içeren alan adları; adlardaki boşluklardan önce \\ koyun.
+	Finding document fonts…	Belge yazı tipleri aranıyor…
+	Installed fonts…	Yüklü yazı tipleri…
+	Keep source fonts	Kaynak yazı tiplerini koru
+	Load font…	Yazı tipi yükle…
+	No openly licensed document fonts found. Load a font file.	Açık lisanslı belge yazı tipi bulunamadı. Bir yazı tipi dosyası yükleyin.
 	Format text	Metni biçimlendir
 	Bold	Kalın
 	Italic	İtalik
@@ -1791,6 +1796,7 @@
 	Delete document JavaScript	Belge JavaScript'ini sil
 	Edit document JavaScript	Belge JavaScript'ini düzenle
 	Edit text	Metni düzenle
+	Load document font	Belge yazı tipini yükle
 	Move image	Resmi taşı
 	Rotate image	Resmi döndür
 	Flip image	Resmi çevir

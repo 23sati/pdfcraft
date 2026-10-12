@@ -693,6 +693,11 @@
 	of the following fields:	następujących pól:
 	Simplified field notation:	Uproszczony zapis pól:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Nazwy pól z + - * / i nawiasami; przed spacjami w nazwach wpisz \\.
+	Finding document fonts…	Wyszukiwanie czcionek dokumentu…
+	Installed fonts…	Zainstalowane czcionki…
+	Keep source fonts	Zachowaj czcionki źródłowe
+	Load font…	Wczytaj czcionkę…
+	No openly licensed document fonts found. Load a font file.	Nie znaleziono czcionek dokumentu na otwartej licencji. Wczytaj plik czcionki.
 	Format text	Formatuj tekst
 	Bold	Pogrubienie
 	Italic	Kursywa
@@ -1886,6 +1891,7 @@
 	Delete document JavaScript	Usuń JavaScript dokumentu
 	Edit document JavaScript	Edytuj JavaScript dokumentu
 	Edit text	Edytuj tekst
+	Load document font	Wczytaj czcionkę dokumentu
 	Move image	Przenieś obraz
 	Rotate image	Obróć obraz
 	Flip image	Odbij obraz

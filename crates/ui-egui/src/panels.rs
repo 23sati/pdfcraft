@@ -348,6 +348,38 @@ fn format_section(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens) {
     {
         let mut ed = ed;
         let mut changed = false;
+        let font_choices = app.session.get(app.views[i].id).map(|d| d.text_editor_fonts(ed.page)).unwrap_or_default();
+        egui::ComboBox::from_id_salt("document-font-resource")
+            .selected_text(
+                ed.font_resource
+                    .as_ref()
+                    .and_then(|r| font_choices.iter().find(|f| &f.resource == r))
+                    .map_or(tl!("Keep source fonts"), |f| f.face.as_str()),
+            )
+            .show_ui(ui, |ui| {
+                changed |= ui.selectable_value(&mut ed.font_resource, None, tl!("Keep source fonts")).changed();
+                for font in font_choices.iter().filter(|f| !f.resource.starts_with("PCApproved")) {
+                    changed |= ui.selectable_value(&mut ed.font_resource, Some(font.resource.clone()), &font.face).changed();
+                }
+            });
+        if ui.button(tl!("Load font…")).clicked() {
+            app.pick_files(crate::files::FilePurpose::TextFont { page: ed.page }, false);
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        egui::ComboBox::from_id_salt("installed-document-font").selected_text(tl!("Installed fonts…")).show_ui(ui, |ui| {
+            if let Some(fonts) = crate::files::installed_font_files(ui.ctx()) {
+                if fonts.is_empty() {
+                    ui.label(tl!("No openly licensed document fonts found. Load a font file."));
+                }
+                for font in fonts {
+                    if ui.selectable_label(false, &font.face).clicked() {
+                        app.use_paths(crate::files::FilePurpose::TextFont { page: ed.page }, &[font.path]);
+                    }
+                }
+            } else {
+                ui.label(tl!("Finding document fonts…"));
+            }
+        });
         if let Some(look) = crate::content_ui::format_panel(ui, t, &ed.look) {
             ed.look = look;
             changed = true;
@@ -360,7 +392,8 @@ fn format_section(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens) {
                 if let Some(doc) = app.session.get(app.views[i].id)
                     && let Some(block) = doc.text_blocks(ed.page).get(ed.block)
                 {
-                    ed.refresh_source(block);
+                    ed.refresh_source(block, doc.text_lines(ed.page));
+                    ed.fonts = crate::edit_text_ui::install_source_fonts(ui.ctx(), doc, ed.page);
                 }
             }
             app.views[i].line_editor = Some(ed);
