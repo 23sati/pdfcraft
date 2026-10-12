@@ -2047,6 +2047,12 @@ fn links_from_urls_and_link_edits() {
     assert_eq!(d.links.len(), 1);
     assert_eq!(d.info.links.len(), 1, "the viewer follows it");
     assert!(s.find_urls(id).is_empty(), "already linked");
+    // Remove all links and undo.
+    s.apply(id, Edit::RemoveLinks { pages: None }).unwrap();
+    assert!(s.get(id).unwrap().links.is_empty());
+    assert_eq!(s.get(id).unwrap().can_undo(), Some("Remove all links"));
+    s.undo(id).unwrap();
+    assert_eq!(s.get(id).unwrap().links.len(), 1);
     // Link Properties and delete.
     let l = s.get(id).unwrap().links[0].clone();
     s.apply(id, Edit::SetLink { page: 0, index: l.index, rect: None, action: Some(LinkAction::Page(0)), style: None }).unwrap();

@@ -223,6 +223,9 @@
 	Add or edit links	Додати або редагувати посилання
 	Create links from URLs	Створити посилання з URL
 	Remove all links	Видалити всі посилання
+	No links to remove	Немає посилань для вилучення
+	Removed 1 link	Вилучено 1 посилання
+	Removed {n} links	Вилучено посилань: {n}
 	Add Bates numbering…	Додати нумерацію Бейтса…
 	Add image…	Додати зображення…
 	Redact text and images	Вилучити текст і зображення

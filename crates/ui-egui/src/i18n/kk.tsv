@@ -186,6 +186,9 @@
 	Add or edit links	Сілтемелерді қосу немесе түзету
 	Create links from URLs	URL-ден сілтемелер жасау
 	Remove all links	Барлық сілтемелерді алып тастау
+	No links to remove	Жоятын сілтеме жоқ
+	Removed 1 link	1 сілтеме жойылды
+	Removed {n} links	Жойылған сілтемелер: {n}
 	Add Bates numbering…	Bates нөмірлеуін қосу…
 	Add image…	Сурет қосу…
 	Redact text and images	Мәтін мен суреттерді жасыру

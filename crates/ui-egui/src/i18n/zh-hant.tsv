@@ -1123,6 +1123,9 @@
 	Redact pages…	遮蔽頁面…
 	Redaction properties…	遮蔽內容設定…
 	Remove all links	移除所有連結
+	No links to remove	沒有可移除的連結
+	Removed 1 link	已移除 1 個連結
+	Removed {n} links	已移除 {n} 個連結
 	Remove background	移除背景
 	Remove header & footer	移除頁首與頁尾
 	Remove hidden information…	移除隱藏資訊…

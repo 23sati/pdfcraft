@@ -225,6 +225,9 @@
 	Add or edit links	إضافة روابط أو تحريرها
 	Create links from URLs	إنشاء روابط من عناوين URL
 	Remove all links	إزالة كل الروابط
+	No links to remove	لا توجد روابط لإزالتها
+	Removed 1 link	تمت إزالة رابط واحد
+	Removed {n} links	الروابط التي أزيلت: {n}
 	Add Bates numbering…	إضافة ترقيم بيتس…
 	Add image…	إضافة صورة…
 	Redact text and images	حجب النص والصور

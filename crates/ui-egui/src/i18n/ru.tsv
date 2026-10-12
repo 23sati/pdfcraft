@@ -218,6 +218,9 @@
 	Add or edit links	Добавить или изменить ссылки
 	Create links from URLs	Создать ссылки из URL
 	Remove all links	Удалить все ссылки
+	No links to remove	Нет ссылок для удаления
+	Removed 1 link	Удалена 1 ссылка
+	Removed {n} links	Удалено ссылок: {n}
 	Add Bates numbering…	Добавить нумерацию Бейтса…
 	Add image…	Добавить изображение…
 	Redact text and images	Скрыть текст и изображения

@@ -1179,6 +1179,9 @@
 	Redact pages…	密文页面…
 	Redaction properties…	密文属性…
 	Remove all links	删除所有链接
+	No links to remove	没有可删除的链接
+	Removed 1 link	已删除 1 个链接
+	Removed {n} links	已删除 {n} 个链接
 	Remove background	删除背景
 	Remove header & footer	删除页眉和页脚
 	Remove hidden information…	删除隐藏信息…

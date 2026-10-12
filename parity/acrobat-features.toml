@@ -2211,11 +2211,17 @@ title = "Remove all links"
 area = "C"
 tier = "P2"
 milestone = "M7"
-status = "planned"
-commands = []
-tools = []
-evidence = []
-notes = ""
+status = "shipped"
+commands = ["edit.remove_links"]
+tools = ["links_remove"]
+evidence = [
+    "crates/engine/src/tests.rs::links_from_urls_and_link_edits",
+    "crates/automation/tests/automation.rs::links_through_tools",
+    "crates/annot/src/tests.rs::links_are_added_edited_listed_and_removed",
+    "crates/ui-egui/tests/ui_group/pdf_links.rs::removing_all_links_and_undo",
+    "crates/ui-egui/tests/ui_group/pdf_links.rs::the_link_context_menu_shows_only_for_a_right_click_on_a_link",
+]
+notes = "removes all link annotations across the document or on specified pages (links_remove pages); a right-click on a link offers Properties, Delete and Remove all links; undoable, with a toast giving the count"
 
 [[feature]]
 id = "edit.action-goto"

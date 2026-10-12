@@ -225,6 +225,9 @@
 	Add or edit links	リンクを追加・編集
 	Create links from URLs	URL からリンクを作成
 	Remove all links	すべてのリンクを削除
+	No links to remove	削除するリンクはありません
+	Removed 1 link	リンクを 1 件削除しました
+	Removed {n} links	リンクを {n} 件削除しました
 	Add Bates numbering…	ベイツ番号を追加…
 	Add image…	画像を追加…
 	Redact text and images	テキストと画像を墨消し

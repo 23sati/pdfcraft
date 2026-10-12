@@ -3161,8 +3161,13 @@ fn links_through_tools() {
     let list = ok(&mut a, "link_list", json!({ "doc": doc }));
     assert!(list["links"].as_array().unwrap().iter().any(|l| l["url"] == "https://pdfcraft.dev"));
     ok(&mut a, "link_delete", json!({ "doc": doc, "page": 1, "index": added["index"] }));
-    let r = ok(&mut a, "links_remove", json!({ "doc": doc }));
+    let r = ok(&mut a, "links_remove", json!({ "doc": doc, "pages": [1] }));
     assert_eq!(r["removed"], 2);
+    assert_eq!(ok(&mut a, "link_list", json!({ "doc": doc }))["count"], 0);
+    // Add one more link and test links_remove across all pages
+    ok(&mut a, "link_add", json!({ "doc": doc, "page": 1, "rect": [72, 300, 200, 320], "url": "https://example.org" }));
+    let r2 = ok(&mut a, "links_remove", json!({ "doc": doc }));
+    assert_eq!(r2["removed"], 1);
     assert_eq!(ok(&mut a, "link_list", json!({ "doc": doc }))["count"], 0);
     assert!(matches!(a.call("link_add", &json!({ "doc": doc, "page": 1, "rect": [0, 0, 50, 20] })), Err(ToolError::InvalidArgs(_))));
 }
