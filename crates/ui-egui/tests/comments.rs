@@ -117,6 +117,30 @@ fn dragging_over_text_with_the_highlighter_highlights_it() {
 }
 
 #[test]
+fn the_quick_bar_colour_changes_the_selected_comment() {
+    use pdfcraft_ui_egui::comments::CommentTool;
+
+    let mut h = harness(|app| app.set_option("quick", "highlight").unwrap());
+    let (a, b) = {
+        let v = &h.state().views[0];
+        (v.glyph_screen_pos(0, 4).expect("text layer"), v.glyph_screen_pos(0, 14).expect("glyph"))
+    };
+    drag(&mut h, a, b);
+    assert_eq!(comments(&h)[0].color, Some([1.0, 0.94, 0.0]));
+
+    h.get_by_label("Colour").click();
+    h.run_steps(2);
+    h.get_by_label("Blue").click();
+    h.run_steps(3);
+
+    let state = h.state();
+    let doc = state.session.get(state.views[0].id).expect("document");
+    assert_eq!(doc.comment_props(0, 0).and_then(|props| props.color), Some([0.0, 0.47, 0.84]));
+    assert_eq!(doc.can_undo(), Some("Change comment properties"), "recoloring is one undo step");
+    assert_eq!(state.comment_prefs.style(CommentTool::Highlight).color, [0.0, 0.47, 0.84]);
+}
+
+#[test]
 fn a_new_highlight_opens_its_note_for_typing() {
     let mut h = harness(|app| app.set_option("quick", "highlight").unwrap());
     assert_eq!(h.state().views[0].comments.editing, None);

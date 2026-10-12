@@ -136,6 +136,7 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 ## Progress log
 
+- **2026-10-11 (M5, #1191):** Quick-bar colour changes now restyle the selected comment when it matches the active comment tool, while continuing to update that tool's default; added an accessible label to the swatch controls and a UI regression proving the saved style and undo step. Estimates unchanged.
 - **2026-10-11 (M10.5, focused follow-up to #599):** Carry the architectural/ANSI/large ISO paper presets, current-page matching at 100%, and previewed PDF scale into the current print dialog and `doc_print`. Retains the #847/#1007 spooler and background discovery. Driver substitution, physical calibration, vector Windows printing and managed-endpoint restrictions remain separate gaps. Overall estimates unchanged.
 
 Newest first: the date, what moved, and the new overall estimate.
