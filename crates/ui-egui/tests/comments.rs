@@ -141,6 +141,28 @@ fn the_quick_bar_colour_changes_the_selected_comment() {
 }
 
 #[test]
+fn the_quick_bar_colour_changes_the_selected_arrow() {
+    use pdfcraft_ui_egui::comments::CommentTool;
+
+    // Arrows are saved as Line annotations; the Arrow tool's colour must still reach them.
+    let mut h = harness(|app| app.set_option("quick", "arrow").unwrap());
+    drag_pt(&mut h, (20.0, 20.0), (120.0, 30.0));
+    assert_eq!(comments(&h)[0].subtype, "Line");
+    assert_eq!(h.state().quick_tool, QuickTool::Comment(CommentTool::Arrow), "the arrow tool is still active");
+    assert_eq!(h.state().views[0].comments.selected, Some((0, 0)), "the new arrow is selected");
+
+    h.get_by_label("Colour").click();
+    h.run_steps(2);
+    h.get_by_label("Blue").click();
+    h.run_steps(3);
+
+    let state = h.state();
+    let doc = state.session.get(state.views[0].id).expect("document");
+    assert_eq!(doc.comment_props(0, 0).and_then(|props| props.color), Some([0.0, 0.47, 0.84]));
+    assert_eq!(doc.can_undo(), Some("Change comment properties"));
+}
+
+#[test]
 fn the_quick_bar_colour_skips_the_selected_comment_when_commenting_is_forbidden() {
     use pdfcraft_ui_egui::comments::CommentTool;
 

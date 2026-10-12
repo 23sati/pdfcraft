@@ -3771,9 +3771,11 @@ fn quick_bar(app: &mut PdfCraftApp, area: Rect, ui: &mut egui::Ui) {
                             && let Some((page, annotation)) = app.views.get(index).and_then(|view| view.comments.selected)
                             && app.session.get(id).is_some_and(|doc| {
                                 doc.allows_annotation()
-                                    && doc.info.annotations.iter().any(|a| {
-                                        a.page == page && a.index == annotation && a.in_reply_to.is_none() && comments::tool_for(a) == Some(tool)
-                                    })
+                                    && doc
+                                        .info
+                                        .annotations
+                                        .iter()
+                                        .any(|a| a.page == page && a.index == annotation && a.in_reply_to.is_none() && comments::made_by(a, tool))
                             })
                         {
                             app.apply_edit(Edit::StyleAnnotation {

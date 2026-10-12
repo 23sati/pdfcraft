@@ -306,6 +306,15 @@ impl CommentPrefs {
     }
 }
 
+/// Whether `tool` makes comments like `a`. Arrows are saved as plain Line annotations with an
+/// ending, so the Line and Arrow tools both match a line.
+pub(crate) fn made_by(a: &Annotation, tool: CommentTool) -> bool {
+    match tool_for(a) {
+        Some(CommentTool::Line) => matches!(tool, CommentTool::Line | CommentTool::Arrow),
+        made => made == Some(tool),
+    }
+}
+
 /// The tool that makes comments like `a` (for Make Current Properties Default).
 pub fn tool_for(a: &Annotation) -> Option<CommentTool> {
     Some(match (a.subtype.as_str(), a.intent.as_deref()) {
