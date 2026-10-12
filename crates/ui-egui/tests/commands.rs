@@ -60,6 +60,7 @@ const PICKERS: &[&str] = &[
     "ocr.recognize_batch",
     "form.merge_data",
     "export.docx",
+    "export.pptx",
     "export.html",
     "export.rtf",
     "measure.export",
@@ -75,6 +76,19 @@ fn every_registered_command_is_implemented() {
         app.set_option("language", "en").unwrap();
         if spec.id.starts_with("form.") || spec.id == "comment.flatten" {
             app.open_bytes("form.pdf", None, include_bytes!("data/form.pdf").to_vec()).unwrap();
+        } else if spec.id == "protect.unlock" {
+            // Only a permissions password: opens restricted, and can be unlocked.
+            let mut doc = pdfcraft_cos::Document::open(std::sync::Arc::new(fixture(3))).unwrap();
+            doc.set_encryption(&pdfcraft_cos::NewEncryption {
+                algorithm: pdfcraft_cos::Algorithm::Aes256,
+                user_password: "",
+                owner_password: "owner",
+                permissions: 0b0100,
+                encrypt_metadata: true,
+                seed: [5; 32],
+            })
+            .unwrap();
+            app.open_bytes("restricted.pdf", None, pdfcraft_cos::write_full(&doc, &Default::default()).unwrap()).unwrap();
         } else {
             app.open_bytes("doc.pdf", None, fixture(3)).unwrap();
         }
@@ -217,6 +231,22 @@ fn the_palette_lists_commands_with_shortcuts_and_runs_them() {
     let doc = app.session.get(app.views[0].id).unwrap();
     assert_eq!(doc.info.pages[0].rotation, 90);
     assert_eq!(doc.can_undo(), Some("Rotate page"));
+}
+
+#[test]
+fn palette_arrow_keys_select_results_and_enter_runs_the_selection() {
+    let mut h = harness();
+    h.state_mut().set_option("palette", "rotate pages").unwrap();
+    h.run_steps(2);
+    h.get_by_label("Rotate pages clockwise");
+    h.get_by_label("Rotate pages counterclockwise");
+    h.key_press(Key::ArrowDown);
+    h.run_steps(2);
+    h.key_press(Key::Enter);
+    h.run_steps(2);
+    let app = h.state();
+    assert!(!app.palette_open);
+    assert_eq!(app.session.get(app.views[0].id).unwrap().info.pages[0].rotation, 270);
 }
 
 #[test]

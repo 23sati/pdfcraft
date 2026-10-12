@@ -357,10 +357,7 @@ impl Document {
             return Ok(());
         };
         let params = crate::security::encrypt_dict(self, &dict);
-        let id0 = match self.trailer.get(b"ID") {
-            Some(Object::Array(a)) => a.first().and_then(|s| s.as_string()).map(|s| s.bytes.clone()).unwrap_or_default(),
-            _ => Vec::new(),
-        };
+        let id0 = self.first_id();
         let handler = pdfcraft_crypt::SecurityHandler::open(params, &id0, password).map_err(|e| match e {
             pdfcraft_crypt::CryptError::WrongPassword if password.is_none() => CosError::NeedsPassword,
             pdfcraft_crypt::CryptError::WrongPassword => CosError::WrongPassword,
@@ -371,6 +368,31 @@ impl Document {
         // Objects read while locating the catalog were read before decryption was possible.
         self.cache = Arc::default();
         self.objstms = Arc::default();
+        Ok(())
+    }
+
+    /// The first file identifier, part of the encryption key (empty when there is none).
+    fn first_id(&self) -> Vec<u8> {
+        match self.trailer.get(b"ID") {
+            Some(Object::Array(a)) => a.first().and_then(|s| s.as_string()).map(|s| s.bytes.clone()).unwrap_or_default(),
+            _ => Vec::new(),
+        }
+    }
+
+    /// Lift the restrictions of a document opened with its user password by entering the
+    /// owner (permissions) password (§7.6.4). Fails with `WrongPassword` for any other
+    /// password. Does nothing when the document is unencrypted or already opened as owner.
+    /// Both passwords unlock the same file key, so nothing read so far is decoded again.
+    pub fn unlock(&mut self, password: &str) -> Result<(), CosError> {
+        let Some(current) = self.security.as_deref() else { return Ok(()) };
+        if current.auth() == pdfcraft_crypt::Auth::Owner {
+            return Ok(());
+        }
+        let owner = current.authenticate_owner(&self.first_id(), password).map_err(|e| match e {
+            pdfcraft_crypt::CryptError::WrongPassword => CosError::WrongPassword,
+            other => CosError::Security(other.to_string()),
+        })?;
+        self.security = Some(Arc::new(owner));
         Ok(())
     }
 
