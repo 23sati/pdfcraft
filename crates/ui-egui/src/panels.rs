@@ -670,7 +670,7 @@ pub fn right_panel(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                         a11y_action = crate::a11y_ui::panel(ui, &t, a11y, id);
                     }
                     RightPanel::Tags => {
-                        let tags = doc.tags();
+                        let tags = tags_state.tags(doc);
                         let (page, edit) = crate::tags_ui::panel(ui, &t, id, &tags, tags_state, doc.allows_modification());
                         if let Some(page) = page {
                             nav = Some(Nav::Page(page));

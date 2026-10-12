@@ -1,6 +1,7 @@
 //! A visual editor for properties of reachable indirect structure tags.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
+use std::sync::Arc;
 
 use egui::Ui;
 use pdfcraft_cos::ObjRef;
@@ -16,6 +17,9 @@ pub(crate) struct State {
     collapsed: BTreeSet<ObjRef>,
     query: String,
     draft: Draft,
+    /// The tag list per (document, edit generation): walking the structure tree is too slow
+    /// to repeat every frame on a large tagged PDF.
+    cache: Option<(DocId, u64, Arc<Vec<TagInfo>>)>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -60,6 +64,20 @@ impl Draft {
 }
 
 impl State {
+    /// The document's tags, walked again only after an edit.
+    pub(crate) fn tags(&mut self, doc: &pdfcraft_engine::Document) -> Arc<Vec<TagInfo>> {
+        let generation = doc.edit_generation();
+        if let Some((id, g, tags)) = &self.cache
+            && *id == doc.id
+            && *g == generation
+        {
+            return tags.clone();
+        }
+        let tags = Arc::new(doc.tags());
+        self.cache = Some((doc.id, generation, tags.clone()));
+        tags
+    }
+
     /// Select a checker finding's tag without discarding an unfinished edit.
     pub(crate) fn select(&mut self, doc: DocId, tags: &[TagInfo], object: ObjRef) -> bool {
         let Some(tag) = tags.iter().find(|tag| tag.object == object) else { return false };

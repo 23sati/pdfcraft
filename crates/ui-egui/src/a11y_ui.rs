@@ -416,7 +416,7 @@ impl PdfCraftApp {
             PanelAction::GoTo(p, bbox) => self.a11y_show_on_page(index, p, bbox),
             PanelAction::GoToTag(object, page, bbox) => {
                 let Some((_, id)) = self.active_ids() else { return };
-                let Some(tags) = self.session.get(id).map(|doc| doc.tags()) else { return };
+                let Some(tags) = self.session.get(id).map(|doc| self.tags_state.tags(doc)) else { return };
                 if !tags.iter().any(|tag| tag.object == object) {
                     if let Some(page) = page {
                         self.a11y_show_on_page(index, page, bbox);
