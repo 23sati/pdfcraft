@@ -143,7 +143,6 @@ M2 (renderer), M7 (content editing), M10 (OCR and Office), M11 (Preflight and st
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-12 | minor | M8: applying redactions removes previews only from the selected pages. Estimates unchanged. |
 | 2026-10-12 | minor | M3: case-insensitive Find matches normal, final and capital Greek sigma; exact search, word boundaries, glyph ranges and match limits have regression coverage. The tab-menu test uses Finder on macOS. Estimates unchanged. |
 | 2026-10-12 | minor | M14: Windows low-DPI JetBrains Mono hinting candidate; raster and layout evidence recorded without a Windows runtime claim. Estimates unchanged. |
 | 2026-10-12 | minor | M7/#1200 candidate: bounded local GoToR opening, root-confined automation, and action-preserving appearance edits; named destinations and window behavior remain partial; estimates unchanged. |
@@ -162,6 +161,7 @@ M2 (renderer), M7 (content editing), M10 (OCR and Office), M11 (Preflight and st
 | 2026-10-11 | minor | M6: respect existing form-font encodings; retain source fonts on appearance fallback. Estimates unchanged. |
 | 2026-10-11 | minor | M5: partial XFDF/FDF imports preserve existing replies and review statuses through save and export. Estimates unchanged. |
 | 2026-10-11 | minor | M6: keep accepted form values when Tab reopens the same field before Save. Estimates unchanged. |
+| 2026-10-12 | minor | M8: applying redactions removes previews only from the selected pages. Estimates unchanged. |
 | 2026-10-11 | minor | M13: reject malformed CLI --root options before dispatch. Estimates unchanged. |
 | 2026-10-11 | minor | M14: Traditional Chinese accessibility statuses, script-rule meaning and Taiwan form/table terminology; added a missing table-row explanation and catalog regressions. Estimates unchanged. |
 | 2026-10-10 | minor | M14: localized shortcut key names (#496), including runtime switching and native layout checks. Estimates unchanged. |
