@@ -18,6 +18,24 @@ fn emu(pt: f64, default_pt: f64) -> i64 {
     if pt.is_finite() && pt > 0.0 { (pt * 12700.0).round().clamp(914400.0, 51206400.0) as i64 } else { (default_pt * 12700.0).round() as i64 }
 }
 
+/// The largest height one item may take on a slide (about 1,100 inches). Text sizes and image
+/// rectangles come from the PDF, so a hostile size (say 1e300 pt) must not push the running
+/// vertical position past what an `i64` (or a DrawingML coordinate) holds.
+const MAX_ITEM_EMU: i64 = 1_000_000_000;
+
+/// Points to EMU for a height or gap, clamped to `0..=MAX_ITEM_EMU` (NaN reads as 0).
+fn height_emu(pt: f64) -> i64 {
+    let v = pt * 12700.0;
+    // Clamped to 0..=MAX_ITEM_EMU before the cast, so it cannot truncate or wrap.
+    if v.is_finite() {
+        v.round().clamp(0.0, MAX_ITEM_EMU as f64) as i64
+    } else if v > 0.0 {
+        MAX_ITEM_EMU
+    } else {
+        0
+    }
+}
+
 /// A formatted DrawingML text run (`<a:r>`).
 fn run_drawingml(text: &str, size: f64, bold: bool, italic: bool, color: [f64; 3]) -> String {
     let mut rpr = String::new();
@@ -41,9 +59,9 @@ fn pptx_table(shape_id: usize, t: &Table, x: i64, y: i64, content_w: i64) -> (St
     let total_pt: f64 = widths_pt.iter().sum();
     let scale = if total_pt > 0.0 { (content_w as f64 / (total_pt * 12700.0)).min(1.0) } else { 1.0 };
     let widths: Vec<i64> = widths_pt.iter().map(|w| (w * scale * 12700.0).round().max(127000.0) as i64).collect();
-    let table_w: i64 = widths.iter().sum();
-    let row_h: i64 = (24.0 * 12700.0) as i64;
-    let table_h: i64 = (t.rows.len() as i64) * row_h;
+    let table_w: i64 = widths.iter().fold(0i64, |sum, w| sum.saturating_add(*w));
+    let row_h: i64 = height_emu(24.0);
+    let table_h: i64 = i64::try_from(t.rows.len()).unwrap_or(i64::MAX).saturating_mul(row_h).min(MAX_ITEM_EMU);
 
     let mut grid_cols = String::new();
     for w in &widths {
@@ -52,8 +70,8 @@ fn pptx_table(shape_id: usize, t: &Table, x: i64, y: i64, content_w: i64) -> (St
 
     const TC_PR: &str = "<a:tcPr>\
 <a:lnL w=\"12700\" cmpd=\"s\"><a:solidFill><a:srgbClr val=\"999999\"/></a:solidFill></a:lnL>\
-<a:lnR w=\"12700\" cmpd=\"s\"><a:solidFill><a:srgbClr val=\"999999\"/></a:solidFill></a:lnL>\
-<a:lnT w=\"12700\" cmpd=\"s\"><a:solidFill><a:srgbClr val=\"999999\"/></a:solidFill></a:lnL>\
+<a:lnR w=\"12700\" cmpd=\"s\"><a:solidFill><a:srgbClr val=\"999999\"/></a:solidFill></a:lnR>\
+<a:lnT w=\"12700\" cmpd=\"s\"><a:solidFill><a:srgbClr val=\"999999\"/></a:solidFill></a:lnT>\
 <a:lnB w=\"12700\" cmpd=\"s\"><a:solidFill><a:srgbClr val=\"999999\"/></a:solidFill></a:lnB>\
 </a:tcPr>";
 
@@ -138,7 +156,7 @@ pub fn pptx(pages: &[Page], title: &str) -> Vec<u8> {
         let mut slide_media_rels: Vec<(String, usize)> = Vec::new();
 
         if let Some(title_block) = title_idx.and_then(|ti| p.blocks.get(ti)) {
-            let title_h = ((title_block.size * 1.5).max(36.0) * 12700.0) as i64;
+            let title_h = height_emu((title_block.size * 1.5).max(36.0));
             let title_run = run_drawingml(&title_block.text, title_block.size, title_block.bold, title_block.italic, title_block.color);
             shapes.push_str(&format!(
                 "<p:sp><p:nvSpPr><p:cNvPr id=\"{shape_id}\" name=\"Title {shape_id}\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr>\
@@ -146,34 +164,30 @@ pub fn pptx(pages: &[Page], title: &str) -> Vec<u8> {
 <p:txBody><a:bodyPr wrap=\"square\" rtlCol=\"0\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p>{title_run}</a:p></p:txBody></p:sp>"
             ));
             shape_id += 1;
-            current_y += title_h + (18.0 * 12700.0) as i64;
+            current_y = current_y.saturating_add(title_h).saturating_add(height_emu(18.0));
         }
 
         let mut i = 0;
-        while i < items.len() {
-            match &items[i].2 {
+        while let Some((_, _, item)) = items.get(i) {
+            match item {
                 SlideBodyItem::Para(_) => {
                     let mut paras_xml = String::new();
                     let mut est_h_pt = 0.0;
-                    while i < items.len() {
-                        if let SlideBodyItem::Para(b) = &items[i].2 {
-                            let run = run_drawingml(&b.text, b.size, b.bold, b.italic, b.color);
-                            paras_xml.push_str(&format!("<a:p>{run}</a:p>"));
-                            let lines = (b.text.len() as f64 / 60.0).ceil().max(1.0);
-                            est_h_pt += (b.size.max(10.0) * 1.3) * lines + 6.0;
-                            i += 1;
-                        } else {
-                            break;
-                        }
+                    while let Some((_, _, SlideBodyItem::Para(b))) = items.get(i) {
+                        let run = run_drawingml(&b.text, b.size, b.bold, b.italic, b.color);
+                        paras_xml.push_str(&format!("<a:p>{run}</a:p>"));
+                        let lines = (b.text.len() as f64 / 60.0).ceil().max(1.0);
+                        est_h_pt += (b.size.max(10.0) * 1.3) * lines + 6.0;
+                        i += 1;
                     }
-                    let box_h = (est_h_pt * 12700.0) as i64;
+                    let box_h = height_emu(est_h_pt);
                     shapes.push_str(&format!(
                         "<p:sp><p:nvSpPr><p:cNvPr id=\"{shape_id}\" name=\"TextBox {shape_id}\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr>\
 <p:spPr><a:xfrm><a:off x=\"{mx}\" y=\"{current_y}\"/><a:ext cx=\"{content_w}\" cy=\"{box_h}\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr>\
 <p:txBody><a:bodyPr wrap=\"square\" rtlCol=\"0\"><a:spAutoFit/></a:bodyPr><a:lstStyle/>{paras_xml}</p:txBody></p:sp>"
                     ));
                     shape_id += 1;
-                    current_y += box_h + (12.0 * 12700.0) as i64;
+                    current_y = current_y.saturating_add(box_h).saturating_add(height_emu(12.0));
                 }
                 SlideBodyItem::Img(im) => {
                     let global_img_idx = global_media.len() + 1;
@@ -185,8 +199,8 @@ pub fn pptx(pages: &[Page], title: &str) -> Vec<u8> {
                     let (w, h) = ((im.rect[2] - im.rect[0]).max(1.0), (im.rect[3] - im.rect[1]).max(1.0));
                     let max_w = content_w as f64 / 12700.0;
                     let k = (max_w / w).min(1.0);
-                    let cx = (w * k * 12700.0) as i64;
-                    let cy = (h * k * 12700.0) as i64;
+                    let cx = height_emu(w * k).min(content_w);
+                    let cy = height_emu(h * k);
                     let x = mx + (content_w - cx) / 2;
                     let y = current_y;
 
@@ -196,14 +210,14 @@ pub fn pptx(pages: &[Page], title: &str) -> Vec<u8> {
 <p:spPr><a:xfrm><a:off x=\"{x}\" y=\"{y}\"/><a:ext cx=\"{cx}\" cy=\"{cy}\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom></p:spPr></p:pic>"
                     ));
                     shape_id += 1;
-                    current_y += cy + (12.0 * 12700.0) as i64;
+                    current_y = current_y.saturating_add(cy).saturating_add(height_emu(12.0));
                     i += 1;
                 }
                 SlideBodyItem::Table(t) => {
                     let (table_xml, table_h) = pptx_table(shape_id, t, mx, current_y, content_w);
                     shapes.push_str(&table_xml);
                     shape_id += 1;
-                    current_y += table_h + (12.0 * 12700.0) as i64;
+                    current_y = current_y.saturating_add(table_h).saturating_add(height_emu(12.0));
                     i += 1;
                 }
             }
@@ -308,7 +322,7 @@ xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" type=\"blank\"
 <a:accent2><a:srgbClr val=\"C0504D\"/></a:accent2><a:accent3><a:srgbClr val=\"9BBB59\"/></a:accent3><a:accent4><a:srgbClr val=\"8064A2\"/></a:accent4>\
 <a:accent5><a:srgbClr val=\"4BACC6\"/></a:accent5><a:accent6><a:srgbClr val=\"F79646\"/></a:accent6><a:hlink><a:srgbClr val=\"0000FF\"/></a:hlink>\
 <a:folHlink><a:srgbClr val=\"800080\"/></a:folHlink></a:clrScheme>\
-<a:fontScheme name=\"Office\"><a:majorFont><a:latin typeface=\"Calibri\"/></a:majorFont><a:minorFont><a:latin typeface=\"Calibri\"/></a:minorFont></a:fontScheme>\
+<a:fontScheme name=\"Office\"><a:majorFont><a:latin typeface=\"Calibri\"/><a:ea typeface=\"\"/><a:cs typeface=\"\"/></a:majorFont><a:minorFont><a:latin typeface=\"Calibri\"/><a:ea typeface=\"\"/><a:cs typeface=\"\"/></a:minorFont></a:fontScheme>\
 <a:fmtScheme name=\"Office\"><a:fillStyleLst><a:solidFill><a:schemeClr val=\"phClr\"/></a:solidFill><a:solidFill><a:schemeClr val=\"phClr\"/></a:solidFill><a:solidFill><a:schemeClr val=\"phClr\"/></a:solidFill></a:fillStyleLst>\
 <a:lnStyleLst><a:ln w=\"9525\"><a:solidFill><a:schemeClr val=\"phClr\"/></a:solidFill></a:ln><a:ln w=\"25400\"><a:solidFill><a:schemeClr val=\"phClr\"/></a:solidFill></a:ln><a:ln w=\"38100\"><a:solidFill><a:schemeClr val=\"phClr\"/></a:solidFill></a:ln></a:lnStyleLst>\
 <a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle></a:effectStyleLst>\
@@ -354,6 +368,7 @@ mod tests {
                     bold: true,
                     italic: false,
                     color: [0.1, 0.2, 0.3],
+                    rotation: 0.0,
                 },
                 Block {
                     text: "Revenue grew 25% year over year across all regions.".into(),
@@ -362,6 +377,7 @@ mod tests {
                     bold: false,
                     italic: false,
                     color: [0.0; 3],
+                    rotation: 0.0,
                 },
                 Block {
                     text: "Operational expenses remained flat.".into(),
@@ -370,12 +386,15 @@ mod tests {
                     bold: false,
                     italic: true,
                     color: [0.0; 3],
+                    rotation: 0.0,
                 },
             ],
             images: vec![Image {
                 ext: "png",
                 bytes: b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR\0\0\0\x02\0\0\0\x03".to_vec(),
                 rect: [72.0, 150.0, 300.0, 300.0],
+                size: [228.0, 150.0],
+                rotation: 0.0,
             }],
         }
     }
@@ -434,6 +453,180 @@ mod tests {
         assert!(slide_xml.contains("i=\"1\""));
     }
 
+    /// Every entry of the package in order: (name, uncompressed bytes), read from the local
+    /// headers the way an unzipper walks them, so a broken structure fails here.
+    fn entries(zip: &[u8]) -> Vec<(String, Vec<u8>)> {
+        let at = |i: usize, n: usize| zip[i..i + n].iter().rev().fold(0usize, |v, b| v << 8 | *b as usize);
+        let mut out = Vec::new();
+        let mut i = 0;
+        while zip[i..].starts_with(b"PK\x03\x04") {
+            let (method, size, raw, name_len, extra) = (at(i + 8, 2), at(i + 18, 4), at(i + 22, 4), at(i + 26, 2), at(i + 28, 2));
+            let data = i + 30 + name_len + extra;
+            let name = String::from_utf8(zip[i + 30..i + 30 + name_len].to_vec()).expect("UTF-8 name");
+            let body = &zip[data..data + size];
+            let bytes = match method {
+                0 => body.to_vec(),
+                8 => {
+                    let mut v = Vec::new();
+                    std::io::Read::read_to_end(&mut flate2::read::DeflateDecoder::new(body), &mut v).expect("inflates");
+                    v
+                }
+                m => panic!("{name}: unexpected method {m}"),
+            };
+            assert_eq!(bytes.len(), raw, "{name}: uncompressed size");
+            out.push((name, bytes));
+            i = data + size;
+        }
+        assert!(zip[i..].starts_with(b"PK\x01\x02"), "the central directory follows the entries");
+        out
+    }
+
+    /// Checks that every start tag is closed by the matching end tag (text is escaped, so a
+    /// `<` always starts markup). Catches a typo such as `<a:lnR>…</a:lnL>`.
+    fn assert_tags_balance(name: &str, xml: &str) {
+        let mut stack: Vec<&str> = Vec::new();
+        for chunk in xml.split('<').skip(1) {
+            let tag = chunk.split('>').next().unwrap_or_default();
+            if tag.starts_with('?') {
+                continue;
+            }
+            if let Some(close) = tag.strip_prefix('/') {
+                assert_eq!(stack.pop(), Some(close.trim()), "{name}: </{close}> closes the wrong element");
+            } else if !tag.ends_with('/') {
+                stack.push(tag.split_whitespace().next().unwrap_or_default());
+            }
+        }
+        assert!(stack.is_empty(), "{name}: unclosed {stack:?}");
+    }
+
+    #[test]
+    fn pptx_package_parts_are_complete_and_consistent() {
+        let cell = |t: &str, x: f64, y: f64| Block {
+            text: t.into(),
+            rect: [x, y, x + 100.0, y + 14.0],
+            size: 12.0,
+            bold: false,
+            italic: false,
+            color: [0.0; 3],
+            rotation: 0.0,
+        };
+        let table_page = Page {
+            width: 612.0,
+            height: 792.0,
+            blocks: vec![
+                cell("Metric", 72.0, 400.0),
+                cell("Value", 200.0, 400.0),
+                cell("Growth", 72.0, 360.0),
+                cell("+9%", 200.0, 360.0),
+                cell("Target", 72.0, 320.0),
+                cell("100%", 200.0, 320.0),
+            ],
+            images: Vec::new(),
+        };
+        let bytes = pptx(&[sample_page(), table_page], "Two");
+        let parts = entries(&bytes);
+        assert_eq!(parts.first().map(|p| p.0.as_str()), Some("[Content_Types].xml"), "content types come first");
+        let names: std::collections::HashSet<&str> = parts.iter().map(|p| p.0.as_str()).collect();
+        assert_eq!(names.len(), parts.len(), "no duplicate parts");
+        for required in [
+            "[Content_Types].xml",
+            "_rels/.rels",
+            "ppt/presentation.xml",
+            "ppt/_rels/presentation.xml.rels",
+            "ppt/slideMasters/slideMaster1.xml",
+            "ppt/slideMasters/_rels/slideMaster1.xml.rels",
+            "ppt/slideLayouts/slideLayout1.xml",
+            "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
+            "ppt/theme/theme1.xml",
+            "ppt/slides/slide1.xml",
+            "ppt/slides/_rels/slide1.xml.rels",
+            "ppt/slides/slide2.xml",
+            "ppt/slides/_rels/slide2.xml.rels",
+            "ppt/media/image1.png",
+        ] {
+            assert!(names.contains(required), "missing {required}");
+        }
+        let text = |n: &str| String::from_utf8(parts.iter().find(|p| p.0 == n).map(|p| p.1.clone()).unwrap_or_default()).expect("UTF-8 XML");
+        for (name, body) in &parts {
+            if name.ends_with(".xml") || name.ends_with(".rels") {
+                assert!(body.starts_with(b"<?xml"), "{name} is XML");
+                assert_tags_balance(name, &text(name));
+            }
+        }
+        assert!(text("ppt/slides/slide2.xml").contains("<a:tbl>"), "the second slide carries the table");
+        // Text boxes, not placeholders: the blank layout defines none to inherit from.
+        for slide in ["ppt/slides/slide1.xml", "ppt/slides/slide2.xml"] {
+            assert!(!text(slide).contains("<p:ph"), "{slide} uses no placeholders");
+        }
+        // Every override names a part that exists, and every XML part has a content type.
+        let types = text("[Content_Types].xml");
+        for chunk in types.split("PartName=\"/").skip(1) {
+            let part = chunk.split('"').next().unwrap_or_default();
+            assert!(names.contains(part), "override for missing part {part}");
+        }
+        for slide in ["ppt/slides/slide1.xml", "ppt/slides/slide2.xml", "ppt/presentation.xml", "ppt/theme/theme1.xml"] {
+            assert!(types.contains(&format!("PartName=\"/{slide}\"")), "{slide} has a content type");
+        }
+        // Relationship targets resolve to parts in the package.
+        for (rels, base) in [
+            ("_rels/.rels", ""),
+            ("ppt/_rels/presentation.xml.rels", "ppt/"),
+            ("ppt/slides/_rels/slide1.xml.rels", "ppt/slides/"),
+            ("ppt/slides/_rels/slide2.xml.rels", "ppt/slides/"),
+            ("ppt/slideMasters/_rels/slideMaster1.xml.rels", "ppt/slideMasters/"),
+            ("ppt/slideLayouts/_rels/slideLayout1.xml.rels", "ppt/slideLayouts/"),
+        ] {
+            for chunk in text(rels).split("Target=\"").skip(1) {
+                let target = chunk.split('"').next().unwrap_or_default();
+                let mut path: Vec<&str> = base.split('/').filter(|s| !s.is_empty()).collect();
+                for seg in target.split('/') {
+                    if seg == ".." {
+                        path.pop();
+                    } else {
+                        path.push(seg);
+                    }
+                }
+                let resolved = path.join("/");
+                assert!(names.contains(resolved.as_str()), "{rels}: target {target} is missing");
+            }
+        }
+        // The theme's font scheme carries the schema-required latin, ea and cs faces.
+        let theme = text("ppt/theme/theme1.xml");
+        for font in ["majorFont", "minorFont"] {
+            let inner = theme.split(&format!("<a:{font}>")).nth(1).and_then(|r| r.split(&format!("</a:{font}>")).next()).unwrap_or_default();
+            assert!(inner.contains("<a:latin ") && inner.contains("<a:ea ") && inner.contains("<a:cs "), "{font}: {inner}");
+        }
+        assert!(text("ppt/presentation.xml").contains("r:id=\"rIdSld2\""));
+    }
+
+    #[test]
+    fn hostile_sizes_do_not_overflow_the_slide_position() {
+        let huge = |text: &str, size: f64, y: f64| Block {
+            text: text.into(),
+            rect: [72.0, y, 500.0, y + 10.0],
+            size,
+            bold: false,
+            italic: false,
+            color: [0.0; 3],
+            rotation: 0.0,
+        };
+        let mut blocks = vec![huge("Title", f64::MAX, 500.0)];
+        for k in 0..40 {
+            blocks.push(huge(&"word ".repeat(10_000), 1e300, 400.0 - k as f64));
+            blocks.push(huge("nan", f64::NAN, 300.0 - k as f64));
+            blocks.push(huge("inf", f64::INFINITY, 200.0 - k as f64));
+        }
+        let images = (0..40)
+            .map(|k| Image { ext: "png", bytes: vec![0; 4], rect: [0.0, -1e300, 1e-300, 1e300 - k as f64], size: [1.0, 1.0], rotation: 0.0 })
+            .collect();
+        let p = Page { width: f64::MAX, height: f64::NAN, blocks, images };
+        let bytes = pptx(&[p], "Hostile");
+        let slide = part(&bytes, "ppt/slides/slide1.xml");
+        assert!(slide.contains("Title") && slide.contains("<p:pic>"), "the slide is still written");
+        assert!(!slide.contains("y=\"-"), "positions never wrap negative");
+        assert!(!slide.contains("<p:ph"), "text boxes, not placeholders");
+    }
+
     #[test]
     pub fn pptx_empty_pages_produce_valid_slide() {
         let bytes = pptx(&[], "Blank");
@@ -480,13 +673,22 @@ mod tests {
             bold: false,
             italic: false,
             color: [0.0; 3],
+            rotation: 0.0,
         };
         let p = Page {
             width: 720.0,
             height: 540.0,
             blocks: vec![
                 // Heading outside the table (short width, does not span table columns)
-                Block { text: "Monthly Summary".into(), rect: [50.0, 480.0, 150.0, 500.0], size: 20.0, bold: true, italic: false, color: [0.0; 3] },
+                Block {
+                    text: "Monthly Summary".into(),
+                    rect: [50.0, 480.0, 150.0, 500.0],
+                    size: 20.0,
+                    bold: true,
+                    italic: false,
+                    color: [0.0; 3],
+                    rotation: 0.0,
+                },
                 // Table where one cell has a very large number (e.g. 36 pt callout in the table)
                 cell("Metric", 72.0, 400.0, 100.0, 12.0),
                 cell("Value", 200.0, 400.0, 100.0, 12.0),
