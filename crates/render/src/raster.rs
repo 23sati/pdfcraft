@@ -1930,6 +1930,7 @@ mod tests {
                 tile: None,
                 scale: 1.0,
                 tag: 0,
+                preview: false,
             });
             assert!(page.error.is_none(), "Lab ({l} {a} {b}): {:?}", page.error);
             assert_eq!((page.width, page.height), (200, 200));
@@ -1948,6 +1949,53 @@ mod tests {
                 assert!((*got).abs_diff(want) <= 2, "Lab ({l} {a} {b}) channel {channel}: got {got:?}, expected {expected:?}");
             }
         }
+    }
+    /// #1203: an `/Indexed` palette over Lab looks its entries up as
+    /// `byte / 255`, which must map onto L* 0..100 and the a*/b* /Range. They
+    /// were read as raw L*a*b* (L* below 1), so such palettes drew near black.
+    #[test]
+    fn indexed_palettes_over_lab_keep_their_colours() {
+        use super::*;
+        let lab = "[/Lab << /WhitePoint [0.9505 1 1.089] /Range [-100 100 -100 100] >>]";
+        let render = |content: &str| -> [u8; 4] {
+            let bytes = format!(
+                "%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n\
+                 2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n\
+                 3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /ColorSpace << /L {lab} /I [/Indexed {lab} 1 <000000 80CCB2>] >> >> /Contents 4 0 R >> endobj\n\
+                 4 0 obj << /Length {} >> stream\n{content}\nendstream endobj\n\
+                 trailer << /Root 1 0 R >>\n%%EOF",
+                content.len()
+            )
+            .into_bytes();
+            let page = PageRenderer::new(Arc::new(bytes), RenderConfig::default()).render(RenderRequest {
+                page: 0,
+                kind: RequestKind::Pixels,
+                tile: None,
+                scale: 1.0,
+                tag: 0,
+                preview: false,
+            });
+            assert!(page.error.is_none(), "{content}: {:?}", page.error);
+            assert_eq!((page.width, page.height), (200, 200));
+            let start = (100 * page.width as usize + 100) * 4;
+            let mut pixel = [0; 4];
+            pixel.copy_from_slice(page.rgba.get(start..start + 4).expect("centre pixel"));
+            pixel
+        };
+
+        // Palette entry 1 is <80 CC B2>: L* = 128/255·100, a* = -100 + 204/255·200,
+        // b* = -100 + 178/255·200, about Lab (50.2 60 39.6): a warm red.
+        let indexed = render("/I cs 1 sc 0 0 200 200 re f");
+        let direct = render(&format!(
+            "/L cs {} {} {} sc 0 0 200 200 re f",
+            128.0 / 255.0 * 100.0,
+            -100.0 + 204.0 / 255.0 * 200.0,
+            -100.0 + 178.0 / 255.0 * 200.0
+        ));
+        for (channel, (got, want)) in indexed.iter().zip(direct).enumerate() {
+            assert!(got.abs_diff(want) <= 1, "channel {channel}: indexed {indexed:?}, direct {direct:?}");
+        }
+        assert!(indexed[0] > 180, "the palette red must not render near black: {indexed:?}");
     }
     #[test]
     fn watchdog_skips_a_stuck_page_and_keeps_rendering() {

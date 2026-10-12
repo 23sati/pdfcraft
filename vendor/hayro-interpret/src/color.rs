@@ -691,15 +691,28 @@ impl Lab {
 }
 
 impl ToRgb for Lab {
-    fn convert_f32(&self, input: &[f32], output: &mut [u8], _: bool) -> Option<()> {
+    fn convert_f32(&self, input: &[f32], output: &mut [u8], manual_scale: bool) -> Option<()> {
         let [min_a, max_a, min_b, max_b] = self.range;
         let white_point = self.usable_white_point();
         let [xw, yw, zw] = white_point;
 
         for (input, output) in input.chunks_exact(3).zip(output.chunks_exact_mut(3)) {
-            let l = clamp_component(input[0], 0.0, 100.0);
-            let a = clamp_component(input[1], min_a, max_a);
-            let b = clamp_component(input[2], min_b, max_b);
+            // PdfCraft patch: `manual_scale` means the components arrive
+            // normalised to [0, 1] (an `/Indexed` palette over Lab looks its
+            // bytes up as `byte / 255`). Map them linearly onto L* 0..100 and
+            // the a*/b* /Range (ISO 32000-2 §8.6.6.3) before converting.
+            let (l, a, b) = if manual_scale {
+                (
+                    clamp_component(input[0], 0.0, 1.0) * 100.0,
+                    min_a + clamp_component(input[1], 0.0, 1.0) * (max_a - min_a),
+                    min_b + clamp_component(input[2], 0.0, 1.0) * (max_b - min_b),
+                )
+            } else {
+                (input[0], input[1], input[2])
+            };
+            let l = clamp_component(l, 0.0, 100.0);
+            let a = clamp_component(a, min_a, max_a);
+            let b = clamp_component(b, min_b, max_b);
 
             // L*a*b* is relative to the space's own /WhitePoint. Map it to XYZ
             // in that white's coordinates, Bradford-adapt to D65 and convert to
