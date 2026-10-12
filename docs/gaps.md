@@ -1,5 +1,6 @@
 # Where PdfCraft falls short of Acrobat Pro
 
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-12 · **Change:** minor (gap 14: right-to-left layout and bidi text done) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-12 · **Change:** gap 4 closed: the web build prints through the browser's print dialog; exclusive image-crop resize follow-up; minor (Word invoice regression coverage, #773; Office fidelity still partial; gap 2: hayro patch counts after the native-gradient backport) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-12 · **Change:** minor (gap 13: large-file memory measured, edits keep two copies instead of three, file-backed input blocked on gap 2) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (gap 1 closed by #836; fixed issues removed from gaps 3, 6 and 16) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
@@ -35,7 +36,7 @@ update the numbers.
 | 11 | Accessibility: checker only, no tagging tools | feature | 40–70 | [target-app-parity.md](target-app-parity.md) |
 | 12 | No measured fidelity harness against Acrobat | quality | (in 2) | [target-app-parity.md](target-app-parity.md) |
 | 13 | Performance budgets and lazy loading of very large files | performance | 25–45 | this file |
-| 14 | Arabic not mirrored; no Hindi, Indonesian, Korean, Vietnamese | localization | 30–50 | [localization-parity.md](localization-parity.md) |
+| 14 | Right-to-left polish; no Hindi, Indonesian, Korean, Vietnamese | localization | 15–30 | [localization-parity.md](localization-parity.md) |
 | 15 | Forms: JavaScript object model, actions, submit, XFA depth | feature | 40–75 | [pdf-spec-parity.md](pdf-spec-parity.md) |
 | 16 | UI precision gaps (multi-select move, rulers, accelerators, windows) | UI/UX | 30–60 | [ui-parity.md](ui-parity.md) |
 | 17 | Certificate security and other protect gaps | feature, spec | 15–30 | [pdf-spec-parity.md](pdf-spec-parity.md) |
@@ -222,14 +223,16 @@ update the numbers.
   to edit.
 - **Estimate:** 25–45 h. **Doc:** this file.
 
-### 14. Arabic not mirrored; no Hindi, Indonesian, Korean, Vietnamese
+### 14. Right-to-left polish; no Hindi, Indonesian, Korean, Vietnamese
 
-- **Missing:** a right-to-left layout (panels, menus, alignment), bidirectional text in the text
-  layout itself (wrapping, typed text); catalogs for Hindi, Indonesian, Korean and Vietnamese
-  (Acrobat ships Korean; it ships Arabic in its Middle East edition; it ships none of the other
-  three).
-- **Evidence:** [localization.md](localization.md) §Arabic; `misc.rtl-ui` planned.
-- **Estimate:** 30–50 h (Arabic RTL 20–35, four catalogs 10–15 plus review). **Doc:**
+- **Missing:** for Arabic and Hebrew, visual caret movement and split selections across a
+  direction change, and a few painted details that still follow the left-to-right geometry
+  (drop-down arrows, vertical scroll bars, reply indentation, the canvas tool strip); catalogs for
+  Hindi, Indonesian, Korean and Vietnamese (Acrobat ships Korean; it ships Arabic and Hebrew in its
+  Middle East edition; it ships none of the other three). The mirrored layout and bidirectional
+  text layout are done (2026-10-11).
+- **Evidence:** [localization.md](localization.md) §Arabic; `misc.rtl-ui` partial.
+- **Estimate:** 15–30 h (RTL polish 5–15, four catalogs 10–15 plus review). **Doc:**
   [localization-parity.md](localization-parity.md).
 
 ### 15. Forms: JavaScript object model, actions, submit, XFA depth

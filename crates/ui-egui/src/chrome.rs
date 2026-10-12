@@ -346,14 +346,20 @@ fn tab(
         }
         icons::paint(
             ui,
-            Rect::from_min_size(rect.min + vec2(6.0, (height - 16.0) / 2.0), vec2(16.0, 16.0)),
+            crate::mirror::rect_at(rect, vec2(6.0, (height - 16.0) / 2.0), vec2(16.0, 16.0)),
             icon,
             15.0,
             if active { t.accent } else { t.text_muted },
         );
-        ui.painter().text(rect.min + vec2(28.0, rect.height() / 2.0), Align2::LEFT_CENTER, label, font, if active { t.text } else { t.text_muted });
+        ui.painter().text(
+            crate::mirror::start_center(rect, 28.0),
+            crate::mirror::align(Align2::LEFT_CENTER),
+            label,
+            font,
+            if active { t.text } else { t.text_muted },
+        );
     });
-    let x_rect = Rect::from_center_size(rect.right_center() - vec2(16.0, 0.0), vec2(20.0, 20.0));
+    let x_rect = Rect::from_center_size(crate::mirror::end_center(rect, 16.0), vec2(20.0, 20.0));
     let x = ui.interact(x_rect, id.with("close"), Sense::click());
     let x_press = theme::Press::track(ui, &x);
     x_press.wash(ui, x_rect, 4, false);
@@ -522,8 +528,9 @@ pub fn right_rail(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
     );
     let page_count = doc.info.pages.len();
     let labels: Vec<String> = doc.info.pages.iter().map(|p| p.label.clone()).collect();
-    egui::Panel::right("rail")
-        .resizable(false)
+    // The rail sits on the outer edge after the document: the left one in a right-to-left interface.
+    let rail = if crate::i18n::current().rtl() { egui::Panel::left("rail") } else { egui::Panel::right("rail") };
+    rail.resizable(false)
         .exact_size(48.0)
         .frame(egui::Frame::NONE.fill(t.chrome).inner_margin(egui::Margin::symmetric(6, 8)).stroke(Stroke::new(1.0, t.divider)))
         .show(ui, |ui| {

@@ -75,8 +75,8 @@ pub fn document_thai_font() -> Option<&'static CraftFont> {
     ui_thai_fonts().into_iter().next()
 }
 
-/// The `Hebr` craft-fonts faces for Hebrew interface text (file names, document titles, text
-/// being edited), in manifest order. Empty when built without craft-fonts or when it has no
+/// The `Hebr` craft-fonts faces for Hebrew interface text (the Hebrew catalog, file names,
+/// document titles, text being edited), in manifest order. Empty when built without craft-fonts or when it has no
 /// Hebrew face.
 pub fn ui_hebrew_fonts() -> Vec<&'static CraftFont> {
     CRAFT_FONTS.iter().filter(|f| f.covers("Hebr")).collect()

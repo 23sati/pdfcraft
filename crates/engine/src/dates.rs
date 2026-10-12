@@ -56,7 +56,7 @@ const AR_DAYS: [&str; 7] = ["الأحد", "الاثنين", "الثلاثاء", 
 
 /// The languages month and weekday names can be written in (Preferences ▸ Date format ▸ Language):
 /// the interface languages, in the same order and with the same names.
-pub static DATE_LANGUAGES: [DateLanguage; 21] = [
+pub static DATE_LANGUAGES: [DateLanguage; 22] = [
     DateLanguage {
         code: "en",
         name: "English",
@@ -271,6 +271,29 @@ pub static DATE_LANGUAGES: [DateLanguage; 21] = [
         months_short: ["sty", "lut", "mar", "kwi", "maj", "cze", "lip", "sie", "wrz", "paź", "lis", "gru"],
         days: ["niedziela", "poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota"],
         days_short: ["niedz.", "pon.", "wt.", "śr.", "czw.", "pt.", "sob."],
+    },
+    // Hebrew: after a day number the month takes the preposition ב־ ("7 במרץ").
+    DateLanguage {
+        code: "he",
+        name: "עברית",
+        months: ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"],
+        months_with_day: Some([
+            "בינואר",
+            "בפברואר",
+            "במרץ",
+            "באפריל",
+            "במאי",
+            "ביוני",
+            "ביולי",
+            "באוגוסט",
+            "בספטמבר",
+            "באוקטובר",
+            "בנובמבר",
+            "בדצמבר",
+        ]),
+        months_short: ["ינו׳", "פבר׳", "מרץ", "אפר׳", "מאי", "יוני", "יולי", "אוג׳", "ספט׳", "אוק׳", "נוב׳", "דצמ׳"],
+        days: ["יום ראשון", "יום שני", "יום שלישי", "יום רביעי", "יום חמישי", "יום שישי", "שבת"],
+        days_short: ["יום א׳", "יום ב׳", "יום ג׳", "יום ד׳", "יום ה׳", "יום ו׳", "שבת"],
     },
     DateLanguage {
         code: "sl",
@@ -618,6 +641,8 @@ mod tests {
         assert_eq!(in_lang("ddd d mmm", "it"), "sab 7 mar");
         assert_eq!(in_lang("dddd, d mmmm", "te"), "శనివారం, 7 మార్చి");
         assert_eq!(in_lang("dddd, d mmmm", "ar"), "السبت, 7 مارس");
+        assert_eq!(in_lang("dddd, d mmmm", "he"), "שבת, 7 במרץ");
+        assert_eq!(in_lang("mmmm yyyy", "he"), "מרץ 2026");
         assert_eq!(in_lang("yyyy\\年mmmmd\\日 dddd", "ja"), "2026年3月7日 土曜日");
         assert_eq!(in_lang("yyyy\\年mmmmd\\日 dddd", "zh-hans"), "2026年三月7日 星期六");
         assert_eq!(in_lang("ddd", "zh-hant"), "週六");
