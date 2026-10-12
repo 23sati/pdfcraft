@@ -28,6 +28,7 @@
 	Create PDF from file…	PDF aus Datei erstellen…
 	Create PDF from images…	PDF aus Bildern erstellen…
 	Create PDF from multiple files…	PDF aus mehreren Dateien erstellen…
+	Create separate PDFs…	Separate PDFs erstellen…
 	Create PDF from clipboard	PDF aus Zwischenablage erstellen
 	Combine files…	Dateien zusammenführen…
 	Save	Speichern
@@ -319,6 +320,7 @@
 	Create from	Erstellen aus
 	Single file	Einzelne Datei
 	Multiple files	Mehrere Dateien
+	Separate PDFs	Einzelne PDFs
 	Images	Bilder
 	Clipboard	Zwischenablage
 	Blank page	Leere Seite
@@ -1804,6 +1806,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	{key} ändern
 	Insert pages from {name}	Seiten aus {name} einfügen
+	Insert pages from {name} — 1 field renamed	Seiten aus {name} einfügen — 1 Feld umbenannt
+	Insert pages from {name} — fields renamed	Seiten aus {name} einfügen — Felder umbenannt
 	Fill in {name}	{name} ausfüllen
 	Set the image of {name}	Bild von {name} festlegen
 	Edit script of {name}	Skript von {name} bearbeiten
@@ -1961,6 +1965,7 @@
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	XFA-Formular: Seine Felder und XFA-Daten werden synchron gehalten, damit andere Viewer anzeigen, was du ausfüllst.
 @plural	{n} page|{n} pages	{n} Seite|{n} Seiten
 @plural	{n} field|{n} fields	{n} Feld|{n} Felder
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} Feldname kollidiert mit früheren Dateien und wird umbenannt: {list}|{n} Feldnamen kollidieren mit früheren Dateien und werden umbenannt: {list}
 	Switch to two-page view first to show the cover page	Wechsle zuerst zur Doppelseitenansicht, um das Deckblatt anzuzeigen
 	Page display: {layout}	Seitenanzeige: {layout}
 	Fit to width scrolling	An Breite anpassen und scrollen
@@ -2268,3 +2273,16 @@ smooth scrolling	Off	Aus
 	Tools panel side	Seite des Werkzeugbereichs
 	Add comment	Kommentar hinzufügen
 	Change tag properties	Tag-Eigenschaften ändern
+	Left out: {names}	Ausgelassen: {names}
+	already a PDF	bereits ein PDF
+	no unused output name	kein freier Ausgabename
+	no output folder was chosen	kein Ausgabeordner gewählt
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	{n} PDF heruntergeladen|{n} PDFs heruntergeladen
+	Scan	Scannen
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Unterschreiben Sie auf einem weißen Blatt Papier und fotografieren Sie es bei hellem, gleichmäßigem Licht (mit Blitz). Wählen Sie das Foto aus oder ziehen Sie es hierher: PdfCraft findet die Unterschrift und entfernt das Papier.
+	Choose photo…	Foto auswählen…
+	No photo chosen	Kein Foto ausgewählt
+	Photo	Foto
+	Ink sensitivity	Tintenempfindlichkeit
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Im Rahmen wurde keine Unterschrift gefunden. Ziehen Sie den Rahmen über die Unterschrift oder erhöhen Sie die Tintenempfindlichkeit.
+	Couldn't use the photo: {e}	Das Foto kann nicht verwendet werden: {e}

@@ -28,6 +28,7 @@
 	Create PDF from file…	PDF létrehozása fájlból…
 	Create PDF from images…	PDF létrehozása képekből…
 	Create PDF from multiple files…	PDF létrehozása több fájlból…
+	Create separate PDFs…	Külön PDF-ek létrehozása…
 	Create PDF from clipboard	PDF létrehozása a vágólapról
 	Combine files…	Fájlok egyesítése…
 	Save	Mentés
@@ -317,6 +318,7 @@
 	Create from	Létrehozás ebből
 	Single file	Egy fájl
 	Multiple files	Több fájl
+	Separate PDFs	Külön PDF-ek
 	Images	Képek
 	Clipboard	Vágólap
 	Blank page	Üres oldal
@@ -1789,6 +1791,8 @@
 	{month} {y}	{y}. {month}
 	Change {key}	{key} módosítása
 	Insert pages from {name}	Oldalak beszúrása ebből: {name}
+	Insert pages from {name} — 1 field renamed	Oldalak beszúrása ebből: {name} — 1 mező átnevezve
+	Insert pages from {name} — fields renamed	Oldalak beszúrása ebből: {name} — mezők átnevezve
 	Fill in {name}	{name} kitöltése
 	Set the image of {name}	{name} képének beállítása
 	Edit script of {name}	{name} szkriptjének szerkesztése
@@ -1946,6 +1950,7 @@
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	XFA-űrlap: a mezői és az XFA-adatai együtt maradnak, így más megjelenítők azt mutatják, amit beírsz.
 @plural	{n} page|{n} pages	{n} oldal|{n} oldal
 @plural	{n} field|{n} fields	{n} mező|{n} mező
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} mezőnév ütközik a korábbi fájlokkal, és át lesz nevezve: {list}|{n} mezőnév ütközik a korábbi fájlokkal, és át lesz nevezve: {list}
 	Switch to two-page view first to show the cover page	Előbb válts kétoldalas nézetre a borító megjelenítéséhez
 	Page display: {layout}	Oldalmegjelenítés: {layout}
 	Fit to width scrolling	Görgetés szélességhez igazítva
@@ -2266,3 +2271,16 @@ smooth scrolling	Off	Ki
 	Tools panel side	Az Eszközök panel oldala
 	Add comment	Megjegyzés hozzáadása
 	Change tag properties	Címke tulajdonságainak módosítása
+	Left out: {names}	Kihagyva: {names}
+	already a PDF	már PDF
+	no unused output name	nincs szabad kimeneti név
+	no output folder was chosen	nincs kiválasztva kimeneti mappa
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	{n} PDF letöltve|{n} PDF letöltve
+	Scan	Beolvasás
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Írja alá a nevét egy fehér papírlapon, és fényképezze le erős, egyenletes fényben (vakuval). Válassza ki a fényképet, vagy húzza ide: a PdfCraft megkeresi az aláírást, és eltávolítja a papírt.
+	Choose photo…	Fénykép kiválasztása…
+	No photo chosen	Nincs kiválasztott fénykép
+	Photo	Fénykép
+	Ink sensitivity	Tintaérzékenység
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	A keretben nem található aláírás. Húzza a keretet az aláírásra, vagy növelje a tintaérzékenységet.
+	Couldn't use the photo: {e}	A fénykép nem használható: {e}

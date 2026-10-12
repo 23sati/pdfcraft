@@ -1,5 +1,7 @@
 # Where PdfCraft falls short of Acrobat Pro
 
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (Word invoice regression coverage, #773; Office fidelity still partial; gap 2: hayro patch counts after the native-gradient backport) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (gap 1 closed by #836; fixed issues removed from gaps 3, 6 and 16) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (document-font subset completion and curved/shared image clips in the contributor fork; gap 2: hayro patch counts after the native-gradient backport) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
 Every known shortfall, one entry each, ranked by what it costs users. This is the work list: agents
@@ -152,8 +154,10 @@ update the numbers.
 
 - **Missing:** Word export that keeps layout; Excel and PowerPoint export; creating PDFs from Office,
   HTML, web pages and PostScript; SVG/XML/EPS/PS/JPEG 2000 export.
-- **Evidence:** `create.export-docx` partial; [#773](https://github.com/storytold/pdfcraft/issues/773)
-  (an invoice converted to Word loses its layout, gains table borders and duplicates pages);
+- **Evidence:** `create.export-docx` partial; the synthetic invoice regression for
+  [#773](https://github.com/storytold/pdfcraft/issues/773) now covers absent inferred borders,
+  floating watermark text and per-page section sizes. Exact font matching, vector rules and
+  broader layout fidelity remain incomplete;
   `create.export-xlsx`, `create.export-pptx`, `create.from-office`, `create.from-html` planned.
 - **Impact:** "Export PDF" and "Create PDF" are two of Acrobat's most used tools.
 - **Gate:** lossy or missing sub-cases of the convert-and-share workflow (partial, not blocking).
@@ -305,6 +309,7 @@ update the numbers.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Word invoice failure #773 has synthetic regression coverage; broader Office conversion remains gap 8. |
 | 2026-10-11 | minor | Contributor fork: mixed-style visual regions, source-font space reuse and a read-only textless background. Embedded sfnt source faces and Mac subset Unicode mappings keep edit baselines stable; live frames follow Apply/Save geometry as text grows or shrinks. Engine/tool/UI regressions and private all-page checks cover the changes; full matching font import, CFF, range styles, shaping and private Chinese typing checks added; legacy programs and general fidelity remain open; estimates unchanged |
 | 2026-10-11 | patch | Gap 2: 23 hayro-interpret and 10 hayro patches after axial and radial shadings became native gradients (backport of hayro 0.8) |
 | 2026-10-11 | minor | Closed gap 1 (#774, fixed by #836; numbers kept, its interop suite moved to gap 12); gap 6 lists the fixed #799–#821 batch; gap 3 and 16 updated for #844 (same-page move), #740 (column select) and #759 (1:1 touchpad scrolling) |

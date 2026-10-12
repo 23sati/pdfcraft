@@ -307,6 +307,7 @@
 	Create from	Мынадан жасау
 	Single file	Бір файл
 	Multiple files	Бірнеше файл
+	Separate PDFs	Бөлек PDF файлдары
 	Images	Кескіндер
 	Clipboard	Алмасу буфері
 	Blank page	Бос бет
@@ -1795,6 +1796,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	Өзгерту: {key}
 	Insert pages from {name}	Беттерді {name} файлынан енгізу
+	Insert pages from {name} — 1 field renamed	{name} ішінен беттерді кірістіру — 1 өріс қайта аталды
+	Insert pages from {name} — fields renamed	{name} ішінен беттерді кірістіру — өрістер қайта аталды
 	Fill in {name}	{name} толтыру
 	Set the image of {name}	{name} кескінін орнату
 	Edit script of {name}	{name} скриптін түзету
@@ -1962,6 +1965,7 @@
 @plural	{n} page|{n} pages	{n} бет|{n} бет
 @plural	{n} field|{n} fields	{n} өріс|{n} өріс
 	Create PDF from multiple files…	Бірнеше файлдан PDF жасау…
+	Create separate PDFs…	Бөлек PDF файлдарын жасау…
 	Optimizing… removing user data	Оңтайландыру… пайдаланушы деректерін жою
 	Optimizing… image {d} of {t}	Оңтайландыру… сурет {d} / {t}
 	Optimizing… cleaning up	Оңтайландыру… тазарту
@@ -2265,3 +2269,17 @@ smooth scrolling	Off	Өшірулі
 	Tools panel side	Құралдар панелінің жағы
 	Add comment	Түсініктеме қосу
 	Change tag properties	Тег қасиеттерін өзгерту
+	Left out: {names}	Қалдырылды: {names}
+	already a PDF	бұл қазірдің өзінде PDF
+	no unused output name	бос шығыс атауы жоқ
+	no output folder was chosen	шығыс қалтасы таңдалмады
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	{n} PDF жүктелді|{n} PDF жүктелді
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} өріс атауы алдыңғы файлдармен қайшы келеді және қайта аталады: {list}|{n} өріс атауы алдыңғы файлдармен қайшы келеді және қайта аталады: {list}
+	Scan	Сканерлеу
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Ақ қағаз парағына қол қойып, оны жарық әрі біркелкі жарықта суретке түсіріңіз (жарқылды қосыңыз). Суретті таңдаңыз немесе осында тастаңыз: PdfCraft қолтаңбаны тауып, қағазды алып тастайды.
+	Choose photo…	Суретті таңдау…
+	No photo chosen	Сурет таңдалмаған
+	Photo	Сурет
+	Ink sensitivity	Сия сезімталдығы
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Жақтауда қолтаңба табылмады. Жақтауды қолтаңбаның үстіне жылжытыңыз немесе сия сезімталдығын арттырыңыз.
+	Couldn't use the photo: {e}	Суретті пайдалану мүмкін болмады: {e}
