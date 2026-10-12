@@ -1492,7 +1492,7 @@
 	Couldn't optimize the file: {e}	Dosya en iyileştirilemedi: {e}
 	Couldn't write {path}: {e}	{path} yazılamadı: {e}
 	The form asks to be submitted to {u}; PdfCraft doesn't send form data. Save the document to keep your entries.	Form {u} adresine gönderilmek isteniyor; PdfCraft form verilerini göndermez. Girdilerinizi korumak için belgeyi kaydedin.
-	{s} actions run in the JavaScript engine (M6)	{s} eylemleri JavaScript motorunda çalışır (M6)
+	This PDF uses the unsupported {s} action.	Bu PDF desteklenmeyen {s} eylemini kullanıyor.
 	{name}: the {other} action isn't supported yet	{name}: {other} eylemi henüz desteklenmiyor
 	{name} submits the form to {url}; PdfCraft doesn't send form data. Save the document to keep your entries.	{name} formu {url} adresine gönderiyor; PdfCraft form verilerini göndermez. Girdilerinizi korumak için belgeyi kaydedin.
 	Export stopped: {e}	Dışa aktarma durduruldu: {e}

@@ -458,6 +458,117 @@ fn printer_option_defaults_and_job_arguments() {
     assert!(spool::printer_options("../../etc/passwd").is_empty(), "not a queue name");
 }
 
+#[cfg(all(unix, not(target_arch = "wasm32")))]
+mod cups_options {
+    use crate::spool;
+
+    const RECORD: &str = "PDFCRAFT_LPOPTIONS_TEST_RECORD";
+    const ANSWER: &str = "PDFCRAFT_LPOPTIONS_TEST_ANSWER";
+
+    /// The child process stands in for lpoptions, recording its real arguments.
+    #[test]
+    fn stand_in_for_lpoptions() {
+        let Some(record) = std::env::var_os(RECORD) else { return };
+        let args: Vec<String> = std::env::args().skip_while(|a| a != "--").skip(1).collect();
+        std::fs::write(std::path::Path::new(&record).join("args"), args.join("\n")).unwrap();
+        println!("{}", std::env::var(ANSWER).unwrap());
+    }
+
+    fn command(record: &std::path::Path, answer: &str) -> std::process::Command {
+        let mut c = std::process::Command::new(std::env::current_exe().unwrap());
+        c.args(["--exact", "tests::cups_options::stand_in_for_lpoptions", "--nocapture", "--"]).env(RECORD, record).env(ANSWER, answer);
+        c
+    }
+
+    fn folder() -> std::path::PathBuf {
+        use std::io::Read as _;
+        use std::os::unix::fs::DirBuilderExt as _;
+        let mut random = std::fs::File::open("/dev/urandom").unwrap();
+        for _ in 0..32 {
+            let mut nonce = [0; 16];
+            random.read_exact(&mut nonce).unwrap();
+            let path = std::env::temp_dir().join(format!("pdfcraft-cups-options-{:032x}", u128::from_be_bytes(nonce)));
+            // Atomic creation, private permissions from the outset; never reuse an existing
+            // path (including a symlink) in the shared temporary directory.
+            match std::fs::DirBuilder::new().mode(0o700).create(&path) {
+                Ok(()) => return path,
+                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(e) => panic!("create private CUPS test directory: {e}"),
+            }
+        }
+        panic!("could not create a unique CUPS test directory");
+    }
+
+    #[test]
+    fn instances_read_the_queue_ppd_and_their_own_defaults() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let dir = folder();
+        assert_eq!(std::fs::metadata(&dir).unwrap().permissions().mode() & 0o777, 0o700);
+        // One synthetic queue PPD; there is deliberately no Office/ subdirectory.
+        std::fs::write(
+            dir.join("Office.ppd"),
+            "*OpenUI *InputSlot/Paper tray: PickOne\n*DefaultInputSlot: Auto\n*InputSlot Auto/Automatic: \"\"\n*InputSlot Tray2/Tray 2: \"\"\n*CloseUI: *InputSlot\n",
+        )
+        .unwrap();
+        let boundary_queue = "Q".repeat(64);
+        let boundary_instance = format!("Office/{}", "I".repeat(64));
+        std::fs::copy(dir.join("Office.ppd"), dir.join(format!("{boundary_queue}.ppd"))).unwrap();
+        for (destination, current, expected) in [
+            ("Office", "Auto", "Auto"),
+            ("Office/duplex", "Tray2", "Tray2"),
+            ("Office/draft", "Auto", "Auto"),
+            ("Office/unknown-default", "Bogus", "Auto"),
+            (boundary_queue.as_str(), "Tray2", "Tray2"),
+            (boundary_instance.as_str(), "Tray2", "Tray2"),
+        ] {
+            let options = spool::printer_options_via(destination, &dir, command(&dir, &format!("InputSlot/Paper tray: *{current}")));
+            assert_eq!(options.len(), 1, "{destination}: the queue's PPD must be read");
+            assert_eq!(options[0].default, expected, "{destination}: only valid instance choices override the PPD default");
+            assert_eq!(options[0].choices, [("Auto".into(), "Automatic".into()), ("Tray2".into(), "Tray 2".into())]);
+            assert_eq!(std::fs::read_to_string(dir.join("args")).unwrap(), format!("-p\n{destination}\n-l"));
+        }
+        let job = spool::Job { printer: Some("Office/duplex".into()), ..Default::default() };
+        assert_eq!(&spool::lp_args(&job)[..2], ["-d", "Office/duplex"]);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn invalid_destinations_are_rejected_before_running_lpoptions() {
+        let dir = folder();
+        let long_queue = "Q".repeat(65);
+        let long_queue_instance = format!("{long_queue}/duplex");
+        let long_instance = format!("Office/{}", "I".repeat(65));
+        for destination in [
+            "",
+            ".",
+            "..",
+            "/Office",
+            "Office/",
+            "Office/a/b",
+            "../../etc/passwd",
+            "./duplex",
+            "../duplex",
+            "Office/.",
+            "Office/..",
+            "Office\\duplex",
+            "Office/\\duplex",
+            "Office/with space",
+            "Office/line\nbreak",
+            "Office/quote\"",
+            "Office/equals=",
+            "Office/a:b",
+            "Office/\0",
+            long_queue.as_str(),
+            long_queue_instance.as_str(),
+            long_instance.as_str(),
+        ] {
+            assert!(spool::printer_options_via(destination, &dir, command(&dir, "InputSlot: *Auto")).is_empty(), "{destination:?}");
+            assert!(!dir.join("args").exists(), "{destination:?}: rejected before spawning");
+        }
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+}
+
 #[test]
 fn a_scaled_appearance_is_not_scaled_twice() {
     let doc = fixture(1);
