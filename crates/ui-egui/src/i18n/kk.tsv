@@ -2281,3 +2281,13 @@ scroll speed	Fast	Жылдам
 	Ink sensitivity	Сия сезімталдығы
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Жақтауда қолтаңба табылмады. Жақтауды қолтаңбаның үстіне жылжытыңыз немесе сия сезімталдығын арттырыңыз.
 	Couldn't use the photo: {e}	Суретті пайдалану мүмкін болмады: {e}
+	Reading colours	Оқу түстері
+	Replace document colours	Құжат түстерін ауыстыру
+	Black on white	Ақ фонда қара
+	White on black	Қара фонда ақ
+	Yellow on black	Қара фонда сары
+	Green on black	Қара фонда жасыл
+	Page background	Бет фоны
+	Only change the colour of black text or line art	Тек қара мәтіннің немесе сызықтық суреттің түсін өзгерту
+	Change the colour of line art as well as text	Мәтінмен қатар сызықтық суреттің түсін де өзгерту
+	Colours are remapped while rendering; the document itself never changes.	Түстер көрсету кезінде қайта белгіленеді; құжаттың өзі ешқашан өзгермейді.

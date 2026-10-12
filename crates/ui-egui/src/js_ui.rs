@@ -417,10 +417,10 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
                 let background = ui.label(tl!("Page background"));
                 changed |= ui.color_edit_button_srgb(&mut params.background).labelled_by(background.id).changed();
             });
-            if ui.checkbox(&mut params.only_black, tl!("Only change the colour of black text or line art")).changed() {
+            if ui.add(crate::widgets::checkbox(&mut params.only_black, tl!("Only change the colour of black text or line art"))).changed() {
                 changed = true;
             }
-            if ui.checkbox(&mut params.line_art, tl!("Change the colour of line art as well as text")).changed() {
+            if ui.add(crate::widgets::checkbox(&mut params.line_art, tl!("Change the colour of line art as well as text"))).changed() {
                 changed = true;
             }
         }

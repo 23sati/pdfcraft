@@ -4948,7 +4948,7 @@ trailer << /Root 1 0 R >>
             content.len()
         )
         .into_bytes();
-        let req = RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 2.0, tag: 0 };
+        let req = RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 2.0, tag: 0, preview: false };
         let render = |reading_colors: ReadingColors| {
             let mut r = PageRenderer::new(Arc::new(pdf.clone()), RenderConfig { reading_colors, ..Default::default() });
             let page = r.render(req);
@@ -5003,18 +5003,18 @@ trailer << /Root 1 0 R >>
 
         // The page and its black rectangle in their true colours.
         let mut plain = PageRenderer::new(pdf.clone(), RenderConfig::default());
-        let truth = plain.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 2.0, tag: 0 });
+        let truth = plain.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 2.0, tag: 0, preview: false });
         assert!(truth.error.is_none(), "{:?}", truth.error);
         assert_eq!(px(&truth, 5, 5), &[255, 255, 255, 255]);
         assert_eq!(px(&truth, 50, 60), &[0, 0, 0, 255]);
 
         let mut recoloured = PageRenderer::new(pdf.clone(), RenderConfig { reading_colors: ReadingColors::WHITE_ON_BLACK, ..Default::default() });
         // A plain request honours the setting: the page clears black, the rect maps white.
-        let on = recoloured.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 2.0, tag: 0 });
+        let on = recoloured.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 2.0, tag: 0, preview: false });
         assert_eq!(px(&on, 5, 5), &[0, 0, 0, 255]);
         assert_eq!(px(&on, 50, 60), &[255, 255, 255, 255]);
         // A print-preview request ignores the setting and matches the true colours exactly.
-        let preview = RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 2.0, tag: PRINT_TAG };
+        let preview = RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 2.0, tag: PRINT_TAG, preview: false };
         let off = recoloured.render(preview);
         assert_eq!(px(&off, 5, 5), &[255, 255, 255, 255]);
         assert_eq!(px(&off, 50, 60), &[0, 0, 0, 255]);
@@ -5039,9 +5039,9 @@ trailer << /Root 1 0 R >>
     fn reading_colors_tiles_match_full_render() {
         let mut r =
             PageRenderer::new(Arc::new(ONE_PAGE.to_vec()), RenderConfig { reading_colors: ReadingColors::WHITE_ON_BLACK, ..Default::default() });
-        let full = r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 2.0, tag: 0 });
+        let full = r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 2.0, tag: 0, preview: false });
         let tile = Tile { x: 30, y: 40, w: 50, h: 30 };
-        let part = r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: Some(tile), scale: 2.0, tag: 0 });
+        let part = r.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: Some(tile), scale: 2.0, tag: 0, preview: false });
         assert!(full.error.is_none() && part.error.is_none(), "{:?} {:?}", full.error, part.error);
         assert_eq!((part.width, part.height), (50, 30));
         for y in 0..30u32 {
@@ -5263,9 +5263,9 @@ endstream endobj
         let pdf = parse(&Arc::new(pdf), None).expect("parses");
         let cache = RenderCache::new();
         let settings = InterpreterSettings::default();
-        let preview = render_page(&pdf, &cache, &settings, false, req(true)).expect("preview renders");
-        let fin = render_page(&pdf, &cache, &settings, false, req(false)).expect("final renders");
-        let fresh = render_page(&pdf, &RenderCache::new(), &settings, false, req(false)).expect("final renders");
+        let preview = render_page(&pdf, &cache, &settings, false, ReadingColors::default(), req(true)).expect("preview renders");
+        let fin = render_page(&pdf, &cache, &settings, false, ReadingColors::default(), req(false)).expect("final renders");
+        let fresh = render_page(&pdf, &RenderCache::new(), &settings, false, ReadingColors::default(), req(false)).expect("final renders");
         assert_eq!(rgb_at(&preview.2, w, 35, 35), [0, 0, 255]);
         assert_eq!(&fin.2[..], &fresh.2[..], "a final render after a preview matches one with a fresh cache");
     }

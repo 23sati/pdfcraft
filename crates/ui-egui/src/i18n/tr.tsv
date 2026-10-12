@@ -2279,3 +2279,13 @@ scroll speed	Fast	Hızlı
 	Ink sensitivity	Mürekkep hassasiyeti
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Çerçevede imza bulunamadı. Çerçeveyi imzanın üzerine taşıyın veya mürekkep hassasiyetini artırın.
 	Couldn't use the photo: {e}	Fotoğraf kullanılamadı: {e}
+	Reading colours	Okuma renkleri
+	Replace document colours	Belge renklerini değiştir
+	Black on white	Beyaz üzerinde siyah
+	White on black	Siyah üzerinde beyaz
+	Yellow on black	Siyah üzerinde sarı
+	Green on black	Siyah üzerinde yeşil
+	Page background	Sayfa arka planı
+	Only change the colour of black text or line art	Yalnızca siyah metin veya çizgi sanatının rengini değiştir
+	Change the colour of line art as well as text	Metnin yanı sıra çizgi sanatının rengini de değiştir
+	Colours are remapped while rendering; the document itself never changes.	Renkler görüntülenirken yeniden eşlenir; belgenin kendisi asla değişmez.

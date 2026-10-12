@@ -7,16 +7,34 @@ use egui_kittest::kittest::Queryable;
 use pdfcraft_render::ReadingColors;
 use pdfcraft_ui_egui::PdfCraftApp;
 
-const PDF: &[u8] = b"%PDF-1.7
-1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
-2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
-3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj
-4 0 obj << /Length 55 >> stream
-BT /F1 14 Tf 20 150 Td (The quick brown fox) Tj ET
-endstream endobj
-5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
-trailer << /Root 1 0 R >>
-%%EOF";
+/// One valid page (proper xref, so no repair banner covers the dialog): black text on white.
+fn pdf() -> Vec<u8> {
+    let objs: Vec<Vec<u8>> = vec![
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>".to_vec(),
+        {
+            let body = b"BT /F1 14 Tf 20 150 Td (The quick brown fox) Tj ET";
+            format!("<< /Length {} >>\nstream\n{}\nendstream", body.len(), String::from_utf8_lossy(body)).into_bytes()
+        },
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_vec(),
+    ];
+    let mut out = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offsets.push(out.len());
+        out.extend_from_slice(format!("{} 0 obj\n", i + 1).as_bytes());
+        out.extend_from_slice(o);
+        out.extend_from_slice(b"\nendobj\n");
+    }
+    let xref = out.len();
+    out.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+    for o in offsets {
+        out.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+    }
+    out.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objs.len() + 1).as_bytes());
+    out
+}
 
 /// A small PNG for the Create ▸ Images path, which opens the document it builds.
 fn png() -> Vec<u8> {
@@ -33,7 +51,12 @@ fn png() -> Vec<u8> {
 
 /// The Reading colours combo of the preferences dialog: it shows the chosen mode as its value,
 /// and no other combo in the dialog shows `Off` while the setting is off.
-fn combo(h: &Harness<'static, PdfCraftApp>) {
+fn combo(h: &mut Harness<'static, PdfCraftApp>) {
+    // The preferences dialog grew taller than the window, which leaves this combo below the
+    // fold where a click lands outside the dialog and dismisses it; scroll it into view and
+    // let the scroll settle before clicking.
+    h.get_by(|n| n.role() == Role::ComboBox && n.value().is_some_and(|v| v == "Off")).scroll_to_me();
+    h.run_steps(4);
     h.get_by(|n| n.role() == Role::ComboBox && n.value().is_some_and(|v| v == "Off")).click();
 }
 
@@ -42,7 +65,7 @@ fn reading_colours_preference_round_trips() {
     let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(|_cc| {
         let mut app = PdfCraftApp::new();
         app.set_option("language", "en").unwrap();
-        app.open_bytes("doc.pdf", None, PDF.to_vec()).expect("opens");
+        app.open_bytes("doc.pdf", None, pdf()).expect("opens");
         app.set_option("dialog", "preferences").unwrap();
         app
     });
@@ -50,7 +73,7 @@ fn reading_colours_preference_round_trips() {
     assert_eq!(h.state().reading_colors, ReadingColors::default());
     // Switch the preset to white-on-black in the dialog's Reading colours combo. The open
     // document keeps repainting, so run a fixed number of steps and let the popup settle.
-    combo(&h);
+    combo(&mut h);
     h.run_steps(20);
     h.get_by_label("White on black").click();
     h.run_steps(2);
@@ -83,7 +106,7 @@ fn reading_colours_seed_on_open() {
         let mut app = PdfCraftApp::new();
         app.set_option("language", "en").unwrap();
         app.reading_colors = ReadingColors::WHITE_ON_BLACK;
-        app.open_bytes("doc.pdf", None, PDF.to_vec()).expect("opens");
+        app.open_bytes("doc.pdf", None, pdf()).expect("opens");
         app
     });
     h.run_steps(4);
