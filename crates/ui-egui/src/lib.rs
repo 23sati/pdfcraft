@@ -28,6 +28,7 @@ mod appearance;
 pub mod canvas;
 mod chrome;
 mod combine_grid;
+mod image_pick;
 mod tags_ui;
 pub use combine_grid::ThumbState as CombineThumb;
 mod combine_ui;
@@ -495,6 +496,8 @@ pub struct PdfCraftApp {
     ui_scale_applied: Option<f32>,
     /// Preferences: bake Fill & Sign marks into the page when saving. Off, so a normal save stays editable.
     pub flatten_fill_sign_on_save: bool,
+    /// Point size for new Fill & Sign text and dates, kept across launches.
+    pub fill_text_size: f64,
     pub dialog: Option<Dialog>,
     /// How to ask for the latest release (the desktop app sets it; see `updates`).
     pub update_source: Option<updates::UpdateSource>,
@@ -639,6 +642,12 @@ pub struct PdfCraftApp {
     /// The last snapshot (width, height, RGBA); `system_clipboard` also puts it on the
     /// system clipboard (tests turn that off).
     pub last_snapshot: Option<(u32, u32, pdfcraft_render::Pixels)>,
+    /// The last image copied with Copy Image (width, height, straight RGBA), also put on the
+    /// system clipboard when `system_clipboard` is on.
+    pub last_copied_image: Option<(u32, u32, Vec<u8>)>,
+    /// The last image copied in its original format (file name, bytes), also put on the
+    /// system clipboard as a file when `system_clipboard` is on.
+    pub last_copied_file: Option<(String, Vec<u8>)>,
     pub system_clipboard: bool,
     /// Attach file: the file to attach instead of asking (tests, automation).
     pub attach_override: Option<(String, Vec<u8>)>,
@@ -819,6 +828,7 @@ impl PdfCraftApp {
             system_text_scale: 1.0,
             ui_scale_applied: None,
             flatten_fill_sign_on_save: false,
+            fill_text_size: fill_sign::TEXT_SIZE,
             dialog: None,
             update_source: None,
             updates: updates::Updates::default(),
@@ -902,6 +912,8 @@ impl PdfCraftApp {
             page_clipboard: None,
             grid_drop: None,
             last_snapshot: None,
+            last_copied_image: None,
+            last_copied_file: None,
             system_clipboard: true,
             attach_override: None,
             duplicate_draft: None,
@@ -1756,6 +1768,7 @@ impl PdfCraftApp {
             // Null follows the system's text scaling.
             "ui_scale": self.ui_scale,
             "flatten_fill_sign": self.flatten_fill_sign_on_save,
+            "fill_text_size": self.fill_text_size,
             "date_format": self.session.date_format(),
             // Null follows the interface language.
             "date_language": self.session.date_language(),
@@ -1858,6 +1871,9 @@ impl PdfCraftApp {
         }
         if let Some(on) = v["flatten_fill_sign"].as_bool() {
             self.flatten_fill_sign_on_save = on;
+        }
+        if let Some(size) = v["fill_text_size"].as_f64().and_then(fill_sign::valid_text_size) {
+            self.fill_text_size = size;
         }
         // Settings are untrusted: an unreadable value (a colour that isn't three bytes, say)
         // fails to deserialize and keeps Off.
@@ -2284,6 +2300,7 @@ impl PdfCraftApp {
             self.tool_keys(i, ctx);
             canvas::shortcuts(&mut self.views[i], ctx);
             self.copy_key(i, ctx);
+            self.image_pick_keys(i, ctx);
         }
     }
 }
