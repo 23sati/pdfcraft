@@ -54,9 +54,21 @@ fn reveal(path: &std::path::Path) -> Result<(), String> {
     if !path.try_exists().map_err(|e| e.to_string())? {
         return Err("The file no longer exists".into());
     }
-    reveal_via(std::env::consts::OS, &path, |program, args| {
+    let platform = std::env::consts::OS;
+    let run = |program: &str, args: &[std::ffi::OsString]| {
         std::process::Command::new(program).args(args).output().map(|o| o.status.success()).map_err(|e| e.to_string())
-    })
+    };
+    if matches!(platform, "linux" | "freebsd") {
+        // `dbus-send --print-reply` waits up to 2 s for the file manager (then xdg-open may run),
+        // so it runs off the UI thread; a failure there is only logged.
+        let spawned = std::thread::Builder::new().name("pdfcraft-reveal".into()).spawn(move || {
+            if let Err(e) = reveal_via(platform, &path, run) {
+                log::warn!("reveal {}: {e}", path.display());
+            }
+        });
+        return spawned.map(|_| ()).map_err(|e| e.to_string());
+    }
+    reveal_via(platform, &path, run)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
