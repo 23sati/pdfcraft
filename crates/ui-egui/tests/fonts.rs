@@ -136,7 +136,7 @@ fn system_fallback_fills_missing_scripts() {
         return;
     }
     for (family, stack) in &defs.families {
-        assert_eq!(stack.last().map(String::as_str), Some(theme::SYSTEM_FALLBACK), "{family:?}: {stack:?}");
+        assert_eq!(last_but_han(stack), Some(theme::SYSTEM_FALLBACK), "{family:?}: {stack:?}");
         assert_eq!(stack.iter().filter(|n| *n == theme::SYSTEM_FALLBACK).count(), 1, "{family:?}");
     }
     let mut fonts = Fonts::new(TextOptions::default(), defs);
@@ -219,10 +219,50 @@ fn chinese_ui_uses_an_installed_chinese_face() {
             assert!(missing.is_empty(), "{cjk:?} {id:?} lacks {missing}");
         }
     }
-    // Other languages keep the installed face last, as before.
+    // Other languages keep the installed face last, as before, with only the Chinese face after it.
     let defs = theme::installed_font_definitions(theme::CjkPreference::Default);
     for stack in defs.families.values() {
-        assert!(stack.iter().position(|n| n == theme::SYSTEM_FALLBACK).is_none_or(|i| i + 1 == stack.len()), "{stack:?}");
+        assert!(!stack.contains(&theme::SYSTEM_FALLBACK.to_owned()) || last_but_han(stack) == Some(theme::SYSTEM_FALLBACK), "{stack:?}");
+    }
+}
+
+/// The last face of `stack`, not counting the installed Chinese face that may end it.
+fn last_but_han(stack: &[String]) -> Option<&str> {
+    stack.iter().rev().map(String::as_str).find(|n| *n != theme::SYSTEM_HAN_FALLBACK)
+}
+
+/// The language picker lists every language by its native name, so 日本語, 简体中文 and 繁體中文
+/// must draw in every interface language, not only in the Chinese ones, even in a build without
+/// a Chinese face (they drew as boxes in an English interface).
+#[test]
+fn cjk_language_names_draw_in_every_interface_language() {
+    let has_han = |c: char| matches!(c, '\u{3400}'..='\u{9fff}' | '\u{f900}'..='\u{faff}');
+    let names: Vec<&str> = pdfcraft_ui_egui::i18n::Lang::all().map(|l| l.name()).filter(|n| n.chars().any(has_han)).collect();
+    assert!(names.len() >= 3, "{names:?}");
+    if pdfcraft_fonts::ui_chinese_fonts().is_empty()
+        && !theme::installed_font_definitions(theme::CjkPreference::SimplifiedChinese).font_data.contains_key(theme::SYSTEM_FALLBACK)
+    {
+        eprintln!("skipping cjk_language_names_draw_in_every_interface_language: no Chinese face (or PDFCRAFT_SYSTEM_FONTS=0)");
+        return;
+    }
+    for lang in pdfcraft_ui_egui::i18n::Lang::all() {
+        let cjk = theme::CjkPreference::for_language(lang.code());
+        let defs = theme::installed_font_definitions(cjk);
+        // The added Chinese face only fills gaps: last, once, and never in a Chinese interface.
+        for (family, stack) in &defs.families {
+            let han: Vec<usize> = stack.iter().enumerate().filter(|(_, n)| *n == theme::SYSTEM_HAN_FALLBACK).map(|(i, _)| i).collect();
+            match cjk {
+                theme::CjkPreference::Default => assert!(han.is_empty() || han == [stack.len() - 1], "{family:?}: {stack:?}"),
+                _ => assert!(han.is_empty(), "{family:?}: {stack:?}"),
+            }
+        }
+        let mut fonts = Fonts::new(TextOptions::default(), defs);
+        for id in families() {
+            for name in &names {
+                let missing: String = name.chars().filter(|c| !fonts.has_glyphs(&id, &c.to_string())).collect();
+                assert!(missing.is_empty(), "{} interface, {id:?}: {name} lacks {missing}", lang.code());
+            }
+        }
     }
 }
 
