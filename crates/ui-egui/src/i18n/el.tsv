@@ -42,6 +42,7 @@
 	Create PDF from file…	Δημιουργία PDF από αρχείο…
 	Create PDF from images…	Δημιουργία PDF από εικόνες…
 	Create PDF from multiple files…	Δημιουργία PDF από πολλά αρχεία…
+	Create separate PDFs…	Δημιουργία ξεχωριστών PDF…
 	Create PDF from clipboard	Δημιουργία PDF από το πρόχειρο
 	Combine files…	Συνένωση αρχείων…
 	Save	Αποθήκευση
@@ -181,6 +182,7 @@
 	Details	Λεπτομέρειες
 	More	Περισσότερα
 	Edit text	Επεξεργασία κειμένου
+	Load document font	Φόρτωση γραμματοσειράς εγγράφου
 	Add text	Προσθήκη κειμένου
 	Edit image	Επεξεργασία εικόνας
 	Add image	Προσθήκη εικόνας
@@ -805,6 +807,8 @@
 	Searchable Image (Exact)	Αναζητήσιμη εικόνα (ακριβής)
 	Adds invisible text over each word; the page image is not changed	Προσθέτει αόρατο κείμενο πάνω από κάθε λέξη, χωρίς να αλλάζει την εικόνα της σελίδας
 	Downsample to	Μείωση ανάλυσης σε
+	Also recognize pages that already have text	Αναγνώριση και σελίδων που έχουν ήδη κείμενο
+	Pictures on those pages are recognized too; words already in the page's text are not added again	Αναγνωρίζονται και οι εικόνες αυτών των σελίδων· οι λέξεις που υπάρχουν ήδη στο κείμενο της σελίδας δεν προστίθενται ξανά
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	Η αναγνώριση κειμένου δεν είναι εγκατεστημένη: λείπουν τα αρχεία μοντέλων. Εγκαταστήστε ξανά το PdfCraft ή ορίστε το PDFCRAFT_MODELS στον φάκελο που τα περιέχει.
 	Planned · {m}	Προγραμματισμένο · {m}
 	Planned for milestone {m} — open to see what it will include	Προγραμματισμένο για το ορόσημο {m} — ανοίξτε για να δείτε τι θα περιλαμβάνει
@@ -1302,6 +1306,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	Αλλαγή {key}
 	Insert pages from {name}	Εισαγωγή σελίδων από {name}
+	Insert pages from {name} — 1 field renamed	Εισαγωγή σελίδων από {name} — μετονομάστηκε 1 πεδίο
+	Insert pages from {name} — fields renamed	Εισαγωγή σελίδων από {name} — μετονομάστηκαν πεδία
 	Fill in {name}	Συμπλήρωση του {name}
 	Set the image of {name}	Ορισμός εικόνας του {name}
 	Edit script of {name}	Επεξεργασία δέσμης ενεργειών του {name}
@@ -1437,7 +1443,7 @@
 	Couldn't import the signature image: {e}	Δεν ήταν δυνατή η εισαγωγή της εικόνας υπογραφής: {e}
 	Go to page…	Μετάβαση στη σελίδα…
 	Reopen the files that were open when PdfCraft last closed	Εκ νέου άνοιγμα των αρχείων που ήταν ανοιχτά κατά τον τελευταίο τερματισμό του PdfCraft
-	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Οι τυπικές γραμματοσειρές δεν μπορούν να εμφανίσουν τον χαρακτήρα «{c}» ({code}). Προς το παρόν μπορούν να προστεθούν ως κείμενο μόνο δυτικοευρωπαϊκοί χαρακτήρες.
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	Οι γραμματοσειρές κειμένου PDF δεν μπορούν να εμφανίσουν τον χαρακτήρα «{c}» ({code}). Επιλέξτε κείμενο που υποστηρίζεται.
 	Open arrow	Ανοιχτή αιχμή βέλους
 	Closed arrow	Κλειστή αιχμή βέλους
 	Butt	Επίπεδο άκρο
@@ -1620,6 +1626,7 @@
 	Optimize PDF…	Βελτιστοποίηση PDF…
 	Export to text…	Εξαγωγή σε κείμενο…
 	Export to Word…	Εξαγωγή σε Word…
+	Export to PowerPoint…	Εξαγωγή σε PowerPoint…
 	Export to HTML…	Εξαγωγή σε HTML…
 	Export to RTF…	Εξαγωγή σε RTF…
 	JavaScript console…	Κονσόλα JavaScript…
@@ -1686,6 +1693,7 @@
 	Create from	Δημιουργία από
 	Single file	Ένα αρχείο
 	Multiple files	Πολλά αρχεία
+	Separate PDFs	Ξεχωριστά PDF
 	Clipboard	Πρόχειρο
 	Blank page	Κενή σελίδα
 	Combine files	Συνδυασμός αρχείων
@@ -1982,9 +1990,14 @@
 	of the following fields:	των παρακάτω πεδίων:
 	Simplified field notation:	Απλοποιημένη σύνταξη πεδίων:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Ονόματα πεδίων με + - * / και παρενθέσεις· προσθέστε \\ πριν από τα κενά των ονομάτων.
+	Finding document fonts…	Αναζήτηση γραμματοσειρών εγγράφου…
+	Installed fonts…	Εγκατεστημένες γραμματοσειρές…
+	Keep source fonts	Διατήρηση αρχικών γραμματοσειρών
+	Load font…	Φόρτωση γραμματοσειράς…
+	No openly licensed document fonts found. Load a font file.	Δεν βρέθηκαν γραμματοσειρές εγγράφου με ανοιχτή άδεια. Φορτώστε ένα αρχείο γραμματοσειράς.
 	Format text	Μορφοποίηση κειμένου
 	Centre	Κεντράρισμα
-	Standard fonts; text outside Windows-1252 isn't supported yet.	Τυπικές γραμματοσειρές· κείμενο εκτός της κωδικοποίησης Windows-1252 δεν υποστηρίζεται ακόμη.
+	Thai and Arabic use regular fallback fonts when available.	Τα ταϊλανδικά και τα αραβικά χρησιμοποιούν κανονικές εναλλακτικές γραμματοσειρές, όταν είναι διαθέσιμες.
 	Crop (% trimmed from each side)	Περικοπή (% αφαίρεσης από κάθε πλευρά)
 	Click on the page to add text; each click starts a new box, and ✓ finishes. Drag items to move them, drag a corner to resize, double-click text to edit it.	Κάντε κλικ στη σελίδα για να προσθέσετε κείμενο· κάθε κλικ δημιουργεί νέο πλαίσιο και το ✓ ολοκληρώνει την εισαγωγή. Σύρετε τα στοιχεία για μετακίνηση, μια γωνία για αλλαγή μεγέθους ή κάντε διπλό κλικ στο κείμενο για επεξεργασία.
 	Choose an image	Επιλογή εικόνας
@@ -2266,3 +2279,23 @@ scroll speed	Fast	Γρήγορη
 	Original	Πρωτότυπο
 	Greyscale	Κλίμακα του γκρι
 	Black and white	Ασπρόμαυρο
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Το πρόγραμμα οδήγησης αυτού του εκτυπωτή δεν δέχεται ρυθμίσεις εκτύπωσης διπλής όψης από άλλα προγράμματα, οπότε ισχύει η δική του ρύθμιση. Αλλάξτε τη στις Ιδιότητες…
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Η γραμματοσειρά αυτού του πεδίου δεν μπορεί να σχεδιάσει το «{c}» ({code}), γι' αυτό το PdfCraft δείχνει ? στη θέση του. Η τιμή αποθηκεύεται και άλλα προγράμματα προβολής PDF επανασχεδιάζουν το πεδίο από αυτήν.
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Οι γραμματοσειρές με τις οποίες γράφει το PdfCraft δεν μπορούν να σχεδιάσουν το «{c}» ({code}), γι' αυτό εμφανίζεται ως ? σε κάθε πρόγραμμα προβολής PDF. Το κείμενο αποθηκεύεται.
+	Tools panel side	Πλευρά πλαισίου εργαλείων
+	Add comment	Προσθήκη σχολίου
+	Change tag properties	Αλλαγή ιδιοτήτων ετικέτας
+	Left out: {names}	Παραλείφθηκαν: {names}
+	already a PDF	είναι ήδη PDF
+	no unused output name	δεν υπάρχει διαθέσιμο όνομα εξόδου
+	no output folder was chosen	δεν επιλέχθηκε φάκελος εξόδου
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	Λήφθηκε {n} PDF|Λήφθηκαν {n} PDF
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} όνομα πεδίου συγκρούεται με προηγούμενα αρχεία και θα μετονομαστεί: {list}|{n} ονόματα πεδίων συγκρούονται με προηγούμενα αρχεία και θα μετονομαστούν: {list}
+	Scan	Σάρωση
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Υπογράψτε σε ένα λευκό φύλλο χαρτιού και φωτογραφίστε το σε έντονο, ομοιόμορφο φως (χρησιμοποιήστε το φλας). Επιλέξτε τη φωτογραφία ή αφήστε την εδώ: το PdfCraft βρίσκει την υπογραφή και αφαιρεί το χαρτί.
+	Choose photo…	Επιλογή φωτογραφίας…
+	No photo chosen	Δεν επιλέχθηκε φωτογραφία
+	Photo	Φωτογραφία
+	Ink sensitivity	Ευαισθησία μελανιού
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Δεν βρέθηκε υπογραφή στο πλαίσιο. Μετακινήστε το πλαίσιο πάνω από την υπογραφή ή αυξήστε την ευαισθησία μελανιού.
+	Couldn't use the photo: {e}	Δεν ήταν δυνατή η χρήση της φωτογραφίας: {e}

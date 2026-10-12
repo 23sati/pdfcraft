@@ -256,6 +256,7 @@
 	Optimize PDF…	Оптимизировать PDF…
 	Export to text…	Экспортировать в текст…
 	Export to Word…	Экспортировать в Word…
+	Export to PowerPoint…	Экспортировать в PowerPoint…
 	Export to HTML…	Экспортировать в HTML…
 	Export to RTF…	Экспортировать в RTF…
 	JavaScript console…	Консоль JavaScript…
@@ -340,6 +341,7 @@
 	Create from	Создать из
 	Single file	Один файл
 	Multiple files	Несколько файлов
+	Separate PDFs	Отдельные PDF
 	Images	Изображения
 	Clipboard	Буфер обмена
 	Blank page	Пустая страница
@@ -692,6 +694,14 @@
 	of the following fields:	из следующих полей:
 	Simplified field notation:	Упрощённая запись полей:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Имена полей с + - * / и скобками; ставьте \\ перед пробелами в именах.
+
+# Document font selection
+	Finding document fonts…	Поиск шрифтов для документа…
+	Installed fonts…	Установленные шрифты…
+	Keep source fonts	Сохранить исходные шрифты
+	Load font…	Загрузить шрифт…
+	No openly licensed document fonts found. Load a font file.	Шрифты с открытой лицензией не найдены. Загрузите файл шрифта.
+
 	Format text	Форматировать текст
 	Bold	Полужирный
 	Italic	Курсив
@@ -699,7 +709,7 @@
 	Centre	По центру
 	Align right	Выровнять вправо
 	Justify	По ширине
-	Standard fonts; text outside Windows-1252 isn't supported yet.	Стандартные шрифты; текст вне Windows-1252 пока не поддерживается.
+	Thai and Arabic use regular fallback fonts when available.	Для тайского и арабского текста используются доступные резервные шрифты обычного начертания.
 	Edit image	Редактировать изображение
 	Rotate counterclockwise	Повернуть против часовой стрелки
 	Rotate clockwise	Повернуть по часовой стрелке
@@ -1223,6 +1233,8 @@
 	Searchable Image (Exact)	Доступное для поиска изображение (точное)
 	Adds invisible text over each word; the page image is not changed	Добавляет невидимый текст над каждым словом; изображение страницы не меняется
 	Downsample to	Уменьшить до
+	Also recognize pages that already have text	Распознавать и страницы, на которых уже есть текст
+	Pictures on those pages are recognized too; words already in the page's text are not added again	Изображения на этих страницах тоже распознаются; слова, которые уже есть в тексте страницы, повторно не добавляются
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	Распознавание текста не установлено: отсутствуют файлы моделей. Переустановите PdfCraft или задайте в PDFCRAFT_MODELS папку, в которой они лежат.
 	Settings	Настройки
 	Optional	Опционально
@@ -1860,6 +1872,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	Изменить {key}
 	Insert pages from {name}	Вставить страницы из {name}
+	Insert pages from {name} — 1 field renamed	Вставить страницы из {name} — 1 поле переименовано
+	Insert pages from {name} — fields renamed	Вставить страницы из {name} — поля переименованы
 	Fill in {name}	Заполнить {name}
 	Set the image of {name}	Задать изображение: {name}
 	Edit script of {name}	Редактировать скрипт: {name}
@@ -1890,6 +1904,7 @@
 	Delete document JavaScript	Удалить JavaScript документа
 	Edit document JavaScript	Редактировать JavaScript документа
 	Edit text	Редактировать текст
+	Load document font	Загрузить шрифт документа
 	Move image	Переместить изображение
 	Rotate image	Повернуть изображение
 	Flip image	Отразить изображение
@@ -2031,7 +2046,9 @@
 
 @plural	{n} page|{n} pages	{n} страница|{n} страницы|{n} страниц
 @plural	{n} field|{n} fields	{n} поле|{n} поля|{n} полей
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	Имя {n} поля конфликтует с предыдущими файлами и будет переименовано: {list}|Названия {n} полей конфликтуют с предыдущими файлами и будут переименованы: {list}|Названия {n} полей конфликтуют с предыдущими файлами и будут переименованы: {list}
 	Create PDF from multiple files…	Создать PDF из нескольких файлов…
+	Create separate PDFs…	Создать отдельные PDF…
 	Optimizing… removing user data	Оптимизация… удаление пользовательских данных
 	Optimizing… image {d} of {t}	Оптимизация… изображение {d} из {t}
 	Optimizing… cleaning up	Оптимизация… очистка
@@ -2049,7 +2066,10 @@
 	Created a PDF from the first {n} files	PDF создан из первых файлов: {n}
 	Go to page…	Перейти на страницу…
 	For page sizes and margins.	Для размеров страниц и полей.
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	Шрифты текста PDF не могут отобразить «{c}» ({code}). Выберите поддерживаемый текст.
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Стандартные шрифты не могут отобразить «{c}» ({code}). Пока в виде текста можно добавлять только западноевропейские символы.
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Шрифт этого поля не может отобразить «{c}» ({code}), поэтому PdfCraft показывает на его месте ?. Значение сохранено, и другие программы просмотра PDF перерисуют поле по нему.
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Шрифты, которыми пишет PdfCraft, не могут отобразить «{c}» ({code}), поэтому во всех программах просмотра PDF на его месте будет ?. Текст сохранён.
 	Larger pages	Крупнее страницы
 	Smaller pages	Мельче страницы
 	Reset page size	Сбросить размер страниц
@@ -2159,3 +2179,20 @@ scroll speed	Fast	Высокая
 	Original	Оригинал
 	Greyscale	Оттенки серого
 	Black and white	Чёрно-белый
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Драйвер этого принтера не принимает настройки двусторонней печати от других программ, поэтому действует его собственная настройка. Измените её в окне Свойства…
+	Tools panel side	Сторона панели инструментов
+	Add comment	Добавить комментарий
+	Change tag properties	Изменить свойства тега
+	Left out: {names}	Пропущены: {names}
+	already a PDF	уже PDF
+	no unused output name	нет свободного имени для выходного файла
+	no output folder was chosen	не выбрана папка для вывода
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	Скачан {n} PDF-файл|Скачано {n} PDF-файла|Скачано {n} PDF-файлов
+	Scan	Сканировать
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Распишитесь на листе белой бумаги и сфотографируйте его при ярком равномерном освещении (со вспышкой). Выберите фото или перетащите его сюда: PdfCraft найдёт подпись и уберёт бумагу.
+	Choose photo…	Выбрать фото…
+	No photo chosen	Фото не выбрано
+	Photo	Фото
+	Ink sensitivity	Чувствительность к чернилам
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	В рамке не найдена подпись. Наведите рамку на подпись или увеличьте чувствительность к чернилам.
+	Couldn't use the photo: {e}	Не удалось использовать фото: {e}

@@ -224,6 +224,7 @@
 	Optimize PDF…	PDF оңтайландыру…
 	Export to text…	Мәтінге экспорттау…
 	Export to Word…	Word-ға экспорттау…
+	Export to PowerPoint…	PowerPoint-қа экспорттау…
 	Export to HTML…	HTML-ге экспорттау…
 	Export to RTF…	RTF-ке экспорттау…
 	JavaScript console…	JavaScript консолі…
@@ -307,6 +308,7 @@
 	Create from	Мынадан жасау
 	Single file	Бір файл
 	Multiple files	Бірнеше файл
+	Separate PDFs	Бөлек PDF файлдары
 	Images	Кескіндер
 	Clipboard	Алмасу буфері
 	Blank page	Бос бет
@@ -658,6 +660,11 @@
 	of the following fields:	келесі өрістердің:
 	Simplified field notation:	Жеңілдетілген өріс жазылуы:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Құрамында + - * / және жақшалар бар өріс атаулары; атаудағы бос орынның алдында \\ қойыңыз.
+	Finding document fonts…	Құжат қаріптері ізделуде…
+	Installed fonts…	Орнатылған қаріптер…
+	Keep source fonts	Бастапқы қаріптерді сақтау
+	Load font…	Қаріпті жүктеу…
+	No openly licensed document fonts found. Load a font file.	Ашық лицензиялы құжат қаріптері табылмады. Қаріп файлын жүктеңіз.
 	Format text	Мәтінді пішімдеу
 	Bold	Жуан
 	Italic	Көлбеу
@@ -665,7 +672,7 @@
 	Centre	Ортаға туралау
 	Align right	Оңға туралау
 	Justify	Екі жаққа туралау
-	Standard fonts; text outside Windows-1252 isn't supported yet.	Стандартты қаріптер; Windows-1252-ден тыс мәтін әзірге қолдау таппайды.
+	Thai and Arabic use regular fallback fonts when available.	Тай және араб тілдері қолжетімді болса, қалыпты қосалқы қаріптерді пайдаланады.
 	Edit image	Суретті түзету
 	Rotate counterclockwise	Сағат тілінің бағытына қарсы бұру
 	Rotate clockwise	Сағат тілінің бағытымен бұру
@@ -1170,6 +1177,8 @@
 	Searchable Image (Exact)	Іздеуге болатын сурет (дәл)
 	Adds invisible text over each word; the page image is not changed	Әр сөздің үстіне көрінбейтін мәтін қосады; бет суреті өзгермейді
 	Downsample to	Ажыратымдылықты төмендету
+	Also recognize pages that already have text	Мәтіні бар беттерді де тану
+	Pictures on those pages are recognized too; words already in the page's text are not added again	Бұл беттердегі суреттер де танылады; беттің мәтінінде бұрыннан бар сөздер қайта қосылмайды
 	Settings	Параметрлер
 	Optional	Міндетті емес
 	Planned · {m}	Жоспарланған · {m}
@@ -1788,6 +1797,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	Өзгерту: {key}
 	Insert pages from {name}	Беттерді {name} файлынан енгізу
+	Insert pages from {name} — 1 field renamed	{name} ішінен беттерді кірістіру — 1 өріс қайта аталды
+	Insert pages from {name} — fields renamed	{name} ішінен беттерді кірістіру — өрістер қайта аталды
 	Fill in {name}	{name} толтыру
 	Set the image of {name}	{name} кескінін орнату
 	Edit script of {name}	{name} скриптін түзету
@@ -1818,6 +1829,7 @@
 	Delete document JavaScript	Құжаттың JavaScript-ін жою
 	Edit document JavaScript	Құжаттың JavaScript-ін түзету
 	Edit text	Мәтінді түзету
+	Load document font	Құжат қаріпін жүктеу
 	Move image	Кескінді жылжыту
 	Rotate image	Кескінді бұру
 	Flip image	Кескінді аудару
@@ -1954,6 +1966,7 @@
 @plural	{n} page|{n} pages	{n} бет|{n} бет
 @plural	{n} field|{n} fields	{n} өріс|{n} өріс
 	Create PDF from multiple files…	Бірнеше файлдан PDF жасау…
+	Create separate PDFs…	Бөлек PDF файлдарын жасау…
 	Optimizing… removing user data	Оңтайландыру… пайдаланушы деректерін жою
 	Optimizing… image {d} of {t}	Оңтайландыру… сурет {d} / {t}
 	Optimizing… cleaning up	Оңтайландыру… тазарту
@@ -2071,7 +2084,7 @@ calendar date	December	Желтоқсан
 	H / Space (hold)	H / Space (ұстап тұру)
 	Rotation:	Бұру:
 	Line ending	Сызық ұшы
-	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Стандартты қаріптер «{c}» таңбасын ({code}) сала алмайды. Әзірге мәтін ретінде тек Батыс Еуропа таңбаларын қосуға болады.
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	PDF мәтін қаріптері «{c}» таңбасын ({code}) сала алмайды. Қолдау көрсетілетін мәтінді таңдаңыз.
 	Larger pages	Үлкенірек беттер
 	Smaller pages	Кішірек беттер
 	Reset page size	Бет өлшемін қалпына келтіру
@@ -2248,3 +2261,23 @@ scroll speed	Fast	Жылдам
 	Original	Түпнұсқа
 	Greyscale	Сұр реңктер
 	Black and white	Ақ-қара
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Бұл принтердің драйвері басқа бағдарламалардан екі жақты басып шығару баптауларын қабылдамайды, сондықтан өз баптауы қолданылады. Оны мына жерден өзгертіңіз: Сипаттар…
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Бұл өрістің қаріпі «{c}» ({code}) таңбасын сала алмайды, сондықтан PdfCraft оның орнына ? көрсетеді. Мән сақталады, ал басқа PDF қарау құралдары өрісті соған қарап қайта салады.
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	PdfCraft жазатын қаріптер «{c}» ({code}) таңбасын сала алмайды, сондықтан ол барлық PDF қарау құралдарында ? болып көрінеді. Мәтін сақталады.
+	Tools panel side	Құралдар панелінің жағы
+	Add comment	Түсініктеме қосу
+	Change tag properties	Тег қасиеттерін өзгерту
+	Left out: {names}	Қалдырылды: {names}
+	already a PDF	бұл қазірдің өзінде PDF
+	no unused output name	бос шығыс атауы жоқ
+	no output folder was chosen	шығыс қалтасы таңдалмады
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	{n} PDF жүктелді|{n} PDF жүктелді
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} өріс атауы алдыңғы файлдармен қайшы келеді және қайта аталады: {list}|{n} өріс атауы алдыңғы файлдармен қайшы келеді және қайта аталады: {list}
+	Scan	Сканерлеу
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Ақ қағаз парағына қол қойып, оны жарық әрі біркелкі жарықта суретке түсіріңіз (жарқылды қосыңыз). Суретті таңдаңыз немесе осында тастаңыз: PdfCraft қолтаңбаны тауып, қағазды алып тастайды.
+	Choose photo…	Суретті таңдау…
+	No photo chosen	Сурет таңдалмаған
+	Photo	Сурет
+	Ink sensitivity	Сия сезімталдығы
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Жақтауда қолтаңба табылмады. Жақтауды қолтаңбаның үстіне жылжытыңыз немесе сия сезімталдығын арттырыңыз.
+	Couldn't use the photo: {e}	Суретті пайдалану мүмкін болмады: {e}
