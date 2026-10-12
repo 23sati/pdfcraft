@@ -137,6 +137,7 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 ## Progress log
 
+- **2026-10-12 (M12, XFA scripts turned off):** When a runaway script turns an XFA form's scripts off, the app now says so: a toast as it happens (at open or after a click), and the notice bar from then on, ahead of its other notices, with a JavaScript Console button. Before, the error was only in the console, so calculations and buttons just stopped. A notice bar the user had closed comes back for it; closed again, it stays closed. The engine reports the state (`Document::xfa_scripts_off`, and `xfa_scripts_off` in `doc_info`) instead of the UI reading error text. Two kittest UI tests (a runaway at open; a runaway click after the bar was closed), engine assertions and a `doc_info` tool test. Overall unchanged.
 - **2026-10-12 (M7, private image crops):** Exclusive image crops resize with their pixels across nested states, intervening operators and content streams; shared clips remain fixed. Synthetic engine/tool regressions and private image save/reopen checks; estimates unchanged.
 
 - **2026-10-12 (M12, accessibility finding locations):** Checker findings for figures, annotations and form widgets carry verified page bounds. Selecting one flashes its location; the headless check returns the same PDF-space rectangle. Malformed annotation rectangles remain page-only findings. Guided review and tagging estimates unchanged.

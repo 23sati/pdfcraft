@@ -4201,6 +4201,7 @@ fn xfa_scripts_run_for_buttons_and_field_changes_through_tools() {
     // Filling recalculates; a bad value shows its message (the tool reports alerts in js output? no: it is applied, the value stays).
     ok(&mut a, "form_fill", json!({ "doc": doc, "values": { "qty": "4" } }));
     assert_eq!(field(&mut a, "total").unwrap()["value"], "20");
+    assert_eq!(ok(&mut a, "doc_info", json!({ "doc": doc }))["xfa_scripts_off"], false);
     // A button's XFA click script runs through js_run, like any button.
     let before = ok(&mut a, "doc_info", json!({ "doc": doc }))["xfa_layout"]["fields"].as_u64().unwrap();
     let r = ok(&mut a, "js_run", json!({ "doc": doc, "script": "", "field": "addRow" }));
@@ -4212,6 +4213,21 @@ fn xfa_scripts_run_for_buttons_and_field_changes_through_tools() {
     assert!(field(&mut a, "amount_2").is_none());
     let r = ok(&mut a, "js_run", json!({ "doc": doc, "script": "", "field": "hello" }));
     assert_eq!(r["alerts"], json!(["Hello 4"]));
+}
+
+#[test]
+fn doc_info_says_when_a_runaway_script_turned_the_forms_scripts_off() {
+    let dir = workdir("xfa-scripts-off");
+    // An initialize script whose loops are in nested calls runs until it is abandoned.
+    let tpl = pdfcraft_xfa::fixtures::scripted_template().replace(
+        "if (qty.rawValue === null) qty.rawValue = 2;",
+        "function f() { for (var j = 0; j &lt; 99999; j++) {} } for (var k = 0; k &lt; 5000; k++) f();",
+    );
+    std::fs::write(dir.join("runaway.pdf"), pdfcraft_xfa::fixtures::shell(&tpl)).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "runaway.pdf" }))["doc"].as_u64().unwrap();
+    assert_eq!(ok(&mut a, "doc_info", json!({ "doc": doc }))["xfa_scripts_off"], true);
+    let _ = std::fs::remove_dir_all(dir);
 }
 
 /// doc_info describes a link's set-layer-visibility action by layer name.
