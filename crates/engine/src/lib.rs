@@ -109,6 +109,7 @@ pub fn typed_signature_graphic(text: &str) -> Option<pdfcraft_sign::Graphic> {
     o.contours.iter().any(|c| c.len() > 2).then_some(pdfcraft_sign::Graphic::Outlines(o.contours))
 }
 
+pub use links::{MAX_REMOTE_DOCUMENT_BYTES, RemoteDocumentPathError, read_remote_document, resolve_remote_document_path};
 /// Comment geometry helpers (text-box line breaking) for frontends.
 pub use pdfcraft_annot::appearance as annot_text;
 pub use pdfcraft_annot::links::{Highlight as LinkHighlight, LinkAction, LinkItem, LinkStyle};
@@ -142,7 +143,7 @@ pub type SplitPart = (usize, usize, Arc<Vec<u8>>);
 use std::sync::Arc;
 
 use pdfcraft_cos::{SaveOptions, write_full, write_incremental};
-use pdfcraft_render::{DocInfo, Layer, LayerOp, OpenError, RenderConfig, RenderPool, inspect};
+use pdfcraft_render::{DocInfo, Layer, LayerOp, OpenError, ReadingColors, RenderConfig, RenderPool, inspect};
 
 /// Stable identifier of an open document within a session.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -290,6 +291,8 @@ pub struct Document {
     pub xfa: Option<XfaLayout>,
     /// The parsed template of a laid-out XFA form, for its scripts.
     xfa_template: Option<Arc<pdfcraft_xfa::model::Template>>,
+    /// A script of the XFA form ran away, so its scripts are off (see [`Document::xfa_scripts_off`]).
+    xfa_scripts_off: bool,
     /// A content-only refresh keeps `info` from before the edit; an edit may have added or
     /// embedded fonts, so the font list is read again on demand ([`Session::refresh_fonts`]).
     fonts_stale: bool,
@@ -379,6 +382,13 @@ impl Document {
     /// read for editing).
     pub fn accessibility_check(&self, options: &a11y::Options) -> Option<a11y::Report> {
         self.editor.as_ref().map(|e| a11y::check(&e.cos, options))
+    }
+
+    /// A script of this XFA form ran past its time limit and was abandoned, so the form's
+    /// scripts no longer run in this document (reopening it runs them again). The script's
+    /// error is in the JavaScript output; this is the state, for a viewer to show.
+    pub fn xfa_scripts_off(&self) -> bool {
+        self.xfa_scripts_off
     }
 
     /// PDF Optimizer ▸ Audit space usage.
@@ -2983,6 +2993,7 @@ impl Session {
             d.xfa_template = if ran_away { None } else { xfa_template };
             d.js_output.append(script_output);
             if ran_away {
+                d.xfa_scripts_off = true;
                 d.js_output.errors.push(XFA_SCRIPTS_OFF.into());
             }
             note_warnings(&mut d.xfa_warnings, &xfa_warnings);
@@ -3070,6 +3081,7 @@ impl Session {
             js_output: Default::default(),
             xfa,
             xfa_template: None,
+            xfa_scripts_off: false,
             fonts_stale: false,
             xfa_warnings: Vec::new(),
             edit_notices: Vec::new(),
@@ -3236,6 +3248,7 @@ impl Session {
         doc.js_output.append(cx.xfa_out);
         if cx.xfa_ran_away {
             doc.xfa_template = None;
+            doc.xfa_scripts_off = true;
             doc.js_output.errors.push(XFA_SCRIPTS_OFF.into());
         }
         Ok(())
@@ -4095,6 +4108,24 @@ impl Session {
         doc.renderer = RenderPool::new(doc.display.clone(), render_threads(), doc.config.clone());
         doc.generation += 1;
         true
+    }
+
+    /// Set the document's reading colours (Acrobat's Replace Document Colors). Returns whether
+    /// anything changed; callers must drop cached rasters and text for the document.
+    pub fn set_reading_colors(&mut self, id: DocId, colors: ReadingColors) -> bool {
+        let Some(doc) = self.docs.iter_mut().find(|d| d.id == id) else { return false };
+        if doc.config.reading_colors == colors {
+            return false;
+        }
+        doc.config.reading_colors = colors;
+        doc.renderer = RenderPool::new(doc.display.clone(), render_threads(), doc.config.clone());
+        doc.generation += 1;
+        true
+    }
+
+    /// The document's reading-colours setting; `None` when no such document is open.
+    pub fn reading_colors(&self, id: DocId) -> Option<ReadingColors> {
+        Some(self.get(id)?.config.reading_colors)
     }
 
     /// Acrobat's Summarize Comments ("Comments only" layout): a new PDF listing every comment

@@ -8,7 +8,7 @@ use super::*;
 
 /// Regression fingerprint for the small-item fixture: drawing bytes, font map and document
 /// objects, with generated streams decoded so Flate backend selection cannot change the hash.
-const SMALL_ITEM_FINGERPRINT: u64 = 14_477_897_341_662_032_443;
+const SMALL_ITEM_FINGERPRINT: u64 = 4_811_174_621_764_261_623;
 
 /// A cluster that shows one character with the single glyph `id`, at `advance` em.
 fn cluster(id: u32, advance: f64) -> ShapedCluster {
@@ -43,16 +43,17 @@ fn snapshot(doc: &Document) -> Vec<u8> {
     bytes
 }
 
-/// Serialize generated objects with decoded streams so the golden does not depend on which
-/// Flate backend Cargo's unified dependency features select for the test binary.
+/// Serialize generated objects with decoded stream bytes so the golden does not depend on which
+/// Flate backend Cargo's unified dependency features select for the test binary. Only the raw
+/// bytes (and so `/Length`, which the writer takes from them) are normalised: `/Filter` and
+/// `/DecodeParms` stay in the hash, so a change that stops compressing generated streams, or
+/// switches filters, still fails the golden.
 fn golden_snapshot(doc: &Document) -> Vec<u8> {
     let mut bytes = Vec::new();
     for num in doc.object_numbers() {
         let mut obj = (*doc.get(ObjRef { num, generation: doc.generation(num) })).clone();
         if let Object::Stream(ref mut stream) = obj {
             let decoded = stream.decoded_strict().expect("generated stream decodes");
-            stream.dict.remove(b"Filter");
-            stream.dict.remove(b"DecodeParms");
             stream.raw = decoded.into();
         }
         pdfcraft_cos::serialize(&obj, &mut bytes);
