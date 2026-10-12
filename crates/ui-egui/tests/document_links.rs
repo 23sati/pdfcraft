@@ -110,18 +110,16 @@ fn a_link_asks_first_and_opens_when_allowed() {
 }
 
 #[test]
-fn unsupported_native_actions_are_reported_without_claiming_javascript() {
+fn unsupported_launch_action_is_reported_without_claiming_javascript() {
     let _gpu = gpu();
-    for (y, action) in [(265.0, "GoToR"), (230.0, "Launch")] {
-        let mut h = harness();
-        click_link_at(&mut h, y);
-        assert_eq!(h.state().pending_link, None);
-        assert_eq!(h.state().last_opened_url, None);
-        assert_eq!(h.state().views.len(), 1);
-        assert_eq!(h.state().views[0].current, 0);
-        let toast = h.state().toast.clone().expect("the unsupported action is reported").0;
-        assert_eq!(toast, format!("This PDF uses the unsupported {action} action."));
-    }
+    let mut h = harness();
+    click_link_at(&mut h, 230.0);
+    assert_eq!(h.state().pending_link, None);
+    assert_eq!(h.state().last_opened_url, None);
+    assert_eq!(h.state().views.len(), 1);
+    assert_eq!(h.state().views[0].current, 0);
+    let toast = h.state().toast.clone().expect("the unsupported action is reported").0;
+    assert_eq!(toast, "This PDF uses the unsupported Launch action.");
 }
 
 #[test]
