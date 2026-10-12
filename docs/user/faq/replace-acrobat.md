@@ -17,7 +17,7 @@ The project lists these as good today:
 - filling and authoring forms
 - passwords, redaction and sanitizing
 - basic digital signatures
-- printing (in 0.6.0 on Windows 11 the Print dialog lists no printers; see [No printers are listed](../troubleshooting/no-printers-listed.md))
+- printing (on Windows, 0.6.0 can list no printers; see [No printers are listed](../troubleshooting/no-printers-listed.md))
 - the Accessibility Checker
 
 It opens files protected with every standard encryption level, from 40-bit RC4 to AES-256.

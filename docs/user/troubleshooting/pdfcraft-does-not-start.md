@@ -5,7 +5,7 @@ order: 10
 verified: 0.6.0
 ---
 
-On Windows 11, start PdfCraft with OpenGL: set `PDFCRAFT_RENDERER` to `gl`. First check that you installed the build that matches your PC (`x64` for most). Start PdfCraft with OpenGL: set `PDFCRAFT_RENDERER` to `gl`. The steps are below.
+On Windows 11, first check that you installed the build that matches your PC (`x64` for most). If it still closes at launch, start PdfCraft with OpenGL: set `PDFCRAFT_RENDERER` to `gl`. The steps are below.
 
 ## Symptoms
 
@@ -23,7 +23,7 @@ The log is in `%APPDATA%\PdfCraft\data\logs\pdfcraft.log`. With the portable zip
 
 ### 1. Use the right build
 
-Two users in the issue had installed the 32-bit `x86` build on a 64-bit PC by mistake. If that is you, uninstall it and install `pdfcraft-<version>-windows-x64.msi` instead. See [Install PdfCraft](../getting-started/install.md). Users on the x64 build hit the same error too, so if you already have the right build, go to step 2.
+Two users in the issue had installed the 32-bit `x86` build on a 64-bit PC by mistake. If that is you, uninstall it and install `pdfcraft-<version>-windows-x64.msi` instead. See [Install PdfCraft](../getting-started/install.md). One user in the issue hit the same error on the x64 portable build, so if you already have the right build, go to step 2.
 
 ### 2. Start with OpenGL
 
