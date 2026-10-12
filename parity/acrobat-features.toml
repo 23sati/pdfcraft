@@ -6967,11 +6967,27 @@ title = "Export to PowerPoint (.pptx)"
 area = "J"
 tier = "P1"
 milestone = "M10"
-status = "planned"
-commands = []
-tools = []
-evidence = []
-notes = ""
+status = "partial"
+commands = ["export.pptx"]
+tools = ["doc_export_office"]
+evidence = [
+    "crates/export/src/pptx.rs::pptx_is_a_presentationml_package",
+    "crates/export/src/pptx.rs::pptx_slide_has_title_body_and_images_in_order",
+    "crates/export/src/pptx.rs::pptx_text_colour_and_formatting",
+    "crates/export/src/pptx.rs::pptx_empty_pages_produce_valid_slide",
+    "crates/export/src/pptx.rs::pptx_slide_dimensions_and_clamping",
+    "crates/export/src/pptx.rs::pptx_table_cell_with_largest_font_stays_in_table_and_not_in_title",
+    "crates/export/src/pptx.rs::pptx_opens_in_libreoffice",
+    "crates/export/src/pptx.rs::pptx_package_parts_are_complete_and_consistent",
+    "crates/export/src/pptx.rs::hostile_sizes_do_not_overflow_the_slide_position",
+    "crates/export/src/lib.rs::grid_text_becomes_a_real_table_in_every_format",
+    "crates/export/src/lib.rs::text_colour_survives_every_format",
+    "crates/engine/src/tests.rs::exporting_office_files_keeps_images",
+    "crates/engine/src/tests.rs::exporting_office_files_keeps_text_colour",
+    "crates/automation/tests/automation.rs::exporting_to_word_html_and_rtf",
+    "crates/ui-egui/tests/compare.rs::export_to_word_html_and_rtf",
+]
+notes = "PowerPoint presentation: each page becomes a slide, with the largest non-table text as slide title, remaining paragraphs as body text, images and detected tables in reading order; DrawingML formatting (font size, bold, italic, text fill colour, cell borders); wired into engine command export.pptx, automation tool doc_export_office, and Export dialog. Missing: content past the slide bottom is not paginated or shrunk across multiple slides (no normAutofit), all slides use the first page's dimensions, title is determined by largest font size rather than semantic structure, and there is no layout-preserving mode (Acrobat keeps positions). Not yet verified in PowerPoint or Keynote: pptx_opens_in_libreoffice only converts the file when LibreOffice is installed and passes silently otherwise (CI has none), so the package structure is checked by pptx_package_parts_are_complete_and_consistent instead."
 
 [[feature]]
 id = "create.export-png"
