@@ -74,8 +74,11 @@ jobs:
         if: runner.os == 'Linux'
         env:
           CRAFT_FONTS_DIR: ${{ github.workspace }}/craft-fonts
-          CRAFT_FONTS_REQUIRED: "1"
-        run: cargo test --workspace
+        run: |
+          # Check PdfCraft's optional font input strictly. The workspace test then embeds the
+          # same input without exporting PdfCraft's release-only requirement to Office engines.
+          CRAFT_FONTS_REQUIRED=1 cargo test -p pdfcraft-fonts
+          cargo test --workspace
 
       - name: Layering
         run: cargo xtask layers

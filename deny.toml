@@ -32,8 +32,13 @@ allow-wildcard-paths = true
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
-# Shared UI components; Cargo.toml pins the immutable revision.
-allow-git = ["https://github.com/storytold/craft-libs"]
+# Shared UI components and native Office engines. Cargo.toml pins immutable revisions.
+allow-git = [
+    "https://github.com/storytold/craft-libs",
+    "https://github.com/earlvanze/deckcraft",
+    "https://github.com/storytold/gridcraft",
+    "https://github.com/earlvanze/wordcraft",
+]
 
 [advisories]
 yanked = "warn"
@@ -43,6 +48,10 @@ ignore = [
     # private-key operations use aws-lc-rs on native targets and are refused in the browser
     # (ADR-0009). Revisit when a fixed `rsa` ships.
     { id = "RUSTSEC-2023-0071", reason = "rsa is used for verification only (ADR-0009)" },
+    # krilla 0.8.2's simple-text API still depends on rustybuzz. DeckCraft uses it for slide
+    # notes and page labels; no maintained krilla release removes that dependency yet.
+    { id = "RUSTSEC-2026-0206", reason = "krilla 0.8.2 requires rustybuzz for simple-text; replace when krilla migrates" },
+    { id = "RUSTSEC-2026-0192", reason = "ttf-parser is pulled only through krilla's rustybuzz dependency" },
 ]
 
 # egui's default UI fonts (Ubuntu-Light, Hack, emoji-icon-font): font licences on the AGENTS.md
