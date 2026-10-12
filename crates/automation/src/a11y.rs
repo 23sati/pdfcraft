@@ -4,6 +4,7 @@ use pdfcraft_engine::DocId;
 use pdfcraft_engine::a11y::{Category, Options, Report, Rule, Status};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+use std::collections::BTreeSet;
 
 use crate::{Args, Automation, Result, ToolError, child, failed, unused, write_atomic};
 
@@ -41,6 +42,7 @@ pub(crate) fn report_json(r: &Report) -> Value {
                         "page": f.page.map(|p| p + 1),
                         "object": f.object.map(|r| r.num),
                         "object_generation": f.object.map(|r| r.generation),
+                        "bbox_user_space": f.bbox,
                         "message": f.message,
                     })
                 })
@@ -55,6 +57,149 @@ pub(crate) fn report_json(r: &Report) -> Value {
         "skipped": r.count(Status::Skipped),
         "results": results,
     })
+}
+
+fn review_hash(bytes: &[u8]) -> String {
+    Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect()
+}
+
+fn review_decisions(value: &Value, pages: usize) -> Result<Vec<Value>> {
+    let rows = value.as_array().ok_or_else(|| ToolError::InvalidArgs("decisions must be an array".into()))?;
+    let mut seen = BTreeSet::new();
+    rows.iter()
+        .map(|row| {
+            let fields = row.as_object().ok_or_else(|| ToolError::InvalidArgs("each decision must be an object".into()))?;
+            if fields.keys().any(|key| !matches!(key.as_str(), "rule" | "decision" | "page" | "note")) {
+                return Err(ToolError::InvalidArgs("unknown decision property".into()));
+            }
+            let rule = row["rule"].as_str().and_then(Rule::from_id).ok_or_else(|| ToolError::InvalidArgs("decision has an unknown rule".into()))?;
+            let decision = row["decision"].as_str().ok_or_else(|| ToolError::InvalidArgs("decision status is required".into()))?;
+            if !matches!(decision, "accepted" | "needs_work" | "skipped") {
+                return Err(ToolError::InvalidArgs("decision must be accepted, needs_work or skipped".into()));
+            }
+            let page = match row.get("page").filter(|value| !value.is_null()) {
+                Some(value) => {
+                    let page = value.as_u64().ok_or_else(|| ToolError::InvalidArgs("decision page must be positive".into()))?;
+                    if page == 0 || page > pages as u64 {
+                        return Err(ToolError::InvalidArgs("decision page is outside the document".into()));
+                    }
+                    Some(page)
+                }
+                None => None,
+            };
+            let note = match row.get("note").filter(|value| !value.is_null()) {
+                Some(value) => {
+                    let note = value.as_str().ok_or_else(|| ToolError::InvalidArgs("decision note must be text".into()))?;
+                    if note.len() > 4096 {
+                        return Err(ToolError::InvalidArgs("decision note exceeds 4096 bytes".into()));
+                    }
+                    Some(note)
+                }
+                None => None,
+            };
+            if !seen.insert((rule.id(), page)) {
+                return Err(ToolError::InvalidArgs("duplicate decision for a rule and page".into()));
+            }
+            Ok(json!({ "rule": rule.id(), "decision": decision, "page": page, "note": note }))
+        })
+        .collect()
+}
+
+/// A review sidecar is a few KiB of JSON; anything larger is not one.
+const MAX_REVIEW_SIDECAR_BYTES: u64 = 1 << 20;
+
+/// Read a review sidecar without trusting its size: the path is the caller's
+/// and may name any file, so the read stops past `MAX_REVIEW_SIDECAR_BYTES` and
+/// an oversized file is refused as not being a sidecar.
+fn read_review_sidecar(path: &std::path::Path) -> Result<Vec<u8>> {
+    use std::io::Read;
+    let mut bytes = Vec::new();
+    std::fs::File::open(path).and_then(|file| file.take(MAX_REVIEW_SIDECAR_BYTES.saturating_add(1)).read_to_end(&mut bytes)).map_err(failed)?;
+    if bytes.len() as u64 > MAX_REVIEW_SIDECAR_BYTES {
+        return Err(failed("file is not an accessibility review sidecar"));
+    }
+    Ok(bytes)
+}
+
+fn parse_review_sidecar(bytes: &[u8]) -> Result<Value> {
+    let value: Value = serde_json::from_slice(bytes).map_err(|_| failed("file is not an accessibility review sidecar"))?;
+    let hash = value["sha256"].as_str().ok_or_else(|| failed("review sidecar has no document hash"))?;
+    let Some(pages) = value["pages"].as_u64().and_then(|n| usize::try_from(n).ok()).filter(|n| *n > 0) else {
+        return Err(failed("unsupported or invalid accessibility review sidecar"));
+    };
+    if value["schema"] != 1 || hash.len() != 64 || !hash.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err(failed("unsupported or invalid accessibility review sidecar"));
+    }
+    review_decisions(&value["decisions"], pages).map_err(failed)?;
+    Ok(value)
+}
+
+fn html_escape(value: &str) -> String {
+    value.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;").replace('\'', "&#39;")
+}
+
+/// A self-contained, human-readable view of the same evidence as the JSON review record.
+fn review_html(record: &Value) -> Result<String> {
+    let str_at = |value: &Value, key: &str| -> Result<String> {
+        value.get(key).and_then(Value::as_str).map(html_escape).ok_or_else(|| failed(format!("review record is missing {key}")))
+    };
+    let count = |value: &Value, key: &str| -> Result<u64> {
+        value.get(key).and_then(Value::as_u64).ok_or_else(|| failed(format!("review record is missing {key}")))
+    };
+    let before = &record["before"];
+    let after = &record["after"];
+    let mut html = format!(
+        "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><title>Accessibility review</title><style>\
+         body{{font:15px/1.5 system-ui,sans-serif;max-width:1100px;margin:2rem auto;padding:0 1rem;color:#1d1d1f}}\
+         table{{border-collapse:collapse;width:100%;margin:1rem 0}}th,td{{border:1px solid #aaa;padding:.45rem;text-align:left;vertical-align:top}}\
+         th{{background:#f2f2f2}}.hash{{overflow-wrap:anywhere;font-family:monospace}}\
+         </style></head><body><main><h1>Accessibility review</h1><p>Record created: {}</p>\n",
+        str_at(record, "date")?
+    );
+    html.push_str("<h2>Before and after</h2><table><caption>Accessibility checker outcomes</caption><thead><tr><th scope=\"col\">Version</th><th scope=\"col\">Document</th><th scope=\"col\">Passed</th><th scope=\"col\">Failed</th><th scope=\"col\">Needs manual check</th><th scope=\"col\">Skipped</th></tr></thead><tbody>");
+    for (label, version) in [("Before", before), ("After", after)] {
+        let summary = &version["summary"];
+        html.push_str(&format!(
+            "<tr><th scope=\"row\">{label}</th><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+            str_at(version, "name")?,
+            count(summary, "passed")?,
+            count(summary, "failed")?,
+            count(summary, "manual")?,
+            count(summary, "skipped")?
+        ));
+    }
+    html.push_str("</tbody></table>");
+    html.push_str(&format!(
+        "<p>Before SHA-256: <span class=\"hash\">{}</span><br>After SHA-256: <span class=\"hash\">{}</span></p>",
+        str_at(before, "sha256")?,
+        str_at(after, "sha256")?
+    ));
+    html.push_str("<h2>Rule comparison</h2><table><caption>Before and after checker results</caption><thead><tr><th scope=\"col\">Rule</th><th scope=\"col\">Before</th><th scope=\"col\">Before findings</th><th scope=\"col\">After</th><th scope=\"col\">After findings</th><th scope=\"col\">Change</th></tr></thead><tbody>");
+    let rules = record["rules"].as_array().ok_or_else(|| failed("review record is missing rules"))?;
+    for row in rules {
+        let id = row["rule"].as_str().ok_or_else(|| failed("review record has a rule without an id"))?;
+        let name = Rule::from_id(id).map(Rule::name).unwrap_or(id);
+        let old = &row["before"];
+        let new = &row["after"];
+        let old_status = str_at(old, "status")?;
+        let new_status = str_at(new, "status")?;
+        let old_findings = count(old, "findings")?;
+        let new_findings = count(new, "findings")?;
+        let changed = old_status != new_status || old_findings != new_findings;
+        html.push_str(&format!(
+            "<tr><th scope=\"row\">{}</th><td>{old_status}</td><td>{old_findings}</td><td>{new_status}</td><td>{new_findings}</td><td>{}</td></tr>",
+            html_escape(name),
+            if changed { "Changed" } else { "Unchanged" }
+        ));
+    }
+    html.push_str("</tbody></table><h2>Still requiring review</h2><ul>");
+    for id in record["review_required"].as_array().ok_or_else(|| failed("review record is missing review_required"))? {
+        let id = id.as_str().ok_or_else(|| failed("review record has an invalid review_required entry"))?;
+        html.push_str(&format!("<li>{}</li>", html_escape(Rule::from_id(id).map(Rule::name).unwrap_or(id))));
+    }
+    html.push_str("</ul>");
+    html.push_str(&format!("<p>{}</p></main></body></html>\n", str_at(record, "note")?));
+    Ok(html)
 }
 
 impl Automation {
@@ -106,7 +251,7 @@ impl Automation {
         Ok(out)
     }
 
-    pub(crate) fn a11y_review_record(&self, a: &Args) -> Result<Value> {
+    fn review_record_value(&self, a: &Args) -> Result<Value> {
         let id = |key| -> Result<DocId> {
             let n = u64::try_from(a.int(key)?).map_err(|_| ToolError::InvalidArgs(format!("{key} must be positive")))?;
             if n == 0 {
@@ -172,9 +317,51 @@ impl Automation {
             "review_required": review_required,
             "note": "Automated checks cover only part of accessibility. Review remaining findings manually and validate the final PDF independently.",
         });
+        Ok(record)
+    }
+
+    pub(crate) fn a11y_review_record(&self, a: &Args) -> Result<Value> {
+        let record = self.review_record_value(a)?;
         let path = self.resolve(a.str("path")?, true)?;
         let bytes = serde_json::to_vec_pretty(&record).map_err(failed)?;
         write_atomic(&path, &bytes)?;
+        Ok(json!({ "path": path.to_string_lossy(), "record": record }))
+    }
+
+    pub(crate) fn a11y_review_save(&self, a: &Args) -> Result<Value> {
+        let doc = self.doc(a)?;
+        let decisions = review_decisions(a.get("decisions").ok_or_else(|| Args::missing("decisions"))?, doc.info.pages.len())?;
+        let hash = review_hash(doc.bytes.as_slice());
+        let path = self.resolve(a.str("path")?, true)?;
+        if path.exists() {
+            let prior = read_review_sidecar(&path)?;
+            let prior = parse_review_sidecar(&prior)?;
+            if prior["sha256"] != hash && !a.opt_bool("replace")?.unwrap_or(false) {
+                return Err(failed("review sidecar belongs to a different PDF revision; pass replace: true to replace it"));
+            }
+        }
+        let (y, m, d) = self.session.today();
+        let sidecar =
+            json!({ "schema": 1, "date": format!("{y}-{m:02}-{d:02}"), "sha256": hash, "pages": doc.info.pages.len(), "decisions": decisions });
+        write_atomic(&path, &serde_json::to_vec_pretty(&sidecar).map_err(failed)?)?;
+        Ok(json!({ "path": path.to_string_lossy(), "review": sidecar }))
+    }
+
+    pub(crate) fn a11y_review_load(&self, a: &Args) -> Result<Value> {
+        let doc = self.doc(a)?;
+        let path = self.resolve(a.str("path")?, false)?;
+        let review = parse_review_sidecar(&read_review_sidecar(&path)?)?;
+        if review["sha256"] != review_hash(doc.bytes.as_slice()) {
+            return Err(failed("review sidecar belongs to a different PDF revision"));
+        }
+        Ok(json!({ "path": path.to_string_lossy(), "review": review }))
+    }
+
+    pub(crate) fn a11y_review_html(&self, a: &Args) -> Result<Value> {
+        let record = self.review_record_value(a)?;
+        let html = review_html(&record)?;
+        let path = self.resolve(a.str("path")?, true)?;
+        write_atomic(&path, html.as_bytes())?;
         Ok(json!({ "path": path.to_string_lossy(), "record": record }))
     }
 
@@ -252,6 +439,28 @@ impl Automation {
         self.session
             .apply(id, pdfcraft_engine::Edit::SetTagProperty { object: pdfcraft_cos::ObjRef::new(object, generation), property, value })
             .map_err(failed)?;
+        self.accessibility_tags(a)
+    }
+
+    pub(crate) fn accessibility_move_tag(&mut self, a: &Args) -> Result<Value> {
+        let reference = |number: &str, generation: &str| -> Result<pdfcraft_cos::ObjRef> {
+            let n = u32::try_from(a.int(number)?).map_err(|_| ToolError::InvalidArgs(format!("{number} must be a positive tag object number")))?;
+            if n == 0 {
+                return Err(ToolError::InvalidArgs(format!("{number} must be a positive tag object number")));
+            }
+            let g = u16::try_from(a.int(generation)?)
+                .map_err(|_| ToolError::InvalidArgs(format!("{generation} must be a PDF object generation from accessibility_tags")))?;
+            Ok(pdfcraft_cos::ObjRef::new(n, g))
+        };
+        let object = reference("object", "generation")?;
+        let anchor = reference("anchor", "anchor_generation")?;
+        let placement = match a.str("placement")? {
+            "before" => pdfcraft_engine::a11y::TagPlacement::Before,
+            "after" => pdfcraft_engine::a11y::TagPlacement::After,
+            other => return Err(ToolError::InvalidArgs(format!("placement must be before or after, not {other:?}"))),
+        };
+        let id = self.doc(a)?.id;
+        self.session.apply(id, pdfcraft_engine::Edit::MoveTag { object, anchor, placement }).map_err(failed)?;
         self.accessibility_tags(a)
     }
 }
@@ -633,5 +842,25 @@ impl Automation {
             self.session.set_javascript(on);
         }
         Ok(json!({ "enabled": self.session.javascript() }))
+    }
+}
+
+#[cfg(test)]
+mod review_html_tests {
+    use super::*;
+
+    #[test]
+    fn document_names_are_escaped_in_review_html() {
+        let record = json!({
+            "date": "2026-10-12",
+            "before": { "name": "<script>alert('x')</script>.pdf", "sha256": "a", "summary": { "passed": 0, "failed": 1, "manual": 0, "skipped": 0 } },
+            "after": { "name": "safe.pdf", "sha256": "b", "summary": { "passed": 1, "failed": 0, "manual": 0, "skipped": 0 } },
+            "rules": [{ "rule": "primary-language", "before": { "status": "failed", "findings": 1 }, "after": { "status": "passed", "findings": 0 } }],
+            "review_required": [],
+            "note": "Review independently.",
+        });
+        let html = review_html(&record).unwrap();
+        assert!(html.contains("&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;.pdf"));
+        assert!(!html.contains("<script>"));
     }
 }

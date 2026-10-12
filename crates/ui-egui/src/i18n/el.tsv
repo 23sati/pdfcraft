@@ -1063,7 +1063,7 @@
 	Couldn't optimize the file: {e}	Δεν ήταν δυνατή η βελτιστοποίηση του αρχείου: {e}
 	Couldn't write {path}: {e}	Δεν ήταν δυνατή η εγγραφή στο {path}: {e}
 	The form asks to be submitted to {u}; PdfCraft doesn't send form data. Save the document to keep your entries.	Η φόρμα ζητά υποβολή στο {u}, αλλά το PdfCraft δεν αποστέλλει δεδομένα φόρμας. Αποθηκεύστε το έγγραφο για να διατηρήσετε τις καταχωρίσεις σας.
-	{s} actions run in the JavaScript engine (M6)	{s} ενέργειες εκτελούνται στη μηχανή JavaScript (M6)
+	This PDF uses the unsupported {s} action.	Αυτό το PDF χρησιμοποιεί τη μη υποστηριζόμενη ενέργεια {s}.
 	{name}: the {other} action isn't supported yet	{name}: η ενέργεια {other} δεν υποστηρίζεται ακόμη
 	{name} submits the form to {url}; PdfCraft doesn't send form data. Save the document to keep your entries.	Το {name} υποβάλλει τη φόρμα στο {url}, αλλά το PdfCraft δεν αποστέλλει δεδομένα φόρμας. Αποθηκεύστε το έγγραφο για να διατηρήσετε τις καταχωρίσεις σας.
 	Export stopped: {e}	Η εξαγωγή διακόπηκε: {e}
@@ -2226,13 +2226,13 @@ comment menu	Edit	Επεξεργασία
 	Offset from centre	Μετατόπιση από το κέντρο
 	Graphic	Γραφικό
 	Signer's name	Όνομα υπογράφοντος
-	Fill & Sign signature	Υπογραφή από τη Συμπλήρωση και υπογραφή
+	Fill & Sign signature	Υπογραφή από το εργαλείο «Συμπλήρωση και υπογραφή»
 	Choose image…	Επιλογή εικόνας…
 	Looking for printers…	Αναζήτηση εκτυπωτών…
 	Sending to {printer}…	Αποστολή στον {printer}…
 	Enter permissions password…	Εισαγωγή κωδικού δικαιωμάτων…
 	Permissions password	Κωδικός δικαιωμάτων
-	“{name}” has security restrictions. Enter its permissions password to lift them.	Το «{name}» έχει περιορισμούς ασφαλείας. Εισαγάγετε τον κωδικό δικαιωμάτων για να τους αρθούν.
+	“{name}” has security restrictions. Enter its permissions password to lift them.	Το «{name}» έχει περιορισμούς ασφαλείας. Εισαγάγετε τον κωδικό δικαιωμάτων για να αρθούν οι περιορισμοί.
 	Restrictions lifted	Οι περιορισμοί άρθηκαν
 	Couldn't unlock {name}: {e}	Δεν ήταν δυνατό το ξεκλείδωμα του {name}: {e}
 	This document has no restrictions to lift	Αυτό το έγγραφο δεν έχει περιορισμούς προς άρση
@@ -2242,7 +2242,7 @@ comment menu	Edit	Επεξεργασία
 	These files can't be read, so they won't be in the combined PDF:	Αυτά τα αρχεία δεν διαβάζονται, οπότε δεν θα συμπεριληφθούν στο συνδυασμένο PDF:
 	Combine the rest	Συνδυασμός των υπολοίπων
 	and {n} more	και {n} ακόμη
-	Drop PDFs, images, text files or folders here, or choose them.	Αποθέστε εδώ PDF, εικόνες, αρχεία κειμένου ή φακέλους ή επιλέξτε τα.
+	Drop PDFs, images, text files or folders here, or choose them.	Σύρετε εδώ PDF, εικόνες, αρχεία κειμένου ή φακέλους, ή επιλέξτε τα.
 	Every PDF, image and text file in the folder	Όλα τα PDF, οι εικόνες και τα αρχεία κειμένου του φακέλου
 	Every PDF, image and text file in the folder and the folders inside it	Όλα τα PDF, οι εικόνες και τα αρχεία κειμένου του φακέλου και των υποφακέλων του
 	No PDFs, images or text files found in {folder}	Δεν βρέθηκαν PDF, εικόνες ή αρχεία κειμένου στο {folder}
@@ -2258,7 +2258,7 @@ comment menu	Edit	Επεξεργασία
 	Tools	Εργαλεία
 	Inspector	Επιθεωρητής
 	PDF page: {size}	Σελίδα PDF: {size}
-	Match page at 100%	Ταίριασμα σελίδας στο 100%
+	Match page at 100%	Προσαρμογή σελίδας στο 100%
 	PDF scale: {scale}%	Κλίμακα PDF: {scale}%
 	Printer paper and scaling may differ. Check driver settings.	Το χαρτί και η κλίμακα του εκτυπωτή μπορεί να διαφέρουν. Ελέγξτε τις ρυθμίσεις του προγράμματος οδήγησης.
 	Drawing scale changes. Use Actual size for full-scale plans.	Η κλίμακα του σχεδίου αλλάζει. Για σχέδια σε πλήρη κλίμακα χρησιμοποιήστε το Πραγματικό μέγεθος.
