@@ -2173,3 +2173,8 @@ scroll speed	Fast	వేగంగా
 	Tools panel side	టూల్స్ ప్యానెల్ వైపు
 	Add comment	వ్యాఖ్యను జోడించు
 	Change tag properties	ట్యాగ్ లక్షణాలను మార్చు
+	Left out: {names}	వదిలివేసినవి: {names}
+	already a PDF	ఇప్పటికే PDF
+	no unused output name	ఉపయోగించని అవుట్‌పుట్ పేరు లేదు
+	no output folder was chosen	అవుట్‌పుట్ ఫోల్డర్ ఎంచుకోలేదు
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	{n} PDF డౌన్‌లోడ్ చేయబడింది|{n} PDFలు డౌన్‌లోడ్ చేయబడ్డాయి

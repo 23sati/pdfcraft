@@ -2258,3 +2258,8 @@ scroll speed	Fast	Schnell
 	Tools panel side	Seite des Werkzeugbereichs
 	Add comment	Kommentar hinzufügen
 	Change tag properties	Tag-Eigenschaften ändern
+	Left out: {names}	Ausgelassen: {names}
+	already a PDF	bereits ein PDF
+	no unused output name	kein freier Ausgabename
+	no output folder was chosen	kein Ausgabeordner gewählt
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	{n} PDF heruntergeladen|{n} PDFs heruntergeladen

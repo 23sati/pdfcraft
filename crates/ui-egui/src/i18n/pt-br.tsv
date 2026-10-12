@@ -2271,3 +2271,8 @@ scroll speed	Fast	Rápida
 	Tools panel side	Lado do painel Ferramentas
 	Add comment	Adicionar comentário
 	Change tag properties	Alterar propriedades da tag
+	Left out: {names}	Deixados de fora: {names}
+	already a PDF	já é um PDF
+	no unused output name	nenhum nome de saída disponível
+	no output folder was chosen	nenhuma pasta de saída foi escolhida
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	{n} PDF baixado|{n} PDFs baixados

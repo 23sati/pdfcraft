@@ -2265,3 +2265,8 @@ scroll speed	Fast	Hitro
 	Tools panel side	Stran podokna z orodji
 	Add comment	Dodaj komentar
 	Change tag properties	Spremeni lastnosti oznake
+	Left out: {names}	Izpuščeno: {names}
+	already a PDF	je že PDF
+	no unused output name	ni prostega izhodnega imena
+	no output folder was chosen	izhodna mapa ni bila izbrana
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	Prenesen {n} PDF|Prenesena {n} PDF-ja|Preneseni {n} PDF-ji|Prenesenih {n} PDF-jev

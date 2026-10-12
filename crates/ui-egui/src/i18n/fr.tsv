@@ -2257,3 +2257,8 @@ scroll speed	Fast	Rapide
 	Tools panel side	Côté du panneau Outils
 	Add comment	Ajouter un commentaire
 	Change tag properties	Modifier les propriétés de la balise
+	Left out: {names}	Ignorés : {names}
+	already a PDF	déjà un PDF
+	no unused output name	aucun nom de sortie libre
+	no output folder was chosen	aucun dossier de sortie choisi
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	{n} PDF téléchargé|{n} PDF téléchargés

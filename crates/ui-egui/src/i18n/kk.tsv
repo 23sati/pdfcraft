@@ -2258,3 +2258,8 @@ scroll speed	Fast	Жылдам
 	Tools panel side	Құралдар панелінің жағы
 	Add comment	Түсініктеме қосу
 	Change tag properties	Тег қасиеттерін өзгерту
+	Left out: {names}	Қалдырылды: {names}
+	already a PDF	бұл қазірдің өзінде PDF
+	no unused output name	бос шығыс атауы жоқ
+	no output folder was chosen	шығыс қалтасы таңдалмады
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	{n} PDF жүктелді|{n} PDF жүктелді

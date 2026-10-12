@@ -51,7 +51,7 @@ impl PdfCraftApp {
                 }
             };
             if kind == SourceKind::Pdf {
-                refused.push(format!("{name} (already a PDF)"));
+                refused.push(format!("{name} ({})", tl!("already a PDF")));
                 continue;
             }
             let base = crate::files::file_stem_from_user(stem(&name));
@@ -67,13 +67,13 @@ impl PdfCraftApp {
                 }
             }
             let Some((filename, target)) = output else {
-                refused.push(format!("{name} (no unused output name)"));
+                refused.push(format!("{name} ({})", tl!("no unused output name")));
                 continue;
             };
             #[cfg(not(target_arch = "wasm32"))]
             let result = match target {
                 Some(path) => crate::editing::write_atomically(&path.to_string_lossy(), &pdf).map_err(|e| e.to_string()),
-                None => Err("no output folder was chosen".to_string()),
+                None => Err(tl!("no output folder was chosen").to_string()),
             };
             #[cfg(target_arch = "wasm32")]
             let result = {
@@ -91,10 +91,10 @@ impl PdfCraftApp {
                 self.notify_fmt("Wrote {n} files to {dir}", &[("n", &made.to_string()), ("dir", &dir.display().to_string())]);
             }
             #[cfg(target_arch = "wasm32")]
-            self.notify_fmt("Downloaded {n} PDFs", &[("n", &made.to_string())]);
+            self.notify(crate::i18n::trn(crate::i18n::current(), made as u64, "Downloaded {n} PDF", "Downloaded {n} PDFs"));
         }
         if !refused.is_empty() {
-            self.notify_fmt("Left out: {names}", &[("names", &refused.join(", "))]);
+            self.notify(crate::i18n::fmt(tl!("Left out: {names}"), &[("names", &refused.join(", "))]));
         }
     }
 

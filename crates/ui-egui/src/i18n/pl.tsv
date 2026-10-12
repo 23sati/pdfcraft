@@ -2240,3 +2240,8 @@ scroll speed	Fast	Szybka
 	Tools panel side	Strona panelu narzędzi
 	Add comment	Dodaj komentarz
 	Change tag properties	Zmień właściwości znacznika
+	Left out: {names}	Pominięto: {names}
+	already a PDF	to już jest PDF
+	no unused output name	brak wolnej nazwy pliku wyjściowego
+	no output folder was chosen	nie wybrano folderu wyjściowego
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	Pobrano {n} plik PDF|Pobrano {n} pliki PDF|Pobrano {n} plików PDF

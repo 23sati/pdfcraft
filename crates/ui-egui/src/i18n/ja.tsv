@@ -2257,3 +2257,8 @@ scroll speed	Fast	速い
 	Tools panel side	ツールパネルの位置
 	Add comment	コメントを追加
 	Change tag properties	タグのプロパティを変更
+	Left out: {names}	除外: {names}
+	already a PDF	すでに PDF です
+	no unused output name	使用可能な出力名がありません
+	no output folder was chosen	出力フォルダーが選択されていません
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	{n} 個の PDF をダウンロードしました

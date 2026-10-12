@@ -2276,3 +2276,8 @@ scroll speed	Fast	Γρήγορη
 	Tools panel side	Πλευρά πλαισίου εργαλείων
 	Add comment	Προσθήκη σχολίου
 	Change tag properties	Αλλαγή ιδιοτήτων ετικέτας
+	Left out: {names}	Παραλείφθηκαν: {names}
+	already a PDF	είναι ήδη PDF
+	no unused output name	δεν υπάρχει διαθέσιμο όνομα εξόδου
+	no output folder was chosen	δεν επιλέχθηκε φάκελος εξόδου
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	Λήφθηκε {n} PDF|Λήφθηκαν {n} PDF

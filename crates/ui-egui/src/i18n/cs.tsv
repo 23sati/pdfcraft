@@ -2334,3 +2334,8 @@ scroll speed	Fast	Rychlá
 	Tools panel side	Strana panelu nástrojů
 	Add comment	Přidat komentář
 	Change tag properties	Změnit vlastnosti značky
+	Left out: {names}	Vynecháno: {names}
+	already a PDF	již je PDF
+	no unused output name	žádný volný název výstupního souboru
+	no output folder was chosen	nebyla vybrána výstupní složka
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	Stažen {n} soubor PDF|Staženy {n} soubory PDF|Staženo {n} souborů PDF

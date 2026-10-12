@@ -2256,3 +2256,8 @@ scroll speed	Fast	Hızlı
 	Tools panel side	Araçlar panelinin yeri
 	Add comment	Yorum ekle
 	Change tag properties	Etiket özelliklerini değiştir
+	Left out: {names}	Dışarıda bırakılanlar: {names}
+	already a PDF	zaten bir PDF
+	no unused output name	kullanılmayan çıktı adı yok
+	no output folder was chosen	çıktı klasörü seçilmedi
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	{n} PDF indirildi

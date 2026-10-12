@@ -2256,3 +2256,8 @@ scroll speed	Fast	Gyors
 	Tools panel side	Az Eszközök panel oldala
 	Add comment	Megjegyzés hozzáadása
 	Change tag properties	Címke tulajdonságainak módosítása
+	Left out: {names}	Kihagyva: {names}
+	already a PDF	már PDF
+	no unused output name	nincs szabad kimeneti név
+	no output folder was chosen	nincs kiválasztva kimeneti mappa
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	{n} PDF letöltve|{n} PDF letöltve

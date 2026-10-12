@@ -2134,3 +2134,8 @@ scroll speed	Fast	快
 	Tools panel side	工具面板位置
 	Add comment	新增註解
 	Change tag properties	變更標籤屬性
+	Left out: {names}	已略過：{names}
+	already a PDF	已經是 PDF
+	no unused output name	沒有可用的輸出檔名
+	no output folder was chosen	未選擇輸出資料夾
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	已下載 {n} 個 PDF

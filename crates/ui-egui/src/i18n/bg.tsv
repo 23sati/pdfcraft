@@ -2220,3 +2220,8 @@ scroll speed	Fast	Висока
 	Tools panel side	Страна на панела с инструменти
 	Add comment	Добавяне на коментар
 	Change tag properties	Промяна на свойствата на етикета
+	Left out: {names}	Пропуснати: {names}
+	already a PDF	вече е PDF
+	no unused output name	няма свободно име за изходния файл
+	no output folder was chosen	не е избрана папка за изхода
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	Изтеглен е {n} PDF|Изтеглени са {n} PDF файла
