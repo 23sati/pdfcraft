@@ -819,6 +819,7 @@
 	{verb} as "{name}"	"{name}" olarak {verb}
 	Certify	Sertifikala
 	The signature will be invisible.	İmza görünmez olacak.
+	The existing action will be preserved.	Mevcut işlem korunacak.
 	Distinguished name	Ayırt edici ad
 	Labels	Etiketler
 	Permitted actions after certifying	Sertifikalandırma sonrası izin verilen eylemler
@@ -2250,6 +2251,9 @@ key	Space	Boşluk
 scroll speed	Slow	Yavaş
 scroll speed	Normal	Orta
 scroll speed	Fast	Hızlı
+	Animation effects	Animasyon efektleri
+animation effects	On	Açık
+animation effects	Off	Kapalı
 	Enhance camera image	Kamera görüntüsünü iyileştir
 	Drag the corners onto the document's edges, then choose Enhance page.	Köşeleri belgenin kenarlarına sürükleyin, ardından Sayfayı iyileştir'i seçin.
 	Enhance page	Sayfayı iyileştir
@@ -2262,9 +2266,28 @@ scroll speed	Fast	Hızlı
 	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Bu yazıcının sürücüsü diğer programlardan gelen çift taraflı yazdırma ayarlarını kabul etmez, bu yüzden kendi ayarı geçerlidir. Değiştirmek için: Özellikler…
 	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Bu alanın yazı tipi “{c}” ({code}) karakterini çizemiyor, bu yüzden PdfCraft yerine ? gösteriyor. Değer kaydedilir ve diğer PDF görüntüleyiciler alanı ondan yeniden çizer.
 	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	PdfCraft'ın yazdığı yazı tipleri “{c}” ({code}) karakterini çizemiyor, bu yüzden her PDF görüntüleyicide ? olarak görünür. Metin kaydedilir.
+	Browser's print dialog	Tarayıcının yazdırma penceresi
+	Copies, two-sided printing and colour are chosen in the browser's print dialog.	Kopya sayısı, çift taraflı yazdırma ve renk tarayıcının yazdırma penceresinde seçilir.
+	Preparing {n} sheets for printing…	Yazdırma için {n} sayfa hazırlanıyor…
+	Preparing sheet {done} of {total} for printing…	Yazdırma için sayfa {done}/{total} hazırlanıyor…
+	Opening the browser's print dialog…	Tarayıcının yazdırma penceresi açılıyor…
+	Couldn't print from the browser ({e}); downloaded {name} to print instead	Tarayıcıdan yazdırılamadı ({e}); bunun yerine yazdırmak için {name} indirildi
 	Tools panel side	Araçlar panelinin yeri
 	Add comment	Yorum ekle
 	Change tag properties	Etiket özelliklerini değiştir
+# Accessibility structure tags.
+	Tags panel	Etiketler paneli
+	Tags	Etiketler
+	Tag type	Etiket türü
+	Actual text	Gerçek metin
+	Find a tag	Etiket bul
+	Collapse tag	Etiketi daralt
+	Expand tag	Etiketi genişlet
+	Revert changes	Değişiklikleri geri al
+	Save tag properties	Etiket özelliklerini kaydet
+	This document has no editable structure tags.	Bu belgede düzenlenebilir yapı etiketleri yok.
+	{n} tags	{n} etiket
+	Save or revert changes before selecting another tag.	Başka bir etiket seçmeden önce değişiklikleri kaydedin veya geri alın.
 	Left out: {names}	Dışarıda bırakılanlar: {names}
 	already a PDF	zaten bir PDF
 	no unused output name	kullanılmayan çıktı adı yok
@@ -2279,3 +2302,25 @@ scroll speed	Fast	Hızlı
 	Ink sensitivity	Mürekkep hassasiyeti
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Çerçevede imza bulunamadı. Çerçeveyi imzanın üzerine taşıyın veya mürekkep hassasiyetini artırın.
 	Couldn't use the photo: {e}	Fotoğraf kullanılamadı: {e}
+
+# PDF tab context menu (#1233)
+	Close Tab	Sekmeyi kapat
+	Reopen Closed Tab	Kapatılan sekmeyi yeniden aç
+	Reveal in Finder	Finder’da göster
+	Reveal in File Explorer	Dosya Gezgini’nde göster
+	Other colour…	Diğer renk…
+	Recent colours	Son kullanılan renkler
+	Reading colours	Okuma renkleri
+	Replace document colours	Belge renklerini değiştir
+	Black on white	Beyaz üzerinde siyah
+	White on black	Siyah üzerinde beyaz
+	Yellow on black	Siyah üzerinde sarı
+	Green on black	Siyah üzerinde yeşil
+	Page background	Sayfa arka planı
+	Only change the colour of black text or line art	Yalnızca siyah metin veya çizgi sanatının rengini değiştir
+	Change the colour of line art as well as text	Metnin yanı sıra çizgi sanatının rengini de değiştir
+	Colours are remapped while rendering; the document itself never changes.	Renkler görüntülenirken yeniden eşlenir; belgenin kendisi asla değişmez.
+	Couldn't follow linked PDF: {reason}	Bağlantılı PDF açılamadı: {reason}
+	The linked PDF opened, but its named destination was not applied.	Bağlantılı PDF açıldı, ancak adlandırılmış hedefi uygulanmadı.
+	The linked PDF opened, but its page destination was out of range.	Bağlantılı PDF açıldı, ancak sayfa hedefi aralık dışında.
+	Local cross-PDF links require the desktop app	PDF'ler arası yerel bağlantılar masaüstü uygulamasını gerektirir

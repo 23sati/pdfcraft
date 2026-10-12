@@ -4,7 +4,7 @@
 
 Every asset PdfCraft includes, bundles or uses to build its published material, with its author, source and licence. The policy is in [AGENTS.md](AGENTS.md) §1. The machine-readable list, with SHA-256 hashes, is [ATTRIBUTION.toml](ATTRIBUTION.toml). Licence texts are kept beside the assets and summarised in [NOTICE](NOTICE).
 
-## In this repository (269)
+## In this repository (268)
 
 | Asset | Title | Author | Licence | Source | Used for |
 |---|---|---|---|---|---|
@@ -221,7 +221,6 @@ Every asset PdfCraft includes, bundles or uses to build its published material, 
 | `vendor/hayro-interpret/assets/FoxitSerifItalic.pfb` | FoxitSerifItalic (standard-14 substitute font) | Foxit Software Inc. / PDFium Authors | BSD-3-Clause | https://pdfium.googlesource.com/pdfium (via hayro-interpret 0.7.0 assets/) | Renders non-embedded standard-14 fonts (vendored hayro-interpret) |
 | `vendor/hayro-interpret/assets/FoxitSymbol.pfb` | FoxitSymbol (standard-14 substitute font) | Foxit Software Inc. / PDFium Authors | BSD-3-Clause | https://pdfium.googlesource.com/pdfium (via hayro-interpret 0.7.0 assets/) | Renders non-embedded standard-14 fonts (vendored hayro-interpret) |
 | `vendor/hayro-interpret/assets/CGATS001Compat-v2-micro.icc` | CGATS001Compat v2 micro ICC profile | Clinton Ingram (saucecontrol/Compact-ICC-Profiles) | CC0-1.0 | https://github.com/saucecontrol/Compact-ICC-Profiles | Default CMYK colour conversion (vendored hayro-interpret) |
-| `vendor/hayro-interpret/assets/LAB.icc` | Lab abstract ICC profile | The Hayro Authors (generated with LittleCMS 2) | MIT OR Apache-2.0 | https://github.com/LaurenzV/hayro (hayro-interpret 0.7.0 assets/) | Lab colour space conversion (vendored hayro-interpret) |
 | `docs/brand/artcraft-logo-white.png` | ArtCraft brand: artcraft-logo-white | ArtCraft Team | LicenseRef-Storyteller-Trademark | ArtCraft Team brand assets (provided by the project owner, 2026-10-01; identical copies in storytold/photocraft) | ArtCraft branding next to the community links (About dialog, Help menu, home screen) and in docs. ArtCraft Team trademark, not open source; may be used only unmodified within PdfCraft; forks and modified versions must remove it. |
 | `docs/brand/artcraft-logo-white.svg` | ArtCraft brand: artcraft-logo-white | ArtCraft Team | LicenseRef-Storyteller-Trademark | ArtCraft Team brand assets (provided by the project owner, 2026-10-01; identical copies in storytold/photocraft) | ArtCraft branding next to the community links (About dialog, Help menu, home screen) and in docs. ArtCraft Team trademark, not open source; may be used only unmodified within PdfCraft; forks and modified versions must remove it. |
 | `docs/brand/artcraft-logo.png` | ArtCraft brand: artcraft-logo | ArtCraft Team | LicenseRef-Storyteller-Trademark | ArtCraft Team brand assets (provided by the project owner, 2026-10-01; identical copies in storytold/photocraft) | ArtCraft branding next to the community links (About dialog, Help menu, home screen) and in docs. ArtCraft Team trademark, not open source; may be used only unmodified within PdfCraft; forks and modified versions must remove it. |
