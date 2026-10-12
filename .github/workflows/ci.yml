@@ -39,6 +39,12 @@ jobs:
           ref: 3d9ab3a132ed0eff457e424226a435a901da30d3
           path: craft-fonts
 
+      - name: Configure craft-fonts (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          echo "CRAFT_FONTS_DIR=$GITHUB_WORKSPACE/craft-fonts" >> "$GITHUB_ENV"
+          echo "CRAFT_FONTS_REQUIRED=1" >> "$GITHUB_ENV"
+
       - name: Install Linux system dependencies (egui/winit/rfd)
         if: runner.os == 'Linux'
         run: |
@@ -72,9 +78,6 @@ jobs:
 
       - name: Test (with craft-fonts)
         if: runner.os == 'Linux'
-        env:
-          CRAFT_FONTS_DIR: ${{ github.workspace }}/craft-fonts
-          CRAFT_FONTS_REQUIRED: "1"
         run: cargo test --workspace
 
       - name: Layering
