@@ -54,6 +54,7 @@
 	Create PDF from file…	Vytvořit PDF ze souboru…
 	Create PDF from images…	Vytvořit PDF z obrázků…
 	Create PDF from multiple files…	Vytvořit PDF z více souborů…
+	Create separate PDFs…	Vytvořit samostatná PDF…
 	Create PDF from clipboard	Vytvořit PDF ze schránky
 	Combine files…	Sloučit soubory…
 	Save	Uložit
@@ -70,6 +71,7 @@
 	Optimize PDF…	Optimalizovat PDF…
 	Export to text…	Exportovat jako text…
 	Export to Word…	Exportovat do formátu Word…
+	Export to PowerPoint…	Exportovat do formátu PowerPoint…
 	Export to HTML…	Exportovat do formátu HTML…
 	Export to RTF…	Exportovat do formátu RTF…
 	Export all images…	Exportovat všechny obrázky…
@@ -171,6 +173,7 @@
 
 # Multi-object selection and movement (#844)
 @plural	{n} object selected|{n} objects selected	Vybrán {n} objekt|Vybrány {n} objekty|Vybráno {n} objektů
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} název pole koliduje s dřívějšími soubory a bude přejmenován: {list}|Názvy {n} polí kolidují s dřívějšími soubory a budou přejmenovány: {list}|{n} názvů polí koliduje s dřívějšími soubory a bude přejmenováno: {list}
 	Drag the selection to move it. Esc clears the selection.	Přetažením výběr přesunete. Esc zruší výběr.
 	Shift-click to select several objects. Drag empty space to select an area.	Kliknutím se Shiftem vyberete více objektů. Tažením v prázdném místě vyberete oblast.
 	Select at most 1000 objects at a time.	Vyberte nejvýše 1000 objektů najednou.
@@ -426,6 +429,7 @@ key	Space	Mezerník
 	Create from	Vytvořit z
 	Single file	Jeden soubor
 	Multiple files	Více souborů
+	Separate PDFs	Samostatná PDF
 	Images	Obrázky
 	Clipboard	Schránka
 	Blank page	Prázdná stránka
@@ -775,6 +779,11 @@ key	Space	Mezerník
 	of the following fields:	následujících polí:
 	Simplified field notation:	Zjednodušený zápis polí:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Názvy polí s + - * / a závorkami; mezery v názvech uvozujte znakem \\.
+	Finding document fonts…	Hledání písem dokumentu…
+	Installed fonts…	Nainstalovaná písma…
+	Keep source fonts	Zachovat zdrojová písma
+	Load font…	Načíst písmo…
+	No openly licensed document fonts found. Load a font file.	Nebyla nalezena žádná otevřeně licencovaná písma dokumentu. Načtěte soubor písma.
 	Format text	Formát textu
 	Bold	Tučné
 	Italic	Kurzíva
@@ -782,7 +791,7 @@ key	Space	Mezerník
 	Centre	Na střed
 	Align right	Zarovnat doprava
 	Justify	Do bloku
-	Standard fonts; text outside Windows-1252 isn't supported yet.	Standardní písma; text mimo Windows-1252 zatím není podporován.
+	Thai and Arabic use regular fallback fonts when available.	Thajština a arabština používají běžná náhradní písma, pokud jsou k dispozici.
 	Edit image	Upravit obrázek
 	Rotate counterclockwise	Otočit proti směru hodinových ručiček
 	Rotate clockwise	Otočit po směru hodinových ručiček
@@ -1291,6 +1300,8 @@ key	Space	Mezerník
 	Searchable Image (Exact)	Prohledávatelný obraz (přesný)
 	Adds invisible text over each word; the page image is not changed	Přidá nad každé slovo neviditelný text; obraz stránky se nezmění
 	Downsample to	Převzorkovat na
+	Also recognize pages that already have text	Rozpoznat i stránky, které už obsahují text
+	Pictures on those pages are recognized too; words already in the page's text are not added again	Rozpoznají se i obrázky na těchto stránkách; slova, která už jsou v textu stránky, se znovu nepřidají
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	Rozpoznávání textu není nainstalováno: chybí soubory jeho modelů. Přeinstalujte PdfCraft nebo nastavte PDFCRAFT_MODELS na složku, ve které jsou.
 	Settings	Nastavení
 	Optional	Volitelné
@@ -1909,6 +1920,8 @@ key	Space	Mezerník
 	{month} {y}	{month} {y}
 	Change {key}	Změnit: {key}
 	Insert pages from {name}	Vložit stránky ze souboru {name}
+	Insert pages from {name} — 1 field renamed	Vložit stránky ze souboru {name} — 1 pole přejmenováno
+	Insert pages from {name} — fields renamed	Vložit stránky ze souboru {name} — pole přejmenována
 	Fill in {name}	Vyplnit {name}
 	Set the image of {name}	Nastavit obrázek pole {name}
 	Edit script of {name}	Upravit skript {name}
@@ -1939,6 +1952,7 @@ key	Space	Mezerník
 	Delete document JavaScript	Odstranit JavaScript dokumentu
 	Edit document JavaScript	Upravit JavaScript dokumentu
 	Edit text	Upravit text
+	Load document font	Načíst písmo dokumentu
 	Move image	Přesunout obrázek
 	Rotate image	Otočit obrázek
 	Flip image	Převrátit obrázek
@@ -2178,7 +2192,7 @@ calendar date	December	prosince
 	Home / End	Home / End
 	H / Space (hold)	H / mezerník (podržet)
 	Line ending	Zakončení čáry
-	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Standardní písma neumí vykreslit „{c}“ ({code}). Jako text lze zatím přidávat jen západoevropské znaky.
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	Písma pro text v PDF neumí vykreslit „{c}“ ({code}). Zvolte podporovaný text.
 	Larger pages	Větší stránky
 	Smaller pages	Menší stránky
 	Reset page size	Obnovit velikost stránek
@@ -2334,3 +2348,22 @@ scroll speed	Fast	Rychlá
 	Only change the colour of black text or line art	Změnit jen barvu černého textu a čar
 	Change the colour of line art as well as text	Změnit barvu i čar, ne jen textu
 	Colours are remapped while rendering; the document itself never changes.	Barvy se mění při vykreslování; samotný dokument se nikdy nemění.
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Ovladač této tiskárny nepřijímá nastavení oboustranného tisku z jiných programů, proto platí jeho vlastní nastavení. Změňte ho ve Vlastnosti…
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Písmo tohoto pole neumí zobrazit „{c}“ ({code}), proto PdfCraft místo něj ukazuje ?. Hodnota se uloží a jiné prohlížeče PDF pole podle ní překreslí.
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Písma, kterými PdfCraft píše, neumí zobrazit „{c}“ ({code}), proto se ve všech prohlížečích PDF zobrazí jako ?. Text se uloží.
+	Tools panel side	Strana panelu nástrojů
+	Add comment	Přidat komentář
+	Change tag properties	Změnit vlastnosti značky
+	Left out: {names}	Vynecháno: {names}
+	already a PDF	již je PDF
+	no unused output name	žádný volný název výstupního souboru
+	no output folder was chosen	nebyla vybrána výstupní složka
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	Stažen {n} soubor PDF|Staženy {n} soubory PDF|Staženo {n} souborů PDF
+	Scan	Skenovat
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Podepište se na bílý list papíru a vyfoťte ho při jasném, rovnoměrném světle (použijte blesk). Vyberte fotografii nebo ji sem přetáhněte: PdfCraft najde podpis a odstraní papír.
+	Choose photo…	Vybrat fotografii…
+	No photo chosen	Není vybrána žádná fotografie
+	Photo	Fotografie
+	Ink sensitivity	Citlivost na inkoust
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	V rámečku nebyl nalezen žádný podpis. Přesuňte rámeček na podpis nebo zvyšte citlivost na inkoust.
+	Couldn't use the photo: {e}	Fotografii nelze použít: {e}

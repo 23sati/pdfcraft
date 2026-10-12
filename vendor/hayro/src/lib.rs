@@ -251,6 +251,7 @@ pub fn render_into<'a>(
         vc_settings,
         cache,
         render_settings.color_replacement,
+        interpreter_settings.preview,
     );
 
     device.ctx.set_paint(render_settings.bg_color);

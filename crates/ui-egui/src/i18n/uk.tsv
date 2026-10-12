@@ -261,6 +261,7 @@
 	Optimize PDF…	Оптимізувати PDF…
 	Export to text…	Експортувати в текст…
 	Export to Word…	Експортувати у Word…
+	Export to PowerPoint…	Експортувати у PowerPoint…
 	Export to HTML…	Експортувати в HTML…
 	Export to RTF…	Експортувати в RTF…
 	JavaScript console…	Консоль JavaScript…
@@ -345,6 +346,7 @@
 	Create from	Створити з
 	Single file	Один файл
 	Multiple files	Кілька файлів
+	Separate PDFs	Окремі PDF-файли
 	Images	Зображення
 	Clipboard	Буфер обміну
 	Blank page	Порожня сторінка
@@ -696,6 +698,14 @@
 	of the following fields:	таких полів:
 	Simplified field notation:	Спрощений запис полів:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Назви полів із + - * / та дужками; перед пробілами в назвах ставте \\.
+
+# Document font selection
+	Finding document fonts…	Пошук шрифтів для документа…
+	Installed fonts…	Встановлені шрифти…
+	Keep source fonts	Зберегти початкові шрифти
+	Load font…	Завантажити шрифт…
+	No openly licensed document fonts found. Load a font file.	Шрифтів із відкритою ліцензією не знайдено. Завантажте файл шрифту.
+
 	Format text	Форматувати текст
 	Bold	Напівжирний
 	Italic	Курсив
@@ -703,7 +713,7 @@
 	Centre	По центру
 	Align right	Вирівняти праворуч
 	Justify	За шириною
-	Standard fonts; text outside Windows-1252 isn't supported yet.	Стандартні шрифти; текст поза Windows-1252 ще не підтримується.
+	Thai and Arabic use regular fallback fonts when available.	Для тайського й арабського тексту використовуються доступні резервні шрифти звичайного накреслення.
 	Edit image	Редагувати зображення
 	Rotate counterclockwise	Повернути проти годинникової стрілки
 	Rotate clockwise	Повернути за годинниковою стрілкою
@@ -1220,6 +1230,8 @@
 	Searchable Image (Exact)	Зображення з пошуком (точне)
 	Adds invisible text over each word; the page image is not changed	Додає невидимий текст поверх кожного слова; зображення сторінки не змінюється
 	Downsample to	Знизити роздільну здатність до
+	Also recognize pages that already have text	Розпізнавати й сторінки, на яких уже є текст
+	Pictures on those pages are recognized too; words already in the page's text are not added again	Зображення на цих сторінках теж розпізнаються; слова, які вже є в тексті сторінки, повторно не додаються
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	Розпізнавання тексту не встановлено: бракує файлів моделей. Перевстановіть PdfCraft або задайте в PDFCRAFT_MODELS теку, у якій вони лежать.
 	Settings	Налаштування
 	Optional	Необов’язково
@@ -1857,6 +1869,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	Змінити: {key}
 	Insert pages from {name}	Вставити сторінки з {name}
+	Insert pages from {name} — 1 field renamed	Вставити сторінки з {name} — 1 поле перейменовано
+	Insert pages from {name} — fields renamed	Вставити сторінки з {name} — поля перейменовано
 	Fill in {name}	Заповнити {name}
 	Set the image of {name}	Задати зображення для {name}
 	Edit script of {name}	Редагувати сценарій {name}
@@ -1887,6 +1901,7 @@
 	Delete document JavaScript	Видалити JavaScript документа
 	Edit document JavaScript	Редагувати JavaScript документа
 	Edit text	Редагувати текст
+	Load document font	Завантажити шрифт документа
 	Move image	Перемістити зображення
 	Rotate image	Повернути зображення
 	Flip image	Віддзеркалити зображення
@@ -2022,7 +2037,9 @@
 	Couldn't import the signature image: {e}	Не вдалося імпортувати зображення підпису: {e}
 @plural	{n} page|{n} pages	{n} сторінка|{n} сторінки|{n} сторінок
 @plural	{n} field|{n} fields	{n} поле|{n} поля|{n} полів
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	Назва {n} поля збігається з попередніми файлами та буде перейменована: {list}|Назви {n} полів збігаються з попередніми файлами та будуть перейменовані: {list}|Назви {n} полів збігаються з попередніми файлами та будуть перейменовані: {list}
 	Create PDF from multiple files…	Створити PDF із кількох файлів…
+	Create separate PDFs…	Створити окремі PDF-файли…
 	Optimizing… removing user data	Оптимізація… видалення даних користувача
 	Optimizing… image {d} of {t}	Оптимізація… зображення {d} із {t}
 	Optimizing… cleaning up	Оптимізація… очищення
@@ -2151,7 +2168,10 @@ calendar date	December	грудня
 	Reverse open arrow	Зворотна відкрита стрілка
 	Reverse closed arrow	Зворотна закрита стрілка
 	Slash	Коса риска
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	Шрифти тексту PDF не можуть відобразити «{c}» ({code}). Виберіть підтримуваний текст.
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Стандартні шрифти не можуть відобразити «{c}» ({code}). Поки що як текст можна додавати лише західноєвропейські символи.
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Шрифт цього поля не може відобразити «{c}» ({code}), тому PdfCraft показує на його місці ?. Значення збережено, і інші програми перегляду PDF перемалюють поле за ним.
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Шрифти, якими пише PdfCraft, не можуть відобразити «{c}» ({code}), тому в усіх програмах перегляду PDF на його місці буде ?. Текст збережено.
 	Larger pages	Більші сторінки
 	Smaller pages	Менші сторінки
 	Reset page size	Скинути розмір сторінок
@@ -2278,3 +2298,20 @@ scroll speed	Fast	Швидка
 	Only change the colour of black text or line art	Змінювати лише колір чорного тексту та ліній
 	Change the colour of line art as well as text	Змінювати колір і ліній, а не лише тексту
 	Colours are remapped while rendering; the document itself never changes.	Кольори змінюються під час рендерення; сам документ ніколи не змінюється.
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Драйвер цього принтера не приймає налаштування двобічного друку від інших програм, тому діє його власне налаштування. Змініть його у вікні Властивості…
+	Tools panel side	Бік панелі інструментів
+	Add comment	Додати коментар
+	Change tag properties	Змінити властивості тегу
+	Left out: {names}	Пропущено: {names}
+	already a PDF	вже PDF
+	no unused output name	немає вільної назви для вихідного файлу
+	no output folder was chosen	не вибрано теку для виводу
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	Завантажено {n} PDF-файл|Завантажено {n} PDF-файли|Завантажено {n} PDF-файлів
+	Scan	Сканувати
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Розпишіться на аркуші білого паперу та сфотографуйте його за яскравого рівномірного освітлення (зі спалахом). Виберіть фото або перетягніть його сюди: PdfCraft знайде підпис і прибере папір.
+	Choose photo…	Вибрати фото…
+	No photo chosen	Фото не вибрано
+	Photo	Фото
+	Ink sensitivity	Чутливість до чорнила
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	У рамці не знайдено підпису. Наведіть рамку на підпис або збільште чутливість до чорнила.
+	Couldn't use the photo: {e}	Не вдалося використати фото: {e}

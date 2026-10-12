@@ -28,6 +28,7 @@
 	Create PDF from file…	Créer un PDF à partir d'un fichier…
 	Create PDF from images…	Créer un PDF à partir d'images…
 	Create PDF from multiple files…	Créer un PDF à partir de plusieurs fichiers…
+	Create separate PDFs…	Créer des PDF séparés…
 	Create PDF from clipboard	Créer un PDF à partir du presse-papiers
 	Combine files…	Combiner des fichiers…
 	Save	Enregistrer
@@ -235,6 +236,7 @@
 	Optimize PDF…	Optimiser le PDF…
 	Export to text…	Exporter vers le texte…
 	Export to Word…	Exporter vers Word…
+	Export to PowerPoint…	Exporter vers PowerPoint…
 	Export to HTML…	Exporter vers HTML…
 	Export to RTF…	Exporter vers RTF…
 	JavaScript console…	Console JavaScript…
@@ -319,6 +321,7 @@
 	Create from	Créer à partir de
 	Single file	Un seul fichier
 	Multiple files	Plusieurs fichiers
+	Separate PDFs	PDF séparés
 	Images	Images
 	Clipboard	Presse-papiers
 	Blank page	Page vierge
@@ -671,6 +674,14 @@
 	of the following fields:	des champs suivants :
 	Simplified field notation:	Notation de champs simplifiée :
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Noms de champs avec + - * / et parenthèses ; placez \\ devant les espaces dans les noms.
+
+# Document font selection
+	Finding document fonts…	Recherche de polices pour le document…
+	Installed fonts…	Polices installées…
+	Keep source fonts	Conserver les polices originales
+	Load font…	Charger une police…
+	No openly licensed document fonts found. Load a font file.	Aucune police sous licence libre trouvée. Chargez un fichier de police.
+
 	Format text	Mettre le texte en forme
 	Bold	Gras
 	Italic	Italique
@@ -678,7 +689,7 @@
 	Centre	Centrer
 	Align right	Aligner à droite
 	Justify	Justifier
-	Standard fonts; text outside Windows-1252 isn't supported yet.	Polices standard ; le texte hors Windows-1252 n'est pas encore pris en charge.
+	Thai and Arabic use regular fallback fonts when available.	Le thaï et l’arabe utilisent des polices de remplacement de style normal lorsqu’elles sont disponibles.
 	Edit image	Modifier l'image
 	Rotate counterclockwise	Pivoter vers la gauche
 	Rotate clockwise	Pivoter vers la droite
@@ -1202,6 +1213,8 @@
 	Searchable Image (Exact)	Image recherchable (exacte)
 	Adds invisible text over each word; the page image is not changed	Ajoute du texte invisible sur chaque mot ; l'image de la page n'est pas modifiée
 	Downsample to	Sous-échantillonner à
+	Also recognize pages that already have text	Reconnaître aussi les pages qui contiennent déjà du texte
+	Pictures on those pages are recognized too; words already in the page's text are not added again	Les images de ces pages sont aussi reconnues ; les mots déjà présents dans le texte de la page ne sont pas ajoutés une seconde fois
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	La reconnaissance de texte n'est pas installée : ses fichiers de modèles sont absents. Réinstallez PdfCraft, ou définissez PDFCRAFT_MODELS sur le dossier qui les contient.
 	Settings	Réglages
 	Optional	Facultatif
@@ -1789,6 +1802,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	Modifier {key}
 	Insert pages from {name}	Insérer des pages depuis {name}
+	Insert pages from {name} — 1 field renamed	Insérer des pages depuis {name} — 1 champ renommé
+	Insert pages from {name} — fields renamed	Insérer des pages depuis {name} — champs renommés
 	Fill in {name}	Remplir {name}
 	Set the image of {name}	Définir l'image de {name}
 	Edit script of {name}	Modifier le script de {name}
@@ -1819,6 +1834,7 @@
 	Delete document JavaScript	Supprimer le JavaScript du document
 	Edit document JavaScript	Modifier le JavaScript du document
 	Edit text	Modifier le texte
+	Load document font	Charger la police du document
 	Move image	Déplacer l'image
 	Rotate image	Pivoter l'image
 	Flip image	Retourner l'image
@@ -1945,6 +1961,7 @@
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	Formulaire XFA : ses champs et ses données XFA restent synchronisés, afin que les autres visionneuses affichent ce que vous remplissez.
 @plural	{n} page|{n} pages	{n} page|{n} pages
 @plural	{n} field|{n} fields	{n} champ|{n} champs
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} nom de champ entre en collision avec les fichiers précédents et sera renommé : {list}|{n} noms de champs entrent en collision avec les fichiers précédents et seront renommés : {list}
 	Switch to two-page view first to show the cover page	Passez d'abord à l'affichage sur deux pages pour montrer la couverture
 	Page display: {layout}	Affichage des pages : {layout}
 	Fit to width scrolling	Défilement ajusté à la largeur
@@ -2089,7 +2106,10 @@
 	No recent files	Aucun fichier récent
 	Go to page…	Aller à la page…
 	For page sizes and margins.	Pour les tailles de page et les marges.
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	Les polices de texte PDF ne peuvent pas afficher « {c} » ({code}). Choisissez un texte pris en charge.
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Les polices standard ne peuvent pas afficher « {c} » ({code}). Pour l'instant, seuls les caractères d'Europe occidentale peuvent être ajoutés comme texte.
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	La police de ce champ ne peut pas afficher « {c} » ({code}) : PdfCraft affiche ? à sa place. La valeur est enregistrée, et les autres lecteurs PDF redessinent le champ à partir de celle-ci.
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Les polices qu'utilise PdfCraft pour écrire ne peuvent pas afficher « {c} » ({code}) : il apparaît comme ? dans tous les lecteurs PDF. Le texte est enregistré.
 	Larger pages	Pages plus grandes
 	Smaller pages	Pages plus petites
 	Reset page size	Rétablir la taille des pages
@@ -2256,3 +2276,20 @@ scroll speed	Fast	Rapide
 	Only change the colour of black text or line art	Ne changer que la couleur du texte noir et des traits
 	Change the colour of line art as well as text	Changer aussi la couleur des traits, en plus du texte
 	Colours are remapped while rendering; the document itself never changes.	Les couleurs sont réaffectées au rendu ; le document lui-même ne change jamais.
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Le pilote de cette imprimante n'accepte pas les réglages recto verso des autres programmes ; son propre réglage s'applique. Modifiez-le dans Propriétés…
+	Tools panel side	Côté du panneau Outils
+	Add comment	Ajouter un commentaire
+	Change tag properties	Modifier les propriétés de la balise
+	Left out: {names}	Ignorés : {names}
+	already a PDF	déjà un PDF
+	no unused output name	aucun nom de sortie libre
+	no output folder was chosen	aucun dossier de sortie choisi
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	{n} PDF téléchargé|{n} PDF téléchargés
+	Scan	Numériser
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Signez une feuille de papier blanc et prenez-la en photo sous une lumière vive et uniforme (utilisez le flash). Choisissez la photo ou déposez-la ici : PdfCraft trouve la signature et retire le papier.
+	Choose photo…	Choisir une photo…
+	No photo chosen	Aucune photo choisie
+	Photo	Photo
+	Ink sensitivity	Sensibilité à l’encre
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Aucune signature trouvée dans le cadre. Placez le cadre sur la signature ou augmentez la sensibilité à l’encre.
+	Couldn't use the photo: {e}	Impossible d’utiliser la photo : {e}

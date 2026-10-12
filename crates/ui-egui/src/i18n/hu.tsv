@@ -28,6 +28,7 @@
 	Create PDF from file…	PDF létrehozása fájlból…
 	Create PDF from images…	PDF létrehozása képekből…
 	Create PDF from multiple files…	PDF létrehozása több fájlból…
+	Create separate PDFs…	Külön PDF-ek létrehozása…
 	Create PDF from clipboard	PDF létrehozása a vágólapról
 	Combine files…	Fájlok egyesítése…
 	Save	Mentés
@@ -233,6 +234,7 @@
 	Optimize PDF…	PDF optimalizálása…
 	Export to text…	Exportálás szövegként…
 	Export to Word…	Exportálás Wordbe…
+	Export to PowerPoint…	Exportálás PowerPointba…
 	Export to HTML…	Exportálás HTML-be…
 	Export to RTF…	Exportálás RTF-be…
 	JavaScript console…	JavaScript-konzol…
@@ -317,6 +319,7 @@
 	Create from	Létrehozás ebből
 	Single file	Egy fájl
 	Multiple files	Több fájl
+	Separate PDFs	Külön PDF-ek
 	Images	Képek
 	Clipboard	Vágólap
 	Blank page	Üres oldal
@@ -668,6 +671,14 @@
 	of the following fields:	a következő mezőkből:
 	Simplified field notation:	Egyszerűsített mezőjelölés:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Mezőnevek + - * / jelekkel és zárójelekkel; a nevekben lévő szóköz elé tegyél \\ jelet.
+
+# Document font selection
+	Finding document fonts…	Dokumentumbetűtípusok keresése…
+	Installed fonts…	Telepített betűtípusok…
+	Keep source fonts	Eredeti betűtípusok megtartása
+	Load font…	Betűtípus betöltése…
+	No openly licensed document fonts found. Load a font file.	Nem található nyílt licencű betűtípus. Töltsön be egy betűtípusfájlt.
+
 	Format text	Szöveg formázása
 	Bold	Félkövér
 	Italic	Dőlt
@@ -675,7 +686,7 @@
 	Centre	Középre
 	Align right	Jobbra igazítás
 	Justify	Sorkizárás
-	Standard fonts; text outside Windows-1252 isn't supported yet.	Szabványos betűtípusok; a Windows-1252-n kívüli szöveg még nem támogatott.
+	Thai and Arabic use regular fallback fonts when available.	A thai és az arab szöveg normál stílusú helyettesítő betűtípusokat használ, ha rendelkezésre állnak.
 	Edit image	Kép szerkesztése
 	Rotate counterclockwise	Forgatás az óramutató járásával ellentétesen
 	Rotate clockwise	Forgatás az óramutató járásával megegyezően
@@ -1192,6 +1203,8 @@
 	Searchable Image (Exact)	Kereshető kép (pontos)
 	Adds invisible text over each word; the page image is not changed	Láthatatlan szöveget helyez minden szóra; az oldalkép nem változik
 	Downsample to	Feloldás csökkentése erre
+	Also recognize pages that already have text	A már szöveget tartalmazó oldalak felismerése is
+	Pictures on those pages are recognized too; words already in the page's text are not added again	Az ezeken az oldalakon lévő képeket is felismeri; az oldal szövegében már szereplő szavakat nem adja hozzá újra
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	A szövegfelismerés nincs telepítve: hiányoznak a modellfájljai. Telepítsd újra a PdfCraftot, vagy állítsd a PDFCRAFT_MODELS változót az őket tartalmazó mappára.
 	Settings	Beállítások
 	Optional	Nem kötelező
@@ -1779,6 +1792,8 @@
 	{month} {y}	{y}. {month}
 	Change {key}	{key} módosítása
 	Insert pages from {name}	Oldalak beszúrása ebből: {name}
+	Insert pages from {name} — 1 field renamed	Oldalak beszúrása ebből: {name} — 1 mező átnevezve
+	Insert pages from {name} — fields renamed	Oldalak beszúrása ebből: {name} — mezők átnevezve
 	Fill in {name}	{name} kitöltése
 	Set the image of {name}	{name} képének beállítása
 	Edit script of {name}	{name} szkriptjének szerkesztése
@@ -1809,6 +1824,7 @@
 	Delete document JavaScript	Dokumentum-JavaScript törlése
 	Edit document JavaScript	Dokumentum-JavaScript szerkesztése
 	Edit text	Szöveg szerkesztése
+	Load document font	Dokumentum betűtípusának betöltése
 	Move image	Kép áthelyezése
 	Rotate image	Kép forgatása
 	Flip image	Kép tükrözése
@@ -1935,6 +1951,7 @@
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	XFA-űrlap: a mezői és az XFA-adatai együtt maradnak, így más megjelenítők azt mutatják, amit beírsz.
 @plural	{n} page|{n} pages	{n} oldal|{n} oldal
 @plural	{n} field|{n} fields	{n} mező|{n} mező
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} mezőnév ütközik a korábbi fájlokkal, és át lesz nevezve: {list}|{n} mezőnév ütközik a korábbi fájlokkal, és át lesz nevezve: {list}
 	Switch to two-page view first to show the cover page	Előbb válts kétoldalas nézetre a borító megjelenítéséhez
 	Page display: {layout}	Oldalmegjelenítés: {layout}
 	Fit to width scrolling	Görgetés szélességhez igazítva
@@ -2127,7 +2144,10 @@ action wizard	Start	Indítás
 	Reverse open arrow	Fordított nyitott nyíl
 	Reverse closed arrow	Fordított zárt nyíl
 	Slash	Perjel
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	A PDF szövegének betűtípusai nem tudják megjeleníteni ezt: „{c}” ({code}). Válasszon támogatott szöveget.
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	A szabványos betűtípusok nem tudják megjeleníteni ezt: „{c}” ({code}). Egyelőre csak nyugat-európai karakterek adhatók hozzá szövegként.
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	A mező betűtípusa nem tudja megjeleníteni ezt: „{c}” ({code}), ezért a PdfCraft ? jelet mutat a helyén. Az érték mentve van, és a többi PDF-megjelenítő ebből rajzolja újra a mezőt.
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	A PdfCraft által íráshoz használt betűtípusok nem tudják megjeleníteni ezt: „{c}” ({code}), ezért minden PDF-megjelenítőben ? látszik a helyén. A szöveg mentve van.
 	Larger pages	Nagyobb oldalak
 	Smaller pages	Kisebb oldalak
 	Reset page size	Oldalméret visszaállítása
@@ -2255,3 +2275,20 @@ scroll speed	Fast	Gyors
 	Only change the colour of black text or line art	Csak a fekete szöveg és a vonalak színének módosítása
 	Change the colour of line art as well as text	A vonalak színének módosítása a szöveg mellett
 	Colours are remapped while rendering; the document itself never changes.	A színek a kirajcoláskor módosulnak; maga a dokumentum sosem változik.
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	A nyomtató illesztőprogramja nem fogadja el más programoktól a kétoldalas nyomtatás beállítását, ezért a saját beállítása érvényes. Módosítás: Tulajdonságok…
+	Tools panel side	Az Eszközök panel oldala
+	Add comment	Megjegyzés hozzáadása
+	Change tag properties	Címke tulajdonságainak módosítása
+	Left out: {names}	Kihagyva: {names}
+	already a PDF	már PDF
+	no unused output name	nincs szabad kimeneti név
+	no output folder was chosen	nincs kiválasztva kimeneti mappa
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	{n} PDF letöltve|{n} PDF letöltve
+	Scan	Beolvasás
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Írja alá a nevét egy fehér papírlapon, és fényképezze le erős, egyenletes fényben (vakuval). Válassza ki a fényképet, vagy húzza ide: a PdfCraft megkeresi az aláírást, és eltávolítja a papírt.
+	Choose photo…	Fénykép kiválasztása…
+	No photo chosen	Nincs kiválasztott fénykép
+	Photo	Fénykép
+	Ink sensitivity	Tintaérzékenység
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	A keretben nem található aláírás. Húzza a keretet az aláírásra, vagy növelje a tintaérzékenységet.
+	Couldn't use the photo: {e}	A fénykép nem használható: {e}

@@ -54,6 +54,7 @@
 	Create PDF from file…	Crea PDF da file…
 	Create PDF from images…	Crea PDF da immagini…
 	Create PDF from multiple files…	Crea PDF da più file…
+	Create separate PDFs…	Crea PDF separati…
 	Create PDF from clipboard	Crea PDF dagli appunti
 	Combine files…	Combina file…
 	Save	Salva
@@ -259,6 +260,7 @@
 	Optimize PDF…	Ottimizza PDF…
 	Export to text…	Esporta come testo…
 	Export to Word…	Esporta in Word…
+	Export to PowerPoint…	Esporta in PowerPoint…
 	Export to HTML…	Esporta in HTML…
 	Export to RTF…	Esporta in RTF…
 	JavaScript console…	Console JavaScript…
@@ -343,6 +345,7 @@
 	Create from	Crea da
 	Single file	File singolo
 	Multiple files	Più file
+	Separate PDFs	PDF separati
 	Images	Immagini
 	Clipboard	Appunti
 	Blank page	Pagina vuota
@@ -694,6 +697,14 @@
 	of the following fields:	dei seguenti campi:
 	Simplified field notation:	Notazione semplificata dei campi:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Nomi dei campi con + - * / e parentesi; anteponi \\ agli spazi nei nomi.
+
+# Document font selection
+	Finding document fonts…	Ricerca dei caratteri per il documento…
+	Installed fonts…	Caratteri installati…
+	Keep source fonts	Mantieni i caratteri originali
+	Load font…	Carica carattere…
+	No openly licensed document fonts found. Load a font file.	Nessun carattere con licenza aperta trovato. Carica un file di carattere.
+
 	Format text	Formatta testo
 	Bold	Grassetto
 	Italic	Corsivo
@@ -701,7 +712,7 @@
 	Centre	Centra
 	Align right	Allinea a destra
 	Justify	Giustifica
-	Standard fonts; text outside Windows-1252 isn't supported yet.	Caratteri standard; il testo al di fuori di Windows-1252 non è ancora supportato.
+	Thai and Arabic use regular fallback fonts when available.	Il thailandese e l’arabo usano caratteri sostitutivi in stile normale, quando disponibili.
 	Edit image	Modifica immagine
 	Rotate counterclockwise	Ruota in senso antiorario
 	Rotate clockwise	Ruota in senso orario
@@ -1218,6 +1229,8 @@
 	Searchable Image (Exact)	Immagine ricercabile (esatta)
 	Adds invisible text over each word; the page image is not changed	Aggiunge testo invisibile sopra ogni parola; l'immagine della pagina non viene modificata
 	Downsample to	Sottocampiona a
+	Also recognize pages that already have text	Riconosci anche le pagine che contengono già testo
+	Pictures on those pages are recognized too; words already in the page's text are not added again	Vengono riconosciute anche le immagini di queste pagine; le parole già presenti nel testo della pagina non vengono aggiunte di nuovo
 	Settings	Impostazioni
 	Optional	Facoltativo
 	Planned · {m}	Pianificato · {m}
@@ -1864,6 +1877,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	Modifica {key}
 	Insert pages from {name}	Inserisci pagine da {name}
+	Insert pages from {name} — 1 field renamed	Inserisci pagine da {name} — 1 campo rinominato
+	Insert pages from {name} — fields renamed	Inserisci pagine da {name} — campi rinominati
 	Fill in {name}	Compila {name}
 	Set the image of {name}	Imposta l'immagine di {name}
 	Edit script of {name}	Modifica script di {name}
@@ -1894,6 +1909,7 @@
 	Delete document JavaScript	Elimina JavaScript del documento
 	Edit document JavaScript	Modifica JavaScript del documento
 	Edit text	Modifica testo
+	Load document font	Carica il font del documento
 	Move image	Sposta immagine
 	Rotate image	Ruota immagine
 	Flip image	Capovolgi immagine
@@ -2075,6 +2091,7 @@
 	@{login}: {prs} PRs, {commits} commits, +{added} / −{deleted} lines (Δ {delta}), +{bin_added} / −{bin_deleted} binary assets, {first} – {last}	@{login}: {prs} PR, {commits} commit, +{added} / −{deleted} righe (Δ {delta}), +{bin_added} / −{bin_deleted} risorse binarie, {first} – {last}
 @plural	{n} page|{n} pages	{n} pagina|{n} pagine
 @plural	{n} field|{n} fields	{n} campo|{n} campi
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} nome di campo è in conflitto con i file precedenti e verrà rinominato: {list}|{n} nomi di campo sono in conflitto con i file precedenti e verranno rinominati: {list}
 
 # Labels added on main after this catalog was written (merged 2026-10-09)
 	A button	Un pulsante
@@ -2144,6 +2161,9 @@
 	The document was closed before it could be saved.	Il documento è stato chiuso prima che potesse essere salvato.
 	The pages were extracted but not deleted, because the document changed while you were choosing a folder.	Le pagine sono state estratte ma non eliminate, perché il documento è cambiato mentre sceglievi una cartella.
 	The printer driver's own settings for this print: paper tray, paper type, finishing and more.	Le impostazioni proprie del driver della stampante per questa stampa: vassoio, tipo di carta, finitura e altro.
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	I caratteri del testo PDF non possono visualizzare «{c}» ({code}). Scegliere un testo supportato.
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Il font di questo campo non può disegnare «{c}» ({code}), quindi PdfCraft mostra ? al suo posto. Il valore è salvato e gli altri visualizzatori PDF ridisegnano il campo a partire da esso.
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	I font con cui PdfCraft scrive non possono disegnare «{c}» ({code}), quindi appare come ? in ogni visualizzatore PDF. Il testo è salvato.
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	I caratteri standard non possono disegnare “{c}” ({code}). Per ora si possono aggiungere come testo solo caratteri dell'Europa occidentale.
 	This printer offers no settings of its own.	Questa stampante non offre impostazioni proprie.
 	Today: {date}	Oggi: {date}
@@ -2265,3 +2285,20 @@ scroll speed	Fast	Veloce
 	Only change the colour of black text or line art	Modifica solo il colore del testo nero e dei tratti
 	Change the colour of line art as well as text	Modifica il colore anche dei tratti, oltre al testo
 	Colours are remapped while rendering; the document itself never changes.	I colori vengono riassociati durante il rendering; il documento in sé non cambia mai.
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Il driver di questa stampante non accetta le impostazioni fronte-retro da altri programmi, quindi vale la sua impostazione. Modificala in Proprietà…
+	Tools panel side	Lato del pannello Strumenti
+	Add comment	Aggiungi commento
+	Change tag properties	Modifica proprietà del tag
+	Left out: {names}	Esclusi: {names}
+	already a PDF	è già un PDF
+	no unused output name	nessun nome di output libero
+	no output folder was chosen	nessuna cartella di output scelta
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	Scaricato {n} PDF|Scaricati {n} PDF
+	Scan	Scansiona
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Firma un foglio di carta bianca e fotografalo con una luce intensa e uniforme (usa il flash). Scegli la foto o trascinala qui: PdfCraft trova la firma e rimuove la carta.
+	Choose photo…	Scegli foto…
+	No photo chosen	Nessuna foto scelta
+	Photo	Foto
+	Ink sensitivity	Sensibilità all’inchiostro
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Nessuna firma trovata nella cornice. Sposta la cornice sulla firma o aumenta la sensibilità all’inchiostro.
+	Couldn't use the photo: {e}	Impossibile usare la foto: {e}

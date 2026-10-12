@@ -88,6 +88,7 @@
 	Create PDF from file…	Създай PDF от файл…
 	Create PDF from images…	Създай PDF от изображения…
 	Create PDF from multiple files…	Създай PDF от няколко файла…
+	Create separate PDFs…	Създаване на отделни PDF файлове…
 	Create PDF from clipboard	Създай PDF от клипборда
 	Combine files…	Обедини файлове…
 	Save	Запиши
@@ -378,6 +379,14 @@
 	of the following fields:	на следните полета:
 	Simplified field notation:	Опростен запис с полета:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Имена на полета с + - * / и скоби; поставете \\ пред интервалите в имената.
+
+# Document font selection
+	Finding document fonts…	Търсене на шрифтове за документа…
+	Installed fonts…	Инсталирани шрифтове…
+	Keep source fonts	Запазване на оригиналните шрифтове
+	Load font…	Зареждане на шрифт…
+	No openly licensed document fonts found. Load a font file.	Не са открити шрифтове с отворен лиценз. Заредете файл с шрифт.
+
 	Format text	Форматирай текст
 	Bold	Удебелен
 	Italic	Курсив
@@ -385,7 +394,7 @@
 	Centre	Центрирай
 	Align right	Подравни вдясно
 	Justify	Двустранно подравняване
-	Standard fonts; text outside Windows-1252 isn't supported yet.	Стандартни шрифтове; текст извън Windows-1252 все още не се поддържа.
+	Thai and Arabic use regular fallback fonts when available.	Тайландският и арабският използват резервни шрифтове с нормален стил, когато са налични.
 	Edit image	Редактирай изображение
 	Rotate counterclockwise	Завърти обратно на часовниковата стрелка
 	Rotate clockwise	Завърти по часовниковата стрелка
@@ -921,6 +930,8 @@
 	Searchable Image (Exact)	Изображение с възможност за търсене (точно)
 	Adds invisible text over each word; the page image is not changed	Добавя невидим текст върху всяка дума; изображението на страницата не се променя
 	Downsample to	Намали разделителната способност до
+	Also recognize pages that already have text	Разпознай и страници, които вече съдържат текст
+	Pictures on those pages are recognized too; words already in the page's text are not added again	Изображенията на тези страници също се разпознават; думите, които вече са в текста на страницата, не се добавят отново
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	Разпознаването на текст не е инсталирано: файловете на моделите му липсват. Инсталирайте PdfCraft отново или задайте в PDFCRAFT_MODELS папката, която ги съдържа.
 	Settings	Настройки
 	Protect	Защита
@@ -941,6 +952,7 @@
 	Bring your own model (off by default)	Използвайте собствен модел (изключено по подразбиране)
 	Single file	Един файл
 	Multiple files	Няколко файла
+	Separate PDFs	Отделни PDF файлове
 	Images	Изображения
 	Clipboard	Клипборд
 	Blank page	Празна страница
@@ -1766,6 +1778,7 @@
 	Optimize PDF…	Оптимизирай PDF…
 	Export to text…	Експортирай като текст…
 	Export to Word…	Експортирай в Word…
+	Export to PowerPoint…	Експортирай в PowerPoint…
 	Export to HTML…	Експортирай в HTML…
 	Export to RTF…	Експортирай в RTF…
 	Export all images…	Експортирай всички изображения…
@@ -1934,6 +1947,7 @@
 	Edit document JavaScript	Редактирай JavaScript на документа
 	Edit script of {name}	Редактирай скрипта на {name}
 	Edit text	Редактирай текста
+	Load document font	Зареждане на шрифт на документа
 	Embedded files must be PDF/A files themselves (use PDF/A-3 for others)	Вградените файлове трябва също да са PDF/A файлове (за други използвайте PDF/A-3)
 	Erase	Изтриване
 	Fill & Sign: change initials	Попълни и подпиши: промяна на инициалите
@@ -1949,6 +1963,8 @@
 	Images and text (converted to PDF)	Изображения и текст (конвертирани в PDF)
 	Import {name}	Импортирай {name}
 	Insert pages from {name}	Вмъкни страници от {name}
+	Insert pages from {name} — 1 field renamed	Вмъкни страници от {name} — 1 поле е преименувано
+	Insert pages from {name} — fields renamed	Вмъкни страници от {name} — полета са преименувани
 	Items marked Ready work today.	Елементите, отбелязани като „Готово“, работят още сега.
 	JavaScript	JavaScript
 	JavaScript, e.g. getField("total").value	JavaScript, напр. getField("total").value
@@ -2069,6 +2085,7 @@
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	XFA формуляр: полетата и XFA данните му се поддържат синхронизирани, така че другите програми за преглед показват попълненото от вас.
 @plural	{n} page|{n} pages	{n} страница|{n} страници
 @plural	{n} field|{n} fields	{n} поле|{n} полета
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	Име на {n} поле се разминава с по-ранните файлове и ще бъде преименувано: {list}|Имена на {n} полета се разминават с по-ранните файлове и ще бъдат преименувани: {list}
 	Created a PDF from {n} files	Създаден е PDF от {n} файла
 	PDF, images and text	PDF, изображения и текст
 	Insert a file before page {label}	Вмъкни файл преди страница {label}
@@ -2093,7 +2110,10 @@ action wizard	Start	Старт
 	Clear Recent Files	Изчисти последно отваряните файлове
 	Remove from Recent	Премахни от последно отваряните
 	Remove {name} from Recent	Премахни {name} от последно отваряните
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	Шрифтовете за PDF текст не могат да изобразят „{c}“ ({code}). Изберете поддържан текст.
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Стандартните шрифтове не могат да покажат „{c}“ ({code}). Засега като текст могат да се добавят само западноевропейски символи.
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Шрифтът на това поле не може да покаже „{c}“ ({code}), затова PdfCraft показва ? на негово място. Стойността е запазена и другите програми за PDF преначертават полето по нея.
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Шрифтовете, с които PdfCraft пише, не могат да покажат „{c}“ ({code}), затова във всяка програма за PDF то се показва като ?. Текстът е запазен.
 	Larger pages	По-големи страници
 	Smaller pages	По-малки страници
 	Reset page size	Възстанови размера на страниците
@@ -2219,3 +2239,20 @@ scroll speed	Fast	Висока
 	Only change the colour of black text or line art	Да се променя само цветът на черния текст и линиите
 	Change the colour of line art as well as text	Да се променя цветът и на линиите, не само на текста
 	Colours are remapped while rendering; the document itself never changes.	Цветовете се променят при изчертаването; самият документ никога не се променя.
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Драйверът на този принтер не приема настройки за двустранен печат от други програми и прилага собствената си настройка. Променете я от Свойства…
+	Tools panel side	Страна на панела с инструменти
+	Add comment	Добавяне на коментар
+	Change tag properties	Промяна на свойствата на етикета
+	Left out: {names}	Пропуснати: {names}
+	already a PDF	вече е PDF
+	no unused output name	няма свободно име за изходния файл
+	no output folder was chosen	не е избрана папка за изхода
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	Изтеглен е {n} PDF|Изтеглени са {n} PDF файла
+	Scan	Сканиране
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Подпишете се на лист бяла хартия и го снимайте на ярка, равномерна светлина (със светкавица). Изберете снимката или я пуснете тук: PdfCraft открива подписа и премахва хартията.
+	Choose photo…	Избор на снимка…
+	No photo chosen	Няма избрана снимка
+	Photo	Снимка
+	Ink sensitivity	Чувствителност към мастило
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	В рамката не е открит подпис. Преместете рамката върху подписа или увеличете чувствителността към мастило.
+	Couldn't use the photo: {e}	Снимката не може да се използва: {e}

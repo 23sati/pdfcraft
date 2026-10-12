@@ -249,14 +249,14 @@ pub(crate) fn body(ui: &mut egui::Ui, d: &mut LinkDraft, pages: usize, t: &Token
     });
     ui.add_space(8.0);
     widgets::section_title(ui, tl!("Link Action"));
-    ui.radio_value(&mut d.web, true, tl!("Open a web page"));
+    widgets::radio_value(ui, &mut d.web, true, tl!("Open a web page"));
     ui.add_enabled_ui(d.web, |ui| {
         ui.horizontal(|ui| {
             ui.add_space(24.0);
             ui.add(crate::widgets::line(&mut d.url).desired_width(360.0).hint_text("https://example.org"));
         });
     });
-    ui.radio_value(&mut d.web, false, tl!("Go to a page view"));
+    widgets::radio_value(ui, &mut d.web, false, tl!("Go to a page view"));
     ui.add_enabled_ui(!d.web, |ui| {
         ui.horizontal(|ui| {
             ui.add_space(24.0);

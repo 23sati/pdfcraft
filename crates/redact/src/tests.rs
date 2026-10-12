@@ -560,6 +560,39 @@ fn overlay_text_takes_its_font_size_colour_alignment_and_repeats() {
     assert!(fonts.contains(b"PCCour") && !fonts.contains(b"PCTimes"));
 }
 
+/// Overlay text the standard fonts can't draw: refused when it is marked, and for a mark another
+/// program made, refused when it is applied, before anything is redacted, rather than burnt into
+/// the page as `?`.
+#[test]
+fn overlay_text_the_standard_fonts_cannot_draw_is_refused() {
+    let mut doc = one_page(b"BT /F1 12 Tf 20 250 Td (Secret salary figures) Tj ET", "", Vec::new());
+    let look = pdfcraft_annot::OverlayLook::default();
+    let mark = |overlay: &str| Shape::Redact { quads: vec![rect_quad([10.0, 200.0, 290.0, 270.0])], overlay: overlay.into(), look };
+    let add = |doc: &mut Document, shape: Shape| {
+        let style = Style::default_for(&shape);
+        add_annotation(doc, &NewAnnotation { page: 0, shape, style, contents: String::new(), author: "T".into() }, &Meta::default())
+    };
+    let err = add(&mut doc, mark("机密")).unwrap_err().to_string();
+    assert!(err.contains("\"机\" (U+673A)") && err.contains("overlay text"), "{err}");
+    assert!(marks(&doc).is_empty());
+    // A mark whose overlay text was written by another program.
+    add(&mut doc, mark("REDACTED")).unwrap();
+    let obj = marks(&doc)[0].obj;
+    doc.update_dict(obj, |d| d.set(b"OverlayText".to_vec(), pdfcraft_cos::PdfString::text("机密"))).unwrap();
+    let before = content(&doc, 0);
+    let err = apply(&mut doc, None).unwrap_err();
+    assert!(
+        matches!(&err, RedactError::Undrawable(m) if m.contains("page 1") && m.contains("U+673A") && m.contains("nothing was redacted")),
+        "{err:?}"
+    );
+    assert_eq!(content(&doc, 0), before, "nothing was redacted");
+    assert_eq!(marks(&doc).len(), 1, "the mark is still there");
+    // Cleared, it applies.
+    doc.update_dict(obj, |d| d.set(b"OverlayText".to_vec(), pdfcraft_cos::PdfString::text(""))).unwrap();
+    apply(&mut doc, None).unwrap();
+    assert!(!content(&reopen(&doc), 0).contains("Secret"));
+}
+
 #[test]
 fn redaction_codes_join_in_set_order_and_reject_strangers() {
     use crate::codes::{CODE_SETS, CodeSet};
