@@ -162,6 +162,17 @@ pub struct RenderRequest {
     pub tag: u64,
 }
 
+/// The tag bit of a print-preview raster. Such requests always render the document's true
+/// colours, ignoring `RenderConfig::reading_colors`: a preview's job is fidelity to the
+/// printout, and the print itself — imposed from the document — is never recoloured.
+pub const PRINT_TAG: u64 = 1 << 60;
+
+/// The reading colours a request renders with: print previews ([`PRINT_TAG`]) ignore the
+/// document's setting and render with reading colours off.
+fn request_reading(config: &RenderConfig, req: &RenderRequest) -> ReadingColors {
+    if req.tag & PRINT_TAG != 0 { ReadingColors::default() } else { config.reading_colors }
+}
+
 /// What a render that panicked or overran the watchdog is remembered by: its page and kind. Not
 /// its scale, tile or tag: the canvas tags every zoom level and tile anew, so a wider key would
 /// let one pathological page tie up a worker for the full watchdog limit per zoom and per tile
@@ -437,7 +448,7 @@ impl PageRenderer {
         let cache = RenderCache::new();
         let warnings = Arc::new(Mutex::new(Vec::new()));
         let settings = warning_settings(&self.settings, warnings.clone());
-        let r = render_page(pdf, &cache, &settings, self.config.reject_oversize, self.config.reading_colors, req);
+        let r = render_page(pdf, &cache, &settings, self.config.reject_oversize, request_reading(&self.config, &req), req);
         let warnings = take_warnings(&warnings);
         if matches!(r, Err((_, true))) {
             self.pdf = parse(&self.bytes, self.config.password.as_deref());
@@ -1163,7 +1174,7 @@ fn worker(
                         panic!("injected page panic");
                     }
                     match pdf {
-                        Some(pdf) => render_page(pdf, cache, &settings, config.reject_oversize, config.reading_colors, req),
+                        Some(pdf) => render_page(pdf, cache, &settings, config.reject_oversize, request_reading(&config, &req), req),
                         None => Err(("the document could not be parsed".into(), false)),
                     }
                 }))
@@ -4954,6 +4965,62 @@ trailer << /Root 1 0 R >>
             }
         }
         assert_eq!(pixel(&on, 150, 55), &[255, 255, 255, 255], "the image's white quadrant stays white");
+    }
+
+    /// A print-preview request (`PRINT_TAG`) renders the document's true colours even though
+    /// the document's config carries reading colours: a preview's job is fidelity to the
+    /// printout, which is imposed from the uncoloured document. Covers both render paths —
+    /// the inline `PageRenderer` and a pool worker.
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn print_preview_requests_render_with_reading_colors_off() {
+        let content = "0 0 0 rg 10 10 30 20 re f";
+        let pdf = Arc::new(
+            format!(
+                "%PDF-1.4\n\
+                 1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n\
+                 2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 100 50] >> endobj\n\
+                 3 0 obj << /Type /Page /Parent 2 0 R /Contents 4 0 R >> endobj\n\
+                 4 0 obj << /Length {} >> stream\n{content}\nendstream endobj\n\
+                 trailer << /Root 1 0 R >>\n%%EOF",
+                content.len()
+            )
+            .into_bytes(),
+        );
+        fn px(page: &RenderedPage, x: u32, y: u32) -> &[u8] {
+            &page.rgba[((y * page.width + x) * 4) as usize..][..4]
+        }
+
+        // The page and its black rectangle in their true colours.
+        let mut plain = PageRenderer::new(pdf.clone(), RenderConfig::default());
+        let truth = plain.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 2.0, tag: 0 });
+        assert!(truth.error.is_none(), "{:?}", truth.error);
+        assert_eq!(px(&truth, 5, 5), &[255, 255, 255, 255]);
+        assert_eq!(px(&truth, 50, 60), &[0, 0, 0, 255]);
+
+        let mut recoloured = PageRenderer::new(pdf.clone(), RenderConfig { reading_colors: ReadingColors::WHITE_ON_BLACK, ..Default::default() });
+        // A plain request honours the setting: the page clears black, the rect maps white.
+        let on = recoloured.render(RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 2.0, tag: 0 });
+        assert_eq!(px(&on, 5, 5), &[0, 0, 0, 255]);
+        assert_eq!(px(&on, 50, 60), &[255, 255, 255, 255]);
+        // A print-preview request ignores the setting and matches the true colours exactly.
+        let preview = RenderRequest { page: 0, kind: RequestKind::Pixels, tile: None, scale: 2.0, tag: PRINT_TAG };
+        let off = recoloured.render(preview);
+        assert_eq!(px(&off, 5, 5), &[255, 255, 255, 255]);
+        assert_eq!(px(&off, 50, 60), &[0, 0, 0, 255]);
+        assert_eq!(off.rgba, truth.rgba);
+
+        // The same override on the worker path the print dialog's canvas renders through.
+        let pool = RenderPool::new(pdf, 1, RenderConfig { reading_colors: ReadingColors::WHITE_ON_BLACK, ..Default::default() });
+        pool.set_queue(vec![preview]);
+        let worker = loop {
+            if let Some(p) = pool.try_recv() {
+                break p;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        };
+        assert!(worker.error.is_none(), "{:?}", worker.error);
+        assert_eq!(worker.rgba, truth.rgba);
     }
 
     /// A recoloured tile must equal the crop of the recoloured full render, or zooming would
