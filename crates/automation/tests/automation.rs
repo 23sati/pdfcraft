@@ -35,6 +35,39 @@ fn fixture(n: usize) -> Vec<u8> {
     out
 }
 
+fn remote_link_pdf(file: &str, destination: Option<&str>) -> Vec<u8> {
+    let destination = destination.map_or_else(String::new, |d| format!("/D {d}"));
+    let objects: Vec<Vec<u8>> = vec![
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 200 300] >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /Annots [4 0 R] >>".to_vec(),
+        format!("<< /Type /Annot /Subtype /Link /Rect [10 10 80 30] /A << /S /GoToR /F ({file}) {destination} >> >>").into_bytes(),
+    ];
+    let mut bytes = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, object) in objects.iter().enumerate() {
+        offsets.push(bytes.len());
+        bytes.extend_from_slice(format!("{} 0 obj\n", i + 1).as_bytes());
+        bytes.extend_from_slice(object);
+        bytes.extend_from_slice(b"\nendobj\n");
+    }
+    let xref = bytes.len();
+    bytes.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objects.len() + 1).as_bytes());
+    for offset in offsets {
+        bytes.extend_from_slice(format!("{offset:010} 00000 n \n").as_bytes());
+    }
+    bytes.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objects.len() + 1).as_bytes());
+    bytes
+}
+
+fn protected_fixture(password: &str) -> Vec<u8> {
+    use pdfcraft_engine::{Edit, Protection, Session};
+    let mut session = Session::new();
+    let id = session.open("target.pdf", None, std::sync::Arc::new(fixture(1)), None).unwrap();
+    session.apply(id, Edit::Protect(Protection { open_password: Some(password.into()), ..Default::default() })).unwrap();
+    session.save_bytes(id).unwrap().as_ref().clone()
+}
+
 /// A fresh directory with `a.pdf` (3 pages) and `b.pdf` (2 pages).
 #[track_caller]
 fn workdir(test: &str) -> PathBuf {
@@ -122,6 +155,10 @@ fn ok(a: &mut Automation, tool: &str, args: Value) -> Value {
         },
         Err(e) => panic!("{tool} {args}: {e}"),
     }
+}
+
+fn err(a: &mut Automation, tool: &str, args: Value) -> ToolError {
+    a.call(tool, &args).unwrap_err()
 }
 
 fn page_text(a: &mut Automation, doc: u64) -> Vec<String> {
@@ -3124,6 +3161,107 @@ fn links_through_tools() {
     assert_eq!(r["removed"], 2);
     assert_eq!(ok(&mut a, "link_list", json!({ "doc": doc }))["count"], 0);
     assert!(matches!(a.call("link_add", &json!({ "doc": doc, "page": 1, "rect": [0, 0, 50, 20] })), Err(ToolError::InvalidArgs(_))));
+}
+
+#[test]
+fn local_gotor_link_open_refuses_directories_devices_and_non_pdf_targets() {
+    let (_base, root) = sandbox("gotor-not-a-file");
+    std::fs::create_dir_all(root.join("folder.pdf")).unwrap();
+    std::fs::write(root.join("notes.txt"), fixture(1)).unwrap();
+    std::fs::write(root.join("dir-source.pdf"), remote_link_pdf("folder.pdf", None)).unwrap();
+    std::fs::write(root.join("txt-source.pdf"), remote_link_pdf("notes.txt", None)).unwrap();
+    let mut cases = vec![("dir-source.pdf", "not a regular file"), ("txt-source.pdf", "not a .pdf file")];
+    #[cfg(unix)]
+    {
+        // A FIFO inside the root would block a plain read forever.
+        if std::process::Command::new("mkfifo").arg(root.join("pipe.pdf")).status().is_ok_and(|s| s.success()) {
+            std::fs::write(root.join("fifo-source.pdf"), remote_link_pdf("pipe.pdf", None)).unwrap();
+            cases.push(("fifo-source.pdf", "not a regular file"));
+        }
+    }
+    let mut a = auto(&root);
+    for (source_path, reason) in cases {
+        let source = ok(&mut a, "doc_open", json!({ "path": source_path }))["doc"].as_u64().unwrap();
+        let documents_before = a.session().docs().len();
+        let e = err(&mut a, "link_open", json!({ "doc": source, "page": 1, "index": 1 }));
+        assert!(matches!(&e, ToolError::Failed(m) if m.contains(reason)), "{source_path}: {e:?}");
+        assert_eq!(a.session().docs().len(), documents_before, "a refused target is not opened: {source_path}");
+    }
+}
+
+#[test]
+fn local_gotor_link_open_applies_destinations_and_honors_root() {
+    let (base, root) = sandbox("gotor-open");
+    std::fs::create_dir_all(root.join("sub")).unwrap();
+    std::fs::write(root.join("target.pdf"), fixture(3)).unwrap();
+    std::fs::write(root.join("a.pdf"), fixture(1)).unwrap();
+    std::fs::write(root.join("sub/source.pdf"), remote_link_pdf("../target.pdf", Some("[2 /FitH 180]"))).unwrap();
+    std::fs::write(root.join("sub/escape.pdf"), remote_link_pdf("../../outside/secret.pdf", Some("[0 /Fit]"))).unwrap();
+    std::fs::write(root.join("named.pdf"), remote_link_pdf("target.pdf", Some("(chapter)"))).unwrap();
+    std::fs::write(root.join("range.pdf"), remote_link_pdf("target.pdf", Some("[99 /Fit]"))).unwrap();
+    std::fs::write(root.join("url.pdf"), remote_link_pdf("https://example.org/target.pdf", Some("[0 /Fit]"))).unwrap();
+    std::fs::write(root.join("missing-source.pdf"), remote_link_pdf("does-not-exist.pdf", Some("[0 /Fit]"))).unwrap();
+    std::fs::write(root.join("not-pdf.pdf"), b"not a PDF").unwrap();
+    std::fs::write(root.join("non-pdf-source.pdf"), remote_link_pdf("not-pdf.pdf", Some("[0 /Fit]"))).unwrap();
+    std::fs::write(root.join("encrypted.pdf"), protected_fixture("secret")).unwrap();
+    std::fs::write(root.join("password-source.pdf"), remote_link_pdf("encrypted.pdf", Some("[0 /Fit]"))).unwrap();
+    std::fs::write(root.join("absolute.pdf"), remote_link_pdf(root.join("target.pdf").to_str().unwrap(), Some("[1 /Fit]"))).unwrap();
+    link_dir(&root, "outside-link", &base.join("outside"));
+    std::fs::write(root.join("symlink.pdf"), remote_link_pdf("outside-link/secret.pdf", Some("[0 /Fit]"))).unwrap();
+
+    let mut a = auto(&root);
+    let source = ok(&mut a, "doc_open", json!({ "path": "sub/source.pdf" }))["doc"].as_u64().unwrap();
+    let listed = ok(&mut a, "link_list", json!({ "doc": source }));
+    assert_eq!(listed["links"][0]["other"], "GoToR");
+    let opened = ok(&mut a, "link_open", json!({ "doc": source, "page": 1, "index": 1 }));
+    assert_eq!(opened["path"], "target.pdf");
+    assert_eq!(opened["destination_applied"], true);
+    assert_eq!(opened["destination"]["page"], 3);
+    assert_eq!(opened["destination"]["view"]["kind"], "fit_h");
+    assert_eq!(opened["document"]["pages"], 3);
+    let target_id = opened["document"]["doc"].as_u64().unwrap();
+    assert_eq!(a.session().get(pdfcraft_engine::DocId(target_id)).unwrap().info.pages.len(), 3);
+
+    let absolute = ok(&mut a, "doc_open", json!({ "path": "absolute.pdf" }))["doc"].as_u64().unwrap();
+    let opened = ok(&mut a, "link_open", json!({ "doc": absolute, "page": 1, "index": 1 }));
+    assert_eq!(opened["path"], "target.pdf");
+    assert_eq!(opened["destination"]["page"], 2);
+
+    for (source_path, warning) in [("named.pdf", "named destination"), ("range.pdf", "out of range")] {
+        let source = ok(&mut a, "doc_open", json!({ "path": source_path }))["doc"].as_u64().unwrap();
+        let opened = ok(&mut a, "link_open", json!({ "doc": source, "page": 1, "index": 1 }));
+        assert_eq!(opened["destination_applied"], false);
+        assert!(opened["warning"].as_str().unwrap().contains(warning), "{opened}");
+    }
+
+    let password_source = ok(&mut a, "doc_open", json!({ "path": "password-source.pdf" }))["doc"].as_u64().unwrap();
+    let documents_before = a.session().docs().len();
+    assert!(matches!(err(&mut a, "link_open", json!({ "doc": password_source, "page": 1, "index": 1 })), ToolError::Failed(_)));
+    assert_eq!(a.session().docs().len(), documents_before);
+    assert!(matches!(err(&mut a, "link_open", json!({ "doc": password_source, "page": 1, "index": 1, "password": "wrong" })), ToolError::Failed(_)));
+    assert_eq!(a.session().docs().len(), documents_before);
+    let opened = ok(&mut a, "link_open", json!({ "doc": password_source, "page": 1, "index": 1, "password": "secret" }));
+    assert_eq!(opened["document"]["encrypted"], true);
+
+    for source_path in ["url.pdf", "missing-source.pdf", "non-pdf-source.pdf"] {
+        let source = ok(&mut a, "doc_open", json!({ "path": source_path }))["doc"].as_u64().unwrap();
+        let documents_before = a.session().docs().len();
+        assert!(matches!(err(&mut a, "link_open", json!({ "doc": source, "page": 1, "index": 1 })), ToolError::Failed(_)));
+        assert_eq!(a.session().docs().len(), documents_before, "a rejected target is not opened: {source_path}");
+    }
+
+    for source_path in ["sub/escape.pdf", "symlink.pdf"] {
+        let source = ok(&mut a, "doc_open", json!({ "path": source_path }))["doc"].as_u64().unwrap();
+        let documents_before = a.session().docs().len();
+        assert!(matches!(err(&mut a, "link_open", json!({ "doc": source, "page": 1, "index": 1 })), ToolError::Failed(m) if m.contains("outside")));
+        assert_eq!(a.session().docs().len(), documents_before, "a refused target is not opened");
+    }
+
+    let missing_source = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    ok(&mut a, "link_add", json!({ "doc": missing_source, "page": 1, "rect": [20, 30, 80, 50], "url": "https://example.org" }));
+    assert!(
+        matches!(err(&mut a, "link_open", json!({ "doc": missing_source, "page": 1, "index": 1 })), ToolError::InvalidArgs(m) if m.contains("not a supported local PDF GoToR"))
+    );
 }
 
 /// doc_info reports annotation and link rectangles in the tools' displayed-page convention,

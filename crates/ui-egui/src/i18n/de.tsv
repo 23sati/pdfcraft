@@ -842,6 +842,7 @@
 	{verb} as "{name}"	{verb} als „{name}“
 	Certify	Zertifizieren
 	The signature will be invisible.	Die Signatur wird unsichtbar sein.
+	The existing action will be preserved.	Die vorhandene Aktion bleibt erhalten.
 	Distinguished name	Distinguished Name
 	Labels	Beschriftungen
 	Graphic	Grafik
@@ -2268,6 +2269,12 @@ scroll speed	Fast	Schnell
 	Greyscale	Graustufen
 	Black and white	Schwarzweiß
 	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Der Treiber dieses Druckers übernimmt keine Einstellungen für beidseitigen Druck von anderen Programmen, daher gilt seine eigene Einstellung. Ändern unter Eigenschaften…
+	Browser's print dialog	Druckdialog des Browsers
+	Copies, two-sided printing and colour are chosen in the browser's print dialog.	Exemplare, beidseitiger Druck und Farbe werden im Druckdialog des Browsers gewählt.
+	Preparing {n} sheets for printing…	{n} Blätter werden für den Druck vorbereitet…
+	Preparing sheet {done} of {total} for printing…	Blatt {done} von {total} wird für den Druck vorbereitet…
+	Opening the browser's print dialog…	Der Druckdialog des Browsers wird geöffnet…
+	Couldn't print from the browser ({e}); downloaded {name} to print instead	Drucken aus dem Browser nicht möglich ({e}); stattdessen wurde {name} zum Drucken heruntergeladen
 	Tools panel side	Seite des Werkzeugbereichs
 	Add comment	Kommentar hinzufügen
 	Change tag properties	Tag-Eigenschaften ändern
@@ -2297,3 +2304,7 @@ scroll speed	Fast	Schnell
 	Ink sensitivity	Tintenempfindlichkeit
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Im Rahmen wurde keine Unterschrift gefunden. Ziehen Sie den Rahmen über die Unterschrift oder erhöhen Sie die Tintenempfindlichkeit.
 	Couldn't use the photo: {e}	Das Foto kann nicht verwendet werden: {e}
+	Couldn't follow linked PDF: {reason}	Verknüpfte PDF konnte nicht geöffnet werden: {reason}
+	The linked PDF opened, but its named destination was not applied.	Die verknüpfte PDF wurde geöffnet, aber ihr benanntes Ziel wurde nicht angewendet.
+	The linked PDF opened, but its page destination was out of range.	Die verknüpfte PDF wurde geöffnet, aber ihr Seitenziel liegt außerhalb des Bereichs.
+	Local cross-PDF links require the desktop app	Lokale Verknüpfungen zwischen PDFs erfordern die Desktop-App

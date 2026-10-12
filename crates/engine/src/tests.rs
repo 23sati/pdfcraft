@@ -2057,6 +2057,42 @@ fn links_from_urls_and_link_edits() {
 }
 
 #[test]
+fn appearance_only_edit_preserves_gotor_action_semantics() {
+    let objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 200 300] >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /Annots [4 0 R] >>".to_vec(),
+        b"<< /Type /Annot /Subtype /Link /Rect [10 10 80 30] /A << /S /GoToR /F (target.pdf) /D [2 /FitH 180] /NewWindow true >> >>".to_vec(),
+    ];
+    let mut bytes = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, object) in objects.iter().enumerate() {
+        offsets.push(bytes.len());
+        bytes.extend_from_slice(format!("{} 0 obj\n", i + 1).as_bytes());
+        bytes.extend_from_slice(object);
+        bytes.extend_from_slice(b"\nendobj\n");
+    }
+    let xref = bytes.len();
+    bytes.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objects.len() + 1).as_bytes());
+    for offset in offsets {
+        bytes.extend_from_slice(format!("{offset:010} 00000 n \n").as_bytes());
+    }
+    bytes.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objects.len() + 1).as_bytes());
+
+    let mut session = Session::new();
+    let id = session.open("source.pdf", Some("/docs/source.pdf".into()), Arc::new(bytes), None).unwrap();
+    let before = session.get(id).unwrap().info.links[0].target.clone();
+    let mut style = session.get(id).unwrap().links[0].style;
+    style.visible = true;
+    style.width = 2.0;
+    session.apply(id, Edit::SetLink { page: 0, index: 0, rect: None, action: None, style: Some(style) }).unwrap();
+
+    let after = &session.get(id).unwrap().info.links[0].target;
+    assert_eq!(*after, before, "the GoToR file, destination and /NewWindow hint must remain unchanged");
+    assert_eq!(session.get(id).unwrap().links[0].style, style, "the appearance edit is applied");
+}
+
+#[test]
 fn comments_lock_take_checkmarks_hide_and_summarize() {
     let (mut s, id) = session_with(2);
     s.apply(id, rect_comment(1, [80.0, 80.0, 120.0, 120.0])).unwrap();

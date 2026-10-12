@@ -682,6 +682,7 @@ impl Automation {
             "printers" => self.printers()?,
             "printer_options" => self.printer_options(&a)?,
             "link_list" => self.link_list(&a)?,
+            "link_open" => self.link_open(&a)?,
             "link_add" => self.link_add(&a)?,
             "link_edit" => self.link_edit(&a)?,
             "link_delete" => self.link_delete(&a)?,
@@ -2127,6 +2128,15 @@ fn info(d: &Document) -> Value {
                         },
                     })).collect::<Vec<_>>(),
                     "preserve_rb": preserve_rb,
+                }),
+                pdfcraft_render::LinkTarget::RemoteGoTo { file, destination, new_window } => json!({
+                    "remote_document": file,
+                    "destination": match destination {
+                        pdfcraft_render::RemoteDestination::Default => json!({ "kind": "default" }),
+                        pdfcraft_render::RemoteDestination::Page { page, view } => json!({ "kind": "page", "page": page1(*page), "view": format!("{view:?}") }),
+                        pdfcraft_render::RemoteDestination::Named(name) => json!({ "kind": "named", "name": name }),
+                    },
+                    "new_window": new_window,
                 }),
                 pdfcraft_render::LinkTarget::Other(o) => json!({ "other": o }),
             },

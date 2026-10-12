@@ -861,6 +861,7 @@
 	{verb} as "{name}"	{verb} come “{name}”
 	Certify	Certifica
 	The signature will be invisible.	La firma sarà invisibile.
+	The existing action will be preserved.	L’azione esistente verrà mantenuta.
 	Distinguished name	Nome distinto
 	Labels	Etichette
 	Graphic	Grafica
@@ -2276,6 +2277,12 @@ scroll speed	Fast	Veloce
 	Greyscale	Scala di grigi
 	Black and white	Bianco e nero
 	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Il driver di questa stampante non accetta le impostazioni fronte-retro da altri programmi, quindi vale la sua impostazione. Modificala in Proprietà…
+	Browser's print dialog	Finestra di stampa del browser
+	Copies, two-sided printing and colour are chosen in the browser's print dialog.	Copie, stampa fronte/retro e colore si scelgono nella finestra di stampa del browser.
+	Preparing {n} sheets for printing…	Preparazione di {n} fogli per la stampa…
+	Preparing sheet {done} of {total} for printing…	Preparazione del foglio {done} di {total} per la stampa…
+	Opening the browser's print dialog…	Apertura della finestra di stampa del browser…
+	Couldn't print from the browser ({e}); downloaded {name} to print instead	Impossibile stampare dal browser ({e}); è stato scaricato {name} da stampare
 	Tools panel side	Lato del pannello Strumenti
 	Add comment	Aggiungi commento
 	Change tag properties	Modifica proprietà del tag
@@ -2305,3 +2312,7 @@ scroll speed	Fast	Veloce
 	Ink sensitivity	Sensibilità all’inchiostro
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Nessuna firma trovata nella cornice. Sposta la cornice sulla firma o aumenta la sensibilità all’inchiostro.
 	Couldn't use the photo: {e}	Impossibile usare la foto: {e}
+	Couldn't follow linked PDF: {reason}	Impossibile aprire il PDF collegato: {reason}
+	The linked PDF opened, but its named destination was not applied.	Il PDF collegato è stato aperto, ma la sua destinazione con nome non è stata applicata.
+	The linked PDF opened, but its page destination was out of range.	Il PDF collegato è stato aperto, ma la pagina di destinazione è fuori intervallo.
+	Local cross-PDF links require the desktop app	I collegamenti locali tra PDF richiedono l'app desktop
