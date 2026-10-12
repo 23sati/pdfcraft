@@ -36,10 +36,10 @@ fn fixture(n: usize) -> Vec<u8> {
 }
 
 /// A fresh directory with `a.pdf` (3 pages) and `b.pdf` (2 pages).
+#[track_caller]
 fn workdir(test: &str) -> PathBuf {
-    static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-    let id = SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("pdfcraft-automation-{test}-{}-{id}", std::process::id()));
+    let caller = std::panic::Location::caller();
+    let dir = std::env::temp_dir().join(format!("pdfcraft-automation-{test}-{}-{}-{}", std::process::id(), caller.line(), caller.column(),));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("a.pdf"), fixture(3)).unwrap();
@@ -47,8 +47,71 @@ fn workdir(test: &str) -> PathBuf {
     dir
 }
 
+#[test]
+fn workdir_call_sites_do_not_delete_each_other() {
+    let first = workdir("same-tag");
+    let sentinel = first.join("sentinel");
+    std::fs::write(&sentinel, b"first call site").unwrap();
+
+    let second = workdir("same-tag");
+    let paths_differ = first != second;
+    let sentinel_bytes = std::fs::read(&sentinel).ok();
+    let first_a = std::fs::read(first.join("a.pdf")).ok();
+    let first_b = std::fs::read(first.join("b.pdf")).ok();
+    let second_a = std::fs::read(second.join("a.pdf")).ok();
+    let second_b = std::fs::read(second.join("b.pdf")).ok();
+
+    let _ = std::fs::remove_dir_all(&first);
+    if paths_differ {
+        let _ = std::fs::remove_dir_all(&second);
+    }
+
+    assert!(paths_differ, "distinct call sites shared {first:?}");
+    assert_eq!(sentinel_bytes.as_deref(), Some(&b"first call site"[..]));
+    assert_eq!(first_a, Some(fixture(3)));
+    assert_eq!(first_b, Some(fixture(2)));
+    assert_eq!(second_a, Some(fixture(3)));
+    assert_eq!(second_b, Some(fixture(2)));
+}
+
 fn auto(dir: &Path) -> Automation {
     Automation::new().with_root(dir).unwrap().with_clock(|| 1_700_000_000)
+}
+
+/// A one-page PDF whose form holds one text field named `name`.
+fn form_pdf(name: &str) -> Vec<u8> {
+    let objs: Vec<String> = vec![
+        "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] >> >>".into(),
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 300 400] >>".into(),
+        "<< /Type /Page /Parent 2 0 R /Annots [4 0 R] >>".into(),
+        format!("<< /Type /Annot /Subtype /Widget /FT /Tx /T ({name}) /V (x) /Rect [60 60 200 80] /P 3 0 R >>"),
+    ];
+    let mut bytes = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offsets.push(bytes.len());
+        bytes.extend_from_slice(format!("{} 0 obj\n{o}\nendobj\n", i + 1).as_bytes());
+    }
+    let xref = bytes.len();
+    bytes.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+    for o in offsets {
+        bytes.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+    }
+    bytes.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objs.len() + 1).as_bytes());
+    bytes
+}
+
+#[test]
+fn accessibility_check_locates_field_description_on_page() {
+    let dir = workdir("accessibility-field-location");
+    std::fs::write(dir.join("field.pdf"), form_pdf("name")).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "field.pdf" }))["doc"].as_u64().unwrap();
+    let report = ok(&mut a, "accessibility_check", json!({ "doc": doc, "rules": ["field-descriptions"] }));
+    let rule = report["results"].as_array().unwrap().iter().find(|r| r["rule"] == "field-descriptions").unwrap();
+    assert_eq!(rule["status"], "failed");
+    assert_eq!(rule["findings"][0]["page"], 1);
+    assert_eq!(rule["findings"][0]["bbox_user_space"], json!([60.0, 60.0, 200.0, 80.0]));
 }
 
 fn ok(a: &mut Automation, tool: &str, args: Value) -> Value {
@@ -82,6 +145,55 @@ fn tool_table_is_well_formed() {
             assert!(pdfcraft_engine::commands::command(c).is_some(), "{} names unregistered command {c}", t.name);
         }
     }
+}
+
+#[test]
+fn explicit_font_and_disjoint_ranges_save_reopen_through_tools() {
+    let dir = workdir("font-ranges");
+    std::fs::write(dir.join("inter.ttf"), include_bytes!("../../../assets/fonts/Inter-Regular.ttf")).unwrap();
+    let mut a = auto(&dir);
+    std::fs::write(dir.join("broken.otf"), b"not a font").unwrap();
+    let found = ok(&mut a, "text_font_files", json!({}));
+    assert_eq!(found["fonts"].as_array().unwrap().len(), 1);
+    assert_eq!(found["fonts"][0]["font"], "Inter-Regular");
+    assert!(a.call("text_font_files", &json!({"directories":["../outside"]})).is_err());
+    let id = ok(&mut a, "doc_open", json!({"path":"a.pdf"}))["doc"].as_u64().unwrap();
+    let font = ok(&mut a, "text_font_import", json!({"doc":id,"page":1,"path":"inter.ttf"}));
+    let resource = font["resource"].as_str().unwrap();
+    assert_eq!(font["font"], "Inter-Regular");
+    assert_eq!(page_text(&mut a, id), ["Page 1", "Page 2", "Page 3"]);
+    let draft = ok(
+        &mut a,
+        "text_edit_layout",
+        json!({"doc":id,"page":1,"paragraph":1,"text":"Aé ΩЖ","font_resource":resource,"ranges":[{"range":[0,3],"size":16,"color":"#cc0000"},{"range":[4,8],"size":20,"color":"#003399"}]}),
+    );
+    assert!(draft["draft_rect"].is_array());
+    assert_eq!(page_text(&mut a, id), ["Page 1", "Page 2", "Page 3"]);
+    ok(
+        &mut a,
+        "text_edit",
+        json!({"doc":id,"page":1,"paragraph":1,"text":"Aé ΩЖ","font_resource":resource,"ranges":[{"range":[0,3],"size":16,"color":"#cc0000"},{"range":[4,8],"size":20,"color":"#003399"}]}),
+    );
+    let lines = ok(&mut a, "text_lines", json!({"doc":id,"page":1}));
+    assert!(
+        lines["lines"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|l| l["text"].as_str().is_some_and(|s| s.trim_end() == "Aé") && l["size"].as_f64() == Some(16.0)),
+        "{lines}"
+    );
+    let rendered = a.call("page_render", &json!({"doc":id,"page":1,"dpi":72})).unwrap();
+    ok(&mut a, "doc_save", json!({"doc":id,"path":"edited.pdf"}));
+    let reopened = ok(&mut a, "doc_open", json!({"path":"edited.pdf"}))["doc"].as_u64().unwrap();
+    let saved = ok(&mut a, "text_lines", json!({"doc":reopened,"page":1}));
+    assert_eq!(lines, saved);
+    assert_eq!(rendered, a.call("page_render", &json!({"doc":reopened,"page":1,"dpi":72})).unwrap());
+    let before = saved.clone();
+    assert!(a.call("text_edit", &json!({"doc":reopened,"page":1,"paragraph":1,"text":"é test","ranges":[{"range":[1,2],"size":18}]})).is_err());
+    assert_eq!(ok(&mut a, "text_lines", json!({"doc":reopened,"page":1})), before);
+    assert!(a.call("text_font_import", &json!({"doc":id,"page":1,"path":"../outside.ttf"})).is_err());
+    std::fs::remove_dir_all(dir).unwrap();
 }
 
 /// Each of these writes to its required `path` and replaces an existing file there, so the MCP
@@ -127,6 +239,30 @@ fn open_inspect_render_and_find() {
 }
 
 #[test]
+fn text_editor_background_is_read_only_and_removes_source_glyphs() {
+    let dir = workdir("text-preview");
+    let mut a = auto(&dir);
+    std::fs::write(dir.join("text-preview.pdf"), fixture(2)).unwrap();
+    let doc = ok(&mut a, "doc_open", json!({ "path": "text-preview.pdf" }))["doc"].as_u64().unwrap();
+    let args = json!({ "doc": doc, "page": 1, "dpi": 72 });
+    let before = a.call("page_render", &args).unwrap();
+    let state = ok(&mut a, "doc_info", json!({ "doc": doc }));
+    let preview = a.call("page_render", &json!({ "doc": doc, "page": 1, "dpi": 72, "hide_text_block": 1 })).unwrap();
+    assert_ne!(preview, before);
+    let Content::Png { data, .. } = &preview[0] else { panic!("expected PNG") };
+    let mut reader = png::Decoder::new(std::io::Cursor::new(data)).read_info().unwrap();
+    let mut pixels = vec![0; reader.output_buffer_size().unwrap()];
+    let info = reader.next_frame(&mut pixels).unwrap();
+    assert!(pixels[..info.buffer_size()].iter().all(|b| *b == 255), "no source glyphs remain on the white page");
+    assert_eq!(a.call("page_render", &args).unwrap(), before);
+    assert_eq!(ok(&mut a, "doc_info", json!({ "doc": doc })), state);
+    assert_eq!(page_text(&mut a, doc), ["Page 1", "Page 2"]);
+    for block in [-1, 0, 2, i64::MAX] {
+        assert!(a.call("page_render", &json!({ "doc": doc, "page": 1, "hide_text_block": block })).is_err());
+    }
+}
+
+#[test]
 fn edit_undo_redo_and_save_round_trip() {
     let dir = workdir("edit");
     let mut a = auto(&dir);
@@ -167,6 +303,23 @@ fn edit_undo_redo_and_save_round_trip() {
     let after = std::fs::read(dir.join("out/edited.pdf")).unwrap();
     assert!(after.len() as u64 > before);
     assert_eq!(after.windows(5).filter(|w| w == b"%%EOF").count(), 2);
+}
+
+/// organize.field-name-conflicts: combining files whose forms share a field name keeps the
+/// fields separate by renaming, says so in the result, and can be told to merge instead; any
+/// other policy is an argument error.
+#[test]
+fn combine_renames_colliding_field_names() {
+    let dir = workdir("combine-field-conflicts");
+    std::fs::write(dir.join("form-a.pdf"), form_pdf("Text1")).unwrap();
+    std::fs::write(dir.join("form-b.pdf"), form_pdf("Text1")).unwrap();
+    let mut a = auto(&dir);
+    let combined = ok(&mut a, "doc_combine", json!({ "paths": ["form-a.pdf", "form-b.pdf"], "open": true }));
+    assert_eq!(combined["renamed_fields"], json!([["Text1", "Text1-1"]]), "{combined}");
+    let merged = ok(&mut a, "doc_combine", json!({ "paths": ["form-a.pdf", "form-b.pdf"], "field_conflicts": "merge" }));
+    assert!(merged.get("renamed_fields").is_none(), "merge renames nothing: {merged}");
+    let bad = a.call("doc_combine", &json!({ "paths": ["form-a.pdf", "form-b.pdf"], "field_conflicts": "bogus" }));
+    assert!(matches!(bad, Err(ToolError::InvalidArgs(_))));
 }
 
 /// #569: images and text files combine with PDFs, each made into a PDF first.
@@ -1567,6 +1720,56 @@ trailer << /Root 1 0 R >>
     )
     .unwrap();
     let fd = ok(&mut a, "doc_open", json!({ "path": "figures.pdf" }))["doc"].as_u64().unwrap();
+    let tags = ok(&mut a, "accessibility_tags", json!({ "doc": fd }));
+    assert_eq!(tags["count"], 3);
+    assert_eq!(tags["tags"][1]["object"], 7);
+    assert_eq!(tags["tags"][1]["type"], "Figure");
+    let changed = ok(
+        &mut a,
+        "accessibility_set_tag_property",
+        json!({
+            "doc": fd, "object": 7, "generation": 0, "property": "title", "value": "First shape"
+        }),
+    );
+    assert_eq!(changed["tags"][1]["title"], "First shape");
+    assert_eq!(ok(&mut a, "edit_undo", json!({ "doc": fd }))["undone"], "Change tag properties");
+    assert_eq!(ok(&mut a, "accessibility_tags", json!({ "doc": fd }))["tags"][1]["title"], Value::Null);
+    ok(&mut a, "accessibility_set_tag_property", json!({ "doc": fd, "object": 8, "generation": 0, "property": "title", "value": "Second shape" }));
+    let moved = ok(
+        &mut a,
+        "accessibility_move_tag",
+        json!({ "doc": fd, "object": 8, "generation": 0, "anchor": 7, "anchor_generation": 0, "placement": "before" }),
+    );
+    assert_eq!((moved["tags"][1]["object"].as_u64(), moved["tags"][2]["object"].as_u64()), (Some(8), Some(7)));
+    ok(&mut a, "doc_save", json!({ "doc": fd, "path": "reordered.pdf" }));
+    let saved = pdfcraft_cos::Document::open(std::sync::Arc::new(std::fs::read(dir.join("reordered.pdf")).unwrap())).unwrap();
+    assert_eq!(pdfcraft_engine::a11y::tags(&saved).into_iter().map(|tag| tag.title).collect::<Vec<_>>(), [None, Some("Second shape".into()), None]);
+    assert_eq!(ok(&mut a, "edit_undo", json!({ "doc": fd }))["undone"], "Move object");
+    assert_eq!(ok(&mut a, "accessibility_tags", json!({ "doc": fd }))["tags"][1]["object"], 7);
+    assert!(matches!(
+        a.call(
+            "accessibility_move_tag",
+            &json!({ "doc": fd, "object": 8, "generation": 0, "anchor": 7, "anchor_generation": 0, "placement": "sideways" })
+        ),
+        Err(ToolError::InvalidArgs(_))
+    ));
+    assert!(matches!(
+        a.call(
+            "accessibility_set_tag_property",
+            &json!({
+                "doc": fd, "object": 7, "generation": 1, "property": "title", "value": "Wrong generation"
+            })
+        ),
+        Err(ToolError::Failed(_))
+    ));
+    let findings = ok(&mut a, "accessibility_check", json!({ "doc": fd, "rules": ["figures-alt-text"] }));
+    let figures_rule = findings["results"].as_array().unwrap().iter().find(|x| x["rule"] == "figures-alt-text").unwrap();
+    assert_eq!(figures_rule["findings"][0]["object"], 7);
+    assert_eq!(figures_rule["findings"][0]["object_generation"], 0);
+    assert_eq!(figures_rule["findings"][0]["bbox_user_space"], json!([10.0, 150.0, 50.0, 170.0]));
+    assert_eq!(figures_rule["findings"][1]["object"], 8);
+    assert_eq!(figures_rule["findings"][1]["object_generation"], 0);
+    assert_eq!(figures_rule["findings"][1]["bbox_user_space"], json!([100.0, 100.0, 150.0, 130.0]));
     let figs = ok(&mut a, "accessibility_figures", json!({ "doc": fd }));
     assert_eq!(figs["count"], 2);
     assert_eq!(figs["figures"][0]["rect"], json!([10.0, 30.0, 50.0, 50.0]), "top-left-origin points");
@@ -1579,6 +1782,51 @@ trailer << /Root 1 0 R >>
     let check = ok(&mut a, "accessibility_check", json!({ "doc": fd, "rules": ["figures-alt-text", "tagged-content"] }));
     assert_eq!(check["failed"], 0, "{check}");
     assert!(matches!(a.call("accessibility_set_alt", &json!({ "doc": fd, "figure": 6, "alt": "x" })), Err(ToolError::Failed(_))));
+}
+
+#[test]
+fn accessibility_review_record_compares_two_versions_without_changing_them() {
+    let dir = workdir("a11y-review-record");
+    let source = std::fs::read(dir.join("a.pdf")).unwrap();
+    let mut a = auto(&dir);
+    let before = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    let after = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    ok(&mut a, "accessibility_fix", json!({ "doc": after, "rule": "primary-language", "value": "en-GB" }));
+
+    let output = ok(&mut a, "accessibility_review_record", json!({ "before": before, "after": after, "path": "review.json" }));
+    let file: Value = serde_json::from_slice(&std::fs::read(dir.join("review.json")).unwrap()).unwrap();
+    assert_eq!(output["record"], file);
+    assert_eq!(file["schema"], 1);
+    assert_eq!(file["before"]["sha256"].as_str().unwrap().len(), 64);
+    assert_eq!(file["after"]["sha256"].as_str().unwrap().len(), 64);
+    assert_ne!(file["before"]["sha256"], file["after"]["sha256"]);
+    assert_eq!(file["changed"], json!(["primary-language"]));
+    let language = file["rules"].as_array().unwrap().iter().find(|r| r["rule"] == "primary-language").unwrap();
+    assert_eq!(language["before"]["status"], "failed");
+    assert_eq!(language["after"]["status"], "passed");
+    assert!(file["review_required"].as_array().unwrap().iter().any(|r| r == "tagged-pdf"));
+    let html_output = ok(&mut a, "accessibility_review_html", json!({ "before": before, "after": after, "path": "review.html" }));
+    assert_eq!(html_output["record"], file);
+    let html = std::fs::read_to_string(dir.join("review.html")).unwrap();
+    assert!(html.contains("<html lang=\"en\">") && html.contains("Accessibility checker outcomes"));
+    assert!(html.contains("Primary language") && html.contains("<td>Changed</td>"));
+    assert!(html.contains("Still requiring review") && html.contains("Tagged PDF"));
+    assert!(html.contains(file["before"]["sha256"].as_str().unwrap()));
+    assert!(html.contains("validate the final PDF independently"));
+    assert_eq!(std::fs::read(dir.join("a.pdf")).unwrap(), source);
+    assert!(matches!(
+        a.call("accessibility_review_record", &json!({ "before": before, "after": before, "path": "same.json" })),
+        Err(ToolError::InvalidArgs(_))
+    ));
+    assert!(!dir.join("same.json").exists());
+    assert!(matches!(
+        a.call("accessibility_review_html", &json!({ "before": before, "after": before, "path": "same.html" })),
+        Err(ToolError::InvalidArgs(_))
+    ));
+    assert!(!dir.join("same.html").exists());
+    assert!(a.call("accessibility_review_record", &json!({ "before": before, "after": after, "path": "../escape.json" })).is_err());
+    assert!(a.call("accessibility_review_html", &json!({ "before": before, "after": after, "path": "../escape.html" })).is_err());
+    assert!(!dir.parent().unwrap().join("escape.html").exists());
 }
 
 #[test]
@@ -1958,6 +2206,68 @@ fn image_signatures_through_tools_preserve_transparency_and_survive_save() {
         args["at"] = json!([20, 80]);
         assert!(a.call("fill_sign_add", &args).is_err(), "{args}");
     }
+    assert_eq!(ok(&mut a, "comment_list", json!({ "doc": doc }))["count"], 2, "errors leave the PDF intact");
+}
+
+#[test]
+fn scanned_signatures_through_tools_drop_the_paper_and_report_bad_arguments() {
+    let dir = workdir("scanned-signatures");
+    // A grey, unevenly lit sheet with a pen stroke for the signature, and a blank one.
+    let photo = |ink: bool| {
+        let mut png = Vec::new();
+        let mut encoder = png::Encoder::new(&mut png, 400, 300);
+        encoder.set_color(png::ColorType::Rgb);
+        encoder.set_depth(png::BitDepth::Eight);
+        let rgb: Vec<u8> = (0..300_u32)
+            .flat_map(|y| {
+                (0..400_u32).flat_map(move |x| {
+                    let paper = (215 - x / 20) as u8;
+                    if ink && (100..300).contains(&x) && (144..148).contains(&y) { [20, 20, 25] } else { [paper, paper, paper] }
+                })
+            })
+            .collect();
+        encoder.write_header().unwrap().write_image_data(&rgb).unwrap();
+        png
+    };
+    std::fs::write(dir.join("photo.png"), photo(true)).unwrap();
+    std::fs::write(dir.join("blank.png"), photo(false)).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_create", json!({ "from": "blank", "width": 200, "height": 300 }))["doc"].as_u64().unwrap();
+    ok(&mut a, "fill_sign_add", json!({ "doc": doc, "page": 1, "type": "signature", "at": [20, 60], "path": "photo.png", "scan": true }));
+    let output = a.call("page_render", &json!({ "doc": doc, "page": 1, "dpi": 72 })).unwrap();
+    let Content::Png { data, .. } = &output[0] else { panic!() };
+    let page = image::load_from_memory(data).unwrap().to_rgba8();
+    let dark = (20..170).filter(|&x| page.get_pixel(x, 60).0[0] < 80).count();
+    assert!(dark > 100, "the stroke is placed as ink across the signature width ({dark} px)");
+    for (x, y) in [(22, 50), (100, 50), (100, 70)] {
+        assert_eq!(page.get_pixel(x, y).0, [255, 255, 255, 255], "the grey paper is gone at {x},{y}");
+    }
+    ok(
+        &mut a,
+        "fill_sign_add",
+        json!({ "doc": doc, "page": 1, "type": "initials", "at": [20, 150], "path": "photo.png", "scan": true, "sensitivity": 0 }),
+    );
+    for args in [
+        json!({ "type": "signature", "path": "blank.png", "scan": true }),
+        json!({ "type": "signature", "path": "photo.png", "scan": true, "sensitivity": 101 }),
+        json!({ "type": "signature", "path": "photo.png", "scan": true, "sensitivity": -1 }),
+        json!({ "type": "signature", "path": "photo.png", "sensitivity": 50 }),
+        json!({ "type": "signature", "text": "Ada", "scan": true }),
+        json!({ "type": "signature", "path": "photo.png", "scan": "yes" }),
+    ] {
+        let mut args = args;
+        args["doc"] = json!(doc);
+        args["page"] = json!(1);
+        args["at"] = json!([20, 80]);
+        let error = a.call("fill_sign_add", &args).unwrap_err();
+        assert!(matches!(error, ToolError::InvalidArgs(_)), "{args}: {error:?}");
+    }
+    let Err(ToolError::InvalidArgs(no_ink)) =
+        a.call("fill_sign_add", &json!({ "doc": doc, "page": 1, "type": "signature", "at": [20, 80], "path": "blank.png", "scan": true }))
+    else {
+        panic!()
+    };
+    assert!(no_ink.contains("No signature was found"), "{no_ink}");
     assert_eq!(ok(&mut a, "comment_list", json!({ "doc": doc }))["count"], 2, "errors leave the PDF intact");
 }
 
@@ -2370,6 +2680,27 @@ fn redacting_word_lists_through_tools() {
 }
 
 #[test]
+fn redaction_search_respects_case_and_word_boundaries() {
+    let dir = workdir("redact-find-options");
+    std::fs::write(dir.join("memo.txt"), "Ada ada Adaline\nAda beta betamax").unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_create", json!({ "from": "text", "path": "memo.txt" }))["doc"].as_u64().unwrap();
+    let mark = |a: &mut Automation, args: Value| ok(a, "redact_mark", args)["marked"].as_u64().unwrap();
+    assert_eq!(mark(&mut a, json!({ "doc": doc, "find": "Ada", "case_sensitive": true, "whole_words": true })), 2);
+    ok(&mut a, "edit_undo", json!({ "doc": doc }));
+    assert_eq!(mark(&mut a, json!({ "doc": doc, "find": "Ada", "whole_words": true })), 3);
+    ok(&mut a, "edit_undo", json!({ "doc": doc }));
+    let result = ok(&mut a, "redact_mark", json!({ "doc": doc, "words": ["Ada", "beta"], "case_sensitive": true, "whole_words": true }));
+    assert_eq!(result["matched_words"], json!([{ "word": "Ada", "marked": 2 }, { "word": "beta", "marked": 1 }]));
+    ok(&mut a, "edit_undo", json!({ "doc": doc }));
+    assert!(matches!(a.call("redact_mark", &json!({ "doc": doc, "pattern": "email", "whole_words": true })), Err(ToolError::InvalidArgs(_))));
+    assert_eq!(mark(&mut a, json!({ "doc": doc, "find": "Ada", "case_sensitive": true, "whole_words": true })), 2);
+    ok(&mut a, "redact_apply", json!({ "doc": doc }));
+    let text = &page_text(&mut a, doc)[0];
+    assert!(text.contains("ada") && text.contains("Adaline") && text.contains("betamax"), "{text}");
+}
+
+#[test]
 fn removing_hidden_information_through_tools() {
     let dir = workdir("hidden");
     let mut a = auto(&dir);
@@ -2725,13 +3056,8 @@ fn links_through_tools() {
     let list = ok(&mut a, "link_list", json!({ "doc": doc }));
     assert!(list["links"].as_array().unwrap().iter().any(|l| l["url"] == "https://pdfcraft.dev"));
     ok(&mut a, "link_delete", json!({ "doc": doc, "page": 1, "index": added["index"] }));
-    let r = ok(&mut a, "links_remove", json!({ "doc": doc, "pages": [1] }));
+    let r = ok(&mut a, "links_remove", json!({ "doc": doc }));
     assert_eq!(r["removed"], 2);
-    assert_eq!(ok(&mut a, "link_list", json!({ "doc": doc }))["count"], 0);
-    // Add one more link and test links_remove across all pages
-    ok(&mut a, "link_add", json!({ "doc": doc, "page": 1, "rect": [72, 300, 200, 320], "url": "https://example.org" }));
-    let r2 = ok(&mut a, "links_remove", json!({ "doc": doc }));
-    assert_eq!(r2["removed"], 1);
     assert_eq!(ok(&mut a, "link_list", json!({ "doc": doc }))["count"], 0);
     assert!(matches!(a.call("link_add", &json!({ "doc": doc, "page": 1, "rect": [0, 0, 50, 20] })), Err(ToolError::InvalidArgs(_))));
 }
@@ -3577,15 +3903,59 @@ fn exporting_to_word_html_and_rtf() {
     let dir = workdir("office");
     let mut a = auto(&dir);
     let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
-    for ext in ["docx", "html", "rtf"] {
+    for ext in ["docx", "pptx", "html", "rtf"] {
         let r = ok(&mut a, "doc_export_office", json!({ "doc": doc, "path": format!("a.{ext}") }));
         assert_eq!(r["format"], ext);
     }
     let html = std::fs::read_to_string(dir.join("a.html")).unwrap();
     assert!(html.contains("Page 1") && html.contains("Page 3") && html.matches("<hr>").count() == 2, "{html}");
     assert!(std::fs::read(dir.join("a.docx")).unwrap().starts_with(b"PK"));
+    assert!(std::fs::read(dir.join("a.pptx")).unwrap().starts_with(b"PK"));
     assert!(std::fs::read_to_string(dir.join("a.rtf")).unwrap().contains("Page 2"));
     assert!(a.call("doc_export_office", &json!({ "doc": doc, "path": "a.xyz" })).is_err());
+}
+
+/// #773: a diagonal watermark must not enter the body flow or move invoice fields.
+#[test]
+fn exporting_an_invoice_to_word_keeps_the_watermark_out_of_flow() {
+    use pdfcraft_cos::{Dict, Document, ObjRef, SaveOptions, Stream, write_full};
+    let dir = workdir("invoice-word");
+    let mut pdf = Document::open(std::sync::Arc::new(fixture(1))).unwrap();
+    let content = b"q BT /F1 60 Tf 0.8 g 0.70710678 0.70710678 -0.70710678 0.70710678 30 80 Tm (DRAFT) Tj ET Q \
+BT /F1 11 Tf 20 250 Td (Description) Tj 110 0 Td (Amount) Tj \
+-110 -20 Td (Design) Tj 110 0 Td (100.00) Tj \
+-110 -20 Td (Review) Tj 110 0 Td (50.00) Tj ET \
+BT /F1 11 Tf 20 20 Td (Total due: 150.00) Tj ET";
+    pdf.set(ObjRef::new(5, 0), Stream { dict: Dict::new(), raw: content.to_vec().into() });
+    std::fs::write(dir.join("invoice.pdf"), write_full(&pdf, &SaveOptions::default()).unwrap()).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "invoice.pdf" }))["doc"].as_u64().unwrap();
+    ok(&mut a, "doc_export_office", json!({ "doc": doc, "path": "invoice.docx" }));
+    // Inspect the actual package emitted by the tool, not an intermediate page model.
+    let zip = std::fs::read(dir.join("invoice.docx")).unwrap();
+    let mut at = 0;
+    let mut xml = String::new();
+    while zip[at..].starts_with(b"PK\x03\x04") {
+        let size = u32::from_le_bytes(zip[at + 18..at + 22].try_into().unwrap()) as usize;
+        let len = u16::from_le_bytes(zip[at + 26..at + 28].try_into().unwrap()) as usize;
+        let data = at + 30 + len;
+        if &zip[at + 30..data] == b"word/document.xml" {
+            std::io::Read::read_to_string(&mut flate2::read::DeflateDecoder::new(&zip[data..data + size]), &mut xml).unwrap();
+            break;
+        }
+        at = data + size;
+    }
+    assert!(xml.contains("rotation:315.000"), "diagonal text survives extraction: {xml}");
+    assert!(xml.contains("z-index:-2"), "the large watermark stays behind the invoice");
+    assert!(!xml.contains("<wp:inline>") && !xml.contains("<w:tbl>"));
+    assert!(!xml.contains("w:val=\"single\""));
+    assert_eq!(xml.matches(">DRAFT</w:t>").count(), 1);
+    assert_eq!(xml.matches(">Total due: 150.00</w:t>").count(), 1);
+    assert_eq!(xml.matches("<w:sectPr>").count(), 1);
+    assert!(!xml.contains("w:type=\"page\""));
+    assert!(xml.contains("margin-left:20.000pt"), "invoice fields retain their left edge");
+    let rendered = a.call("page_render", &json!({ "doc": doc, "page": 1, "dpi": 72 })).unwrap();
+    assert!(rendered.iter().any(|c| matches!(c, Content::Png { .. })));
 }
 
 #[test]
@@ -4366,6 +4736,135 @@ fn text_extract_with_a_rect_takes_one_column() {
     }
 }
 
+#[test]
+fn mixed_visual_region_edit_preview_save_reopen_and_undo_through_tools() {
+    use pdfcraft_cos::{Dict, Document, Object, Stream, write_incremental};
+    let dir = workdir("mixed-region");
+    let mut cos = Document::open(std::sync::Arc::new(fixture(1))).unwrap();
+    let page = pdfcraft_model::pages(&cos)[0].clone();
+    let mut font = Dict::new();
+    font.set(b"Type".to_vec(), Object::name("Font"));
+    font.set(b"Subtype".to_vec(), Object::name("Type1"));
+    font.set(b"BaseFont".to_vec(), Object::name("Helvetica-Bold"));
+    let bold = cos.add(Object::Dict(font));
+    let mut resources = cos.resolve(page.dict.get(b"Resources").unwrap()).as_dict().unwrap().clone();
+    let mut fonts = cos.resolve(resources.get(b"Font").unwrap()).as_dict().unwrap().clone();
+    fonts.set(b"F2".to_vec(), Object::Ref(bold));
+    resources.set(b"Font".to_vec(), Object::Dict(fonts));
+    let stream = cos.add(Object::Stream(Stream::flate(Dict::new(),
+        b"BT /F2 1 Tf 18 0 0 18 20 240 Tm (Heading) Tj ET BT /F1 12 Tf 0 g 20 217 Td (Body ) Tj /F2 12 Tf 0 0.2 0.5 rg (bold) Tj /F1 12 Tf 0 g ( text) Tj ET")));
+    cos.update_dict(page.obj, |d| {
+        d.set(b"Resources".to_vec(), Object::Dict(resources));
+        d.set(b"Contents".to_vec(), Object::Ref(stream));
+    })
+    .unwrap();
+    std::fs::write(dir.join("mixed.pdf"), write_incremental(&cos, &Default::default()).unwrap()).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({"path":"mixed.pdf"}))["doc"].as_u64().unwrap();
+    let before = ok(&mut a, "text_paragraphs", json!({"doc":doc,"page":1}));
+    assert_eq!(before["count"], 1);
+    assert_eq!(before["paragraphs"][0]["editor_text"], "Heading\nBody bold text");
+    assert_eq!(before["paragraphs"][0]["rows"].as_array().unwrap().len(), 2);
+    assert_eq!(before["paragraphs"][0]["lines"].as_array().unwrap().len(), 4);
+    let unchanged = ok(&mut a, "text_edit_layout", json!({"doc":doc,"page":1,"paragraph":1}));
+    assert_eq!(unchanged["overflow"], false);
+    assert_eq!(unchanged["source_rect"], unchanged["draft_rect"]);
+    let growing = ok(&mut a, "text_edit_layout", json!({"doc":doc,"page":1,"paragraph":1,"text":"Heading\nBody bold text\nExtra row\nAnother row"}));
+    assert_eq!(growing["overflow"], true);
+    assert_eq!(ok(&mut a, "text_paragraphs", json!({"doc":doc,"page":1})), before, "measuring does not apply a draft");
+    let normal = a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap();
+    let preview = a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72,"hide_text_block":1})).unwrap();
+    assert_ne!(normal, preview);
+    assert_eq!(ok(&mut a, "text_paragraphs", json!({"doc":doc,"page":1})), before, "preview is read-only");
+    ok(&mut a, "text_edit", json!({"doc":doc,"page":1,"paragraph":1,"text":"Heading\nText bold text"}));
+    ok(&mut a, "doc_save", json!({"doc":doc,"path":"out/mixed-edited.pdf"}));
+    let re = ok(&mut a, "doc_open", json!({"path":"out/mixed-edited.pdf"}))["doc"].as_u64().unwrap();
+    let after = ok(&mut a, "text_paragraphs", json!({"doc":re,"page":1}));
+    assert_eq!(after["count"], 1);
+    assert_eq!(after["paragraphs"][0]["editor_text"], "Heading\nText bold text");
+    let saved = Document::open(std::sync::Arc::new(std::fs::read(dir.join("out/mixed-edited.pdf")).unwrap())).unwrap();
+    let mut session = pdfcraft_engine::Session::new();
+    let id = session.open("saved.pdf", None, std::sync::Arc::new(write_incremental(&saved, &Default::default()).unwrap()), None).unwrap();
+    let runs = session.get(id).unwrap().text_lines(0);
+    let preserved = runs.iter().find(|l| l.text == "bold").unwrap();
+    assert!(preserved.bold);
+    assert_eq!(preserved.color, [0.0, 0.2, 0.5]);
+    ok(&mut a, "text_edit", json!({"doc":re,"page":1,"paragraph":1,"text":""}));
+    assert_eq!(ok(&mut a, "text_paragraphs", json!({"doc":re,"page":1}))["count"], 0);
+    ok(&mut a, "edit_undo", json!({"doc":re}));
+    assert_eq!(ok(&mut a, "text_paragraphs", json!({"doc":re,"page":1})), after);
+}
+
+#[test]
+fn clipped_image_bounds_and_text_edit_save_reopen_through_tools() {
+    use pdfcraft_cos::{Dict, Document, Object, Stream, write_incremental};
+    let dir = workdir("clipped-artwork");
+    let mut cos = Document::open(std::sync::Arc::new(fixture(1))).unwrap();
+    let page = pdfcraft_model::pages(&cos)[0].clone();
+    let mut image = Dict::new();
+    for (key, value) in [
+        ("Type", Object::name("XObject")),
+        ("Subtype", Object::name("Image")),
+        ("Width", Object::Int(1)),
+        ("Height", Object::Int(1)),
+        ("BitsPerComponent", Object::Int(8)),
+        ("ColorSpace", Object::name("DeviceRGB")),
+    ] {
+        image.set(key.as_bytes().to_vec(), value);
+    }
+    let image = cos.add(Object::Stream(Stream::flate(image, &[220, 235, 245])));
+    let mut resources = cos.resolve(page.dict.get(b"Resources").unwrap()).as_dict().unwrap().clone();
+    let mut xo = Dict::new();
+    xo.set(b"Im0".to_vec(), Object::Ref(image));
+    resources.set(b"XObject".to_vec(), Object::Dict(xo));
+    let contents = cos.add(Object::Stream(Stream::flate(
+        Dict::new(),
+        b"q 30 170 130 80 re W* n q 800 0 0 900 -300 -400 cm /Im0 Do Q BT /F1 12 Tf 30 195 Td (Shared caption) Tj ET Q BT /F1 12 Tf 30 130 Td (Editable caption) Tj ET",
+    )));
+    cos.update_dict(page.obj, |d| {
+        d.set(b"Resources".to_vec(), Object::Dict(resources));
+        d.set(b"Contents".to_vec(), Object::Ref(contents));
+    })
+    .unwrap();
+    std::fs::write(dir.join("clipped.pdf"), write_incremental(&cos, &Default::default()).unwrap()).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({"path":"clipped.pdf"}))["doc"].as_u64().unwrap();
+    let pixels = a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap();
+    let images = ok(&mut a, "page_images", json!({"doc":doc,"page":1}));
+    assert_eq!(ok(&mut a, "image_hit", json!({"doc":doc,"page":1,"point":[50,60]}))["images"], json!([1]));
+    assert_eq!(ok(&mut a, "image_hit", json!({"doc":doc,"page":1,"point":[20,60]}))["images"], json!([]));
+    assert_eq!(images["images"][0]["visible_rect"], json!([30.0, 50.0, 160.0, 130.0]));
+    assert_eq!(images["images"][0]["rect"], json!([-300.0, -200.0, 500.0, 700.0]), "raw placement remains available for transforms");
+    let objects = ok(&mut a, "object_list", json!({"doc":doc,"page":1}));
+    let object = objects["objects"].as_array().unwrap().iter().find(|o| o["kind"] == "image").unwrap();
+    assert_eq!(object["rect"], images["images"][0]["visible_rect"]);
+    assert_eq!(a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap(), pixels, "inventory does not change rendering");
+    let labels = ok(&mut a, "text_paragraphs", json!({"doc":doc,"page":1}));
+    ok(&mut a, "image_edit", json!({"doc":doc,"page":1,"image":1,"action":"move","rect":[-432.0,-300.0,688.0,960.0]}));
+    let resized = ok(&mut a, "page_images", json!({"doc":doc,"page":1}));
+    assert_eq!(
+        resized["images"][0]["visible_rect"],
+        json!([30.0, 50.0, 160.0, 130.0]),
+        "a clip shared with the caption stays where it is (#1049 moves only an image's own clip)"
+    );
+    assert_eq!(ok(&mut a, "text_paragraphs", json!({"doc":doc,"page":1})), labels);
+    // The one-colour image still fills the fixed shared clip, so the page looks the same.
+    let resized_pixels = a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap();
+    ok(&mut a, "doc_save", json!({"doc":doc,"path":"out/resized.pdf"}));
+    let resized_re = ok(&mut a, "doc_open", json!({"path":"out/resized.pdf"}))["doc"].as_u64().unwrap();
+    assert_eq!(ok(&mut a, "page_images", json!({"doc":resized_re,"page":1})), resized);
+    assert_eq!(a.call("page_render", &json!({"doc":resized_re,"page":1,"dpi":72})).unwrap(), resized_pixels);
+    ok(&mut a, "edit_undo", json!({"doc":doc}));
+    assert_eq!(a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap(), pixels);
+    ok(&mut a, "text_edit", json!({"doc":doc,"page":1,"paragraph":2,"text":"Edited caption"}));
+    ok(&mut a, "doc_save", json!({"doc":doc,"path":"out/edited.pdf"}));
+    let re = ok(&mut a, "doc_open", json!({"path":"out/edited.pdf"}))["doc"].as_u64().unwrap();
+    assert_eq!(ok(&mut a, "text_paragraphs", json!({"doc":re,"page":1}))["paragraphs"][1]["editor_text"], "Edited caption");
+    assert_eq!(ok(&mut a, "page_images", json!({"doc":re,"page":1})), images, "image placement and crop survive text editing");
+    ok(&mut a, "edit_undo", json!({"doc":doc}));
+    assert_eq!(a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap(), pixels);
+}
+
 /// Independent inch/mm dimensions, checked in the saved file through the tool path.
 #[test]
 fn architectural_and_iso_papers_through_tools() {
@@ -4412,4 +4911,62 @@ fn architectural_and_iso_papers_through_tools() {
     assert!(matches!(bad, Err(ToolError::InvalidArgs(m)) if m.contains("ARCH E1") && m.contains("A0")));
     assert_eq!(std::fs::read(dir.join("plot.pdf")).unwrap(), before);
     assert!(a.call("doc_print", &json!({"doc": doc, "paper": "ARCH D", "path": "../escape.pdf"})).is_err());
+}
+
+#[test]
+fn private_crops_with_nested_state_resize_save_reopen_through_tools() {
+    use pdfcraft_cos::{Dict, Document, Object, Stream, write_incremental};
+    let dir = workdir("private-crop-state");
+    let mut cos = Document::open(std::sync::Arc::new(fixture(1))).unwrap();
+    let page = pdfcraft_model::pages(&cos)[0].clone();
+    let mut image = Dict::new();
+    for (key, value) in [
+        ("Type", Object::name("XObject")),
+        ("Subtype", Object::name("Image")),
+        ("Width", Object::Int(1)),
+        ("Height", Object::Int(1)),
+        ("BitsPerComponent", Object::Int(8)),
+        ("ColorSpace", Object::name("DeviceRGB")),
+    ] {
+        image.set(key.as_bytes().to_vec(), value);
+    }
+    let image = cos.add(Object::Stream(Stream::flate(image, &[220, 235, 245])));
+    let mut resources = cos.resolve(page.dict.get(b"Resources").unwrap()).as_dict().unwrap().clone();
+    let mut xo = Dict::new();
+    xo.set(b"Im0".to_vec(), Object::Ref(image));
+    resources.set(b"XObject".to_vec(), Object::Dict(xo));
+    let parts: [&[u8]; 3] =
+        [b"q 30 170 130 80 re W*", b"n 0.5 g q 800 0 0 900 -300 -400 cm /Im0 Do", b"Q Q BT /F1 12 Tf 30 130 Td (Neighbour caption) Tj ET"];
+    let refs = parts.iter().map(|b| Object::Ref(cos.add(Object::Stream(Stream::flate(Dict::new(), b))))).collect();
+    cos.update_dict(page.obj, |d| {
+        d.set(b"Resources".to_vec(), Object::Dict(resources));
+        d.set(b"Contents".to_vec(), Object::Array(refs));
+    })
+    .unwrap();
+    std::fs::write(dir.join("crop.pdf"), write_incremental(&cos, &Default::default()).unwrap()).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({"path":"crop.pdf"}))["doc"].as_u64().unwrap();
+    let original = ok(&mut a, "page_images", json!({"doc":doc,"page":1}));
+    let labels = ok(&mut a, "text_paragraphs", json!({"doc":doc,"page":1}));
+    let pixels = a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap();
+    for factor in [1.2, 0.7] {
+        let rect = [30.0 + (-300.0 - 30.0) * factor, 50.0 + (-200.0 - 50.0) * factor, 30.0 + (500.0 - 30.0) * factor, 50.0 + (700.0 - 50.0) * factor];
+        ok(&mut a, "image_edit", json!({"doc":doc,"page":1,"image":1,"action":"move","rect":rect}));
+        let images = ok(&mut a, "page_images", json!({"doc":doc,"page":1}));
+        let expected = [30.0, 50.0, 30.0 + 130.0 * factor, 50.0 + 80.0 * factor];
+        for (actual, expected) in images["images"][0]["visible_rect"].as_array().unwrap().iter().zip(expected) {
+            assert!((actual.as_f64().unwrap() - expected).abs() < 0.01);
+        }
+        assert_eq!(images["images"][0]["pixels"], original["images"][0]["pixels"]);
+        assert_eq!(ok(&mut a, "text_paragraphs", json!({"doc":doc,"page":1})), labels);
+        let resized = a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap();
+        assert_ne!(resized, pixels, "the actual crop changes size");
+        ok(&mut a, "doc_save", json!({"doc":doc,"path":"out/resized.pdf"}));
+        let re = ok(&mut a, "doc_open", json!({"path":"out/resized.pdf"}))["doc"].as_u64().unwrap();
+        assert_eq!(ok(&mut a, "page_images", json!({"doc":re,"page":1})), images);
+        assert_eq!(a.call("page_render", &json!({"doc":re,"page":1,"dpi":72})).unwrap(), resized);
+        ok(&mut a, "edit_undo", json!({"doc":doc}));
+        assert_eq!(a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap(), pixels);
+        assert_eq!(ok(&mut a, "page_images", json!({"doc":doc,"page":1})), original);
+    }
 }

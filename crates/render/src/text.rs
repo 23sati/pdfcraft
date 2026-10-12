@@ -740,6 +740,10 @@ const REDRAW_CANDIDATES: usize = 32;
 /// Pair tests that the collision sweep may make per glyph of a segment. Ordinary text overlaps each glyph with about one
 /// neighbour, so it stays far below this. A segment that needs more is dense, and [`collide`] joins its runs instead.
 const COLLIDE_PAIRS_PER_GLYPH: usize = 16;
+/// Glyph positions within a fifth of their height are considered the same for redraws.
+const REDRAW_POSITION_TOLERANCE: f32 = 0.2;
+/// A reset needs three matching glyphs at the start of the run, keeping local kerning from splitting it.
+const REDRAW_PREFIX_GLYPHS: usize = 3;
 
 /// Reusable buffers, so a page allocates them once rather than per segment. Glyph placement works in them, one
 /// segment at a time, when the segment is emitted.
@@ -818,11 +822,42 @@ fn redraws(glyphs: &[&TextGlyph], a: Run, b: Run) -> bool {
     a.len() == b.len()
         && a.range().zip(b.range()).all(|(i, j)| match (glyphs.get(i), glyphs.get(j)) {
             (Some(p), Some(g)) => {
-                let tol = 0.2 * (g.rect[3] - g.rect[1]).max(0.1);
+                let tol = REDRAW_POSITION_TOLERANCE * (g.rect[3] - g.rect[1]).max(0.1);
                 p.text == g.text && (p.rect[0] - g.rect[0]).abs() < tol && (p.rect[1] - g.rect[1]).abs() < tol
             }
             _ => false,
         })
+}
+
+fn within_position_tolerance(a: f32, b: f32, tolerance: f32) -> bool {
+    (a - b).abs().partial_cmp(&tolerance) == Some(std::cmp::Ordering::Less)
+}
+
+/// Whether `next` restarts `start` after the run has advanced by a glyph height. The fixed prefix
+/// bounds this check and requires more than a single backward adjustment to split a run.
+fn restarts_run(glyphs: &[&TextGlyph], start: usize, next: usize, progress: f32) -> bool {
+    let (Some(first), Some(candidate)) = (glyphs.get(start), glyphs.get(next)) else { return false };
+    let tol = REDRAW_POSITION_TOLERANCE * (candidate.rect[3] - candidate.rect[1]).max(0.1);
+    if first.text != candidate.text
+        || !within_position_tolerance(first.rect[0], candidate.rect[0], tol)
+        || !within_position_tolerance(first.rect[1], candidate.rect[1], tol)
+    {
+        return false;
+    }
+    let h = (first.rect[3] - first.rect[1]).max(0.1);
+    if !progress.is_finite() || progress <= h {
+        return false;
+    }
+    for offset in 1..REDRAW_PREFIX_GLYPHS {
+        let (Some(a), Some(b)) = (start.checked_add(offset).and_then(|i| glyphs.get(i)), next.checked_add(offset).and_then(|i| glyphs.get(i))) else {
+            return false;
+        };
+        let tol = REDRAW_POSITION_TOLERANCE * (b.rect[3] - b.rect[1]).max(0.1);
+        if a.text != b.text || !within_position_tolerance(a.rect[0], b.rect[0], tol) || !within_position_tolerance(a.rect[1], b.rect[1], tol) {
+            return false;
+        }
+    }
+    true
 }
 
 /// Puts a segment's glyphs in visual reading order into `sc.placed`, and its forced word breaks into `sc.breaks`.
@@ -1059,6 +1094,8 @@ fn arrange(glyphs: &[TextGlyph]) -> (Vec<usize>, Vec<u32>, Vec<bool>) {
 
     // 1. Segments in content order. Every run is a range of consecutive glyphs.
     let mut segs: Vec<Seg> = Vec::new();
+    let mut run_start_x = 0.0;
+    let mut furthest_progress = 0.0;
     for i in 0..n {
         let g = glyphs[i].rect;
         let cont = segs.last().is_some_and(|s| {
@@ -1067,12 +1104,19 @@ fn arrange(glyphs: &[TextGlyph]) -> (Vec<usize>, Vec<u32>, Vec<bool>) {
             let gap = g[0] - glyphs[p].rect[2];
             (cy(i) - cy(p)).abs() < ph * 0.5 && gap < ph * 3.0 && g[0] > glyphs[p].rect[0] - ph * 2.0
         });
-        if cont && let Some(s) = segs.last_mut() {
+        let reset = cont && segs.last().is_some_and(|s| restarts_run(&glyphs, s.first.start, i, furthest_progress));
+        if cont
+            && !reset
+            && let Some(s) = segs.last_mut()
+        {
             s.first.end = i + 1;
             union(&mut s.bbox, &g);
             s.h = s.h.max(height(i));
+            furthest_progress = furthest_progress.max((g[0] - run_start_x).abs()).max((g[2] - run_start_x).abs());
         } else {
             segs.push(Seg::new(Run { start: i, end: i + 1 }, g, height(i)));
+            run_start_x = g[0];
+            furthest_progress = 0.0;
         }
     }
     // A run that redraws an earlier run at the same place (doubled or shadowed text) is dropped, as a doubled glyph is
@@ -1607,6 +1651,69 @@ mod tests {
     }
 
     #[test]
+    fn short_doubled_word_at_same_origin_does_not_interleave() {
+        let ops = "BT /F1 12 Tf 50 Tz 1 0 0 1 100 200 Tm (world) Tj ET\n".repeat(2);
+        assert_single_word(page_glyphs(&ops));
+    }
+
+    #[test]
+    fn short_near_shadow_does_not_interleave() {
+        let ops = "BT /F1 12 Tf 50 Tz 1 0 0 1 100 200 Tm (world) Tj ET\nBT /F1 12 Tf 50 Tz 1 0 0 1 101 200 Tm (world) Tj ET\n";
+        assert_single_word(page_glyphs(ops));
+    }
+
+    #[test]
+    fn turned_short_doubled_word_does_not_interleave() {
+        let one = turned(37.0, 1, 12.0, 100.0, 200.0, "50 Tz (world) Tj");
+        assert_single_word(page_glyphs(&(one.clone() + &one)));
+    }
+
+    #[test]
+    fn large_backward_tj_adjustment_stays_in_one_run() {
+        let text = page_glyphs("BT /F1 12 Tf 50 Tz 1 0 0 1 100 200 Tm [(wor) 3000 (ld)] TJ ET");
+        assert_eq!(text.plain_text(), "ld wor");
+        assert_eq!(text.glyphs.iter().map(|g| g.text.as_str()).collect::<Vec<_>>(), ["l", "d", "w", "o", "r"]);
+        assert!(text.line_of.iter().all(|line| *line == 0));
+        assert_eq!(text.space_before, [false, false, true, false, false]);
+    }
+
+    #[test]
+    fn reset_prefix_requires_one_glyph_height_of_progress() {
+        let mut glyphs = Vec::new();
+        word(&mut glyphs, "abc", 10.0, 10.0, 6.0);
+        word(&mut glyphs, "abc", 10.0, 10.0, 6.0);
+        let glyphs: Vec<&TextGlyph> = glyphs.iter().collect();
+        assert!(!restarts_run(&glyphs, 0, 3, 9.99));
+        assert!(!restarts_run(&glyphs, 0, 3, 10.0));
+        assert!(restarts_run(&glyphs, 0, 3, 10.01));
+    }
+
+    #[test]
+    fn reset_prefix_uses_the_existing_redraw_position_tolerance() {
+        let mut near = Vec::new();
+        word(&mut near, "abc", 10.0, 10.0, 6.0);
+        word(&mut near, "abc", 11.99, 10.0, 6.0);
+        let near: Vec<&TextGlyph> = near.iter().collect();
+        assert!(restarts_run(&near, 0, 3, 10.01));
+
+        let mut far = Vec::new();
+        word(&mut far, "abc", 10.0, 10.0, 6.0);
+        word(&mut far, "abc", 12.01, 10.0, 6.0);
+        let far: Vec<&TextGlyph> = far.iter().collect();
+        assert!(!restarts_run(&far, 0, 3, 10.01));
+    }
+
+    #[test]
+    fn reset_prefix_rejects_non_finite_positions() {
+        let mut glyphs = Vec::new();
+        word(&mut glyphs, "abc", 10.0, 10.0, 6.0);
+        word(&mut glyphs, "abc", 10.0, 10.0, 6.0);
+        glyphs[3].rect[0] = f32::NAN;
+        let glyphs: Vec<&TextGlyph> = glyphs.iter().collect();
+        assert!(!restarts_run(&glyphs, 0, 3, 10.01));
+    }
+
+    #[test]
     fn turned_lines_group_along_their_baseline() {
         // Two lines 13 pt apart, words separated by TJ offsets (no space glyphs), the second
         // line drawn first. Turned away from the quarter turns, the lines' boxes overlap.
@@ -1701,6 +1808,13 @@ mod tests {
 
     fn page_glyphs(ops: &str) -> PageText {
         extract_page(&text_page(ops), 0, &InterpreterSettings::default()).unwrap()
+    }
+
+    fn assert_single_word(text: PageText) {
+        assert_eq!(text.plain_text(), "world");
+        assert_eq!(text.glyphs.iter().map(|g| g.text.as_str()).collect::<String>(), "world");
+        assert_eq!(text.line_of, [0; 5]);
+        assert_eq!(text.space_before, [false; 5]);
     }
 
     #[test]

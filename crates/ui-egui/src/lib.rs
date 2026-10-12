@@ -82,6 +82,7 @@ mod home;
 mod icon_data;
 pub mod icons;
 pub mod last_session;
+mod page_selection_ui;
 mod pageboxes;
 mod palette;
 mod panels;
@@ -345,6 +346,8 @@ pub struct DuplicateDraft {
 /// Copied pages: their document's name and bytes (as it was when copied) and the pages.
 #[derive(Clone, Debug)]
 pub struct PageClip {
+    /// The document the pages were copied from: pasting back into it keeps field names.
+    pub from: DocId,
     pub name: String,
     pub bytes: std::sync::Arc<Vec<u8>>,
     pub pages: Vec<usize>,
@@ -588,6 +591,8 @@ pub struct PdfCraftApp {
     pub space_audit: Vec<pdfcraft_engine::optimize::SpaceUse>,
     /// Combine files: the files staged so far.
     pub combine_draft: Vec<combine_ui::CombineFile>,
+    /// The combine list's field-name conflict preview (computed once per list, never saved).
+    pub combine_conflicts: combine_ui::ConflictPreview,
     /// The Combine files tab: whether it is open, shown, its selection and undo history.
     pub combine_tab: combine_ui::CombineTab,
     /// The Combine files table's column order and widths (kept in the settings).
@@ -668,6 +673,8 @@ pub struct PdfCraftApp {
     /// The Create signature / initials dialog, and its typed preview.
     pub signature_draft: fill_sign::SigDraft,
     pub(crate) signature_preview: Option<(fill_sign::SavedSig, egui::TextureHandle)>,
+    /// The Scan tab's photo, keyed by its version.
+    pub(crate) signature_photo: Option<(u64, egui::TextureHandle)>,
     pub(crate) saved_signature_previews: [Option<(fill_sign::SavedSig, egui::TextureHandle)>; 2],
     /// What visible digital signatures show on their left, and its preview in Sign as.
     pub sign_graphic: sign_ui::SignGraphic,
@@ -858,6 +865,7 @@ impl PdfCraftApp {
             cert_viewer: None,
             space_audit: Vec::new(),
             combine_draft: Vec::new(),
+            combine_conflicts: Default::default(),
             combine_tab: Default::default(),
             combine_columns: Default::default(),
             combine_view: Default::default(),
@@ -902,6 +910,7 @@ impl PdfCraftApp {
             initials: None,
             signature_draft: Default::default(),
             signature_preview: None,
+            signature_photo: None,
             saved_signature_previews: [None, None],
             sign_graphic: sign_ui::SignGraphic::Name,
             sign_graphic_preview: None,
@@ -1991,9 +2000,9 @@ impl PdfCraftApp {
             }
             ("fields", Some(v)) => v.highlight_fields = value != "off",
             ("select", Some(v)) => {
-                // `--select 2,3,5` (1-based) selects pages in the organize grid.
-                let pages: Result<Vec<usize>, _> = value.split(',').map(|p| p.trim().parse::<usize>().map(|n| n.saturating_sub(1))).collect();
-                v.select_pages(&pages.map_err(|_| "select: comma-separated page numbers")?);
+                // The same physical page ranges as the Organize Pages selection field.
+                let pages = crate::page_selection_ui::parse(value, v.page_count()).map_err(|e| e.to_string())?;
+                v.select_pages(&pages);
             }
             ("notice", Some(v)) => v.notice_dismissed = value == "off",
             ("quick", _) => {
@@ -2273,6 +2282,8 @@ impl eframe::App for PdfCraftApp {
         #[cfg(target_arch = "wasm32")]
         self.process_signature_images();
         let dropped = ctx.input(|i| i.raw.dropped_files.clone());
+        #[cfg(not(target_arch = "wasm32"))]
+        let dropped = self.drop_on_signature_pad(dropped);
         #[cfg(not(target_arch = "wasm32"))]
         let dropped = self.drop_on_grid(dropped, ctx);
         for f in dropped {
