@@ -3217,7 +3217,11 @@ fn local_gotor_link_open_applies_destinations_and_honors_root() {
     std::fs::write(root.join("non-pdf-source.pdf"), remote_link_pdf("not-pdf.pdf", Some("[0 /Fit]"))).unwrap();
     std::fs::write(root.join("encrypted.pdf"), protected_fixture("secret")).unwrap();
     std::fs::write(root.join("password-source.pdf"), remote_link_pdf("encrypted.pdf", Some("[0 /Fit]"))).unwrap();
-    std::fs::write(root.join("absolute.pdf"), remote_link_pdf(root.join("target.pdf").to_str().unwrap(), Some("[1 /Fit]"))).unwrap();
+    // Use an ordinary absolute path, not the Windows verbatim prefix from canonicalize().
+    let absolute_target = base.join("root/target.pdf");
+    assert!(absolute_target.is_absolute());
+    assert_eq!(absolute_target.canonicalize().unwrap(), root.join("target.pdf"));
+    std::fs::write(root.join("absolute.pdf"), remote_link_pdf(absolute_target.to_str().unwrap(), Some("[1 /Fit]"))).unwrap();
     link_dir(&root, "outside-link", &base.join("outside"));
     std::fs::write(root.join("symlink.pdf"), remote_link_pdf("outside-link/secret.pdf", Some("[0 /Fit]"))).unwrap();
 
