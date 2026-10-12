@@ -8,8 +8,10 @@
 
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
+mod pptx;
 mod zip;
 
+pub use pptx::pptx;
 pub use zip::Zip;
 
 /// A paragraph of a page.
@@ -120,7 +122,7 @@ fn is_cell_like(b: &Block) -> bool {
 /// Detect tables in a page's blocks from their text layout: columns are left edges shared by
 /// several short blocks, rows are blocks whose vertical spans overlap. Returns the tables and,
 /// per block, whether a table consumed it (so `items` can drop it from the paragraph flow).
-fn tables(blocks: &[Block]) -> (Vec<Table>, Vec<bool>) {
+pub(crate) fn tables(blocks: &[Block]) -> (Vec<Table>, Vec<bool>) {
     let mut consumed = vec![false; blocks.len()];
     // Candidate columns: cluster the left edges of cell-like blocks.
     let mut xs: Vec<(f64, usize)> = blocks.iter().enumerate().filter(|(_, b)| is_cell_like(b)).map(|(i, b)| (b.rect[0], i)).collect();
@@ -326,7 +328,7 @@ fn allowed(c: char) -> bool {
     matches!(c, '\t' | '\n' | '\r') || !(c.is_ascii_control() || c == '\u{FFFE}' || c == '\u{FFFF}')
 }
 
-fn esc(s: &str) -> String {
+pub(crate) fn esc(s: &str) -> String {
     let mut o = String::with_capacity(s.len());
     for c in s.chars().filter(|c| allowed(*c)) {
         match c {
@@ -410,13 +412,13 @@ table{{border-collapse:collapse;margin:1em 0}}td,th{{border:1px solid #999;paddi
 }
 
 /// A colour's 8-bit sRGB components (NaN and out-of-range values clamp; NaN reads as 0).
-fn rgb8(c: [f64; 3]) -> [u8; 3] {
+pub(crate) fn rgb8(c: [f64; 3]) -> [u8; 3] {
     // The value is clamped to 0..=255 before the cast, so it cannot truncate.
     c.map(|v| if v.is_finite() { (v.clamp(0.0, 1.0) * 255.0).round() as u8 } else { 0 })
 }
 
 /// The colour as `RRGGBB`, or `None` for black (the default every format already uses).
-fn hex(c: [f64; 3]) -> Option<String> {
+pub(crate) fn hex(c: [f64; 3]) -> Option<String> {
     let [r, g, b] = rgb8(c);
     (r | g | b != 0).then(|| format!("{r:02X}{g:02X}{b:02X}"))
 }
@@ -925,7 +927,7 @@ mod tests {
     }
 
     /// One part of a package written by [`Zip`], inflated.
-    fn part(zip: &[u8], name: &str) -> String {
+    pub(crate) fn part(zip: &[u8], name: &str) -> String {
         let at = |i: usize, n: usize| zip[i..i + n].iter().rev().fold(0usize, |v, b| v << 8 | *b as usize);
         let mut i = 0;
         while zip[i..].starts_with(b"PK\x03\x04") {
@@ -982,9 +984,13 @@ mod tests {
         let h = html(&[p.clone()], "Colour");
         assert!(h.contains("<h1 style=\"color:#0D3B2E\">Annual Report</h1>"), "{h}");
         assert!(h.contains("<p style=\"color:#00FF00\">"), "{h}");
-        let r = rtf(&[p]);
+        let r = rtf(&[p.clone()]);
         assert!(r.contains("{\\colortbl;\\red13\\green59\\blue46;\\red0\\green255\\blue0;}"), "{r}");
         assert!(r.contains("\\cf1 Annual Report"), "{r}");
+        let ppt = pptx(&[p], "Colour");
+        let pxml = part(&ppt, "ppt/slides/slide1.xml");
+        assert!(pxml.contains("<a:srgbClr val=\"0D3B2E\"/>"), "{pxml}");
+        assert!(pxml.contains("<a:srgbClr val=\"00FF00\"/>"), "out-of-range values clamp: {pxml}");
         // A table cell keeps its colour too.
         let mut t = table_page();
         t.blocks[0].color = [1.0, 0.0, 0.0];
@@ -1070,12 +1076,20 @@ mod tests {
         assert!(table_xml.contains("<w:gridSpan w:val=\"2\"/>"), "{table_xml}");
         assert_eq!(table_xml.matches("<w:tr>").count(), 4);
 
-        let r = rtf(&[p]);
+        let r = rtf(std::slice::from_ref(&p));
         assert!(r.contains("\\trowd"), "{r}");
         assert_eq!(r.matches("\\row").count(), 4);
         // Boundaries precede the cells; "Totals" spans two columns, so it ends at the third edge.
         assert!(r.contains("\\trowd\\trgaph108\\cellx4640\\cellx7840\\cellx9920{"), "{r}");
         assert!(r.contains("\\trowd\\trgaph108\\cellx7840{\\intbl\\fs22 Totals}\\cell\\row"), "{r}");
+
+        let pt = pptx(std::slice::from_ref(&p), "Bill");
+        assert!(pt.starts_with(b"PK"));
+        assert!(pt.windows(b"ppt/slides/slide1.xml".len()).any(|w| w == b"ppt/slides/slide1.xml"));
+        let slide_xml = part(&pt, "ppt/slides/slide1.xml");
+        assert!(slide_xml.contains("<a:tbl>"));
+        assert!(slide_xml.contains("gridSpan=\"2\""));
+        assert_eq!(slide_xml.matches("<a:tr ").count(), 4);
     }
 
     #[test]
