@@ -92,6 +92,9 @@ impl PdfCraftApp {
         let Some(a) = doc.info.annotations.iter().find(|a| a.page == page && a.index == index && a.in_reply_to.is_none()) else { return };
         let Some(tool) = crate::comments::tool_for(a) else { return };
         let Some(p) = doc.comment_props(page, index) else { return };
+        // The Arrow tool draws a Line with an open arrow ending: such a line sets its defaults.
+        let arrow = p.endings.as_deref().is_some_and(|e| e.contains(&LineEnding::OpenArrow));
+        let tool = if tool == crate::comments::CommentTool::Line && arrow { crate::comments::CommentTool::Arrow } else { tool };
         let mut style = self.comment_prefs.style(tool);
         if let Some(c) = p.color {
             style.color = c;

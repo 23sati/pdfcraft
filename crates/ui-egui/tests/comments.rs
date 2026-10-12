@@ -761,6 +761,48 @@ fn the_panel_filters_by_colour_and_checkmark() {
     assert_eq!(cards(&h), before);
 }
 
+/// #1302: an arrow is saved as a Line with an open arrow ending; making it the default must set
+/// the Arrow tool's style and leave plain lines alone, and the other way round.
+#[test]
+fn an_arrow_made_default_sets_the_arrow_tool_not_the_line_tool() {
+    use pdfcraft_ui_egui::comments::CommentTool;
+    let mut h = harness(|app| app.set_option("quick", "arrow").unwrap());
+    drag_pt(&mut h, (20.0, 20.0), (120.0, 30.0));
+    h.state_mut().set_option("quick", "line").unwrap();
+    drag_pt(&mut h, (20.0, 100.0), (120.0, 110.0));
+    h.state_mut().set_option("quick", "select").unwrap();
+    assert_eq!(comments(&h).iter().map(|a| a.subtype.as_str()).collect::<Vec<_>>(), ["Line", "Line"]);
+    let style = |h: &Harness<'static, PdfCraftApp>, tool| {
+        let st = h.state().comment_prefs.style(tool);
+        (st.color, st.opacity, st.width)
+    };
+    let (arrow, line) = (style(&h, CommentTool::Arrow), style(&h, CommentTool::Line));
+    let blue = ([0.0, 0.47, 0.84], 0.5, 6.0);
+    let green = ([0.0, 0.6, 0.0], 0.8, 3.0);
+    assert!(![arrow, line].contains(&blue) && ![arrow, line].contains(&green));
+    for (index, (color, opacity, width)) in [(0, blue), (1, green)] {
+        h.state_mut().apply_edit(pdfcraft_engine::Edit::StyleAnnotation {
+            page: 0,
+            index,
+            color: Some(color),
+            opacity: Some(opacity),
+            width: Some(width),
+            endings: None,
+        });
+    }
+    h.run_steps(2);
+
+    h.state_mut().make_comment_default(0, 0);
+    assert_eq!(style(&h, CommentTool::Arrow), blue, "the arrow's style becomes the Arrow default");
+    assert_eq!(style(&h, CommentTool::Line), line, "plain lines keep theirs");
+    assert_eq!(h.state().toast.as_ref().map(|t| t.0.as_str()), Some("New arrow comments will look like this one"));
+
+    // Control: the plain line still sets the Line default, and leaves arrows alone.
+    h.state_mut().make_comment_default(0, 1);
+    assert_eq!(style(&h, CommentTool::Line), green);
+    assert_eq!(style(&h, CommentTool::Arrow), blue);
+}
+
 #[test]
 fn make_current_properties_default() {
     let mut h = harness(|app| {
