@@ -736,6 +736,7 @@ impl Automation {
             "ocr_recognize_files" => self.ocr_recognize_files(&a)?,
             "accessibility_report" => self.a11y_report(&a)?,
             "accessibility_review_record" => self.a11y_review_record(&a)?,
+            "accessibility_review_html" => self.a11y_review_html(&a)?,
             "accessibility_fix" => self.a11y_fix(&a)?,
             "accessibility_figures" => self.accessibility_figures(&a)?,
             "accessibility_set_alt" => self.accessibility_set_alt(&a)?,

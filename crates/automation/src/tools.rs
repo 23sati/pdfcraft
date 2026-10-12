@@ -879,6 +879,17 @@ pub fn tools() -> Vec<ToolDef> {
                 }),
                 &["before", "after", "path"],
             )),
+        t("accessibility_review_html", "Accessibility review summary", "Compare two open versions of a PDF and write a self-contained HTML summary of the same evidence as accessibility_review_record: document hashes, outcome counts, rule changes, and rules still requiring review. Does not change either PDF or claim accessibility compliance.")
+            .destructive()
+            .with(schema(
+                json!({
+                    "before": doc(),
+                    "after": doc(),
+                    "path": { "type": "string" },
+                    "all": { "type": "boolean", "description": "Include rules that are off by default (colour contrast)." },
+                }),
+                &["before", "after", "path"],
+            )),
         t("accessibility_fix", "Fix an accessibility problem", "Apply the checker's automatic fix for a rule: primary-language (value: the language, e.g. en-US), title (value: the title; default the current title or file name; also shows it in the title bar) or tab-order (every page tabs in structure order). Returns the rule's new status. Undoable.")
             .with(schema(json!({ "doc": doc(), "rule": { "type": "string", "enum": ["primary-language", "title", "tab-order"] }, "value": { "type": "string" } }), &["doc", "rule"])),
         t("accessibility_figures", "List figures", "The tagged figures (Figure elements, through the role map) in document order: figure number, page, alternate text and where the figure is drawn (top-left-origin points).")

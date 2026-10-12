@@ -1702,13 +1702,28 @@ fn accessibility_review_record_compares_two_versions_without_changing_them() {
     assert_eq!(language["before"]["status"], "failed");
     assert_eq!(language["after"]["status"], "passed");
     assert!(file["review_required"].as_array().unwrap().iter().any(|r| r == "tagged-pdf"));
+    let html_output = ok(&mut a, "accessibility_review_html", json!({ "before": before, "after": after, "path": "review.html" }));
+    assert_eq!(html_output["record"], file);
+    let html = std::fs::read_to_string(dir.join("review.html")).unwrap();
+    assert!(html.contains("<html lang=\"en\">") && html.contains("Accessibility checker outcomes"));
+    assert!(html.contains("Primary language") && html.contains("<td>Changed</td>"));
+    assert!(html.contains("Still requiring review") && html.contains("Tagged PDF"));
+    assert!(html.contains(file["before"]["sha256"].as_str().unwrap()));
+    assert!(html.contains("validate the final PDF independently"));
     assert_eq!(std::fs::read(dir.join("a.pdf")).unwrap(), source);
     assert!(matches!(
         a.call("accessibility_review_record", &json!({ "before": before, "after": before, "path": "same.json" })),
         Err(ToolError::InvalidArgs(_))
     ));
     assert!(!dir.join("same.json").exists());
+    assert!(matches!(
+        a.call("accessibility_review_html", &json!({ "before": before, "after": before, "path": "same.html" })),
+        Err(ToolError::InvalidArgs(_))
+    ));
+    assert!(!dir.join("same.html").exists());
     assert!(a.call("accessibility_review_record", &json!({ "before": before, "after": after, "path": "../escape.json" })).is_err());
+    assert!(a.call("accessibility_review_html", &json!({ "before": before, "after": after, "path": "../escape.html" })).is_err());
+    assert!(!dir.parent().unwrap().join("escape.html").exists());
 }
 
 #[test]

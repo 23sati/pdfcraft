@@ -8385,9 +8385,9 @@ tier = "P1"
 milestone = "M12"
 status = "shipped"
 commands = ["a11y.report"]
-tools = ["accessibility_report"]
-evidence = ["crates/a11y/src/tests.rs::rules_have_ids_and_the_report_lists_them", "crates/ui-egui/tests/accessibility.rs::checking_fixing_skipping_and_reporting", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools"]
-notes = "HTML report: summary counts and a table per category with descriptions and findings"
+tools = ["accessibility_report", "accessibility_review_record", "accessibility_review_html"]
+evidence = ["crates/a11y/src/tests.rs::rules_have_ids_and_the_report_lists_them", "crates/ui-egui/tests/accessibility.rs::checking_fixing_skipping_and_reporting", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools", "crates/automation/tests/automation.rs::accessibility_review_record_compares_two_versions_without_changing_them", "crates/automation/src/a11y.rs::document_names_are_escaped_in_review_html"]
+notes = "HTML checker report: summary counts and a table per category with descriptions and findings. Headless comparison of two open versions exports the same before-and-after evidence as JSON or accessible, self-contained HTML with hashes, rule changes, and remaining review items."
 
 [[feature]]
 id = "a11y.checker-fix"
