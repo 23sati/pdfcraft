@@ -487,6 +487,10 @@ pub struct PdfCraftApp {
     pub motion: motion::Motion,
     /// Interface language preference: `auto` (follow the system) or a code from [`i18n::LANGUAGES`].
     pub language: String,
+    /// Chosen form of address per interface language; absent means ask on first use.
+    pub address: std::collections::HashMap<String, i18n::Address>,
+    /// Interactive hosts opt into the first-use prompt after restoring settings and launch options.
+    address_setup: bool,
     /// Preferences ▸ Interface size as a factor, or `None` to follow [`Self::system_text_scale`].
     pub ui_scale: Option<f32>,
     /// The desktop's text scaling (GNOME's text scaling factor), which the desktop app reads at
@@ -824,6 +828,8 @@ impl PdfCraftApp {
             animation_effects: motion::AnimationEffects::default(),
             motion: motion::Motion::default(),
             language: i18n::AUTO.to_string(),
+            address: Default::default(),
+            address_setup: false,
             ui_scale: None,
             system_text_scale: 1.0,
             ui_scale_applied: None,
@@ -1466,10 +1472,30 @@ impl PdfCraftApp {
         self.active.and_then(|i| self.views.get(i).map(|v| (i, v.id)))
     }
 
-    /// A dialog or prompt is open over the window: the keyboard is its own, and nothing may act
-    /// on the document underneath it.
+    /// Resolve the interface language and its saved address, defaulting to formal.
+    pub fn ui_language(&self) -> i18n::Lang {
+        let lang = i18n::Lang::from_pref(&self.language);
+        lang.with_address(self.address.get(lang.code()).copied().unwrap_or(i18n::Address::Formal))
+    }
+
+    pub(crate) fn address_pending(&self) -> bool {
+        let lang = self.ui_language();
+        self.address_setup && lang.supports_address() && !self.address.contains_key(lang.code())
+    }
+
+    pub fn request_address_choice(&mut self) {
+        self.address_setup = true;
+    }
+
+    pub(crate) fn choose_address(&mut self, address: i18n::Address) {
+        self.address.insert(self.ui_language().code().to_owned(), address);
+        i18n::set_current(self.ui_language());
+    }
+
+    /// A dialog or prompt owns the keyboard; nothing may act on the document underneath it.
     pub(crate) fn modal_open(&self) -> bool {
-        self.dialog.is_some()
+        self.address_pending()
+            || self.dialog.is_some()
             || self.close_request.is_some()
             || self.password_prompt.is_some()
             || self.unlock_prompt.is_some()
@@ -1745,6 +1771,11 @@ impl PdfCraftApp {
     /// Serialize the user's persistent state (recent files, theme). Local only.
     pub fn persist(&self) -> String {
         let trusted: Vec<String> = self.session.trusted_certificates().iter().map(pdfcraft_engine::sign::x509::to_pem).collect();
+        let mut address = self.address.clone();
+        if self.address_pending() {
+            // Closing the app before choosing accepts formal address; do not ask again next launch.
+            address.insert(self.ui_language().code().to_owned(), i18n::Address::Formal);
+        }
         serde_json::json!({
             "docking": self.docking,
             "docking_left_open": self.left_open,
@@ -1764,6 +1795,7 @@ impl PdfCraftApp {
             "highlight_fields": self.view_defaults.highlight_fields,
             "units": self.units,
             "language": self.language,
+            "address": address,
             "reading_colors": self.reading_colors,
             // Null follows the system's text scaling.
             "ui_scale": self.ui_scale,
@@ -1809,6 +1841,21 @@ impl PdfCraftApp {
     /// Restore state written by `persist`. Unknown or malformed data is ignored.
     pub fn restore(&mut self, json: &str) {
         let Ok(v) = serde_json::from_str::<serde_json::Value>(json) else { return };
+        if let Some(choices) = v.get("address").and_then(serde_json::Value::as_object) {
+            for (code, value) in choices {
+                if let Some(lang) = i18n::Lang::from_code(code).filter(|l| l.supports_address())
+                    && let Some(address) = value.as_str().and_then(i18n::Address::parse)
+                {
+                    self.address.insert(lang.code().to_owned(), address);
+                }
+            }
+        } else if v.is_object() && v.get("address").is_none() {
+            // Existing installations keep their previous register without a new startup prompt.
+            for lang in i18n::Lang::all().filter(|l| l.supports_address()) {
+                self.address.insert(lang.code().to_owned(), lang.default_address());
+            }
+            self.address.insert("de".to_owned(), i18n::Address::Informal);
+        }
         if let Some(saved) = v.get("docking")
             && let Ok(workspace) = serde_json::from_value::<docking::Workspace>(saved.clone())
             && workspace.validate().is_ok()
@@ -1963,6 +2010,19 @@ impl PdfCraftApp {
     pub fn set_option(&mut self, key: &str, value: &str) -> Result<(), String> {
         let view = self.active.and_then(|i| self.views.get_mut(i));
         match (key, view) {
+            ("address", _) => {
+                let lang = i18n::Lang::from_pref(&self.language);
+                if !lang.supports_address() {
+                    return Err("the interface language has no alternative form of address".into());
+                }
+                if value == "ask" {
+                    self.address.remove(lang.code());
+                    self.request_address_choice();
+                } else {
+                    let address = i18n::Address::parse(value).ok_or("address must be formal, informal, or ask")?;
+                    self.address.insert(lang.code().to_owned(), address);
+                }
+            }
             ("language", _) => {
                 let language = i18n::normalize_pref(value).ok_or_else(|| {
                     let codes: Vec<&str> = std::iter::once(i18n::AUTO).chain(i18n::Lang::all().map(i18n::Lang::code)).collect();
@@ -2393,7 +2453,7 @@ impl eframe::App for PdfCraftApp {
         self.ctx = Some(ctx.clone());
         self.dialog_epoch();
         // Notices raised outside `ui` (opened files, OS events, the control channel) translate too.
-        let lang = i18n::Lang::from_pref(&self.language);
+        let lang = self.ui_language();
         i18n::set_current(lang);
         // Chinese wants its own faces before the Japanese ones (one baseline per line).
         let cjk = theme::CjkPreference::for_language(lang.code());
@@ -2534,7 +2594,7 @@ impl eframe::App for PdfCraftApp {
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
-        i18n::set_current(i18n::Lang::from_pref(&self.language));
+        i18n::set_current(self.ui_language());
         // Fonts registered via set_fonts only take effect next frame; named families would panic now.
         if !self.fonts_ready {
             ctx.request_repaint();
