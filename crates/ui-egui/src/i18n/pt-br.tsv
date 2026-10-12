@@ -332,6 +332,14 @@
 	of the following fields:	dos seguintes campos:
 	Simplified field notation:	Notação simplificada de campo:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Nomes de campos com + - * / e parênteses; coloque \\ antes de espaços em nomes.
+
+# Document font selection
+	Finding document fonts…	Buscando fontes para o documento…
+	Installed fonts…	Fontes instaladas…
+	Keep source fonts	Manter fontes originais
+	Load font…	Carregar fonte…
+	No openly licensed document fonts found. Load a font file.	Nenhuma fonte com licença aberta encontrada. Carregue um arquivo de fonte.
+
 	Format text	Formatar texto
 	Bold	Negrito
 	Italic	Itálico
@@ -1808,6 +1816,7 @@
 	Edit document JavaScript	Editar JavaScript do documento
 	Edit script of {name}	Editar script de {name}
 	Edit text	Editar texto
+	Load document font	Carregar fonte do documento
 	Embedded files must be PDF/A files themselves (use PDF/A-3 for others)	Os arquivos incorporados devem ser arquivos PDF/A por si mesmos (use PDF/A-3 para outros)
 	Erase	Apagar
 	Fill & Sign: change initials	Preencher e assinar: alterar rubrica
@@ -2272,3 +2281,11 @@ scroll speed	Fast	Rápida
 	Tools panel side	Lado do painel Ferramentas
 	Add comment	Adicionar comentário
 	Change tag properties	Alterar propriedades da tag
+	Scan	Digitalizar
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Assine uma folha de papel branco e tire uma foto dela com luz forte e uniforme (use o flash). Escolha a foto ou solte-a aqui: o PdfCraft encontra a assinatura e remove o papel.
+	Choose photo…	Escolher foto…
+	No photo chosen	Nenhuma foto escolhida
+	Photo	Foto
+	Ink sensitivity	Sensibilidade à tinta
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Nenhuma assinatura encontrada no quadro. Mova o quadro sobre a assinatura ou aumente a sensibilidade à tinta.
+	Couldn't use the photo: {e}	Não foi possível usar a foto: {e}

@@ -656,6 +656,11 @@
 	of the following fields:	aşağıdaki alanların:
 	Simplified field notation:	Basitleştirilmiş alan gösterimi:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Adlarda + - * / ve parantez içeren alan adları; adlardaki boşluklardan önce \\ koyun.
+	Finding document fonts…	Belge yazı tipleri aranıyor…
+	Installed fonts…	Yüklü yazı tipleri…
+	Keep source fonts	Kaynak yazı tiplerini koru
+	Load font…	Yazı tipi yükle…
+	No openly licensed document fonts found. Load a font file.	Açık lisanslı belge yazı tipi bulunamadı. Bir yazı tipi dosyası yükleyin.
 	Format text	Metni biçimlendir
 	Bold	Kalın
 	Italic	İtalik
@@ -1793,6 +1798,7 @@
 	Delete document JavaScript	Belge JavaScript'ini sil
 	Edit document JavaScript	Belge JavaScript'ini düzenle
 	Edit text	Metni düzenle
+	Load document font	Belge yazı tipini yükle
 	Move image	Resmi taşı
 	Rotate image	Resmi döndür
 	Flip image	Resmi çevir
@@ -2257,3 +2263,11 @@ scroll speed	Fast	Hızlı
 	Add comment	Yorum ekle
 	Change tag properties	Etiket özelliklerini değiştir
 @plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} alan adı önceki dosyalarla çakışıyor ve yeniden adlandırılacak: {list}
+	Scan	Tara
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Beyaz bir kâğıda imzanızı atın ve parlak, eşit ışıkta fotoğrafını çekin (flaş kullanın). Fotoğrafı seçin veya buraya bırakın: PdfCraft imzayı bulur ve kâğıdı kaldırır.
+	Choose photo…	Fotoğraf seç…
+	No photo chosen	Fotoğraf seçilmedi
+	Photo	Fotoğraf
+	Ink sensitivity	Mürekkep hassasiyeti
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Çerçevede imza bulunamadı. Çerçeveyi imzanın üzerine taşıyın veya mürekkep hassasiyetini artırın.
+	Couldn't use the photo: {e}	Fotoğraf kullanılamadı: {e}

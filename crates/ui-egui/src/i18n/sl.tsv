@@ -668,6 +668,7 @@
 	Edit image	Uredi sliko
 	Edit script of {name}	Uredi skript: {name}
 	Edit text	Uredi besedilo
+	Load document font	Naloži pisavo dokumenta
 	Edit text & images	Uredi besedilo in slike
 	Edit text…	Uredi besedilo…
 	Editing	Urejanje
@@ -843,6 +844,11 @@
 	Form fields panel	Razdelek s polji obrazca
 	Form fill-in and digital signatures	Izpolnjevanje obrazcev in digitalni podpisi
 	Format	Oblika
+	Finding document fonts…	Iskanje pisav dokumenta…
+	Installed fonts…	Nameščene pisave…
+	Keep source fonts	Ohrani izvirne pisave
+	Load font…	Naloži pisavo…
+	No openly licensed document fonts found. Load a font file.	Ni najdenih pisav dokumenta z odprto licenco. Naložite datoteko pisave.
 	Format text	Oblikuj besedilo
 	Format:	Oblika:
 	Forms	Obrazci
@@ -2266,3 +2272,11 @@ scroll speed	Fast	Hitro
 	Add comment	Dodaj komentar
 	Change tag properties	Spremeni lastnosti oznake
 @plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} ime polja se ujema z imeni iz prejšnjih datotek in bo preimenovano: {list}|{n} imeni polj se ujemata z imeni iz prejšnjih datotek in bosta preimenovani: {list}|{n} imena polj se ujemajo z imeni iz prejšnjih datotek in bodo preimenovana: {list}|{n} imen polj se ujema z imeni iz prejšnjih datotek in bo preimenovanih: {list}
+	Scan	Skeniraj
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Podpišite se na list belega papirja in ga fotografirajte v močni, enakomerni svetlobi (uporabite bliskavico). Izberite fotografijo ali jo spustite sem: PdfCraft poišče podpis in odstrani papir.
+	Choose photo…	Izberi fotografijo…
+	No photo chosen	Fotografija ni izbrana
+	Photo	Fotografija
+	Ink sensitivity	Občutljivost za črnilo
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	V okvirju ni bilo najdenega podpisa. Premaknite okvir nad podpis ali povečajte občutljivost za črnilo.
+	Couldn't use the photo: {e}	Fotografije ni bilo mogoče uporabiti: {e}

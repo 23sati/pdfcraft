@@ -776,6 +776,11 @@ key	Space	Mezerník
 	of the following fields:	následujících polí:
 	Simplified field notation:	Zjednodušený zápis polí:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Názvy polí s + - * / a závorkami; mezery v názvech uvozujte znakem \\.
+	Finding document fonts…	Hledání písem dokumentu…
+	Installed fonts…	Nainstalovaná písma…
+	Keep source fonts	Zachovat zdrojová písma
+	Load font…	Načíst písmo…
+	No openly licensed document fonts found. Load a font file.	Nebyla nalezena žádná otevřeně licencovaná písma dokumentu. Načtěte soubor písma.
 	Format text	Formát textu
 	Bold	Tučné
 	Italic	Kurzíva
@@ -1944,6 +1949,7 @@ key	Space	Mezerník
 	Delete document JavaScript	Odstranit JavaScript dokumentu
 	Edit document JavaScript	Upravit JavaScript dokumentu
 	Edit text	Upravit text
+	Load document font	Načíst písmo dokumentu
 	Move image	Přesunout obrázek
 	Rotate image	Otočit obrázek
 	Flip image	Převrátit obrázek
@@ -2335,3 +2341,11 @@ scroll speed	Fast	Rychlá
 	Tools panel side	Strana panelu nástrojů
 	Add comment	Přidat komentář
 	Change tag properties	Změnit vlastnosti značky
+	Scan	Skenovat
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Podepište se na bílý list papíru a vyfoťte ho při jasném, rovnoměrném světle (použijte blesk). Vyberte fotografii nebo ji sem přetáhněte: PdfCraft najde podpis a odstraní papír.
+	Choose photo…	Vybrat fotografii…
+	No photo chosen	Není vybrána žádná fotografie
+	Photo	Fotografie
+	Ink sensitivity	Citlivost na inkoust
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	V rámečku nebyl nalezen žádný podpis. Přesuňte rámeček na podpis nebo zvyšte citlivost na inkoust.
+	Couldn't use the photo: {e}	Fotografii nelze použít: {e}

@@ -692,6 +692,14 @@
 	of the following fields:	из следующих полей:
 	Simplified field notation:	Упрощённая запись полей:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Имена полей с + - * / и скобками; ставьте \\ перед пробелами в именах.
+
+# Document font selection
+	Finding document fonts…	Поиск шрифтов для документа…
+	Installed fonts…	Установленные шрифты…
+	Keep source fonts	Сохранить исходные шрифты
+	Load font…	Загрузить шрифт…
+	No openly licensed document fonts found. Load a font file.	Шрифты с открытой лицензией не найдены. Загрузите файл шрифта.
+
 	Format text	Форматировать текст
 	Bold	Полужирный
 	Italic	Курсив
@@ -1894,6 +1902,7 @@
 	Delete document JavaScript	Удалить JavaScript документа
 	Edit document JavaScript	Редактировать JavaScript документа
 	Edit text	Редактировать текст
+	Load document font	Загрузить шрифт документа
 	Move image	Переместить изображение
 	Rotate image	Повернуть изображение
 	Flip image	Отразить изображение
@@ -2171,3 +2180,11 @@ scroll speed	Fast	Высокая
 	Tools panel side	Сторона панели инструментов
 	Add comment	Добавить комментарий
 	Change tag properties	Изменить свойства тега
+	Scan	Сканировать
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Распишитесь на листе белой бумаги и сфотографируйте его при ярком равномерном освещении (со вспышкой). Выберите фото или перетащите его сюда: PdfCraft найдёт подпись и уберёт бумагу.
+	Choose photo…	Выбрать фото…
+	No photo chosen	Фото не выбрано
+	Photo	Фото
+	Ink sensitivity	Чувствительность к чернилам
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	В рамке не найдена подпись. Наведите рамку на подпись или увеличьте чувствительность к чернилам.
+	Couldn't use the photo: {e}	Не удалось использовать фото: {e}

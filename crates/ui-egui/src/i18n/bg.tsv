@@ -378,6 +378,14 @@
 	of the following fields:	на следните полета:
 	Simplified field notation:	Опростен запис с полета:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Имена на полета с + - * / и скоби; поставете \\ пред интервалите в имената.
+
+# Document font selection
+	Finding document fonts…	Търсене на шрифтове за документа…
+	Installed fonts…	Инсталирани шрифтове…
+	Keep source fonts	Запазване на оригиналните шрифтове
+	Load font…	Зареждане на шрифт…
+	No openly licensed document fonts found. Load a font file.	Не са открити шрифтове с отворен лиценз. Заредете файл с шрифт.
+
 	Format text	Форматирай текст
 	Bold	Удебелен
 	Italic	Курсив
@@ -1936,6 +1944,7 @@
 	Edit document JavaScript	Редактирай JavaScript на документа
 	Edit script of {name}	Редактирай скрипта на {name}
 	Edit text	Редактирай текста
+	Load document font	Зареждане на шрифт на документа
 	Embedded files must be PDF/A files themselves (use PDF/A-3 for others)	Вградените файлове трябва също да са PDF/A файлове (за други използвайте PDF/A-3)
 	Erase	Изтриване
 	Fill & Sign: change initials	Попълни и подпиши: промяна на инициалите
@@ -2221,3 +2230,11 @@ scroll speed	Fast	Висока
 	Tools panel side	Страна на панела с инструменти
 	Add comment	Добавяне на коментар
 	Change tag properties	Промяна на свойствата на етикета
+	Scan	Сканиране
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Подпишете се на лист бяла хартия и го снимайте на ярка, равномерна светлина (със светкавица). Изберете снимката или я пуснете тук: PdfCraft открива подписа и премахва хартията.
+	Choose photo…	Избор на снимка…
+	No photo chosen	Няма избрана снимка
+	Photo	Снимка
+	Ink sensitivity	Чувствителност към мастило
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	В рамката не е открит подпис. Преместете рамката върху подписа или увеличете чувствителността към мастило.
+	Couldn't use the photo: {e}	Снимката не може да се използва: {e}

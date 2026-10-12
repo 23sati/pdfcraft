@@ -340,6 +340,11 @@
 	of the following fields:	以下欄位的：
 	Simplified field notation:	簡化欄位表示法：
 	Field names with + - * / and parentheses; put \\ before spaces in names.	欄位名支援 + - * / 和括號；名稱中的空格前加 \\。
+	Finding document fonts…	正在尋找文件字型…
+	Installed fonts…	已安裝的字型…
+	Keep source fonts	保留原始字型
+	Load font…	載入字型…
+	No openly licensed document fonts found. Load a font file.	找不到開放授權的文件字型。請載入字型檔。
 	Format text	設定文字格式
 	Bold	粗體
 	Italic	斜體
@@ -1895,6 +1900,7 @@
 	Delete document JavaScript	刪除文件 JavaScript
 	Edit document JavaScript	編輯文件 JavaScript
 	Edit text	編輯文字
+	Load document font	載入文件字型
 	Move image	移動圖片
 	Rotate image	旋轉圖片
 	Flip image	翻轉圖片
@@ -2135,3 +2141,11 @@ scroll speed	Fast	快
 	Tools panel side	工具面板位置
 	Add comment	新增註解
 	Change tag properties	變更標籤屬性
+	Scan	掃描
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	在白紙上簽名，並在明亮、均勻的光線下拍照（使用閃光燈）。選擇相片或將其拖放到此處：PdfCraft 會找到簽名並去除紙張背景。
+	Choose photo…	選擇相片…
+	No photo chosen	未選擇相片
+	Photo	相片
+	Ink sensitivity	墨跡靈敏度
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	框內找不到簽名。請將框移到簽名上，或提高墨跡靈敏度。
+	Couldn't use the photo: {e}	無法使用此相片：{e}

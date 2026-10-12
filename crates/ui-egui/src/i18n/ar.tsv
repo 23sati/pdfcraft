@@ -698,6 +698,14 @@
 	of the following fields:	للحقول التالية:
 	Simplified field notation:	صيغة الحقول المبسطة:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	أسماء الحقول مع + - * / والأقواس؛ ضع \\ قبل المسافات في الأسماء.
+
+# Document font selection
+	Finding document fonts…	جارٍ البحث عن خطوط المستند…
+	Installed fonts…	الخطوط المثبتة…
+	Keep source fonts	الاحتفاظ بالخطوط الأصلية
+	Load font…	تحميل خط…
+	No openly licensed document fonts found. Load a font file.	لم يُعثر على خطوط ذات ترخيص مفتوح. حمّل ملف خط.
+
 	Format text	تنسيق النص
 	Bold	غامق
 	Italic	مائل
@@ -1893,6 +1901,7 @@
 	Delete document JavaScript	حذف JavaScript المستند
 	Edit document JavaScript	تحرير JavaScript المستند
 	Edit text	تحرير النص
+	Load document font	تحميل خط المستند
 	Move image	نقل الصورة
 	Rotate image	تدوير الصورة
 	Flip image	قلب الصورة
@@ -2279,3 +2288,11 @@ scroll speed	Fast	سريعة
 	Tools panel side	جانب لوحة الأدوات
 	Add comment	إضافة تعليق
 	Change tag properties	تغيير خصائص الوسم
+	Scan	مسح ضوئي
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	وقّع على ورقة بيضاء والتقط لها صورة في إضاءة ساطعة ومتساوية (استخدم الفلاش). اختر الصورة أو أفلتها هنا: يعثر PdfCraft على التوقيع ويزيل الورق.
+	Choose photo…	اختيار صورة…
+	No photo chosen	لم تُختر صورة
+	Photo	صورة
+	Ink sensitivity	حساسية الحبر
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	لم يُعثر على توقيع داخل الإطار. حرّك الإطار فوق التوقيع أو ارفع حساسية الحبر.
+	Couldn't use the photo: {e}	تعذّر استخدام الصورة: {e}

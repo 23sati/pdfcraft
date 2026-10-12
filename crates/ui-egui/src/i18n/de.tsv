@@ -671,6 +671,14 @@
 	of the following fields:	der folgenden Felder:
 	Simplified field notation:	Vereinfachte Feldschreibweise:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Feldnamen mit + - * / und Klammern; setze \\ vor Leerzeichen in Namen.
+
+# Document font selection
+	Finding document fonts…	Dokumentschriftarten werden gesucht…
+	Installed fonts…	Installierte Schriftarten…
+	Keep source fonts	Quellschriftarten beibehalten
+	Load font…	Schriftart laden…
+	No openly licensed document fonts found. Load a font file.	Keine offen lizenzierten Schriftarten gefunden. Laden Sie eine Schriftartdatei.
+
 	Format text	Text formatieren
 	Bold	Fett
 	Italic	Kursiv
@@ -1828,6 +1836,7 @@
 	Delete document JavaScript	Dokument-JavaScript löschen
 	Edit document JavaScript	Dokument-JavaScript bearbeiten
 	Edit text	Text bearbeiten
+	Load document font	Dokumentschriftart laden
 	Move image	Bild verschieben
 	Rotate image	Bild drehen
 	Flip image	Bild spiegeln
@@ -2259,3 +2268,11 @@ scroll speed	Fast	Schnell
 	Tools panel side	Seite des Werkzeugbereichs
 	Add comment	Kommentar hinzufügen
 	Change tag properties	Tag-Eigenschaften ändern
+	Scan	Scannen
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Unterschreiben Sie auf einem weißen Blatt Papier und fotografieren Sie es bei hellem, gleichmäßigem Licht (mit Blitz). Wählen Sie das Foto aus oder ziehen Sie es hierher: PdfCraft findet die Unterschrift und entfernt das Papier.
+	Choose photo…	Foto auswählen…
+	No photo chosen	Kein Foto ausgewählt
+	Photo	Foto
+	Ink sensitivity	Tintenempfindlichkeit
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Im Rahmen wurde keine Unterschrift gefunden. Ziehen Sie den Rahmen über die Unterschrift oder erhöhen Sie die Tintenempfindlichkeit.
+	Couldn't use the photo: {e}	Das Foto kann nicht verwendet werden: {e}
