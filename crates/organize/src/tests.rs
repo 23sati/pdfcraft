@@ -417,6 +417,41 @@ fn combine_concatenates_with_a_bookmark_per_file() {
 }
 
 #[test]
+fn combiner_adds_each_source_then_releases_it() {
+    let bytes = Arc::new(fixture());
+    let src = Document::open(bytes.clone()).unwrap();
+    let mut combiner = crate::Combiner::new();
+    combiner.add("A", &src, None).unwrap();
+    drop(src);
+    // No output intents to copy, so the combine keeps nothing of the source's file.
+    assert_eq!(Arc::strong_count(&bytes), 1);
+    let picked: &[usize] = &[1];
+    combiner.add("B", &open(fixture()), Some(picked)).unwrap();
+    let streamed = combiner.finish().unwrap();
+    let whole = combine_selected(&[("A", &open(fixture()), None), ("B", &open(fixture()), Some(picked))]).unwrap();
+    assert_eq!(write_full(&streamed, &SaveOptions::default()).unwrap(), write_full(&whole, &SaveOptions::default()).unwrap());
+}
+
+#[test]
+fn combining_hostile_outlines_ends_their_runs_too() {
+    // The bookmark cases of `hostile_outlines_end_their_runs_and_never_loop`, combined: each run ends
+    // where it would repeat, and the source's bookmarks sit under its own entry.
+    let cases: [(&[&str], &str); 3] = [
+        (&["<< /Title (Self) /Parent 3 0 R /Next 5 0 R >>"], "H[Self]"),
+        (&["<< /Title (A) /Parent 3 0 R /Next 6 0 R >>", "<< /Title (B) /Parent 3 0 R /Next 5 0 R >>"], "H[A,B]"),
+        (&["<< /Title (A) /Parent 3 0 R /Next 99 0 R >>"], "H[A]"),
+    ];
+    for (items, listed) in cases {
+        let out = full_roundtrip(&combine(&[("H", &outline_with(items))]).unwrap());
+        assert_eq!(titles(&crate::bookmarks(&out)), [listed]);
+    }
+    // A bookmark whose first child is itself: nesting is cut off, so the combine still ends.
+    let looped = outline_with(&["<< /Title (Self) /Parent 3 0 R /First 5 0 R >>"]);
+    let out = full_roundtrip(&combine(&[("H", &looped)]).unwrap());
+    assert_eq!(crate::bookmarks(&out).first().map(|b| b.title.as_str()), Some("H"));
+}
+
+#[test]
 fn inherited_attributes_travel_with_copied_pages() {
     let out = full_roundtrip(&extract_pages(&doc_b(), &[1]).unwrap());
     let p = page_dict(&out, 0);
@@ -1440,6 +1475,35 @@ fn number_pages_past_four_mib_in_total_is_accepted() {
     let mut d = flat_doc(5_000);
     crate::number_pages(&mut d, 0, 4_999, crate::LabelStyle::Decimal, &"x".repeat(1000), 1).unwrap();
     assert_eq!(crate::page_labels(&d).unwrap()[4_999], format!("{}5000", "x".repeat(1000)));
+}
+
+/// Each range keeps its own decoded prefix, so a small file sharing one prefix object asks for a
+/// copy per range (about 200 MiB at the tree-work limit). Past 4 MiB of decoded prefixes in all
+/// the tree is refused, and so is relabelling it, which changes nothing.
+#[test]
+fn page_label_prefixes_are_bounded_in_total() {
+    // `ranges` ranges naming one shared prefix object of `prefix` bytes, without a style.
+    let shared = |ranges: i64, prefix: usize| {
+        let mut d = doc_a();
+        let prefix = d.add(Object::String(PdfString::text(&"x".repeat(prefix))));
+        let mut spec = Dict::new();
+        spec.set(b"P".to_vec(), Object::Ref(prefix));
+        let spec = d.add(Object::Dict(spec));
+        let mut tree = Dict::new();
+        tree.set(b"Nums".to_vec(), Object::Array((0..ranges).flat_map(|i| [Object::Int(i), Object::Ref(spec)]).collect()));
+        let tree = d.add(Object::Dict(tree));
+        d.update_dict(d.root().unwrap(), |c| c.set(b"PageLabels".to_vec(), Object::Ref(tree))).unwrap();
+        d
+    };
+    let mut d = shared(5_000, 1_000);
+    let e = crate::page_labels(&d).unwrap_err().to_string();
+    assert!(e.contains("decoded prefixes exceed 4 MiB in total"), "{e}");
+    let before = d.modified_objects();
+    assert!(crate::number_pages(&mut d, 0, 1, crate::LabelStyle::Decimal, "", 1).is_err());
+    assert_eq!(d.modified_objects(), before, "a refused relabelling changes nothing");
+    // Exactly 4 MiB of prefixes is still read.
+    let max = pdfcraft_cos::page_labels::MAX_PREFIX_TOTAL_BYTES / 1024;
+    assert!(crate::page_labels(&shared(max as i64, 1024)).unwrap().iter().all(|l| l.len() == 1024));
 }
 
 #[test]

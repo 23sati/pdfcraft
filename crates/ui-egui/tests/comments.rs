@@ -152,6 +152,44 @@ fn a_selection_made_first_is_marked_when_a_tool_is_picked() {
 }
 
 #[test]
+fn selected_text_shows_actions_and_underlines_without_changing_tools() {
+    let mut h = harness(|_| {});
+    h.state_mut().views[0].select_text(0, 4, 8);
+    h.run_steps(3);
+    h.get_by_label("Add comment");
+    h.get_by_label("Replace text");
+    h.get_by_label("Underline").click();
+    h.run_steps(3);
+    let c = comments(&h);
+    assert_eq!(c.len(), 1);
+    assert_eq!(c[0].subtype, "Underline");
+    assert!(h.state().views[0].selected_text().is_none());
+    assert_eq!(h.state().quick_tool, QuickTool::Select);
+}
+
+#[test]
+fn selected_text_replace_action_opens_replacement_composer() {
+    let mut h = harness(|_| {});
+    h.state_mut().views[0].select_text(0, 4, 8);
+    h.run_steps(3);
+    h.get_by_label("Replace text").click();
+    h.run_steps(2);
+    h.get_by_label("Replacement text");
+    assert!(h.state().views[0].selected_text().is_none());
+}
+
+#[test]
+fn selected_text_comment_action_opens_note_composer() {
+    let mut h = harness(|_| {});
+    h.state_mut().views[0].select_text(0, 4, 8);
+    h.run_steps(3);
+    h.get_by_label("Add comment").click();
+    h.run_steps(2);
+    assert!(matches!(h.state().views[0].comments.composer.as_ref().map(|c| &c.kind), Some(pdfcraft_ui_egui::comments::ComposerKind::Note)));
+    assert!(h.state().views[0].selected_text().is_none());
+}
+
+#[test]
 fn shapes_and_ink_are_drawn_by_dragging() {
     let mut h = harness(|app| app.set_option("quick", "square").unwrap());
     drag_pt(&mut h, (40.0, 100.0), (140.0, 40.0));
@@ -785,6 +823,11 @@ fn hovering_a_comment_shows_its_author_and_text() {
     h.run_steps(3);
     h.get_by_label_contains("Check this figure");
     h.get_by_label_contains("Ada");
+    // The tip is drawn above every window. A dialog must hide it, or the author floats over the dialog.
+    h.state_mut().set_option("dialog", "shortcuts").unwrap();
+    h.hover_at(p);
+    h.run_steps(3);
+    assert!(h.query_by_label_contains("Check this figure").is_none(), "a dialog covers the page hover");
 }
 
 #[test]
