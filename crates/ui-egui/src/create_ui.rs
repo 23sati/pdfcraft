@@ -4,6 +4,7 @@
 use std::sync::Arc;
 
 use crate::PdfCraftApp;
+use crate::widgets;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ResolutionChoice {
@@ -24,10 +25,10 @@ pub(crate) fn image_import_body(ui: &mut egui::Ui, app: &mut PdfCraftApp) -> (bo
     let Some(draft) = app.image_import.as_mut() else { return (false, true) };
     ui.label(crate::i18n::fmt(tl!("Selected image files: {count}"), &[("count", &draft.images.len().to_string())]));
     ui.add_space(8.0);
-    ui.radio_value(&mut draft.choice, ResolutionChoice::Image, tl!("Use image resolution"));
+    widgets::radio_value(ui, &mut draft.choice, ResolutionChoice::Image, tl!("Use image resolution"));
     ui.label(tl!("Use each image's embedded DPI; use 72 DPI when it is absent."));
-    ui.radio_value(&mut draft.choice, ResolutionChoice::Default72, tl!("Use 72 DPI (one point per pixel)"));
-    ui.radio_value(&mut draft.choice, ResolutionChoice::Custom, tl!("Use custom DPI"));
+    widgets::radio_value(ui, &mut draft.choice, ResolutionChoice::Default72, tl!("Use 72 DPI (one point per pixel)"));
+    widgets::radio_value(ui, &mut draft.choice, ResolutionChoice::Custom, tl!("Use custom DPI"));
     ui.add_enabled(draft.choice == ResolutionChoice::Custom, egui::DragValue::new(&mut draft.dpi).range(1.0..=1200.0).suffix(" DPI"));
     ui.label(tl!("DPI sets the printed page size without resampling the image."));
     ui.add_space(12.0);

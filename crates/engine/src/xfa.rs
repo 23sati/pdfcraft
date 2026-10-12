@@ -453,6 +453,7 @@ impl<'a, 'b> Runner<'a, 'b> {
         let report = pdfcraft_xfa::rerender(self.doc, self.tpl).map_err(|e| e.to_string())?;
         self.console(report.warnings);
         crate::xfa_redraw(self.doc)?;
+        self.console(crate::undrawn_field_warnings(self.doc));
         self.by_som = None;
         self.fields = None;
         self.cached = None;
@@ -689,6 +690,17 @@ pub(crate) fn on_changes(doc: &mut pdfcraft_cos::Document, tpl: &Template, names
         }
     }
     r.calculates()?;
+    r.finish().map(|_| ())
+}
+
+/// The form's data changed outside its scripts (a data file imported, a picture chosen): lay
+/// the form out again from the data, then, when `calculate`, run every calculation.
+pub(crate) fn on_data_replaced(doc: &mut pdfcraft_cos::Document, tpl: &Template, calculate: bool, run: &mut XfaRun) -> Result<(), String> {
+    let mut r = Runner::new(doc, tpl, run, OPEN_BUDGET_MS);
+    r.relayout()?;
+    if calculate {
+        r.calculates()?;
+    }
     r.finish().map(|_| ())
 }
 
