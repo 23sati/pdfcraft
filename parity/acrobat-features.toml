@@ -9043,11 +9043,11 @@ title = "Replace page colours (high contrast)"
 area = "M"
 tier = "P2"
 milestone = "M12"
-status = "planned"
+status = "shipped"
 commands = []
-tools = []
-evidence = []
-notes = ""
+tools = ["view_reading_colors"]
+evidence = ["crates/automation/tests/automation.rs::reading_colors_through_tools", "crates/render/src/raster.rs::reading_colors_map_solid_paints_and_leave_images", "crates/render/src/raster.rs::reading_colors_tiles_match_full_render", "crates/ui-egui/tests/reading_colors.rs::reading_colours_preference_round_trips"]
+notes = "View only, off by default: Preferences ▸ Reading colours holds the app-wide preference, seeded into every document as it opens, and view_reading_colors reads and sets it per document (Acrobat's Replace Document Colors). Solid text paints and, by default, line-art paints are remapped by luminance — each lerps between the preset's text and background colour by how dark or light the original paint is — while images, shadings and tiling patterns pass through untouched. Presets: black on white, white on black, yellow on black, green on black, or a custom #RRGGBB pair; only_black limits the mapping to near-black paints (a 10% luminance threshold — our choice; Acrobat's was not observed). Display only: the document is not changed and print and export are unaffected. Closes #897 (duplicate #488)."
 
 [[feature]]
 id = "a11y.reflow-tagged"
