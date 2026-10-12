@@ -1830,6 +1830,68 @@ fn accessibility_review_record_compares_two_versions_without_changing_them() {
 }
 
 #[test]
+fn accessibility_review_sidecar_tracks_human_decisions_for_exact_pdf_revision() {
+    let dir = workdir("a11y-review-sidecar");
+    let source = std::fs::read(dir.join("a.pdf")).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    let decisions = json!([
+        { "rule": "logical-reading-order", "decision": "needs_work", "page": 1, "note": "Check heading order" },
+        { "rule": "figures-alt-text", "decision": "accepted", "page": 2 }
+    ]);
+    let saved = ok(&mut a, "accessibility_review_save", json!({ "doc": doc, "path": "review.json", "decisions": decisions }));
+    assert_eq!(saved["review"]["schema"], 1);
+    assert_eq!(saved["review"]["sha256"].as_str().unwrap().len(), 64);
+    let original_sidecar = std::fs::read(dir.join("review.json")).unwrap();
+    assert_eq!(ok(&mut a, "accessibility_review_load", json!({ "doc": doc, "path": "review.json" }))["review"], saved["review"]);
+    let mut reopened = auto(&dir);
+    let reopened_doc = ok(&mut reopened, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    assert_eq!(ok(&mut reopened, "accessibility_review_load", json!({ "doc": reopened_doc, "path": "review.json" }))["review"], saved["review"]);
+    assert!(matches!(
+        reopened.call("accessibility_review_save", &json!({ "doc": reopened_doc, "path": "a.pdf", "decisions": [], "replace": true })),
+        Err(ToolError::Failed(_))
+    ));
+    assert_eq!(std::fs::read(dir.join("a.pdf")).unwrap(), source);
+
+    assert!(matches!(
+        a.call(
+            "accessibility_review_save",
+            &json!({ "doc": doc, "path": "review.json", "decisions": [
+        { "rule": "title", "decision": "accepted" }, { "rule": "title", "decision": "skipped" }
+    ] })
+        ),
+        Err(ToolError::InvalidArgs(_))
+    ));
+    assert_eq!(std::fs::read(dir.join("review.json")).unwrap(), original_sidecar);
+    ok(&mut a, "accessibility_fix", json!({ "doc": doc, "rule": "primary-language", "value": "en-GB" }));
+    assert!(matches!(a.call("accessibility_review_load", &json!({ "doc": doc, "path": "review.json" })), Err(ToolError::Failed(_))));
+    assert!(matches!(a.call("accessibility_review_save", &json!({ "doc": doc, "path": "review.json", "decisions": [] })), Err(ToolError::Failed(_))));
+    assert_eq!(std::fs::read(dir.join("review.json")).unwrap(), original_sidecar);
+    let replacement = ok(&mut a, "accessibility_review_save", json!({ "doc": doc, "path": "review.json", "decisions": decisions, "replace": true }));
+    assert_ne!(replacement["review"]["sha256"], saved["review"]["sha256"]);
+    assert_eq!(ok(&mut a, "accessibility_review_load", json!({ "doc": doc, "path": "review.json" }))["review"], replacement["review"]);
+    assert_eq!(std::fs::read(dir.join("a.pdf")).unwrap(), source);
+    assert!(a.call("accessibility_review_save", &json!({ "doc": doc, "path": "../escape.json", "decisions": [] })).is_err());
+    assert!(!dir.parent().unwrap().join("escape.json").exists());
+
+    // Malformed or oversized files are not sidecars: loading fails cleanly and
+    // saving leaves them alone, without reading more than the size cap.
+    let oversized = [b"{\"schema\": 1, \"pad\": \"".as_slice(), &vec![b'x'; (1 << 20) + 16], b"\"}"].concat();
+    for (name, bytes) in [("malformed.json", b"{ not json".to_vec()), ("binary.json", vec![0xff, 0x00, 0xfe]), ("oversized.json", oversized)] {
+        std::fs::write(dir.join(name), &bytes).unwrap();
+        assert!(matches!(a.call("accessibility_review_load", &json!({ "doc": doc, "path": name })), Err(ToolError::Failed(_))), "{name}");
+        assert!(
+            matches!(
+                a.call("accessibility_review_save", &json!({ "doc": doc, "path": name, "decisions": [], "replace": true })),
+                Err(ToolError::Failed(_))
+            ),
+            "{name}"
+        );
+        assert_eq!(std::fs::read(dir.join(name)).unwrap(), bytes, "{name}");
+    }
+}
+
+#[test]
 fn editing_existing_text_through_tools() {
     let dir = workdir("edit-text");
     let mut a = auto(&dir);
