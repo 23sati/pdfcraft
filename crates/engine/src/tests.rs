@@ -430,13 +430,132 @@ fn combine_extract_split_and_insert_from_file() {
     let parts = s.split(id, &pdfcraft_organize::SplitBy::PageCount(2)).unwrap();
     assert_eq!(parts.iter().map(|(a, b, _)| (*a, *b)).collect::<Vec<_>>(), [(1, 2), (3, 3)]);
     // Insert pages from a file, undoably, into the open document.
-    s.apply(id, Edit::InsertPagesFrom { name: "b.pdf".into(), bytes: other, pages: Some(vec![1]), at: 1 }).unwrap();
+    s.apply(
+        id,
+        Edit::InsertPagesFrom {
+            name: "b.pdf".into(),
+            bytes: other,
+            pages: Some(vec![1]),
+            at: 1,
+            field_conflicts: pdfcraft_organize::FieldConflicts::Rename,
+        },
+    )
+    .unwrap();
     assert_eq!(page_texts(&s, id), ["Page 1", "Page 2", "Page 2", "Page 3"]);
     assert_eq!(s.undo(id).unwrap().as_str(), "Insert pages from b.pdf");
     assert_eq!(page_texts(&s, id).len(), 3);
     // Garbage sources fail cleanly.
-    let bad = s.apply(id, Edit::InsertPagesFrom { name: "junk.pdf".into(), bytes: Arc::new(b"nope".to_vec()), pages: None, at: 0 });
+    let bad = s.apply(
+        id,
+        Edit::InsertPagesFrom {
+            name: "junk.pdf".into(),
+            bytes: Arc::new(b"nope".to_vec()),
+            pages: None,
+            at: 0,
+            field_conflicts: pdfcraft_organize::FieldConflicts::Rename,
+        },
+    );
     assert!(matches!(bad, Err(EditError::Source(_))));
+}
+
+/// A one-page PDF whose form holds one text field named `name` (a widget that is its own field).
+fn form_with_field(name: &str) -> Vec<u8> {
+    let objs: Vec<String> = vec![
+        "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] >> >>".into(), // 1
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 300 400] >>".into(), // 2
+        "<< /Type /Page /Parent 2 0 R /Annots [4 0 R] >>".into(),                   // 3
+        format!("<< /Type /Annot /Subtype /Widget /FT /Tx /T ({name}) /V (x) /Rect [60 60 200 80] /P 3 0 R >>"), // 4
+    ];
+    let mut bytes = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offsets.push(bytes.len());
+        bytes.extend_from_slice(format!("{} 0 obj\n{o}\nendobj\n", i + 1).as_bytes());
+    }
+    let xref = bytes.len();
+    bytes.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+    for o in offsets {
+        bytes.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+    }
+    bytes.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objs.len() + 1).as_bytes());
+    bytes
+}
+
+/// Inserting pages of a file whose form names a field as the open document's: the incoming
+/// Duplicating a page copies the document's own field: the copy keeps its name (Duplicate is
+/// not Combine), and nothing about renaming lands in the repair log.
+#[test]
+fn duplicating_a_page_with_a_field_keeps_the_field_name() {
+    let mut s = Session::new().with_clock(|| 1_700_000_000);
+    let id = s.open("a.pdf", None, Arc::new(form_with_field("Text1")), None).unwrap();
+    s.apply(id, Edit::DuplicatePages { pages: vec![0] }).unwrap();
+    let doc = s.get(id).unwrap();
+    assert_eq!(doc.info.pages.len(), 2);
+    assert!(doc.form.iter().all(|f| f.name == "Text1"), "{:?}", doc.form.iter().map(|f| &f.name).collect::<Vec<_>>());
+    assert!(!doc.repair_log().iter().any(|l| l.contains("Text1-1")), "{:?}", doc.repair_log());
+}
+
+/// field is renamed to keep the two separate, the repair log says so (warning that scripts
+/// were not rewritten), the undo step's label counts the renames, and undo puts the names back.
+#[test]
+fn insert_from_file_renames_colliding_fields_and_notes_it() {
+    let mut s = Session::new().with_clock(|| 1_700_000_000);
+    let id = s.open("a.pdf", None, Arc::new(form_with_field("Text1")), None).unwrap();
+    s.apply(
+        id,
+        Edit::InsertPagesFrom {
+            name: "b.pdf".into(),
+            bytes: Arc::new(form_with_field("Text1")),
+            pages: None,
+            at: 1,
+            field_conflicts: pdfcraft_organize::FieldConflicts::Rename,
+        },
+    )
+    .unwrap();
+    let doc = s.get(id).unwrap();
+    let names: Vec<&str> = doc.form.iter().map(|f| f.name.as_str()).collect();
+    assert_eq!(names, ["Text1", "Text1-1"]);
+    assert!(
+        doc.repair_log().iter().any(|l| l.contains("Text1 → Text1-1") && l.contains("were not rewritten")),
+        "the note names the rename and the scripts caveat: {:?}",
+        doc.repair_log()
+    );
+    let label = s.undo(id).unwrap();
+    assert_eq!(label.as_str(), "Insert pages from b.pdf — 1 field renamed");
+    let doc = s.get(id).unwrap();
+    let names: Vec<&str> = doc.form.iter().map(|f| f.name.as_str()).collect();
+    assert_eq!(names, ["Text1"], "undo restores the single original field");
+}
+
+/// A combine reports the fields it renamed — the tool result tells callers what their scripts
+/// must call the field now — and honours a caller's choice to merge instead.
+#[test]
+fn combine_reports_renamed_fields_and_can_merge() {
+    let mut s = Session::new().with_clock(|| 1_700_000_000);
+    let sources: Vec<CombineSource> =
+        vec![("a.pdf".into(), Arc::new(form_with_field("Text1")), None), ("b.pdf".into(), Arc::new(form_with_field("Text1")), None)];
+    let out = s.combine_unlocked_reporting(&sources, &[], pdfcraft_organize::FieldConflicts::Rename).unwrap();
+    assert_eq!(out.renamed_fields, [("Text1".to_string(), "Text1-1".to_string())]);
+    let cid = s.open_new("Combined.pdf", out.bytes).unwrap();
+    let doc = s.get(cid).unwrap();
+    let names: Vec<&str> = doc.form.iter().map(|f| f.name.as_str()).collect();
+    assert_eq!(names, ["Text1", "Text1-1"]);
+    let merged = s.combine_unlocked_reporting(&sources, &[], pdfcraft_organize::FieldConflicts::Merge).unwrap();
+    assert!(merged.renamed_fields.is_empty(), "merge renames nothing");
+}
+
+/// The Combine tab's pre-flight over byte sources: what combining them, in order, would rename
+/// in each. A file that cannot be opened previews as nothing (its row already shows the problem).
+#[test]
+fn combine_field_conflicts_previews_over_bytes() {
+    let s = Session::new().with_clock(|| 1_700_000_000);
+    let sources: Vec<CombineSource> = vec![
+        ("a.pdf".into(), Arc::new(form_with_field("Text1")), None),
+        ("b.pdf".into(), Arc::new(form_with_field("Text1")), None),
+        ("junk.pdf".into(), Arc::new(b"nope".to_vec()), None),
+    ];
+    let preview = s.combine_field_conflicts(&sources, &[]);
+    assert_eq!(preview, vec![vec![], vec![("Text1".to_string(), "Text1-1".to_string())], vec![]]);
 }
 
 /// A minimal baseline JPEG (headers only; the data is embedded as is).
@@ -694,7 +813,7 @@ fn copy_restricted_documents_refuse_extraction_unless_opened_by_the_owner() {
     assert!(d.allows_printing() && d.allows_modification() && d.allows_assembly(), "only copying is withheld");
     assert_eq!(d.check_copying(), Err(EditError::NotPermitted("copying text and images")));
     assert!(d.page_image_file(0, 0).unwrap_err().contains("don't allow copying"));
-    let extracting = ["edit.snapshot", "export.image", "export.text", "export.docx", "export.html", "export.rtf", "export.all_images"];
+    let extracting = ["edit.snapshot", "export.image", "export.text", "export.docx", "export.pptx", "export.html", "export.rtf", "export.all_images"];
     let enabled = |s: &Session, id, c| commands::is_enabled(commands::command(c).unwrap(), s, Some(id));
     for c in extracting {
         assert!(!enabled(&s, id, c), "{c} is disabled");
@@ -1572,7 +1691,17 @@ fn create_and_reduce() {
     // A file with the same page imported twice shares nothing until reduced.
     let (mut s2, id2) = session_with(1);
     let src = Arc::new(fixture(1));
-    s2.apply(id2, Edit::InsertPagesFrom { name: "x".into(), bytes: src.clone(), pages: None, at: 1 }).unwrap();
+    s2.apply(
+        id2,
+        Edit::InsertPagesFrom {
+            name: "x".into(),
+            bytes: src.clone(),
+            pages: None,
+            at: 1,
+            field_conflicts: pdfcraft_organize::FieldConflicts::Rename,
+        },
+    )
+    .unwrap();
     let full = s2.save_full_bytes(id2).unwrap();
     let (reduced, _) = s2.reduced_bytes(id2).unwrap();
     assert!(reduced.len() <= full.len(), "{} > {}", reduced.len(), full.len());
@@ -2420,6 +2549,8 @@ fn exporting_office_files_keeps_images() {
     assert_eq!(d.export_pages()[0].images.len(), 1);
     let docx = d.export_office(compare::OfficeFormat::Docx);
     assert!(docx.windows(16).any(|w| w == b"word/media/image"));
+    let pptx = d.export_office(compare::OfficeFormat::Pptx);
+    assert!(pptx.windows(15).any(|w| w == b"ppt/media/image"));
     if let Ok(dir) = std::env::var("PDFCRAFT_EXPORT_DIR") {
         std::fs::write(format!("{dir}/pic.docx"), &docx).unwrap();
     }
@@ -2483,8 +2614,31 @@ BT /F1 11 Tf 0 g 72 650 Td (Black body text that is long enough to be the body s
     let d = s.get(id).unwrap();
     let html = String::from_utf8(d.export_office(compare::OfficeFormat::Html)).unwrap();
     assert!(html.contains("style=\"color:#0D3B2E\">Annual Report"), "{html}");
+    let pptx = d.export_office(compare::OfficeFormat::Pptx);
+    assert!(pptx.starts_with(b"PK"));
+    assert!(pptx.windows(b"ppt/slides/slide1.xml".len()).any(|w| w == b"ppt/slides/slide1.xml"));
     let blocks = &d.export_pages()[0].blocks;
     assert!(blocks.iter().any(|b| b.text == "Annual Report" && b.color == [0.05, 0.23, 0.18]), "{blocks:?}");
+}
+
+#[test]
+fn office_export_positions_follow_the_displayed_crop_rotation_and_units() {
+    use pdfcraft_cos::{Document as CosDocument, ObjRef, Object, SaveOptions, write_full};
+    let mut pdf = CosDocument::open(Arc::new(fixture(1))).unwrap();
+    let mut page = pdf.get(ObjRef::new(4, 0)).as_dict().unwrap().clone();
+    page.set("CropBox", Object::Array([10, 20, 190, 280].map(Object::Int).to_vec()));
+    page.set("Rotate", Object::Int(90));
+    page.set("UserUnit", Object::Int(2));
+    pdf.set(ObjRef::new(4, 0), page);
+    let mut session = Session::new();
+    let id = session.open("turned.pdf", None, Arc::new(write_full(&pdf, &SaveOptions::default()).unwrap()), None).unwrap();
+    let doc = session.get(id).unwrap();
+    let pages = doc.export_pages();
+    let b = &pages[0].blocks[0];
+    assert!((b.rotation + 90.0).abs() < 0.01, "clockwise page rotation: {b:?}");
+    assert!((b.rect[0] - 248.0).abs() < 0.01, "crop and UserUnit applied: {b:?}");
+    assert_eq!(b.size, 48.0);
+    assert_eq!((pages[0].width, pages[0].height), (520.0, 360.0));
 }
 
 #[test]
@@ -3726,4 +3880,73 @@ fn fonts_added_by_a_content_edit_show_after_refresh_fonts() {
     let fonts = format!("{:?}", session.get(id).unwrap().info.fonts);
     session.refresh_fonts(id);
     assert_eq!(format!("{:?}", session.get(id).unwrap().info.fonts), fonts);
+}
+
+/// Gap 13: every edit writes a new working file (the original plus one revision). Before the
+/// next one is written, the current one is let go of by the working bytes, the display bytes and
+/// the renderer: on a 1 GiB file, keeping it is a whole extra gigabyte at the peak of each edit.
+#[test]
+fn the_working_file_is_let_go_of_before_the_next_is_written() {
+    let (mut s, id) = session_with(2);
+    s.apply(id, Edit::RotatePages { pages: vec![1], degrees: 90 }).unwrap();
+    let doc = s.doc_mut(id).unwrap();
+    let (working, original) = (Arc::downgrade(&doc.bytes), doc.editor.as_ref().unwrap().cos.bytes().clone());
+    assert!(!Arc::ptr_eq(&doc.bytes, &original), "an edited working file is a buffer of its own");
+    Session::release_working(doc);
+    assert!(Arc::ptr_eq(&doc.bytes, &original) && Arc::ptr_eq(&doc.display, &original));
+    // The old renderer's workers let go of the file when they exit, just after.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    while working.upgrade().is_some() {
+        assert!(std::time::Instant::now() < deadline, "the working file is still held");
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    // The refresh that follows brings everything back.
+    Session::refresh(doc).unwrap();
+    assert_eq!(s.get(id).unwrap().info.pages[1].rotation, 90);
+    let _ = shown(&s, id, 1);
+}
+
+/// Every refresh path (full, comments, content, undo, redo) lets go of the previous working file
+/// and still shows the current state.
+#[test]
+fn edits_let_go_of_the_previous_working_file() {
+    let (mut s, id) = session_with(2);
+    let shape = Shape::Rectangle { rect: [20.0, 20.0, 60.0, 60.0] };
+    let comment = || {
+        Edit::AddAnnotation(NewAnnotation {
+            page: 0,
+            style: Style::default_for(&shape),
+            shape: shape.clone(),
+            contents: String::new(),
+            author: "Test".into(),
+        })
+    };
+    let watermark =
+        || Edit::AddWatermark { pages: vec![0], settings: Watermark { text: "Draft".into(), ..Watermark::default() }, file: None, replace: false };
+    s.apply(id, Edit::RotatePages { pages: vec![1], degrees: 90 }).unwrap();
+    // A full refresh, a comment refresh, a content refresh, then undo and redo.
+    let steps: [(&str, Box<dyn Fn(&mut Session)>); 5] = [
+        ("rotate", Box::new(|s: &mut Session| s.apply(id, Edit::RotatePages { pages: vec![0], degrees: 90 }).unwrap())),
+        ("comment", Box::new(move |s: &mut Session| s.apply(id, comment()).unwrap())),
+        ("watermark", Box::new(move |s: &mut Session| s.apply(id, watermark()).unwrap())),
+        ("undo", Box::new(|s: &mut Session| drop(s.undo(id).unwrap()))),
+        ("redo", Box::new(|s: &mut Session| drop(s.redo(id).unwrap()))),
+    ];
+    for (name, step) in steps {
+        let (bytes, display) = {
+            let doc = s.get(id).unwrap();
+            (Arc::downgrade(&doc.bytes), Arc::downgrade(&doc.display))
+        };
+        step(&mut s);
+        // The old renderer's workers let go of the file when they exit, just after.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while bytes.upgrade().is_some() || display.upgrade().is_some() {
+            assert!(std::time::Instant::now() < deadline, "{name}: the previous working file is still held");
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+    }
+    // What is shown is still the current state.
+    let doc = s.get(id).unwrap();
+    assert_eq!(doc.info.annotations.len(), 1);
+    let _ = shown(&s, id, 0);
 }

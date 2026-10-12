@@ -64,7 +64,7 @@ are borrowed; PDF 2.0 additions and most subset standards are missing. **150–2
 | FreeText (text box, typewriter, callout) | create, rich text | create; rich text written but no per-run formatting | `comment.text-box` partial |
 | Line, Square, Circle, Polygon, PolyLine | create | create, all ten line endings | |
 | Highlight, Underline, Squiggly, StrikeOut | create | create | |
-| Caret (insert/replace text) | create | create; not snapped to text | `comment.insert-text` partial |
+| Caret (insert/replace text) | create | create; snapped to the text in the UI (upright horizontal text, unrotated pages) | `comment.insert-text` partial |
 | Stamp | create, custom, dynamic | create, custom, dynamic, Sign Here | stamp management planned |
 | Ink | create, erase | create, erase | no pressure |
 | FileAttachment | create | create | |

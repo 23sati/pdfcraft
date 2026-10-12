@@ -51,6 +51,7 @@
 	Create PDF from file…	Crear PDF a partir de un archivo…
 	Create PDF from images…	Crear PDF a partir de imágenes…
 	Create PDF from multiple files…	Crear PDF a partir de varios archivos…
+	Create separate PDFs…	Crear PDF separados…
 	Create PDF from clipboard	Crear PDF a partir del portapapeles
 	Combine files…	Combinar archivos…
 	Save	Guardar
@@ -258,6 +259,7 @@
 	Optimize PDF…	Optimizar PDF…
 	Export to text…	Exportar a texto…
 	Export to Word…	Exportar a Word…
+	Export to PowerPoint…	Exportar a PowerPoint…
 	Export to HTML…	Exportar a HTML…
 	Export to RTF…	Exportar a RTF…
 	JavaScript console…	Consola de JavaScript…
@@ -342,6 +344,7 @@
 	Create from	Crear a partir de
 	Single file	Un solo archivo
 	Multiple files	Varios archivos
+	Separate PDFs	PDF separados
 	Images	Imágenes
 	Clipboard	Portapapeles
 	Blank page	Página en blanco
@@ -694,6 +697,11 @@
 	of the following fields:	de los campos siguientes:
 	Simplified field notation:	Notación de campos simplificada:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Nombres de campo con + - * / y paréntesis; pon \\ antes de los espacios en los nombres.
+	Finding document fonts…	Buscando fuentes del documento…
+	Installed fonts…	Fuentes instaladas…
+	Keep source fonts	Conservar las fuentes originales
+	Load font…	Cargar fuente…
+	No openly licensed document fonts found. Load a font file.	No se encontraron fuentes de documento con licencia abierta. Cargue un archivo de fuente.
 	Format text	Dar formato al texto
 	Bold	Negrita
 	Italic	Cursiva
@@ -1525,7 +1533,7 @@
 	Couldn't optimize the file: {e}	No se pudo optimizar el archivo: {e}
 	Couldn't write {path}: {e}	No se pudo escribir {path}: {e}
 	The form asks to be submitted to {u}; PdfCraft doesn't send form data. Save the document to keep your entries.	El formulario pide enviarse a {u}; PdfCraft no envía datos de formulario. Guarda el documento para conservar lo que has introducido.
-	{s} actions run in the JavaScript engine (M6)	Las acciones {s} se ejecutan en el motor de JavaScript (M6)
+	This PDF uses the unsupported {s} action.	Este PDF usa una acción {s} no compatible.
 	{name}: the {other} action isn't supported yet	{name}: la acción {other} aún no es compatible
 	{name} submits the form to {url}; PdfCraft doesn't send form data. Save the document to keep your entries.	{name} envía el formulario a {url}; PdfCraft no envía datos de formulario. Guarda el documento para conservar lo que has introducido.
 	Export stopped: {e}	Exportación detenida: {e}
@@ -1878,6 +1886,8 @@ action wizard	Start	Iniciar
 	{month} {y}	{month} de {y}
 	Change {key}	Cambiar {key}
 	Insert pages from {name}	Insertar páginas de {name}
+	Insert pages from {name} — 1 field renamed	Insertar páginas de {name} — 1 campo renombrado
+	Insert pages from {name} — fields renamed	Insertar páginas de {name} — campos renombrados
 	Fill in {name}	Rellenar {name}
 	Set the image of {name}	Definir la imagen de {name}
 	Edit script of {name}	Editar el script de {name}
@@ -1908,6 +1918,7 @@ action wizard	Start	Iniciar
 	Delete document JavaScript	Eliminar JavaScript del documento
 	Edit document JavaScript	Editar JavaScript del documento
 	Edit text	Editar texto
+	Load document font	Cargar fuente del documento
 	Move image	Mover imagen
 	Rotate image	Girar imagen
 	Flip image	Voltear imagen
@@ -2035,6 +2046,7 @@ action wizard	Start	Iniciar
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	Formulario XFA: sus campos y sus datos XFA se mantienen sincronizados, para que otros visores muestren lo que rellenes.
 @plural	{n} page|{n} pages	{n} página|{n} páginas
 @plural	{n} field|{n} fields	{n} campo|{n} campos
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} nombre de campo coincide con el de archivos anteriores y se renombrará: {list}|{n} nombres de campo coinciden con los de archivos anteriores y se renombrarán: {list}
 	Switch to two-page view first to show the cover page	Cambia primero a la vista de dos páginas para mostrar la portada
 	Page display: {layout}	Presentación de página: {layout}
 	Fit to width scrolling	Desplazamiento ajustado al ancho
@@ -2388,3 +2400,16 @@ scroll speed	Fast	Rápida
 	Tools panel side	Lado del panel de herramientas
 	Add comment	Añadir comentario
 	Change tag properties	Cambiar propiedades de la etiqueta
+	Left out: {names}	Omitidos: {names}
+	already a PDF	ya es un PDF
+	no unused output name	no hay un nombre de salida libre
+	no output folder was chosen	no se eligió ninguna carpeta de salida
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	Se descargó {n} PDF|Se descargaron {n} PDF
+	Scan	Escanear
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Firme en una hoja de papel blanco y hágale una foto con luz intensa y uniforme (use el flash). Elija la foto o suéltela aquí: PdfCraft encuentra la firma y elimina el papel.
+	Choose photo…	Elegir foto…
+	No photo chosen	No se ha elegido ninguna foto
+	Photo	Foto
+	Ink sensitivity	Sensibilidad de la tinta
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	No se encontró ninguna firma en el marco. Mueva el marco sobre la firma o aumente la sensibilidad de la tinta.
+	Couldn't use the photo: {e}	No se puede usar la foto: {e}

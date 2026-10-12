@@ -31,6 +31,7 @@ comment menu	Edit	సవరించు
 	New blank PDF	కొత్త ఖాళీ PDF
 	Create PDF from file…	ఫైల్ నుండి PDF సృష్టించు…
 	Create PDF from multiple files…	అనేక ఫైల్‌ల నుండి PDF సృష్టించు…
+	Create separate PDFs…	వేర్వేరు PDFలను సృష్టించు…
 	Create PDF from images…	చిత్రాల నుండి PDF సృష్టించు…
 	Create PDF from clipboard	క్లిప్‌బోర్డ్ నుండి PDF సృష్టించు
 	Combine files…	ఫైల్‌లను కలుపు…
@@ -239,6 +240,7 @@ comment menu	Edit	సవరించు
 	Optimize PDF…	PDFను ఆప్టిమైజ్ చేయి…
 	Export to text…	టెక్స్ట్‌గా ఎగుమతి చేయి…
 	Export to Word…	Wordగా ఎగుమతి చేయి…
+	Export to PowerPoint…	PowerPointగా ఎగుమతి చేయి…
 	Export to HTML…	HTMLగా ఎగుమతి చేయి…
 	Export to RTF…	RTFగా ఎగుమతి చేయి…
 	JavaScript console…	JavaScript కన్సోల్…
@@ -323,6 +325,7 @@ comment menu	Edit	సవరించు
 	Create from	సృష్టించే మూలం
 	Single file	ఒకే ఫైల్
 	Multiple files	అనేక ఫైల్‌లు
+	Separate PDFs	వేర్వేరు PDFలు
 	Images	చిత్రాలు
 	Clipboard	క్లిప్‌బోర్డ్
 	Blank page	ఖాళీ పేజీ
@@ -675,6 +678,11 @@ comment menu	Edit	సవరించు
 	of the following fields:	కింది ఫీల్డ్‌లపై:
 	Simplified field notation:	సరళీకృత ఫీల్డ్ సూత్రం:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	ఫీల్డ్ పేర్లను + - * / గుర్తులు, బ్రాకెట్‌లతో రాయండి; పేర్లలోని ఖాళీల ముందు \\ పెట్టండి.
+	Finding document fonts…	పత్రం ఫాంట్‌లను కనుగొంటోంది…
+	Installed fonts…	ఇన్‌స్టాల్ చేసిన ఫాంట్‌లు…
+	Keep source fonts	మూల ఫాంట్‌లను ఉంచు
+	Load font…	ఫాంట్‌ను లోడ్ చేయి…
+	No openly licensed document fonts found. Load a font file.	బహిరంగ లైసెన్స్ ఉన్న పత్రం ఫాంట్‌లు కనుగొనబడలేదు. ఫాంట్ ఫైల్‌ను లోడ్ చేయండి.
 	Format text	టెక్స్ట్ ఫార్మాటింగ్
 	Bold	బోల్డ్
 	Italic	ఇటాలిక్
@@ -1501,7 +1509,7 @@ action wizard	Start	ప్రారంభించు
 	Couldn't optimize the file: {e}	ఫైల్‌ను ఆప్టిమైజ్ చేయడం సాధ్యం కాలేదు: {e}
 	Couldn't write {path}: {e}	{path}ను రాయడం సాధ్యం కాలేదు: {e}
 	The form asks to be submitted to {u}; PdfCraft doesn't send form data. Save the document to keep your entries.	ఈ ఫారం {u}కు సమర్పించమని అడుగుతోంది; PdfCraft ఫారం డేటాను పంపదు. మీరు నింపిన వివరాలను ఉంచుకోవడానికి పత్రాన్ని సేవ్ చేయండి.
-	{s} actions run in the JavaScript engine (M6)	{s} చర్యలు JavaScript ఇంజిన్‌లో అమలవుతాయి (M6)
+	This PDF uses the unsupported {s} action.	ఈ PDF మద్దతు లేని {s} చర్యను ఉపయోగిస్తోంది.
 	{name}: the {other} action isn't supported yet	{name}: {other} చర్యకు ఇంకా మద్దతు లేదు
 	{name} submits the form to {url}; PdfCraft doesn't send form data. Save the document to keep your entries.	{name} ఫారాన్ని {url}కు సమర్పిస్తుంది; PdfCraft ఫారం డేటాను పంపదు. మీరు నింపిన వివరాలను ఉంచుకోవడానికి పత్రాన్ని సేవ్ చేయండి.
 	Export stopped: {e}	ఎగుమతి ఆగిపోయింది: {e}
@@ -1784,6 +1792,8 @@ action wizard	Start	ప్రారంభించు
 	{month} {y}	{month} {y}
 	Change {key}	{key} మార్చు
 	Insert pages from {name}	{name} నుండి పేజీలను చొప్పించు
+	Insert pages from {name} — 1 field renamed	{name} నుండి పేజీలను చొప్పించు — 1 ఫీల్డ్ పేరు మార్చబడింది
+	Insert pages from {name} — fields renamed	{name} నుండి పేజీలను చొప్పించు — ఫీల్డ్‌ల పేర్లు మార్చబడ్డాయి
 	Fill in {name}	{name}ను నింపు
 	Set the image of {name}	{name} చిత్రాన్ని సెట్ చేయి
 	Edit script of {name}	{name} స్క్రిప్ట్‌ను సవరించు
@@ -1814,6 +1824,7 @@ action wizard	Start	ప్రారంభించు
 	Delete document JavaScript	పత్రం స్థాయి JavaScriptను తొలగించు
 	Edit document JavaScript	పత్రం స్థాయి JavaScriptను సవరించు
 	Edit text	టెక్స్ట్‌ను సవరించు
+	Load document font	పత్రం ఫాంట్‌ను లోడ్ చేయి
 	Move image	చిత్రాన్ని తరలించు
 	Rotate image	చిత్రాన్ని తిప్పు
 	Flip image	చిత్రాన్ని తిరగేయి
@@ -1938,6 +1949,7 @@ action wizard	Start	ప్రారంభించు
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	XFA ఫారం: దీని ఫీల్డ్‌లు, XFA డేటా ఎప్పుడూ ఒకేలా ఉంచబడతాయి, కాబట్టి మీరు నింపినది ఇతర వ్యూయర్‌లలో కూడా కనిపిస్తుంది.
 @plural	{n} page|{n} pages	{n} పేజీ|{n} పేజీలు
 @plural	{n} field|{n} fields	{n} ఫీల్డ్|{n} ఫీల్డ్‌లు
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} ఫీల్డ్ పేరు మునుపటి ఫైళ్లతో సరిపోలుతుంది, పేరు మార్చబడుతుంది: {list}|{n} ఫీల్డ్ పేర్లు మునుపటి ఫైళ్లతో సరిపోలుతున్నాయి, పేర్లు మార్చబడతాయి: {list}
 	Switch to two-page view first to show the cover page	కవర్ పేజీని చూపించడానికి ముందుగా రెండు పేజీల వీక్షణకు మారండి
 	Page display: {layout}	పేజీ ప్రదర్శన: {layout}
 	Fit to width scrolling	వెడల్పుకు సరిపోయేలా స్క్రోలింగ్
@@ -2171,3 +2183,16 @@ scroll speed	Fast	వేగంగా
 	Tools panel side	టూల్స్ ప్యానెల్ వైపు
 	Add comment	వ్యాఖ్యను జోడించు
 	Change tag properties	ట్యాగ్ లక్షణాలను మార్చు
+	Left out: {names}	వదిలివేసినవి: {names}
+	already a PDF	ఇప్పటికే PDF
+	no unused output name	ఉపయోగించని అవుట్‌పుట్ పేరు లేదు
+	no output folder was chosen	అవుట్‌పుట్ ఫోల్డర్ ఎంచుకోలేదు
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	{n} PDF డౌన్‌లోడ్ చేయబడింది|{n} PDFలు డౌన్‌లోడ్ చేయబడ్డాయి
+	Scan	స్కాన్
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	తెల్ల కాగితంపై సంతకం చేసి, ప్రకాశవంతమైన, సమానమైన వెలుతురులో దాని ఫోటో తీయండి (ఫ్లాష్ ఉపయోగించండి). ఫోటోను ఎంచుకోండి లేదా ఇక్కడ వదలండి: PdfCraft సంతకాన్ని కనుగొని కాగితాన్ని తొలగిస్తుంది.
+	Choose photo…	ఫోటో ఎంచుకోండి…
+	No photo chosen	ఫోటో ఎంచుకోలేదు
+	Photo	ఫోటో
+	Ink sensitivity	ఇంక్ సున్నితత్వం
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	ఫ్రేమ్‌లో సంతకం కనబడలేదు. ఫ్రేమ్‌ను సంతకం మీదకు జరపండి లేదా ఇంక్ సున్నితత్వాన్ని పెంచండి.
+	Couldn't use the photo: {e}	ఫోటోను ఉపయోగించలేకపోయాం: {e}

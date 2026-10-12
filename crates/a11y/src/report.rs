@@ -23,6 +23,7 @@ pub const REPORT_WORDS: &[&str] = &[
     "Report created",
     "Summary",
     "The checker found problems which may prevent the document from being fully accessible.",
+    "The checker found no problems in this document.",
     "Detailed Report",
     "Rule Name",
     "Status",
@@ -52,7 +53,7 @@ pub fn report_html(report: &Report, file_name: &str, date: &str, lang: &str, wor
     } else if report.count(Status::Skipped) > 0 {
         format!("{}: {}", esc(&words(Status::Skipped.label())), report.count(Status::Skipped))
     } else {
-        format!("{}: {}", esc(&words(Status::Passed.label())), report.count(Status::Passed))
+        esc(&words("The checker found no problems in this document."))
     });
     h.push_str("</p>\n<ul>\n");
     for s in [Status::Manual, Status::Skipped, Status::Passed, Status::Failed] {

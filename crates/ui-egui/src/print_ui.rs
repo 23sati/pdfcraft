@@ -164,7 +164,8 @@ impl PrintDraft {
             printer: self.printer.clone(),
             copies: self.copies.max(1),
             collate: self.collate,
-            duplex: self.duplex,
+            duplex: Some(self.duplex),
+            scaling: spool::Scaling::Exact,
             grayscale: self.grayscale,
             title: title.to_string(),
             // Only for the printer the options were read from.
@@ -902,6 +903,15 @@ pub(crate) fn body(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn composed_sheets_keep_exact_scaling_and_the_dialogs_duplex_choice() {
+        let draft = PrintDraft { duplex: spool::Duplex::LongEdge, ..PrintDraft::default() };
+        let job = draft.job("report.pdf");
+        assert_eq!(job.scaling, spool::Scaling::Exact);
+        assert_eq!(job.duplex, Some(spool::Duplex::LongEdge));
+        assert_eq!(PrintDraft::default().job("report.pdf").duplex, Some(spool::Duplex::Off));
+    }
 
     #[test]
     fn print_preview_rasters_stay_within_the_texture_limit() {

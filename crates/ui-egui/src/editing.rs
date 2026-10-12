@@ -344,7 +344,7 @@ impl PdfCraftApp {
             self.notify_tr("A document needs at least one page: copy instead");
             return;
         }
-        self.page_clipboard = Some(crate::PageClip { name: doc.name.clone(), bytes: doc.bytes.clone(), pages: pages.clone() });
+        self.page_clipboard = Some(crate::PageClip { from: id, name: doc.name.clone(), bytes: doc.bytes.clone(), pages: pages.clone() });
         if cut {
             self.apply_edit(Edit::DeletePages { pages: pages.clone() });
         }
@@ -365,7 +365,17 @@ impl PdfCraftApp {
         let Some(i) = self.active else { return };
         let at = self.views[i].target_pages().into_iter().max().map_or(0, |p| p + 1);
         let count = clip.pages.len();
-        if self.apply_edit(Edit::InsertPagesFrom { name: clip.name.clone(), bytes: clip.bytes.clone(), pages: Some(clip.pages.clone()), at }) {
+        // Pasting into the document the pages came from is a duplicate (or, after Cut, a move):
+        // its fields keep their names. Pasting into another document renames colliding ones.
+        let field_conflicts =
+            if self.views[i].id == clip.from { pdfcraft_engine::FieldConflicts::Merge } else { pdfcraft_engine::FieldConflicts::Rename };
+        if self.apply_edit(Edit::InsertPagesFrom {
+            name: clip.name.clone(),
+            bytes: clip.bytes.clone(),
+            pages: Some(clip.pages.clone()),
+            at,
+            field_conflicts,
+        }) {
             self.views[i].select_pages(&(at..at + count).collect::<Vec<_>>());
         }
     }

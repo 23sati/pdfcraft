@@ -263,6 +263,7 @@
 	Optimize PDF…	تحسين PDF…
 	Export to text…	تصدير إلى نص…
 	Export to Word…	تصدير إلى Word…
+	Export to PowerPoint…	تصدير إلى PowerPoint…
 	Export to HTML…	تصدير إلى HTML…
 	Export to RTF…	تصدير إلى RTF…
 	JavaScript console…	وحدة تحكم JavaScript…
@@ -347,6 +348,7 @@
 	Create from	إنشاء من
 	Single file	ملف واحد
 	Multiple files	عدة ملفات
+	Separate PDFs	ملفات PDF منفصلة
 	Images	صور
 	Clipboard	الحافظة
 	Blank page	صفحة فارغة
@@ -698,6 +700,14 @@
 	of the following fields:	للحقول التالية:
 	Simplified field notation:	صيغة الحقول المبسطة:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	أسماء الحقول مع + - * / والأقواس؛ ضع \\ قبل المسافات في الأسماء.
+
+# Document font selection
+	Finding document fonts…	جارٍ البحث عن خطوط المستند…
+	Installed fonts…	الخطوط المثبتة…
+	Keep source fonts	الاحتفاظ بالخطوط الأصلية
+	Load font…	تحميل خط…
+	No openly licensed document fonts found. Load a font file.	لم يُعثر على خطوط ذات ترخيص مفتوح. حمّل ملف خط.
+
 	Format text	تنسيق النص
 	Bold	غامق
 	Italic	مائل
@@ -1527,7 +1537,7 @@
 	Couldn't optimize the file: {e}	تعذّر تحسين الملف: {e}
 	Couldn't write {path}: {e}	تعذّرت الكتابة في {path}: {e}
 	The form asks to be submitted to {u}; PdfCraft doesn't send form data. Save the document to keep your entries.	النموذج يطلب إرساله إلى {u}؛ PdfCraft لا يرسل بيانات النماذج. احفظ المستند للاحتفاظ بما أدخلته.
-	{s} actions run in the JavaScript engine (M6)	إجراءات {s} تعمل في محرك JavaScript (M6)
+	This PDF uses the unsupported {s} action.	يستخدم هذا الملف إجراء {s} غير مدعوم.
 	{name}: the {other} action isn't supported yet	{name}: الإجراء {other} غير مدعوم بعد
 	{name} submits the form to {url}; PdfCraft doesn't send form data. Save the document to keep your entries.	{name} يرسل النموذج إلى {url}؛ PdfCraft لا يرسل بيانات النماذج. احفظ المستند للاحتفاظ بما أدخلته.
 	Export stopped: {e}	توقف التصدير: {e}
@@ -1861,6 +1871,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	تغيير {key}
 	Insert pages from {name}	إدراج صفحات من {name}
+	Insert pages from {name} — 1 field renamed	إدراج صفحات من {name} — تمت إعادة تسمية حقل واحد
+	Insert pages from {name} — fields renamed	إدراج صفحات من {name} — تمت إعادة تسمية حقول
 	Fill in {name}	تعبئة {name}
 	Set the image of {name}	تعيين صورة {name}
 	Edit script of {name}	تحرير سكربت {name}
@@ -1891,6 +1903,7 @@
 	Delete document JavaScript	حذف JavaScript المستند
 	Edit document JavaScript	تحرير JavaScript المستند
 	Edit text	تحرير النص
+	Load document font	تحميل خط المستند
 	Move image	نقل الصورة
 	Rotate image	تدوير الصورة
 	Flip image	قلب الصورة
@@ -2026,7 +2039,9 @@
 	Couldn't import the signature image: {e}	تعذّر استيراد صورة التوقيع: {e}
 @plural	{n} page|{n} pages	{n} صفحة|{n} صفحة|{n} صفحتان|{n} صفحات|{n} صفحة|{n} صفحة
 @plural	{n} field|{n} fields	{n} حقل|{n} حقل|{n} حقلان|{n} حقول|{n} حقلًا|{n} حقل
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	يتعارض {n} من أسماء الحقول مع الملفات السابقة وسيتم تغيير أسمائها: {list}|يتعارض اسم {n} حقل مع الملفات السابقة وسيتم تغيير اسمه: {list}|يتعارض اسما {n} حقل مع الملفات السابقة وسيتم تغيير اسميهما: {list}|تتعارض أسماء {n} حقول مع الملفات السابقة وسيتم تغيير أسمائها: {list}|يتعارض {n} اسم حقل مع الملفات السابقة وسيتم تغيير أسمائها: {list}|يتعارض {n} من أسماء الحقول مع الملفات السابقة وسيتم تغيير أسمائها: {list}
 	Create PDF from multiple files…	إنشاء PDF من عدة ملفات…
+	Create separate PDFs…	إنشاء ملفات PDF منفصلة…
 	Optimizing… removing user data	جارٍ التحسين… إزالة بيانات المستخدم
 	Optimizing… image {d} of {t}	جارٍ التحسين… الصورة {d} من {t}
 	Optimizing… cleaning up	جارٍ التحسين… التنظيف
@@ -2276,3 +2291,16 @@ scroll speed	Fast	سريعة
 	Tools panel side	جانب لوحة الأدوات
 	Add comment	إضافة تعليق
 	Change tag properties	تغيير خصائص الوسم
+	Left out: {names}	تم استبعاد: {names}
+	already a PDF	ملف PDF بالفعل
+	no unused output name	لا يوجد اسم ناتج غير مستخدم
+	no output folder was chosen	لم يتم اختيار مجلد للإخراج
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	تم تنزيل {n} من ملفات PDF|تم تنزيل ملف PDF واحد ({n})|تم تنزيل ملفي PDF ({n})|تم تنزيل {n} ملفات PDF|تم تنزيل {n} ملف PDF|تم تنزيل {n} من ملفات PDF
+	Scan	مسح ضوئي
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	وقّع على ورقة بيضاء والتقط لها صورة في إضاءة ساطعة ومتساوية (استخدم الفلاش). اختر الصورة أو أفلتها هنا: يعثر PdfCraft على التوقيع ويزيل الورق.
+	Choose photo…	اختيار صورة…
+	No photo chosen	لم تُختر صورة
+	Photo	صورة
+	Ink sensitivity	حساسية الحبر
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	لم يُعثر على توقيع داخل الإطار. حرّك الإطار فوق التوقيع أو ارفع حساسية الحبر.
+	Couldn't use the photo: {e}	تعذّر استخدام الصورة: {e}
