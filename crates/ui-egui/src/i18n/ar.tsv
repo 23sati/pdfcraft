@@ -864,6 +864,7 @@
 	{verb} as "{name}"	{verb} باسم "{name}"
 	Certify	تصديق
 	The signature will be invisible.	سيكون التوقيع غير مرئي.
+	The existing action will be preserved.	سيتم الاحتفاظ بالإجراء الحالي.
 	Distinguished name	الاسم المميز
 	Labels	التسميات
 	Graphic	رسم
@@ -2278,6 +2279,9 @@ key	Space	مسافة
 scroll speed	Slow	بطيئة
 scroll speed	Normal	عادية
 scroll speed	Fast	سريعة
+	Animation effects	تأثيرات الحركة
+animation effects	On	مفعّلة
+animation effects	Off	معطّلة
 	Enhance camera image	تحسين صورة الكاميرا
 	Drag the corners onto the document's edges, then choose Enhance page.	اسحب الزوايا إلى حواف المستند، ثم اختر تحسين الصفحة.
 	Enhance page	تحسين الصفحة
@@ -2287,10 +2291,39 @@ scroll speed	Fast	سريعة
 	Original	الأصل
 	Greyscale	تدرج رمادي
 	Black and white	أبيض وأسود
+	Reading colours	ألوان القراءة
+	Replace document colours	استبدال ألوان المستند
+	Black on white	أسود على أبيض
+	White on black	أبيض على أسود
+	Yellow on black	أصفر على أسود
+	Green on black	أخضر على أسود
+	Page background	خلفية الصفحة
+	Only change the colour of black text or line art	تغيير لون النص الأسود والخطوط فقط
+	Change the colour of line art as well as text	تغيير لون الخطوط أيضًا، وليس النص فقط
+	Colours are remapped while rendering; the document itself never changes.	تُستبدل الألوان عند الرسم؛ المستند نفسه لا يتغير أبدًا.
 	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	لا يقبل برنامج تشغيل هذه الطابعة إعدادات الطباعة على الوجهين من البرامج الأخرى، لذا يُطبَّق إعداده الخاص. غيّره من خصائص…
+	Browser's print dialog	مربع حوار الطباعة في المتصفح
+	Copies, two-sided printing and colour are chosen in the browser's print dialog.	يُختار عدد النسخ والطباعة على الوجهين والألوان في مربع حوار الطباعة في المتصفح.
+	Preparing {n} sheets for printing…	جارٍ تجهيز {n} من الأوراق للطباعة…
+	Preparing sheet {done} of {total} for printing…	جارٍ تجهيز الورقة {done} من {total} للطباعة…
+	Opening the browser's print dialog…	جارٍ فتح مربع حوار الطباعة في المتصفح…
+	Couldn't print from the browser ({e}); downloaded {name} to print instead	تعذّرت الطباعة من المتصفح ({e})؛ نُزّل {name} لطباعته بدلًا من ذلك
 	Tools panel side	جانب لوحة الأدوات
 	Add comment	إضافة تعليق
 	Change tag properties	تغيير خصائص الوسم
+# Accessibility structure tags.
+	Tags panel	لوحة الوسوم
+	Tags	الوسوم
+	Tag type	نوع الوسم
+	Actual text	النص الفعلي
+	Find a tag	ابحث عن وسم
+	Collapse tag	طي الوسم
+	Expand tag	توسيع الوسم
+	Revert changes	التراجع عن التغييرات
+	Save tag properties	حفظ خصائص الوسم
+	This document has no editable structure tags.	لا يحتوي هذا المستند على وسوم بنيوية قابلة للتحرير.
+	{n} tags	{n} وسوم
+	Save or revert changes before selecting another tag.	احفظ التغييرات أو تراجع عنها قبل تحديد وسم آخر.
 	Left out: {names}	تم استبعاد: {names}
 	already a PDF	ملف PDF بالفعل
 	no unused output name	لا يوجد اسم ناتج غير مستخدم
@@ -2304,3 +2337,7 @@ scroll speed	Fast	سريعة
 	Ink sensitivity	حساسية الحبر
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	لم يُعثر على توقيع داخل الإطار. حرّك الإطار فوق التوقيع أو ارفع حساسية الحبر.
 	Couldn't use the photo: {e}	تعذّر استخدام الصورة: {e}
+	Couldn't follow linked PDF: {reason}	تعذّر فتح ملف PDF المرتبط: {reason}
+	The linked PDF opened, but its named destination was not applied.	فُتح ملف PDF المرتبط، لكن لم تُطبَّق وجهته المسماة.
+	The linked PDF opened, but its page destination was out of range.	فُتح ملف PDF المرتبط، لكن وجهة الصفحة خارج النطاق.
+	Local cross-PDF links require the desktop app	تتطلب الروابط المحلية بين ملفات PDF تطبيق سطح المكتب

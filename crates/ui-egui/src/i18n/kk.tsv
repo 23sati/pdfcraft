@@ -820,6 +820,7 @@
 	{verb} as "{name}"	«{name}» ретінде {verb}
 	Certify	Куәландыру
 	The signature will be invisible.	Қолтаңба көрінбейтін болады.
+	The existing action will be preserved.	Қолданыстағы әрекет сақталады.
 	Distinguished name	Ажырататын атау
 	Labels	Белгілер
 	Permitted actions after certifying	Куәландырғаннан кейінгі рұқсат етілген әрекеттер
@@ -2252,6 +2253,9 @@ key	Space	Бос орын
 scroll speed	Slow	Баяу
 scroll speed	Normal	Қалыпты
 scroll speed	Fast	Жылдам
+	Animation effects	Анимация әсерлері
+animation effects	On	Қосулы
+animation effects	Off	Өшірулі
 	Enhance camera image	Камера суретін жақсарту
 	Drag the corners onto the document's edges, then choose Enhance page.	Бұрыштарды құжаттың жиектеріне сүйреп, содан кейін «Бетті жақсарту» таңдаңыз.
 	Enhance page	Бетті жақсарту
@@ -2264,9 +2268,28 @@ scroll speed	Fast	Жылдам
 	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Бұл принтердің драйвері басқа бағдарламалардан екі жақты басып шығару баптауларын қабылдамайды, сондықтан өз баптауы қолданылады. Оны мына жерден өзгертіңіз: Сипаттар…
 	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Бұл өрістің қаріпі «{c}» ({code}) таңбасын сала алмайды, сондықтан PdfCraft оның орнына ? көрсетеді. Мән сақталады, ал басқа PDF қарау құралдары өрісті соған қарап қайта салады.
 	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	PdfCraft жазатын қаріптер «{c}» ({code}) таңбасын сала алмайды, сондықтан ол барлық PDF қарау құралдарында ? болып көрінеді. Мәтін сақталады.
+	Browser's print dialog	Браузердің басып шығару терезесі
+	Copies, two-sided printing and colour are chosen in the browser's print dialog.	Көшірмелер саны, екі жақты басып шығару және түс браузердің басып шығару терезесінде таңдалады.
+	Preparing {n} sheets for printing…	Басып шығаруға парақтар дайындалуда: {n}…
+	Preparing sheet {done} of {total} for printing…	Басып шығаруға {total} парақтың {done}-сі дайындалуда…
+	Opening the browser's print dialog…	Браузердің басып шығару терезесі ашылуда…
+	Couldn't print from the browser ({e}); downloaded {name} to print instead	Браузерден басып шығару мүмкін болмады ({e}); оның орнына басып шығару үшін {name} жүктелді
 	Tools panel side	Құралдар панелінің жағы
 	Add comment	Түсініктеме қосу
 	Change tag properties	Тег қасиеттерін өзгерту
+# Accessibility structure tags.
+	Tags panel	Тегтер панелі
+	Tags	Тегтер
+	Tag type	Тег түрі
+	Actual text	Нақты мәтін
+	Find a tag	Тегті табу
+	Collapse tag	Тегті жинау
+	Expand tag	Тегті жаю
+	Revert changes	Өзгерістерді қайтару
+	Save tag properties	Тег қасиеттерін сақтау
+	This document has no editable structure tags.	Бұл құжатта өңделетін құрылымдық тегтер жоқ.
+	{n} tags	{n} тег
+	Save or revert changes before selecting another tag.	Басқа тегті таңдамас бұрын өзгерістерді сақтаңыз немесе қайтарыңыз.
 	Left out: {names}	Қалдырылды: {names}
 	already a PDF	бұл қазірдің өзінде PDF
 	no unused output name	бос шығыс атауы жоқ
@@ -2281,3 +2304,17 @@ scroll speed	Fast	Жылдам
 	Ink sensitivity	Сия сезімталдығы
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Жақтауда қолтаңба табылмады. Жақтауды қолтаңбаның үстіне жылжытыңыз немесе сия сезімталдығын арттырыңыз.
 	Couldn't use the photo: {e}	Суретті пайдалану мүмкін болмады: {e}
+	Reading colours	Оқу түстері
+	Replace document colours	Құжат түстерін ауыстыру
+	Black on white	Ақ фонда қара
+	White on black	Қара фонда ақ
+	Yellow on black	Қара фонда сары
+	Green on black	Қара фонда жасыл
+	Page background	Бет фоны
+	Only change the colour of black text or line art	Тек қара мәтіннің немесе сызықтық суреттің түсін өзгерту
+	Change the colour of line art as well as text	Мәтінмен қатар сызықтық суреттің түсін де өзгерту
+	Colours are remapped while rendering; the document itself never changes.	Түстер көрсету кезінде қайта белгіленеді; құжаттың өзі ешқашан өзгермейді.
+	Couldn't follow linked PDF: {reason}	Байланысты PDF ашылмады: {reason}
+	The linked PDF opened, but its named destination was not applied.	Байланысты PDF ашылды, бірақ оның аталған мақсаты қолданылмады.
+	The linked PDF opened, but its page destination was out of range.	Байланысты PDF ашылды, бірақ оның мақсатты беті ауқымнан тыс.
+	Local cross-PDF links require the desktop app	PDF файлдары арасындағы жергілікті сілтемелер үшін жұмыс үстелі қолданбасы қажет

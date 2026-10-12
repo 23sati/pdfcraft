@@ -938,6 +938,7 @@ key	Space	Mezerník
 	{verb} as "{name}"	{verb} jako „{name}“
 	Certify	Certifikovat
 	The signature will be invisible.	Podpis bude neviditelný.
+	The existing action will be preserved.	Stávající akce bude zachována.
 	Distinguished name	Rozlišující jméno
 	Labels	Popisky
 	Graphic	Grafika
@@ -2308,6 +2309,9 @@ certificate	Subject	Subjekt
 scroll speed	Slow	Pomalá
 scroll speed	Normal	Normální
 scroll speed	Fast	Rychlá
+	Animation effects	Animační efekty
+animation effects	On	Zapnuto
+animation effects	Off	Vypnuto
 
 # Counts that take plural forms: optimized images, discarded items, bytes, pixels and deleted fields.
 @plural	{n} image optimized|{n} images optimized	{n} obrázek optimalizován|{n} obrázky optimalizovány|{n} obrázků optimalizováno
@@ -2338,12 +2342,41 @@ scroll speed	Fast	Rychlá
 	Original	Originál
 	Greyscale	Stupně šedi
 	Black and white	Černobílé
+	Reading colours	Barvy pro čtení
+	Replace document colours	Nahradit barvy dokumentu
+	Black on white	Černá na bílém
+	White on black	Bílá na černém
+	Yellow on black	Žlutá na černém
+	Green on black	Zelená na černém
+	Page background	Pozadí stránky
+	Only change the colour of black text or line art	Změnit jen barvu černého textu a čar
+	Change the colour of line art as well as text	Změnit barvu i čar, ne jen textu
+	Colours are remapped while rendering; the document itself never changes.	Barvy se mění při vykreslování; samotný dokument se nikdy nemění.
 	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Ovladač této tiskárny nepřijímá nastavení oboustranného tisku z jiných programů, proto platí jeho vlastní nastavení. Změňte ho ve Vlastnosti…
 	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Písmo tohoto pole neumí zobrazit „{c}“ ({code}), proto PdfCraft místo něj ukazuje ?. Hodnota se uloží a jiné prohlížeče PDF pole podle ní překreslí.
 	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Písma, kterými PdfCraft píše, neumí zobrazit „{c}“ ({code}), proto se ve všech prohlížečích PDF zobrazí jako ?. Text se uloží.
+	Browser's print dialog	Dialog tisku prohlížeče
+	Copies, two-sided printing and colour are chosen in the browser's print dialog.	Počet kopií, oboustranný tisk a barva se volí v dialogu tisku prohlížeče.
+	Preparing {n} sheets for printing…	Příprava {n} listů k tisku…
+	Preparing sheet {done} of {total} for printing…	Příprava listu {done} z {total} k tisku…
+	Opening the browser's print dialog…	Otevírá se dialog tisku prohlížeče…
+	Couldn't print from the browser ({e}); downloaded {name} to print instead	Z prohlížeče nelze tisknout ({e}); místo toho byl k tisku stažen soubor {name}
 	Tools panel side	Strana panelu nástrojů
 	Add comment	Přidat komentář
 	Change tag properties	Změnit vlastnosti značky
+# Accessibility structure tags.
+	Tags panel	Panel značek
+	Tags	Značky
+	Tag type	Typ značky
+	Actual text	Skutečný text
+	Find a tag	Najít značku
+	Collapse tag	Sbalit značku
+	Expand tag	Rozbalit značku
+	Revert changes	Vrátit změny
+	Save tag properties	Uložit vlastnosti značky
+	This document has no editable structure tags.	Tento dokument nemá upravitelné značky struktury.
+	{n} tags	{n} značek
+	Save or revert changes before selecting another tag.	Před výběrem jiné značky změny uložte nebo vraťte.
 	Left out: {names}	Vynecháno: {names}
 	already a PDF	již je PDF
 	no unused output name	žádný volný název výstupního souboru
@@ -2357,3 +2390,7 @@ scroll speed	Fast	Rychlá
 	Ink sensitivity	Citlivost na inkoust
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	V rámečku nebyl nalezen žádný podpis. Přesuňte rámeček na podpis nebo zvyšte citlivost na inkoust.
 	Couldn't use the photo: {e}	Fotografii nelze použít: {e}
+	Couldn't follow linked PDF: {reason}	Odkazovaný PDF nelze otevřít: {reason}
+	The linked PDF opened, but its named destination was not applied.	Odkazovaný PDF se otevřel, ale jeho pojmenovaný cíl nebyl použit.
+	The linked PDF opened, but its page destination was out of range.	Odkazovaný PDF se otevřel, ale cílová stránka je mimo rozsah.
+	Local cross-PDF links require the desktop app	Místní odkazy mezi soubory PDF vyžadují desktopovou aplikaci
