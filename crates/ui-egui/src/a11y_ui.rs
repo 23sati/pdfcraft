@@ -5,6 +5,7 @@
 use std::collections::BTreeSet;
 
 use egui::{Align, Layout};
+use pdfcraft_cos::ObjRef;
 use pdfcraft_engine::DocId;
 use pdfcraft_engine::a11y::{Category, Options, Report, Rule, Status};
 
@@ -63,6 +64,7 @@ pub(crate) enum PanelAction {
     ShowReport,
     Options,
     GoTo(usize, Option<[f64; 4]>),
+    GoToTag(ObjRef, Option<usize>, Option<[f64; 4]>),
 }
 
 /// Rules with an automatic (or guided) fix.
@@ -314,7 +316,11 @@ pub(crate) fn panel(ui: &mut egui::Ui, t: &Tokens, state: &mut A11yState, doc: D
                         // the sentence is said in the panel's language with those words still in it.
                         let said = f.said(&crate::i18n::words);
                         let l = ui.add(egui::Label::new(egui::RichText::new(said).small().color(t.text_muted)).sense(egui::Sense::click()));
-                        if let Some(p) = f.page
+                        if let Some(object) = f.object {
+                            if l.on_hover_text(tl!("Tags")).clicked() {
+                                action = Some(PanelAction::GoToTag(object, f.page, f.bbox));
+                            }
+                        } else if let Some(p) = f.page
                             && l.on_hover_text(tl!("Go to the page")).clicked()
                         {
                             action = Some(PanelAction::GoTo(p, f.bbox));
@@ -393,16 +399,37 @@ impl PdfCraftApp {
         self.write_files(&[(format!("{stem} Accessibility Report.html"), std::sync::Arc::new(html.into_bytes()))], &title);
     }
 
+    /// Turn to a finding's page and, when the checker located it, flash its box there.
+    fn a11y_show_on_page(&mut self, index: usize, page: usize, bbox: Option<[f64; 4]>) {
+        let Some(view) = self.views.get_mut(index) else { return };
+        view.go_to_page(page);
+        if let Some(bbox) = bbox {
+            view.flash = Some((page, bbox.map(|v| v as f32), 0.0));
+        }
+    }
+
     pub(crate) fn a11y_action(&mut self, index: usize, action: PanelAction) {
         match action {
             PanelAction::CheckAgain => self.run_accessibility_check(),
             PanelAction::Options => self.dialog = Some(Dialog::AccessibilityOptions),
             PanelAction::ShowReport => self.show_accessibility_report(),
-            PanelAction::GoTo(p, bbox) => {
-                let view = &mut self.views[index];
-                view.go_to_page(p);
-                if let Some(bbox) = bbox {
-                    view.flash = Some((p, bbox.map(|v| v as f32), 0.0));
+            PanelAction::GoTo(p, bbox) => self.a11y_show_on_page(index, p, bbox),
+            PanelAction::GoToTag(object, page, bbox) => {
+                let Some((_, id)) = self.active_ids() else { return };
+                let Some(tags) = self.session.get(id).map(|doc| self.tags_state.tags(doc)) else { return };
+                if !tags.iter().any(|tag| tag.object == object) {
+                    if let Some(page) = page {
+                        self.a11y_show_on_page(index, page, bbox);
+                    }
+                    return;
+                }
+                if self.tags_state.select(id, &tags, object) {
+                    self.right = Some(RightPanel::Tags);
+                    if let Some(page) = page {
+                        self.a11y_show_on_page(index, page, bbox);
+                    }
+                } else {
+                    self.notify_tr("Save or revert changes before selecting another tag.");
                 }
             }
             PanelAction::Skip(rule) => {

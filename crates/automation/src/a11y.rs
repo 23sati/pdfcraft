@@ -416,6 +416,7 @@ impl Automation {
             .map(|t| {
                 json!({
                     "object": t.object.num, "generation": t.object.generation, "type": t.kind,
+                    "parent": t.parent.map(|p| json!({ "object": p.num, "generation": p.generation })), "depth": t.depth,
                     "title": t.title, "actual_text": t.actual_text, "alternate_text": t.alt,
                     "language": t.language, "page": t.page.map(|p| p + 1),
                 })

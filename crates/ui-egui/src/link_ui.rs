@@ -32,6 +32,8 @@ pub struct LinkDraft {
     pub rect: [f64; 4],
     /// `None` for a new link.
     pub index: Option<usize>,
+    /// Keep an existing action that Link Properties cannot edit.
+    pub preserve_action: bool,
     pub web: bool,
     pub url: String,
     /// 1-based target page.
@@ -142,6 +144,7 @@ impl PdfCraftApp {
                 page,
                 rect: l.rect,
                 index,
+                preserve_action: matches!(l.action, LinkAction::Other(_)),
                 web: matches!(l.action, LinkAction::Uri(_)),
                 url: match &l.action {
                     LinkAction::Uri(u) => u.clone(),
@@ -157,6 +160,7 @@ impl PdfCraftApp {
                 page,
                 rect: rect.unwrap_or_default(),
                 index: None,
+                preserve_action: false,
                 web: true,
                 url: "https://".into(),
                 target: 1,
@@ -249,23 +253,27 @@ pub(crate) fn body(ui: &mut egui::Ui, d: &mut LinkDraft, pages: usize, t: &Token
     });
     ui.add_space(8.0);
     widgets::section_title(ui, tl!("Link Action"));
-    widgets::radio_value(ui, &mut d.web, true, tl!("Open a web page"));
-    ui.add_enabled_ui(d.web, |ui| {
-        ui.horizontal(|ui| {
-            ui.add_space(24.0);
-            ui.add(crate::widgets::line(&mut d.url).desired_width(360.0).hint_text("https://example.org"));
+    if d.preserve_action {
+        ui.label(tl!("The existing action will be preserved."));
+    } else {
+        widgets::radio_value(ui, &mut d.web, true, tl!("Open a web page"));
+        ui.add_enabled_ui(d.web, |ui| {
+            ui.horizontal(|ui| {
+                ui.add_space(24.0);
+                ui.add(crate::widgets::line(&mut d.url).desired_width(360.0).hint_text("https://example.org"));
+            });
         });
-    });
-    widgets::radio_value(ui, &mut d.web, false, tl!("Go to a page view"));
-    ui.add_enabled_ui(!d.web, |ui| {
-        ui.horizontal(|ui| {
-            ui.add_space(24.0);
-            ui.label(tl!("Page"));
-            ui.add(egui::DragValue::new(&mut d.target).range(1..=pages.max(1)));
-            ui.label(crate::i18n::fmt(tl!("of {name}"), &[("name", &pages.to_string())]));
+        widgets::radio_value(ui, &mut d.web, false, tl!("Go to a page view"));
+        ui.add_enabled_ui(!d.web, |ui| {
+            ui.horizontal(|ui| {
+                ui.add_space(24.0);
+                ui.label(tl!("Page"));
+                ui.add(egui::DragValue::new(&mut d.target).range(1..=pages.max(1)));
+                ui.label(crate::i18n::fmt(tl!("of {name}"), &[("name", &pages.to_string())]));
+            });
         });
-    });
-    let ok = !d.web || (d.url.trim().len() > 3 && d.url.trim() != "https://");
+    }
+    let ok = d.preserve_action || !d.web || (d.url.trim().len() > 3 && d.url.trim() != "https://");
     if !ok {
         ui.label(egui::RichText::new(tl!("Type the web address.")).small().color(t.text_faint));
     }
@@ -284,9 +292,33 @@ pub(crate) fn body(ui: &mut egui::Ui, d: &mut LinkDraft, pages: usize, t: &Token
 
 /// The edit for a confirmed draft.
 pub(crate) fn edit_for(d: &LinkDraft) -> Edit {
-    let action = if d.web { LinkAction::Uri(d.url.trim().to_string()) } else { LinkAction::Page(d.target.saturating_sub(1)) };
     match d.index {
-        None => Edit::AddLink { page: d.page, rect: d.rect, action, style: d.style },
-        Some(index) => Edit::SetLink { page: d.page, index, rect: None, action: Some(action), style: Some(d.style) },
+        None => Edit::AddLink {
+            page: d.page,
+            rect: d.rect,
+            action: if d.web { LinkAction::Uri(d.url.trim().to_string()) } else { LinkAction::Page(d.target.saturating_sub(1)) },
+            style: d.style,
+        },
+        Some(index) => Edit::SetLink {
+            page: d.page,
+            index,
+            rect: None,
+            action: (!d.preserve_action)
+                .then(|| if d.web { LinkAction::Uri(d.url.trim().to_string()) } else { LinkAction::Page(d.target.saturating_sub(1)) }),
+            style: Some(d.style),
+        },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{LinkDraft, edit_for};
+    use pdfcraft_engine::{Edit, LinkStyle};
+
+    #[test]
+    fn appearance_edit_preserves_an_existing_unsupported_action() {
+        let style = LinkStyle::default();
+        let draft = LinkDraft { page: 0, rect: [0.0; 4], index: Some(3), preserve_action: true, web: false, url: String::new(), target: 1, style };
+        assert_eq!(edit_for(&draft), Edit::SetLink { page: 0, index: 3, rect: None, action: None, style: Some(style) });
     }
 }

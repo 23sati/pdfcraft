@@ -2300,6 +2300,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         || app.pending_link.is_some()
         || app.updates.open;
     let mut clicked_link: Option<LinkTarget> = None;
+    let mut remote_open: Option<(pdfcraft_engine::DocId, String, pdfcraft_render::RemoteDestination)> = None;
     let mut canvas_action: Option<comments::CanvasAction> = None;
     let mut field_menu: Option<FieldMenu> = None;
     let mut open_props: Option<(usize, usize)> = None;
@@ -2885,6 +2886,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                             }
                             LinkTarget::Uri(u) => u.clone(),
                             LinkTarget::SetLayers { .. } => tl!("Set layer visibility").to_string(),
+                            LinkTarget::RemoteGoTo { file, .. } => file.clone(),
                             LinkTarget::Other(s) => crate::i18n::fmt(tl!("{s} action"), &[("s", s)]),
                         };
                         hover_text = Some((p, label));
@@ -3184,6 +3186,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         Some(LinkTarget::Page(p, dest)) => view.go_to_dest(p, dest, info),
         Some(LinkTarget::Uri(u)) => app.request_document_url(&u, crate::LinkOrigin::Link),
         Some(LinkTarget::SetLayers { changes, preserve_rb }) => set_layers(app, index, &changes, preserve_rb),
+        Some(LinkTarget::RemoteGoTo { file, destination, .. }) => remote_open = Some((view.id, file, destination)),
         Some(LinkTarget::Other(s)) => app.notify_fmt("This PDF uses the unsupported {s} action.", &[("s", &s)]),
         None => {}
     }
@@ -3280,6 +3283,9 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         run_button(app, index, &name, action);
     }
     quick_bar(app, avail, ui);
+    if let Some((source, file, destination)) = remote_open {
+        app.open_remote_link(source, file, destination);
+    }
 }
 
 #[derive(Clone, Copy)]

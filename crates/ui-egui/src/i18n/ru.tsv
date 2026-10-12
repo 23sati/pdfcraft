@@ -858,6 +858,7 @@
 	{verb} as "{name}"	{verb} как «{name}»
 	Certify	Сертифицировать
 	The signature will be invisible.	Подпись будет невидимой.
+	The existing action will be preserved.	Существующее действие будет сохранено.
 	Distinguished name	Уникальное имя
 	Labels	Метки
 	Graphic	Графика
@@ -2183,9 +2184,28 @@ animation effects	Off	Выкл
 	Greyscale	Оттенки серого
 	Black and white	Чёрно-белый
 	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Драйвер этого принтера не принимает настройки двусторонней печати от других программ, поэтому действует его собственная настройка. Измените её в окне Свойства…
+	Browser's print dialog	Диалог печати браузера
+	Copies, two-sided printing and colour are chosen in the browser's print dialog.	Число копий, двустороннюю печать и цвет выбирают в диалоге печати браузера.
+	Preparing {n} sheets for printing…	Подготовка листов к печати: {n}…
+	Preparing sheet {done} of {total} for printing…	Подготовка к печати листа {done} из {total}…
+	Opening the browser's print dialog…	Открывается диалог печати браузера…
+	Couldn't print from the browser ({e}); downloaded {name} to print instead	Не удалось напечатать из браузера ({e}); вместо этого для печати скачан файл {name}
 	Tools panel side	Сторона панели инструментов
 	Add comment	Добавить комментарий
 	Change tag properties	Изменить свойства тега
+# Accessibility structure tags.
+	Tags panel	Панель тегов
+	Tags	Теги
+	Tag type	Тип тега
+	Actual text	Фактический текст
+	Find a tag	Найти тег
+	Collapse tag	Свернуть тег
+	Expand tag	Развернуть тег
+	Revert changes	Отменить изменения
+	Save tag properties	Сохранить свойства тега
+	This document has no editable structure tags.	В этом документе нет редактируемых структурных тегов.
+	{n} tags	{n} тегов
+	Save or revert changes before selecting another tag.	Сохраните или отмените изменения перед выбором другого тега.
 	Left out: {names}	Пропущены: {names}
 	already a PDF	уже PDF
 	no unused output name	нет свободного имени для выходного файла
@@ -2199,3 +2219,7 @@ animation effects	Off	Выкл
 	Ink sensitivity	Чувствительность к чернилам
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	В рамке не найдена подпись. Наведите рамку на подпись или увеличьте чувствительность к чернилам.
 	Couldn't use the photo: {e}	Не удалось использовать фото: {e}
+	Couldn't follow linked PDF: {reason}	Не удалось открыть связанный PDF: {reason}
+	The linked PDF opened, but its named destination was not applied.	Связанный PDF открыт, но его именованное назначение не применено.
+	The linked PDF opened, but its page destination was out of range.	Связанный PDF открыт, но страница назначения вне допустимого диапазона.
+	Local cross-PDF links require the desktop app	Локальные ссылки между PDF работают только в настольном приложении
