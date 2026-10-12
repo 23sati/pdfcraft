@@ -36,6 +36,10 @@ fn fixture(n: usize) -> Vec<u8> {
 }
 
 fn remote_link_pdf(file: &str, destination: Option<&str>) -> Vec<u8> {
+    // canonicalize() uses a Windows device prefix; a PDF file specification uses the ordinary drive path.
+    #[cfg(windows)]
+    let file = file.strip_prefix(r"\\?\").filter(|path| path.as_bytes().get(1) == Some(&b':')).unwrap_or(file);
+    let file = file.replace('\\', "\\\\").replace('(', "\\(").replace(')', "\\)");
     let destination = destination.map_or_else(String::new, |d| format!("/D {d}"));
     let objects: Vec<Vec<u8>> = vec![
         b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
@@ -109,6 +113,36 @@ fn workdir_call_sites_do_not_delete_each_other() {
 
 fn auto(dir: &Path) -> Automation {
     Automation::new().with_root(dir).unwrap().with_clock(|| 1_700_000_000)
+}
+
+#[test]
+fn autotag_preview_proposes_text_without_changing_the_pdf() {
+    let dir = workdir("autotag-preview");
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    let before = std::fs::read(dir.join("a.pdf")).unwrap();
+
+    let preview = ok(&mut a, "accessibility_autotag_preview", json!({ "doc": doc, "page": 1 }));
+    assert_eq!(preview["page"], 1);
+    assert_eq!(preview["candidates"][0]["type"], "P");
+    assert_eq!(preview["candidates"][0]["text"], "Page 1");
+    assert_eq!(preview["candidates"][0]["needs_review"], true);
+    assert_eq!(preview["unclassified_images"], 0);
+    assert_eq!(preview["unclassified_text_blocks"], 0);
+    assert_eq!(preview["existing_structure"], false);
+    assert_eq!(std::fs::read(dir.join("a.pdf")).unwrap(), before);
+    assert!(matches!(
+        a.call("accessibility_autotag_preview", &json!({ "doc": doc, "page": 4 })),
+        Err(ToolError::InvalidArgs(_) | ToolError::Failed(_))
+    ));
+
+    let blank = ok(&mut a, "doc_create", json!({ "from": "blank", "width": 300, "height": 400 }))["doc"].as_u64().unwrap();
+    ok(&mut a, "page_add_text", json!({ "doc": blank, "page": 1, "text": "Annual report", "at": [20, 25], "size": 24 }));
+    ok(&mut a, "page_add_text", json!({ "doc": blank, "page": 1, "text": "First paragraph", "at": [20, 100], "size": 12 }));
+    ok(&mut a, "page_add_text", json!({ "doc": blank, "page": 1, "text": "Second paragraph", "at": [20, 140], "size": 12 }));
+    let preview = ok(&mut a, "accessibility_autotag_preview", json!({ "doc": blank, "page": 1 }));
+    assert!(preview["candidates"].as_array().unwrap().iter().any(|c| c["text"] == "Annual report" && c["type"] == "H1"));
+    assert!(preview["candidates"].as_array().unwrap().iter().any(|c| c["text"] == "First paragraph" && c["type"] == "P"));
 }
 
 /// A one-page PDF whose form holds one text field named `name`.
@@ -394,6 +428,30 @@ fn edit_undo_redo_and_save_round_trip() {
     let after = std::fs::read(dir.join("out/edited.pdf")).unwrap();
     assert!(after.len() as u64 > before);
     assert_eq!(after.windows(5).filter(|w| w == b"%%EOF").count(), 2);
+}
+
+/// Issue #1329: an in-place save says it was incremental only when it kept the file it was
+/// saving over: protecting or sanitizing rewrites the file, and the result says so.
+#[test]
+fn an_in_place_save_reports_a_required_rewrite_as_not_incremental() {
+    let dir = workdir("save-incremental-flag");
+    let original = std::fs::read(dir.join("a.pdf")).unwrap();
+    let cases = [
+        ("page_rotate", json!({ "pages": [1], "degrees": 90 }), true),
+        ("doc_protect", json!({ "open_password": "openme" }), false),
+        ("doc_remove_hidden", json!({}), false),
+    ];
+    for (tool, args, incremental) in cases {
+        std::fs::write(dir.join("a.pdf"), &original).unwrap();
+        let mut a = auto(&dir);
+        let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+        let mut args = args;
+        args["doc"] = json!(doc);
+        ok(&mut a, tool, args);
+        let saved = ok(&mut a, "doc_save", json!({ "doc": doc }));
+        let kept = std::fs::read(dir.join("a.pdf")).unwrap().starts_with(&original);
+        assert_eq!((saved["incremental"].as_bool(), kept), (Some(incremental), incremental), "{tool}");
+    }
 }
 
 /// organize.field-name-conflicts: combining files whose forms share a field name keeps the
@@ -4240,6 +4298,29 @@ fn pdfa_through_tools() {
     assert_eq!(r["declared"]["pdfa"], "PDF/A-3b", "{r}");
     assert!(r["issues"].as_array().unwrap().iter().all(|i| i["fixable"] == false), "{r}");
     assert!(a.call("pdfa_verify", &json!({ "doc": doc, "level": "9z" })).is_err());
+}
+
+#[test]
+fn print_readiness_through_tools() {
+    let dir = workdir("print-readiness");
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_create", json!({ "from": "text", "text": "Proof me" }))["doc"].as_u64().unwrap();
+    let before = ok(&mut a, "doc_info", json!({ "doc": doc }));
+    let r = ok(&mut a, "print_readiness", json!({ "doc": doc }));
+    assert!(r["text"].as_str().unwrap().contains("verification only"), "{r}");
+    assert_eq!(r["pages"].as_array().unwrap().len(), 1, "{r}");
+    assert_eq!(r["pages"][0]["trim_set"], false, "{r}");
+    assert_eq!(r["resolution_unknown"], 0, "{r}");
+    let findings = r["findings"].as_array().unwrap();
+    // A page without a TrimBox is one informational note for the document, not a bleed warning.
+    assert!(!findings.iter().any(|f| f["id"] == "page-bleed"), "{r}");
+    let trim: Vec<_> = findings.iter().filter(|f| f["id"] == "page-trim").collect();
+    assert_eq!(trim.len(), 1, "{r}");
+    assert_eq!(trim[0]["severity"], "info");
+    assert!(trim[0]["page"].is_null(), "{r}");
+    assert_eq!(ok(&mut a, "doc_info", json!({ "doc": doc })), before, "verification doesn't change the document");
+    assert!(a.call("print_readiness", &json!({ "doc": 999 })).is_err());
+    assert!(pdfcraft_automation::tools().iter().any(|t| t.name == "print_readiness" && t.read_only));
 }
 
 #[test]
