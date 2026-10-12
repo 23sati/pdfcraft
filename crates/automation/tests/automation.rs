@@ -1579,6 +1579,25 @@ trailer << /Root 1 0 R >>
     assert_eq!(changed["tags"][1]["title"], "First shape");
     assert_eq!(ok(&mut a, "edit_undo", json!({ "doc": fd }))["undone"], "Change tag properties");
     assert_eq!(ok(&mut a, "accessibility_tags", json!({ "doc": fd }))["tags"][1]["title"], Value::Null);
+    ok(&mut a, "accessibility_set_tag_property", json!({ "doc": fd, "object": 8, "generation": 0, "property": "title", "value": "Second shape" }));
+    let moved = ok(
+        &mut a,
+        "accessibility_move_tag",
+        json!({ "doc": fd, "object": 8, "generation": 0, "anchor": 7, "anchor_generation": 0, "placement": "before" }),
+    );
+    assert_eq!((moved["tags"][1]["object"].as_u64(), moved["tags"][2]["object"].as_u64()), (Some(8), Some(7)));
+    ok(&mut a, "doc_save", json!({ "doc": fd, "path": "reordered.pdf" }));
+    let saved = pdfcraft_cos::Document::open(std::sync::Arc::new(std::fs::read(dir.join("reordered.pdf")).unwrap())).unwrap();
+    assert_eq!(pdfcraft_engine::a11y::tags(&saved).into_iter().map(|tag| tag.title).collect::<Vec<_>>(), [None, Some("Second shape".into()), None]);
+    assert_eq!(ok(&mut a, "edit_undo", json!({ "doc": fd }))["undone"], "Move object");
+    assert_eq!(ok(&mut a, "accessibility_tags", json!({ "doc": fd }))["tags"][1]["object"], 7);
+    assert!(matches!(
+        a.call(
+            "accessibility_move_tag",
+            &json!({ "doc": fd, "object": 8, "generation": 0, "anchor": 7, "anchor_generation": 0, "placement": "sideways" })
+        ),
+        Err(ToolError::InvalidArgs(_))
+    ));
     assert!(matches!(
         a.call(
             "accessibility_set_tag_property",

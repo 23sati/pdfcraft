@@ -433,6 +433,46 @@ fn figures_are_listed_with_their_alt_text_and_place() {
 }
 
 #[test]
+fn sibling_tags_move_in_reading_order_without_changing_content() {
+    let mut doc = figures_doc();
+    let before: Vec<_> = tags(&doc).into_iter().map(|tag| tag.object.num).collect();
+    assert_eq!(before, [6, 7, 8]);
+    let content = doc.get(pdfcraft_cos::ObjRef::new(4, 0));
+    move_tag(&mut doc, pdfcraft_cos::ObjRef::new(8, 0), pdfcraft_cos::ObjRef::new(7, 0), TagPlacement::Before).unwrap();
+    assert_eq!(tags(&doc).into_iter().map(|tag| tag.object.num).collect::<Vec<_>>(), [6, 8, 7]);
+    assert_eq!(doc.get(pdfcraft_cos::ObjRef::new(4, 0)), content, "page content stays unchanged");
+    assert_eq!(
+        move_tag(&mut doc, pdfcraft_cos::ObjRef::new(8, 0), pdfcraft_cos::ObjRef::new(7, 0), TagPlacement::Before),
+        Err(TagError::AlreadyThere)
+    );
+    move_tag(&mut doc, pdfcraft_cos::ObjRef::new(8, 0), pdfcraft_cos::ObjRef::new(7, 0), TagPlacement::After).unwrap();
+    assert_eq!(tags(&doc).into_iter().map(|tag| tag.object.num).collect::<Vec<_>>(), [6, 7, 8]);
+    assert_eq!(
+        move_tag(&mut doc, pdfcraft_cos::ObjRef::new(8, 0), pdfcraft_cos::ObjRef::new(6, 0), TagPlacement::Before),
+        Err(TagError::NotSiblings)
+    );
+    assert_eq!(
+        move_tag(&mut doc, pdfcraft_cos::ObjRef::new(8, 1), pdfcraft_cos::ObjRef::new(7, 0), TagPlacement::Before),
+        Err(TagError::NotSiblings)
+    );
+    doc.update_dict(pdfcraft_cos::ObjRef::new(6, 0), |d| {
+        d.set(
+            b"K".to_vec(),
+            pdfcraft_cos::Object::Array(vec![
+                pdfcraft_cos::Object::Ref(pdfcraft_cos::ObjRef::new(7, 0)),
+                pdfcraft_cos::Object::Ref(pdfcraft_cos::ObjRef::new(8, 0)),
+                pdfcraft_cos::Object::Ref(pdfcraft_cos::ObjRef::new(7, 0)),
+            ]),
+        );
+    })
+    .unwrap();
+    assert_eq!(
+        move_tag(&mut doc, pdfcraft_cos::ObjRef::new(8, 0), pdfcraft_cos::ObjRef::new(7, 0), TagPlacement::After),
+        Err(TagError::AmbiguousChildren)
+    );
+}
+
+#[test]
 fn setting_alt_text_and_marking_decorative() {
     let mut doc = figures_doc();
     let f = figures(&doc);

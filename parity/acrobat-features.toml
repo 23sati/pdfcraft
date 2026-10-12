@@ -8815,11 +8815,11 @@ title = "Reading order tool"
 area = "M"
 tier = "P1"
 milestone = "M12"
-status = "planned"
+status = "partial"
 commands = []
-tools = []
-evidence = []
-notes = ""
+tools = ["accessibility_move_tag"]
+evidence = ["crates/a11y/src/tests.rs::sibling_tags_move_in_reading_order_without_changing_content", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools"]
+notes = "The headless tool can move a reachable indirect tag before or after a direct sibling in their parent's /K array as one undoable edit. It preserves page content and rejects ambiguous children. The visual Reading Order tool, inline tags, arbitrary retagging, and moving across parents remain planned."
 
 [[feature]]
 id = "a11y.tags-panel"

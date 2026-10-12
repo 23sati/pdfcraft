@@ -254,6 +254,28 @@ impl Automation {
             .map_err(failed)?;
         self.accessibility_tags(a)
     }
+
+    pub(crate) fn accessibility_move_tag(&mut self, a: &Args) -> Result<Value> {
+        let reference = |number: &str, generation: &str| -> Result<pdfcraft_cos::ObjRef> {
+            let n = u32::try_from(a.int(number)?).map_err(|_| ToolError::InvalidArgs(format!("{number} must be a positive tag object number")))?;
+            if n == 0 {
+                return Err(ToolError::InvalidArgs(format!("{number} must be a positive tag object number")));
+            }
+            let g = u16::try_from(a.int(generation)?)
+                .map_err(|_| ToolError::InvalidArgs(format!("{generation} must be a PDF object generation from accessibility_tags")))?;
+            Ok(pdfcraft_cos::ObjRef::new(n, g))
+        };
+        let object = reference("object", "generation")?;
+        let anchor = reference("anchor", "anchor_generation")?;
+        let placement = match a.str("placement")? {
+            "before" => pdfcraft_engine::a11y::TagPlacement::Before,
+            "after" => pdfcraft_engine::a11y::TagPlacement::After,
+            other => return Err(ToolError::InvalidArgs(format!("placement must be before or after, not {other:?}"))),
+        };
+        let id = self.doc(a)?.id;
+        self.session.apply(id, pdfcraft_engine::Edit::MoveTag { object, anchor, placement }).map_err(failed)?;
+        self.accessibility_tags(a)
+    }
 }
 
 impl Automation {

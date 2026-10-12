@@ -896,6 +896,14 @@ pub fn tools() -> Vec<ToolDef> {
                 "property": { "type": "string", "enum": ["type", "title", "actual_text", "alternate_text", "language"] },
                 "value": { "type": "string" },
             }), &["doc", "object", "generation", "property"])),
+        t("accessibility_move_tag", "Move structure tag", "Move a reachable indirect structure tag before or after a direct sibling in their parent's /K array, changing tagged reading order without changing page appearance. Use object and generation values from accessibility_tags. Rejects distinct parents, duplicate references and positions that are already current. Undoable.")
+            .with(schema(json!({
+                "doc": doc(), "object": { "type": "integer", "minimum": 1 },
+                "generation": { "type": "integer", "minimum": 0, "maximum": 65535 },
+                "anchor": { "type": "integer", "minimum": 1 },
+                "anchor_generation": { "type": "integer", "minimum": 0, "maximum": 65535 },
+                "placement": { "type": "string", "enum": ["before", "after"] },
+            }), &["doc", "object", "generation", "anchor", "anchor_generation", "placement"])),
         t("form_merge_data", "Merge data files into spreadsheet", "Collect the field values of form data files (FDF, XFDF) or filled-in PDF forms into one CSV file at path: a column per field name, a row per file. Returns the row and column counts.")
             .cmd("form.merge_data")
             .with(schema(json!({ "paths": { "type": "array", "items": { "type": "string" }, "minItems": 1 }, "path": { "type": "string" } }), &["paths", "path"])),

@@ -646,6 +646,7 @@ impl Automation {
             "accessibility_set_alt" => self.accessibility_set_alt(&a)?,
             "accessibility_tags" => self.accessibility_tags(&a)?,
             "accessibility_set_tag_property" => self.accessibility_set_tag_property(&a)?,
+            "accessibility_move_tag" => self.accessibility_move_tag(&a)?,
             "sign_id_create" => self.sign_id_create(&a)?,
             "sign_document" => self.sign_document(&a)?,
             "sign_keychain_ids" => {
