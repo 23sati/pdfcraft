@@ -54,6 +54,7 @@
 	Create PDF from file…	Crea PDF da file…
 	Create PDF from images…	Crea PDF da immagini…
 	Create PDF from multiple files…	Crea PDF da più file…
+	Create separate PDFs…	Crea PDF separati…
 	Create PDF from clipboard	Crea PDF dagli appunti
 	Combine files…	Combina file…
 	Save	Salva
@@ -259,6 +260,7 @@
 	Optimize PDF…	Ottimizza PDF…
 	Export to text…	Esporta come testo…
 	Export to Word…	Esporta in Word…
+	Export to PowerPoint…	Esporta in PowerPoint…
 	Export to HTML…	Esporta in HTML…
 	Export to RTF…	Esporta in RTF…
 	JavaScript console…	Console JavaScript…
@@ -343,6 +345,7 @@
 	Create from	Crea da
 	Single file	File singolo
 	Multiple files	Più file
+	Separate PDFs	PDF separati
 	Images	Immagini
 	Clipboard	Appunti
 	Blank page	Pagina vuota
@@ -694,6 +697,14 @@
 	of the following fields:	dei seguenti campi:
 	Simplified field notation:	Notazione semplificata dei campi:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Nomi dei campi con + - * / e parentesi; anteponi \\ agli spazi nei nomi.
+
+# Document font selection
+	Finding document fonts…	Ricerca dei caratteri per il documento…
+	Installed fonts…	Caratteri installati…
+	Keep source fonts	Mantieni i caratteri originali
+	Load font…	Carica carattere…
+	No openly licensed document fonts found. Load a font file.	Nessun carattere con licenza aperta trovato. Carica un file di carattere.
+
 	Format text	Formatta testo
 	Bold	Grassetto
 	Italic	Corsivo
@@ -1522,7 +1533,7 @@
 	Couldn't optimize the file: {e}	Impossibile ottimizzare il file: {e}
 	Couldn't write {path}: {e}	Impossibile scrivere {path}: {e}
 	The form asks to be submitted to {u}; PdfCraft doesn't send form data. Save the document to keep your entries.	Il modulo chiede di essere inviato a {u}; PdfCraft non invia dati dei moduli. Salva il documento per conservare i dati inseriti.
-	{s} actions run in the JavaScript engine (M6)	Le azioni {s} vengono eseguite nel motore JavaScript (M6)
+	This PDF uses the unsupported {s} action.	Questo PDF usa l'azione {s} non supportata.
 	{name}: the {other} action isn't supported yet	{name}: l'azione {other} non è ancora supportata
 	{name} submits the form to {url}; PdfCraft doesn't send form data. Save the document to keep your entries.	{name} invia il modulo a {url}; PdfCraft non invia dati dei moduli. Salva il documento per conservare i dati inseriti.
 	Export stopped: {e}	Esportazione interrotta: {e}
@@ -1866,6 +1877,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	Modifica {key}
 	Insert pages from {name}	Inserisci pagine da {name}
+	Insert pages from {name} — 1 field renamed	Inserisci pagine da {name} — 1 campo rinominato
+	Insert pages from {name} — fields renamed	Inserisci pagine da {name} — campi rinominati
 	Fill in {name}	Compila {name}
 	Set the image of {name}	Imposta l'immagine di {name}
 	Edit script of {name}	Modifica script di {name}
@@ -1896,6 +1909,7 @@
 	Delete document JavaScript	Elimina JavaScript del documento
 	Edit document JavaScript	Modifica JavaScript del documento
 	Edit text	Modifica testo
+	Load document font	Carica il font del documento
 	Move image	Sposta immagine
 	Rotate image	Ruota immagine
 	Flip image	Capovolgi immagine
@@ -2077,6 +2091,7 @@
 	@{login}: {prs} PRs, {commits} commits, +{added} / −{deleted} lines (Δ {delta}), +{bin_added} / −{bin_deleted} binary assets, {first} – {last}	@{login}: {prs} PR, {commits} commit, +{added} / −{deleted} righe (Δ {delta}), +{bin_added} / −{bin_deleted} risorse binarie, {first} – {last}
 @plural	{n} page|{n} pages	{n} pagina|{n} pagine
 @plural	{n} field|{n} fields	{n} campo|{n} campi
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} nome di campo è in conflitto con i file precedenti e verrà rinominato: {list}|{n} nomi di campo sono in conflitto con i file precedenti e verranno rinominati: {list}
 
 # Labels added on main after this catalog was written (merged 2026-10-09)
 	A button	Un pulsante
@@ -2263,3 +2278,17 @@ scroll speed	Fast	Veloce
 	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Il driver di questa stampante non accetta le impostazioni fronte-retro da altri programmi, quindi vale la sua impostazione. Modificala in Proprietà…
 	Tools panel side	Lato del pannello Strumenti
 	Add comment	Aggiungi commento
+	Change tag properties	Modifica proprietà del tag
+	Left out: {names}	Esclusi: {names}
+	already a PDF	è già un PDF
+	no unused output name	nessun nome di output libero
+	no output folder was chosen	nessuna cartella di output scelta
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	Scaricato {n} PDF|Scaricati {n} PDF
+	Scan	Scansiona
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Firma un foglio di carta bianca e fotografalo con una luce intensa e uniforme (usa il flash). Scegli la foto o trascinala qui: PdfCraft trova la firma e rimuove la carta.
+	Choose photo…	Scegli foto…
+	No photo chosen	Nessuna foto scelta
+	Photo	Foto
+	Ink sensitivity	Sensibilità all’inchiostro
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Nessuna firma trovata nella cornice. Sposta la cornice sulla firma o aumenta la sensibilità all’inchiostro.
+	Couldn't use the photo: {e}	Impossibile usare la foto: {e}

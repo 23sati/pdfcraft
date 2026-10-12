@@ -256,6 +256,7 @@
 	Optimize PDF…	Оптимизировать PDF…
 	Export to text…	Экспортировать в текст…
 	Export to Word…	Экспортировать в Word…
+	Export to PowerPoint…	Экспортировать в PowerPoint…
 	Export to HTML…	Экспортировать в HTML…
 	Export to RTF…	Экспортировать в RTF…
 	JavaScript console…	Консоль JavaScript…
@@ -340,6 +341,7 @@
 	Create from	Создать из
 	Single file	Один файл
 	Multiple files	Несколько файлов
+	Separate PDFs	Отдельные PDF
 	Images	Изображения
 	Clipboard	Буфер обмена
 	Blank page	Пустая страница
@@ -692,6 +694,14 @@
 	of the following fields:	из следующих полей:
 	Simplified field notation:	Упрощённая запись полей:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Имена полей с + - * / и скобками; ставьте \\ перед пробелами в именах.
+
+# Document font selection
+	Finding document fonts…	Поиск шрифтов для документа…
+	Installed fonts…	Установленные шрифты…
+	Keep source fonts	Сохранить исходные шрифты
+	Load font…	Загрузить шрифт…
+	No openly licensed document fonts found. Load a font file.	Шрифты с открытой лицензией не найдены. Загрузите файл шрифта.
+
 	Format text	Форматировать текст
 	Bold	Полужирный
 	Italic	Курсив
@@ -1528,7 +1538,7 @@
 	Couldn't optimize the file: {e}	Не удалось оптимизировать файл: {e}
 	Couldn't write {path}: {e}	Не удалось записать {path}: {e}
 	The form asks to be submitted to {u}; PdfCraft doesn't send form data. Save the document to keep your entries.	Форма просит отправить данные на {u}; PdfCraft не отправляет данные форм. Сохраните документ, чтобы сохранить введённые данные.
-	{s} actions run in the JavaScript engine (M6)	{s} действий выполняется в движке JavaScript (M6)
+	This PDF uses the unsupported {s} action.	В этом PDF используется неподдерживаемое действие {s}.
 	{name}: the {other} action isn't supported yet	{name}: действие {other} пока не поддерживается
 	{name} submits the form to {url}; PdfCraft doesn't send form data. Save the document to keep your entries.	{name} отправляет форму на {url}; PdfCraft не отправляет данные форм. Сохраните документ, чтобы сохранить введённые данные.
 	Export stopped: {e}	Экспорт остановлен: {e}
@@ -1862,6 +1872,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	Изменить {key}
 	Insert pages from {name}	Вставить страницы из {name}
+	Insert pages from {name} — 1 field renamed	Вставить страницы из {name} — 1 поле переименовано
+	Insert pages from {name} — fields renamed	Вставить страницы из {name} — поля переименованы
 	Fill in {name}	Заполнить {name}
 	Set the image of {name}	Задать изображение: {name}
 	Edit script of {name}	Редактировать скрипт: {name}
@@ -1892,6 +1904,7 @@
 	Delete document JavaScript	Удалить JavaScript документа
 	Edit document JavaScript	Редактировать JavaScript документа
 	Edit text	Редактировать текст
+	Load document font	Загрузить шрифт документа
 	Move image	Переместить изображение
 	Rotate image	Повернуть изображение
 	Flip image	Отразить изображение
@@ -2033,7 +2046,9 @@
 
 @plural	{n} page|{n} pages	{n} страница|{n} страницы|{n} страниц
 @plural	{n} field|{n} fields	{n} поле|{n} поля|{n} полей
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	Имя {n} поля конфликтует с предыдущими файлами и будет переименовано: {list}|Названия {n} полей конфликтуют с предыдущими файлами и будут переименованы: {list}|Названия {n} полей конфликтуют с предыдущими файлами и будут переименованы: {list}
 	Create PDF from multiple files…	Создать PDF из нескольких файлов…
+	Create separate PDFs…	Создать отдельные PDF…
 	Optimizing… removing user data	Оптимизация… удаление пользовательских данных
 	Optimizing… image {d} of {t}	Оптимизация… изображение {d} из {t}
 	Optimizing… cleaning up	Оптимизация… очистка
@@ -2167,3 +2182,17 @@ scroll speed	Fast	Высокая
 	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Драйвер этого принтера не принимает настройки двусторонней печати от других программ, поэтому действует его собственная настройка. Измените её в окне Свойства…
 	Tools panel side	Сторона панели инструментов
 	Add comment	Добавить комментарий
+	Change tag properties	Изменить свойства тега
+	Left out: {names}	Пропущены: {names}
+	already a PDF	уже PDF
+	no unused output name	нет свободного имени для выходного файла
+	no output folder was chosen	не выбрана папка для вывода
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	Скачан {n} PDF-файл|Скачано {n} PDF-файла|Скачано {n} PDF-файлов
+	Scan	Сканировать
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Распишитесь на листе белой бумаги и сфотографируйте его при ярком равномерном освещении (со вспышкой). Выберите фото или перетащите его сюда: PdfCraft найдёт подпись и уберёт бумагу.
+	Choose photo…	Выбрать фото…
+	No photo chosen	Фото не выбрано
+	Photo	Фото
+	Ink sensitivity	Чувствительность к чернилам
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	В рамке не найдена подпись. Наведите рамку на подпись или увеличьте чувствительность к чернилам.
+	Couldn't use the photo: {e}	Не удалось использовать фото: {e}
