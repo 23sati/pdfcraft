@@ -8397,9 +8397,9 @@ tier = "P1"
 milestone = "M12"
 status = "shipped"
 commands = ["a11y.check"]
-tools = ["accessibility_fix"]
-evidence = ["crates/ui-egui/tests/accessibility.rs::checking_fixing_skipping_and_reporting", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools"]
-notes = "right-click a rule: Fix (language via Document Properties, title, tab order), Skip Rule (kept on Check Again), Explain, Check Again, Show Report, Options"
+tools = ["accessibility_fix", "accessibility_review_record"]
+evidence = ["crates/ui-egui/tests/accessibility.rs::checking_fixing_skipping_and_reporting", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools", "crates/automation/tests/automation.rs::accessibility_review_record_compares_two_versions_without_changing_them"]
+notes = "right-click a rule: Fix (language via Document Properties, title, tab order), Skip Rule (kept on Check Again), Explain, Check Again, Show Report, Options. The panel compares outcome counts and changed rules with the previous check of the same document and options; the headless review record compares two open revisions."
 
 [[feature]]
 id = "a11y.rule-permission-flag"

@@ -45,6 +45,9 @@ impl Default for A11yOptions {
 #[derive(Clone, Debug, Default)]
 pub struct A11yState {
     pub report: Option<(DocId, Report)>,
+    /// The prior check of the same document with the same checker options.
+    pub previous: Option<(DocId, Report)>,
+    pub options: Option<Options>,
     /// Collapsed categories and expanded rules.
     pub collapsed: BTreeSet<Category>,
     pub expanded: BTreeSet<Rule>,
@@ -191,6 +194,26 @@ pub(crate) fn panel(ui: &mut egui::Ui, t: &Tokens, state: &mut A11yState, doc: D
             }
         });
     });
+    if let Some((_, previous)) = state.previous.as_ref().filter(|(d, _)| *d == doc) {
+        egui::CollapsingHeader::new(tl!("Compare")).default_open(true).show(ui, |ui| {
+            for status in [Status::Passed, Status::Failed, Status::Manual, Status::Skipped] {
+                ui.label(format!("{}: {} → {}", tl!(status.label()), previous.count(status), report.count(status)));
+            }
+            for current in &report.results {
+                let Some(prior) = previous.result(current.rule) else { continue };
+                if prior.status != current.status || prior.findings.len() != current.findings.len() {
+                    ui.label(format!(
+                        "{}: {} ({}) → {} ({})",
+                        tl!(current.rule.name()),
+                        tl!(prior.status.label()),
+                        prior.findings.len(),
+                        tl!(current.status.label()),
+                        current.findings.len()
+                    ));
+                }
+            }
+        });
+    }
     ui.add_space(6.0);
     for c in Category::ALL {
         let rules: Vec<_> = report.in_category(c).collect();
@@ -331,6 +354,9 @@ impl PdfCraftApp {
             r.findings.clear();
         }
         let failed = report.count(Status::Failed);
+        self.a11y.previous =
+            if self.a11y.options.as_ref() == Some(&options) { self.a11y.report.take().filter(|(prior_id, _)| *prior_id == id) } else { None };
+        self.a11y.options = Some(options);
         self.a11y.report = Some((id, report));
         self.right = Some(RightPanel::Accessibility);
         self.notify(if failed == 0 {

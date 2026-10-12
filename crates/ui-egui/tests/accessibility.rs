@@ -61,10 +61,13 @@ fn checking_fixing_skipping_and_reporting() {
     h.get_by_label("Fix").click();
     h.run_steps(3);
     assert_eq!(status(&h, Rule::Title), Status::Passed);
+    assert_eq!(h.state().a11y.previous.as_ref().unwrap().1.result(Rule::Title).unwrap().status, Status::Failed);
     assert!(matches!(h.state().dialog, Some(Dialog::Properties(_))));
     assert_eq!(h.state().window_title, "notes — PdfCraft");
     h.state_mut().dialog = None;
     h.run_steps(2);
+    h.get_by_label("Compare");
+    h.get_by_label_contains("Title: Failed (1) → Passed (0)");
     // Skip a rule; it stays skipped when checking again.
     right_click(&mut h, "Tagged PDF - Failed");
     h.get_by_label("Skip Rule").click();
