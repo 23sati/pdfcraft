@@ -184,7 +184,8 @@ update the numbers.
 
 ### 11. Accessibility: no automatic structure creation
 
-- **Missing:** apply auto-tag proposals to marked content and a valid parent tree, autotag fields,
+- **Missing:** apply auto-tag proposals to marked content and a valid parent tree, extend an
+  existing structure tree with generated fields,
   visual Tags, Order and Content panels, Reading Order tool, table editor, Make Accessible action,
   Read Out Loud; full keyboard operation of PdfCraft itself and a screen-reader audit.
 - **Evidence:** all 32 checker rules, figure alt text, tag property and sibling order edits, and
