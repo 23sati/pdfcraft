@@ -2251,3 +2251,11 @@ animation effects	Off	Выкл
 	The linked PDF opened, but its named destination was not applied.	Связанный PDF открыт, но его именованное назначение не применено.
 	The linked PDF opened, but its page destination was out of range.	Связанный PDF открыт, но страница назначения вне допустимого диапазона.
 	Local cross-PDF links require the desktop app	Локальные ссылки между PDF работают только в настольном приложении
+
+# Interface font preference.
+	Interface font	Шрифт интерфейса
+	Choose font…	Выбрать шрифт…
+	Use default font	Использовать шрифт по умолчанию
+	Applied immediately and saved for next time. Keep the font file in its current location.	Применяется сразу и сохраняется. Оставьте файл шрифта в текущем расположении.
+	This font file cannot be used. Choose a readable TTF, OTF or TTC file.	Этот файл шрифта нельзя использовать. Выберите доступный для чтения файл TTF, OTF или TTC.
+	The font must include Latin letters and numbers for interface controls.	Шрифт должен содержать латинские буквы и цифры для элементов интерфейса.

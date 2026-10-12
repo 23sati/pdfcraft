@@ -2337,3 +2337,11 @@ animation effects	Off	Ki
 	The linked PDF opened, but its named destination was not applied.	A hivatkozott PDF megnyílt, de a nevesített cél nem lett alkalmazva.
 	The linked PDF opened, but its page destination was out of range.	A hivatkozott PDF megnyílt, de a céloldal a tartományon kívül esik.
 	Local cross-PDF links require the desktop app	A PDF-ek közötti helyi hivatkozásokhoz az asztali alkalmazás szükséges
+
+# Interface font preference.
+	Interface font	Felület betűtípusa
+	Choose font…	Betűtípus választása…
+	Use default font	Alapértelmezett betűtípus
+	Applied immediately and saved for next time. Keep the font file in its current location.	Azonnal alkalmazva és mentve. Hagyja a betűtípusfájlt a jelenlegi helyén.
+	This font file cannot be used. Choose a readable TTF, OTF or TTC file.	Ez a betűtípusfájl nem használható. Válasszon olvasható TTF-, OTF- vagy TTC-fájlt.
+	The font must include Latin letters and numbers for interface controls.	A betűtípusnak latin betűket és számjegyeket kell tartalmaznia a kezelőfelülethez.

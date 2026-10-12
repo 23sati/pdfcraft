@@ -2301,3 +2301,11 @@ animation effects	Off	Изключени
 	The linked PDF opened, but its named destination was not applied.	Свързаният PDF се отвори, но именуваната му цел не беше приложена.
 	The linked PDF opened, but its page destination was out of range.	Свързаният PDF се отвори, но целевата му страница е извън обхвата.
 	Local cross-PDF links require the desktop app	Локалните връзки между PDF файлове изискват настолното приложение
+
+# Interface font preference.
+	Interface font	Шрифт на интерфейса
+	Choose font…	Избор на шрифт…
+	Use default font	Използване на стандартния шрифт
+	Applied immediately and saved for next time. Keep the font file in its current location.	Прилага се веднага и се запазва. Оставете файла с шрифта на текущото му място.
+	This font file cannot be used. Choose a readable TTF, OTF or TTC file.	Този файл с шрифт не може да се използва. Изберете четим файл TTF, OTF или TTC.
+	The font must include Latin letters and numbers for interface controls.	Шрифтът трябва да съдържа латински букви и цифри за контролите на интерфейса.

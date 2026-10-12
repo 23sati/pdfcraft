@@ -2343,3 +2343,11 @@ animation effects	Off	Izklopljeni
 	The linked PDF opened, but its named destination was not applied.	Povezani PDF se je odprl, vendar njegov poimenovani cilj ni bil uporabljen.
 	The linked PDF opened, but its page destination was out of range.	Povezani PDF se je odprl, vendar je ciljna stran zunaj obsega.
 	Local cross-PDF links require the desktop app	Lokalne povezave med PDF-ji zahtevajo namizno aplikacijo
+
+# Interface font preference.
+	Interface font	Pisava vmesnika
+	Choose font…	Izberi pisavo…
+	Use default font	Uporabi privzeto pisavo
+	Applied immediately and saved for next time. Keep the font file in its current location.	Uveljavi se takoj in shrani za naslednjič. Datoteko pisave pustite na trenutnem mestu.
+	This font file cannot be used. Choose a readable TTF, OTF or TTC file.	Te datoteke pisave ni mogoče uporabiti. Izberite berljivo datoteko TTF, OTF ali TTC.
+	The font must include Latin letters and numbers for interface controls.	Pisava mora vsebovati latinične črke in številke za kontrolnike vmesnika.

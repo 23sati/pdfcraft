@@ -2348,3 +2348,11 @@ animation effects	Off	Ανενεργά
 	Local cross-PDF links require the desktop app	Οι τοπικοί σύνδεσμοι μεταξύ PDF απαιτούν την εφαρμογή υπολογιστή
 	The existing action will be preserved.	Η υπάρχουσα ενέργεια θα διατηρηθεί.
 	This form's scripts are turned off because one ran too long. Reopen the document to run them again.	Τα σενάρια αυτής της φόρμας είναι απενεργοποιημένα, επειδή ένα από αυτά εκτελούνταν για πολύ ώρα. Ανοίξτε ξανά το έγγραφο για να εκτελεστούν ξανά.
+
+# Interface font preference.
+	Interface font	Γραμματοσειρά διεπαφής
+	Choose font…	Επιλογή γραμματοσειράς…
+	Use default font	Χρήση προεπιλεγμένης γραμματοσειράς
+	Applied immediately and saved for next time. Keep the font file in its current location.	Εφαρμόζεται αμέσως και αποθηκεύεται για την επόμενη φορά. Διατηρήστε το αρχείο γραμματοσειράς στην τρέχουσα θέση του.
+	This font file cannot be used. Choose a readable TTF, OTF or TTC file.	Δεν είναι δυνατή η χρήση αυτού του αρχείου γραμματοσειράς. Επιλέξτε ένα αναγνώσιμο αρχείο TTF, OTF ή TTC.
+	The font must include Latin letters and numbers for interface controls.	Η γραμματοσειρά πρέπει να περιλαμβάνει λατινικά γράμματα και αριθμούς για τα στοιχεία ελέγχου της διεπαφής.

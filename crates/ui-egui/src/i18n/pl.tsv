@@ -2318,3 +2318,11 @@ animation effects	Off	Wyłączone
 	Local cross-PDF links require the desktop app	Lokalne łącza między plikami PDF wymagają aplikacji komputerowej
 	The existing action will be preserved.	Istniejąca akcja zostanie zachowana.
 	This form's scripts are turned off because one ran too long. Reopen the document to run them again.	Skrypty tego formularza są wyłączone, ponieważ jeden z nich działał zbyt długo. Otwórz dokument ponownie, aby znów je uruchomić.
+
+# Interface font preference.
+	Interface font	Czcionka interfejsu
+	Choose font…	Wybierz czcionkę…
+	Use default font	Użyj domyślnej czcionki
+	Applied immediately and saved for next time. Keep the font file in its current location.	Zmiana jest stosowana od razu i zapisywana. Pozostaw plik czcionki w obecnym miejscu.
+	This font file cannot be used. Choose a readable TTF, OTF or TTC file.	Nie można użyć tego pliku czcionki. Wybierz czytelny plik TTF, OTF lub TTC.
+	The font must include Latin letters and numbers for interface controls.	Czcionka musi zawierać litery łacińskie i cyfry dla elementów interfejsu.

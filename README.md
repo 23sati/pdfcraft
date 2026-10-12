@@ -319,6 +319,9 @@ pdfcraft-cli ui --control ~/.pdfcraft-control.json screenshot --out window.png
 pdfcraft-cli ui --control ~/.pdfcraft-control.json resize width=1200 height=800
 pdfcraft-cli ui --control ~/.pdfcraft-control.json focus label="Read"
 pdfcraft-cli ui --control ~/.pdfcraft-control.json inspect focused=true
+pdfcraft-cli ui --control ~/.pdfcraft-control.json set key=ui-font value="/absolute/path/font.ttf"
+pdfcraft-cli ui --control ~/.pdfcraft-control.json set key=ui-font-face value=1 # zero-based TTC face
+pdfcraft-cli ui --control ~/.pdfcraft-control.json set key=ui-font value=default
 pdfcraft-cli ui --control ~/.pdfcraft-control.json quit
 ```
 
@@ -388,6 +391,12 @@ see [docs/localization.md](docs/localization.md)) and saved. Japanese covers com
 dialogs, panels and keyboard shortcuts. Command search accepts the translated label, the
 English label and the stable command id; filenames, PDF contents, author names, custom
 action names and error details from the engine or the operating system keep their own text.
+
+Desktop **Preferences → Interface font → Choose font…** selects a local TTF, OTF, TTC or OTC file.
+The choice applies immediately and is saved; a collection offers its individual faces. Keep the
+font file in place: a missing or unreadable file falls back to defaults. **Use default font** resets
+the preference. This affects interface text only; fonts are read locally and never added to PDFs
+or copied into the application. `PDFCRAFT_SYSTEM_FONTS=0` also disables the selected face.
 
 Japanese fonts come from [craft-fonts](https://github.com/storytold/craft-fonts), an optional build
 input that every release includes. To build with them (Japanese interface text, and Japanese text in

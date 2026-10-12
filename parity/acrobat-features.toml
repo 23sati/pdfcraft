@@ -9768,8 +9768,8 @@ milestone = "M14"
 status = "partial"
 commands = ["app.preferences"]
 tools = ["js_enabled"]
-evidence = ["crates/ui-egui/tests/javascript.rs::document_scripts_and_preferences", "crates/ui-egui/tests/ui.rs::preferences_selects_default_workspace_for_next_open", "crates/ui-egui/tests/control.rs::control_default_workspace_and_session_override"]
-notes = "Preferences dialog with Interface language, Documents and view (persistent default workspace with session override), Identity, Fill & Sign (flatten on save, off by default) and JavaScript; other categories still live in their tools, and it isn't generated from a schema yet."
+evidence = ["crates/ui-egui/tests/javascript.rs::document_scripts_and_preferences", "crates/ui-egui/tests/ui.rs::preferences_selects_default_workspace_for_next_open", "crates/ui-egui/tests/control.rs::control_default_workspace_and_session_override", "crates/ui-egui/tests/ui_font.rs::live_control_and_preferences_reset_font_without_restarting", "crates/ui-egui/tests/ui_font.rs::font_choice_persists_and_bad_files_preserve_the_current_choice"]
+notes = "Desktop runtime interface-font file and collection-face selection, immediate preview, persistence, default reset and invalid-file recovery via Preferences and ui.set. Preferences dialog with Interface language, Documents and view (persistent default workspace with session override), Identity, Fill & Sign (flatten on save, off by default) and JavaScript; other categories still live in their tools, and it isn't generated from a schema yet."
 
 [[feature]]
 id = "misc.prefs-general"
