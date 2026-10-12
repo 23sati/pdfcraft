@@ -223,20 +223,13 @@ fn marking_while_searching_does_not_jitter_or_reset_search_state() {
     h.state_mut().views[0].current = 3;
     h.state_mut().views[0].rerun_find();
     let current_p3 = h.state().views[0].find.as_ref().unwrap().current;
-    assert_eq!(
-        current_p3,
-        Some(9),
-        "rerun_find must select the first match at or after the viewed page (page 3), but selected {:?}",
-        current_p3
-    );
+    assert_eq!(current_p3, Some(9), "rerun_find must select the first match at or after the viewed page (page 3), but selected {:?}", current_p3);
 
     // Continuous drawing across multiple pages must never trigger viewport jumps or wipe search state
     h.run_steps(2);
     h.state_mut().views[0].goto = None;
     for p in 1..=4 {
-        let shape = pdfcraft_engine::Shape::Ink {
-            strokes: vec![vec![[15.0 * p as f64, 20.0], [30.0 * p as f64, 40.0]]],
-        };
+        let shape = pdfcraft_engine::Shape::Ink { strokes: vec![vec![[15.0 * p as f64, 20.0], [30.0 * p as f64, 40.0]]] };
         let stroke = pdfcraft_engine::Edit::AddAnnotation(pdfcraft_engine::NewAnnotation {
             page: p,
             style: pdfcraft_engine::Style::default_for(&shape),
