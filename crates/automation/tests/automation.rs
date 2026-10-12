@@ -36,6 +36,10 @@ fn fixture(n: usize) -> Vec<u8> {
 }
 
 fn remote_link_pdf(file: &str, destination: Option<&str>) -> Vec<u8> {
+    // canonicalize() uses a Windows device prefix; a PDF file specification uses the ordinary drive path.
+    #[cfg(windows)]
+    let file = file.strip_prefix(r"\\?\").filter(|path| path.as_bytes().get(1) == Some(&b':')).unwrap_or(file);
+    let file = file.replace('\\', "\\\\").replace('(', "\\(").replace(')', "\\)");
     let destination = destination.map_or_else(String::new, |d| format!("/D {d}"));
     let objects: Vec<Vec<u8>> = vec![
         b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
@@ -3018,6 +3022,53 @@ fn adding_content_through_tools() {
     ok(&mut a, "content_delete", json!({ "doc": doc, "page": 1, "index": 2 }));
     assert_eq!(ok(&mut a, "content_list", json!({ "doc": doc }))["count"], 1);
     assert!(matches!(a.call("content_delete", &json!({ "doc": doc, "page": 1, "index": 5 })), Err(ToolError::Failed(_))));
+}
+
+/// Text styling on an added image is refused (#1331), as image transforms are on text, and the
+/// refusal leaves the content, the dirty flag and the undo and redo steps as they were.
+#[test]
+fn text_styling_on_an_image_is_refused_without_an_edit() {
+    let dir = workdir("content-style");
+    let mut png = Vec::new();
+    {
+        let mut enc = png::Encoder::new(&mut png, 1, 1);
+        enc.set_color(png::ColorType::Rgb);
+        enc.write_header().unwrap().write_image_data(&[80, 160, 200]).unwrap();
+    }
+    std::fs::write(dir.join("logo.png"), png).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    ok(&mut a, "page_add_text", json!({ "doc": doc, "page": 1, "text": "sample", "at": [20, 20] }));
+    ok(&mut a, "page_add_image", json!({ "doc": doc, "page": 1, "path": "logo.png", "rect": [10, 100, 40, 130] }));
+    ok(&mut a, "content_update", json!({ "doc": doc, "page": 1, "index": 2, "rotate": 90 }));
+    ok(&mut a, "edit_undo", json!({ "doc": doc }));
+    ok(&mut a, "doc_save", json!({ "doc": doc, "path": "saved.pdf" }));
+    let state = |a: &Automation| {
+        let d = a.session().docs().iter().find(|d| d.id.0 == doc).unwrap();
+        (format!("{:?}", d.added), d.dirty, d.edit_generation(), d.can_undo().map(str::to_owned), d.can_redo().map(str::to_owned))
+    };
+    let before = state(&a);
+    assert!(!before.1 && before.4.is_some(), "a clean document with a step to redo: {before:?}");
+    for (key, value) in [
+        ("font", json!("times")),
+        ("size", json!(24)),
+        ("bold", json!(true)),
+        ("italic", json!(true)),
+        ("color", json!("red")),
+        ("align", json!("center")),
+    ] {
+        for rect in [None, Some(json!([20, 100, 50, 130]))] {
+            let mut args = json!({ "doc": doc, "page": 1, "index": 2 });
+            args[key] = value.clone();
+            if let Some(r) = rect {
+                args["rect"] = r;
+            }
+            assert!(matches!(a.call("content_update", &args), Err(ToolError::InvalidArgs(_))), "{args}");
+            assert_eq!(state(&a), before, "{args}");
+        }
+    }
+    ok(&mut a, "content_update", json!({ "doc": doc, "page": 1, "index": 1, "font": "times", "size": 24, "align": "center" }));
+    assert!(state(&a).1, "text still takes its styling");
 }
 
 #[test]
