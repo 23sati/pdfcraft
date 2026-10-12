@@ -2768,6 +2768,18 @@ fn arabic_actual_text_keeps_typing_order_when_opened_for_editing() {
 }
 
 #[test]
+fn latin_ligature_actual_text_stays_on_its_line() {
+    // Word and Chrome wrap ligatures in ActualText spans mid-word ("ﬁ" drawn, "fi" meant).
+    let hex: String = "fi".encode_utf16().map(|u| format!("{u:04X}")).collect();
+    let doc = text_page(&format!("BT /F1 12 Tf 72 700 Td (de) Tj /Span <</ActualText <FEFF{hex}>>> BDC (X) Tj EMC (ned well) Tj ET"));
+    for doc in [&doc, &reopen(&doc)] {
+        let lines = text::text_lines(doc, 0).unwrap();
+        assert_eq!(lines.iter().map(|l| l.text.as_str()).collect::<Vec<_>>(), ["defined well"]);
+        assert_eq!(text::text_blocks(doc, 0).unwrap()[0].editor_text, "defined well");
+    }
+}
+
+#[test]
 fn actual_text_and_visual_rtl_glyphs_keep_their_own_reading_order() {
     let hex: String = "שלום".encode_utf16().map(|u| format!("{u:04X}")).collect();
     let doc = hebrew_page(&format!("BT /F1 12 Tf 72 700 Td (EDCBA) Tj /Span <</ActualText <FEFF{hex}>>> BDC (FGHD) Tj EMC (EDCBA) Tj ET"));

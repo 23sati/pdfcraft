@@ -52,7 +52,8 @@ pub struct TextLine {
     origin: Origin,
     /// Explicit marked-content scope (when present); distinct scopes must not be guessed into one paragraph.
     scope: Option<usize>,
-    /// `/ActualText` already supplies typing order; glyph text still needs bidi recovery.
+    /// Right-to-left `/ActualText` already supplies typing order; glyph text still needs bidi
+    /// recovery. Left-to-right ActualText (e.g. a Latin ligature) joins its line as usual.
     logical_order: bool,
 }
 
@@ -549,8 +550,11 @@ fn interpret(
                             ];
                         }
                         first.extra_ops.extend([open, i]);
+                        // Only right-to-left ActualText is already in typing order and must stay
+                        // out of the line's bidi recovery. Word and Chrome wrap Latin ligatures
+                        // (`fi`, `fl`) in ActualText spans mid-word; those keep joining their line.
+                        first.logical_order = logical.chars().any(crate::bidi::is_rtl);
                         first.text = logical;
-                        first.logical_order = true;
                         first.start_x = first.rect[0];
                         first.end_x = first.rect[2];
                         first.advance = (first.end_x - first.start_x) / first.tm.then(&first.state.ctm).0[0].abs().max(1e-6);
