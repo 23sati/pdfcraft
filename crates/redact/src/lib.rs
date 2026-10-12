@@ -19,6 +19,7 @@ use pdfcraft_cos::{Dict, Document, ObjRef, Object, Stream};
 pub mod codes;
 mod image;
 mod interp;
+mod overlay;
 pub mod patterns;
 pub mod sanitize;
 mod tags;
@@ -42,6 +43,10 @@ pub enum RedactError {
     Undrawable(String),
     #[error("page {0} has vertical-writing text under a redaction mark, which PdfCraft cannot remove yet, so nothing was changed")]
     VerticalText(usize),
+    #[error(
+        "redaction appearance has invalid geometry or exceeds the 8 MiB budget; reduce the marked area, turn off repeated text or apply fewer pages at once (nothing was redacted)"
+    )]
+    OverlayLimit,
     #[error(transparent)]
     Edit(#[from] pdfcraft_edit::EditError),
     #[error(transparent)]
@@ -202,75 +207,6 @@ pub(crate) fn page_streams(doc: &Document, page: &Dict, index: usize) -> Result<
     Ok((list, data))
 }
 
-/// The boxes and overlay text drawn for the applied marks.
-fn overlay_content(marks: &[&Mark]) -> Vec<u8> {
-    let n = |v: f64| {
-        let s = format!("{:.3}", v);
-        s.trim_end_matches('0').trim_end_matches('.').to_string()
-    };
-    let mut c: Vec<u8> = Vec::new();
-    for m in marks {
-        let Some(fill) = m.fill else { continue };
-        c.extend(format!("q {} {} {} rg\n", n(fill[0]), n(fill[1]), n(fill[2])).bytes());
-        for r in &m.rects {
-            c.extend(format!("{} {} {} {} re f\n", n(r[0]), n(r[1]), n(r[2] - r[0]), n(r[3] - r[1])).bytes());
-        }
-        c.extend_from_slice(b"Q\n");
-        if m.overlay.is_empty() {
-            continue;
-        }
-        // The overlay text: its font, colour and alignment; auto-sized to fit unless a size is
-        // set; repeated to fill the area when asked.
-        let look = &m.look;
-        let (res, width): (&str, fn(&str, f64) -> f64) = match look.font {
-            pdfcraft_annot::OverlayFont::Helvetica => ("PCHelv", pdfcraft_fonts::helvetica_width),
-            // Approximations of the standard metrics (no font program is bundled).
-            pdfcraft_annot::OverlayFont::Times => ("PCTimes", |s, size| pdfcraft_fonts::helvetica_width(s, size) * 0.9),
-            pdfcraft_annot::OverlayFont::Courier => ("PCCour", |s, size| s.chars().count() as f64 * size * 0.6),
-        };
-        let [cr, cg, cb] = look.color.map(|v| v.clamp(0.0, 1.0));
-        for r in &m.rects {
-            let (w, h) = (r[2] - r[0], r[3] - r[1]);
-            let mut size = if look.size > 0.0 { look.size } else { (h * 0.7).min(12.0) };
-            let tw = width(&m.overlay, size);
-            if look.size <= 0.0 && tw > w - 2.0 && tw > 0.0 {
-                size *= (w - 2.0).max(0.0) / tw;
-            }
-            if size < 2.0 {
-                continue;
-            }
-            // One line, or as many repeated lines as fit (each line the text repeated across).
-            let lines: Vec<String> = if look.repeat {
-                let unit = width(&format!("{} ", m.overlay), size).max(0.01);
-                let per_line = ((w - 2.0) / unit).floor().max(1.0) as usize;
-                let count = ((h / (size * 1.2)).floor() as usize).max(1);
-                vec![vec![m.overlay.as_str(); per_line].join(" "); count]
-            } else {
-                vec![m.overlay.clone()]
-            };
-            let block = lines.len() as f64 * size * 1.2;
-            let mut y = r[1] + (h + block) / 2.0 - size * 0.95;
-            c.extend(
-                format!("q {} {} {} {} re W n BT {} {} {} rg /{res} {} Tf ", n(r[0]), n(r[1]), n(w), n(h), n(cr), n(cg), n(cb), n(size)).bytes(),
-            );
-            for line in &lines {
-                let lw = width(line, size);
-                let x = match look.align {
-                    0 => r[0] + 1.0,
-                    2 => r[2] - 1.0 - lw,
-                    _ => r[0] + (w - lw) / 2.0,
-                };
-                c.extend(format!("1 0 0 1 {} {} Tm ", n(x), n(y)).bytes());
-                c.extend_from_slice(&pdfcraft_fonts::literal(&pdfcraft_fonts::win_ansi(line)));
-                c.extend_from_slice(b" Tj ");
-                y -= size * 1.2;
-            }
-            c.extend_from_slice(b"ET Q\n");
-        }
-    }
-    c
-}
-
 /// Apply every redaction mark (or only those on `pages`, 0-based). Irreversible for the saved
 /// file; callers keep the previous document for undo.
 pub fn apply(doc: &mut Document, pages: Option<&[usize]>) -> Result<Report, RedactError> {
@@ -291,6 +227,15 @@ pub fn apply(doc: &mut Document, pages: Option<&[usize]>) -> Result<Report, Reda
     let mut by_page: Vec<usize> = chosen.iter().map(|m| m.page).collect();
     by_page.sort_unstable();
     by_page.dedup();
+    // Budget failures must leave even a direct library caller's document untouched.
+    let mut remaining = overlay::MAX_BYTES;
+    let overlays = by_page
+        .iter()
+        .map(|&pi| {
+            let page_marks: Vec<&Mark> = chosen.iter().copied().filter(|m| m.page == pi).collect();
+            overlay::content(&page_marks, &mut remaining).map(|content| (pi, content))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
     report.pages = by_page.len();
     let mut doomed_fields: Vec<String> = Vec::new();
     let widget_owner: Vec<(ObjRef, String)> =
@@ -457,9 +402,7 @@ pub fn apply(doc: &mut Document, pages: Option<&[usize]>) -> Result<Report, Reda
     }
 
     // 4. The boxes.
-    for &pi in &by_page {
-        let page_marks: Vec<&Mark> = chosen.iter().copied().filter(|m| m.page == pi).collect();
-        let content = overlay_content(&page_marks);
+    for (pi, content) in overlays {
         if !content.is_empty() {
             pdfcraft_edit::stamp(doc, pi, "Redaction", content)?;
         }
