@@ -865,6 +865,7 @@
 	{verb} as "{name}"	「{name}」として{verb}
 	Certify	証明
 	The signature will be invisible.	署名は非表示になります。
+	The existing action will be preserved.	既存のアクションは保持されます。
 	Distinguished name	識別名
 	Labels	ラベル
 	Graphic	グラフィック

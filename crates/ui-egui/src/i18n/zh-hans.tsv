@@ -549,6 +549,7 @@
 	{verb} as "{name}"	{verb}为“{name}”
 	Certify	认证
 	The signature will be invisible.	签名将不可见。
+	The existing action will be preserved.	将保留现有操作。
 	Distinguished name	可分辨名称
 	Labels	标签
 	Graphic	图形

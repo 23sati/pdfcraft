@@ -938,6 +938,7 @@ key	Space	Mezerník
 	{verb} as "{name}"	{verb} jako „{name}“
 	Certify	Certifikovat
 	The signature will be invisible.	Podpis bude neviditelný.
+	The existing action will be preserved.	Stávající akce bude zachována.
 	Distinguished name	Rozlišující jméno
 	Labels	Popisky
 	Graphic	Grafika

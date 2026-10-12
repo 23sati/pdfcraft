@@ -819,6 +819,7 @@
 	{verb} as "{name}"	"{name}" olarak {verb}
 	Certify	Sertifikala
 	The signature will be invisible.	İmza görünmez olacak.
+	The existing action will be preserved.	Mevcut işlem korunacak.
 	Distinguished name	Ayırt edici ad
 	Labels	Etiketler
 	Permitted actions after certifying	Sertifikalandırma sonrası izin verilen eylemler

@@ -820,6 +820,7 @@
 	{verb} as "{name}"	«{name}» ретінде {verb}
 	Certify	Куәландыру
 	The signature will be invisible.	Қолтаңба көрінбейтін болады.
+	The existing action will be preserved.	Қолданыстағы әрекет сақталады.
 	Distinguished name	Ажырататын атау
 	Labels	Белгілер
 	Permitted actions after certifying	Куәландырғаннан кейінгі рұқсат етілген әрекеттер

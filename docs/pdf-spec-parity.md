@@ -81,7 +81,8 @@ are borrowed; PDF 2.0 additions and most subset standards are missing. **150–2
 | Action | Acrobat | PdfCraft |
 |---|---|---|
 | GoTo | yes | yes (page with Fit; named destinations and zoom partial) |
-| GoToR, GoToE | yes | none (preserved; the Optimizer can remove invalid ones) |
+| GoToR | yes | partial: local PDF paths open in a PdfCraft tab; `/F` strings and file-spec dictionaries (`/UF`, then `/F`), source-relative paths, and explicit numeric-page destinations are supported. Automation uses the same resolver and `--root` confinement. Named destinations open at the target's default view with a warning; `/NewWindow` is a tab hint. Network/URL file systems are refused. |
+| GoToE | yes | none (preserved; the Optimizer can remove invalid ones) |
 | Launch | yes (restricted) | none |
 | Thread | yes | none |
 | URI | yes | yes |

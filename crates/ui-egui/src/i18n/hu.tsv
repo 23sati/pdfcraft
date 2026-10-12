@@ -835,6 +835,7 @@
 	{verb} as "{name}"	{verb} mint „{name}”
 	Certify	Hitelesítés
 	The signature will be invisible.	Az aláírás láthatatlan lesz.
+	The existing action will be preserved.	A meglévő művelet megmarad.
 	Distinguished name	Megkülönböztető név
 	Labels	Címkék
 	Graphic	Grafika

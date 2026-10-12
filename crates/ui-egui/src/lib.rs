@@ -394,6 +394,8 @@ pub struct PasswordPrompt {
     /// The tool that asked for this file (a tool chosen with no document open): it runs once
     /// the document is unlocked.
     then: Option<&'static str>,
+    /// A link destination to apply after the linked PDF is unlocked.
+    after_open: Option<pdfcraft_render::RemoteDestination>,
 }
 
 /// Asks for the permissions password of an open document whose security restricts it, which
@@ -1011,8 +1013,17 @@ impl PdfCraftApp {
             Ok(id) => id,
             Err(e @ (OpenError::NeedsPassword | OpenError::WrongPassword)) => {
                 let error = matches!(e, OpenError::WrongPassword).then(|| "Incorrect password. Try again.".to_string());
-                self.password_prompt =
-                    Some(PasswordPrompt { name: name.to_string(), path, bytes, input: String::new(), error, activate, recovered: None, then: None });
+                self.password_prompt = Some(PasswordPrompt {
+                    name: name.to_string(),
+                    path,
+                    bytes,
+                    input: String::new(),
+                    error,
+                    activate,
+                    recovered: None,
+                    then: None,
+                    after_open: None,
+                });
                 return Ok(());
             }
             Err(e) => return Err(e.to_string()),
@@ -1213,10 +1224,14 @@ impl PdfCraftApp {
             }
             return;
         };
+        let after_open = p.after_open.clone();
         match self.try_open(&p.name, p.path, p.bytes, Some(&pw), p.activate) {
             Err(e) => self.notify_fmt("Couldn't open {name}: {e}", &[("name", &p.name), ("e", &e.to_string())]),
             // A recovered encrypted document is open once its prompt is gone.
             Ok(()) if self.password_prompt.is_none() => {
+                if let Some(destination) = after_open {
+                    self.apply_remote_destination(destination);
+                }
                 if let Some(meta) = &p.recovered {
                     self.finish_recovery(meta);
                 }
@@ -1230,6 +1245,7 @@ impl PdfCraftApp {
                 if let Some(prompt) = self.password_prompt.as_mut() {
                     prompt.recovered = p.recovered;
                     prompt.then = p.then;
+                    prompt.after_open = after_open;
                 }
             }
         }
@@ -1270,6 +1286,62 @@ impl PdfCraftApp {
         } else {
             #[cfg(not(target_arch = "wasm32"))]
             self.open_path(path);
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn open_remote_link(&mut self, source: DocId, file: String, destination: pdfcraft_render::RemoteDestination) {
+        let source_path = self.session.get(source).and_then(|doc| doc.path.clone());
+        let path = match pdfcraft_engine::resolve_remote_document_path(source_path.as_deref().map(std::path::Path::new), &file) {
+            Ok(path) => path,
+            Err(e) => {
+                self.notify_fmt("Couldn't follow linked PDF: {reason}", &[("reason", &e.to_string())]);
+                return;
+            }
+        };
+        let path = path.to_string_lossy().into_owned();
+        let name = std::path::Path::new(&path).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| path.clone());
+        let stamp = file_watch::Stamp::at(&path);
+        let tabs = self.views.len();
+        self.startup_superseded = true;
+        let bytes = match std::fs::read(&path) {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                self.notify_fmt("Couldn't read {name}: {e}", &[("name", &name), ("e", &e.to_string())]);
+                return;
+            }
+        };
+        if let Err(e) = self.try_open(&name, Some(path), std::sync::Arc::new(bytes), None, true) {
+            self.notify_fmt("Couldn't open {name}: {e}", &[("name", &name), ("e", &e.to_string())]);
+        } else if let Some(prompt) = self.password_prompt.as_mut() {
+            prompt.after_open = Some(destination);
+        } else if self.views.len() > tabs {
+            if let Some(view) = self.views.last() {
+                self.watch.known_as(view.id, stamp);
+            }
+            self.apply_remote_destination(destination);
+        }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn open_remote_link(&mut self, _source: DocId, _file: String, _destination: pdfcraft_render::RemoteDestination) {
+        self.notify_tr("Local cross-PDF links require the desktop app");
+    }
+
+    fn apply_remote_destination(&mut self, destination: pdfcraft_render::RemoteDestination) {
+        let Some(index) = self.views.len().checked_sub(1) else { return };
+        let Some(doc) = self.session.get(self.views[index].id) else { return };
+        let warning = match destination {
+            pdfcraft_render::RemoteDestination::Default => None,
+            pdfcraft_render::RemoteDestination::Named(_) => Some("The linked PDF opened, but its named destination was not applied."),
+            pdfcraft_render::RemoteDestination::Page { page, view } if page < doc.info.pages.len() => {
+                self.views[index].go_to_dest(page, view, &doc.info);
+                None
+            }
+            pdfcraft_render::RemoteDestination::Page { .. } => Some("The linked PDF opened, but its page destination was out of range."),
+        };
+        if let Some(warning) = warning {
+            self.notify_tr(warning);
         }
     }
 

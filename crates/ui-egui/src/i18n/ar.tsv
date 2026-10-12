@@ -864,6 +864,7 @@
 	{verb} as "{name}"	{verb} باسم "{name}"
 	Certify	تصديق
 	The signature will be invisible.	سيكون التوقيع غير مرئي.
+	The existing action will be preserved.	سيتم الاحتفاظ بالإجراء الحالي.
 	Distinguished name	الاسم المميز
 	Labels	التسميات
 	Graphic	رسم
