@@ -342,6 +342,19 @@ fn page_content_and_annotation_problems_are_found() {
     assert_eq!(got, [Rule::TaggedContent, Rule::TaggedAnnotations, Rule::TabOrder, Rule::FieldDescriptions]);
     assert_eq!(r.result(Rule::TaggedContent).unwrap().findings[0].message, "Page 1: 1 untagged content item");
     assert!(r.result(Rule::FieldDescriptions).unwrap().findings[0].message.contains("\"name\""));
+    assert_eq!(r.result(Rule::TaggedAnnotations).unwrap().findings[0].bbox, Some([20.0, 20.0, 80.0, 40.0]));
+    assert_eq!(r.result(Rule::FieldDescriptions).unwrap().findings[0].bbox, Some([20.0, 60.0, 120.0, 80.0]));
+}
+
+#[test]
+fn annotation_findings_only_locate_valid_rectangles() {
+    let cases = [("[80 40 20 20]", Some([20.0, 20.0, 80.0, 40.0])), ("[20 20 20 40]", None), ("[20 20 80]", None), ("[20 20 80 (bad)]", None)];
+    for (rect, expected) in cases {
+        let mut objs = good();
+        objs[8] = format!("<< /Type /Annot /Subtype /Link /Rect {rect} >>");
+        let r = checked(&pdf(&objs, "/Info 8 0 R"), &[Rule::TaggedAnnotations]);
+        assert_eq!(r.result(Rule::TaggedAnnotations).unwrap().findings[0].bbox, expected, "{rect}");
+    }
 }
 
 #[test]

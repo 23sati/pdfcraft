@@ -72,6 +72,19 @@ fn form_pdf(name: &str) -> Vec<u8> {
     bytes
 }
 
+#[test]
+fn accessibility_check_locates_field_description_on_page() {
+    let dir = workdir("accessibility-field-location");
+    std::fs::write(dir.join("field.pdf"), form_pdf("name")).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "field.pdf" }))["doc"].as_u64().unwrap();
+    let report = ok(&mut a, "accessibility_check", json!({ "doc": doc, "rules": ["field-descriptions"] }));
+    let rule = report["results"].as_array().unwrap().iter().find(|r| r["rule"] == "field-descriptions").unwrap();
+    assert_eq!(rule["status"], "failed");
+    assert_eq!(rule["findings"][0]["page"], 1);
+    assert_eq!(rule["findings"][0]["bbox_user_space"], json!([60.0, 60.0, 200.0, 80.0]));
+}
+
 fn ok(a: &mut Automation, tool: &str, args: Value) -> Value {
     match a.call(tool, &args) {
         Ok(mut c) => match c.remove(0) {
