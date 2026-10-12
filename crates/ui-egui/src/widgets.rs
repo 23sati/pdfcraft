@@ -289,23 +289,8 @@ pub fn wrapped_text(ui: &mut egui::Ui, text: &str, font: egui::FontId, color: Co
         return ui.add(label);
     }
     let width = ui.available_width().max(1.0);
-    let measure = |f: &mut egui::epaint::text::FontsView<'_>, s: &str| f.layout_no_wrap(s.to_owned(), font.clone(), color).size().x;
-    let mut lines = ui.fonts_mut(|f| {
-        let room = if truncate { width - measure(f, ELLIPSIS) } else { width };
-        crate::bidi::wrap(text, |s| measure(f, s) <= room)
-    });
-    if truncate && lines.len() > 1 {
-        lines.truncate(1);
-        if let Some(line) = lines.first_mut() {
-            // The ellipsis goes where the line's reading ends: the left of a right-to-left line.
-            if line.rtl {
-                line.text.insert_str(0, ELLIPSIS);
-            } else {
-                line.text.push_str(ELLIPSIS);
-            }
-        }
-    }
-    let galleys: Vec<_> = lines.into_iter().map(|line| (line.rtl, ui.painter().layout_no_wrap(line.text, font.clone(), color))).collect();
+    let lines = wrapped_lines(ui, text, &font, width, truncate);
+    let galleys: Vec<_> = lines.iter().map(|line| (line.rtl, ui.painter().layout_no_wrap(line.text.clone(), font.clone(), color))).collect();
     let height = galleys.iter().map(|(_, g)| g.size().y).sum();
     let (rect, resp) = ui.allocate_exact_size(vec2(width, height), Sense::hover());
     // Painted text only: the accessibility name keeps the logical order.
@@ -321,6 +306,64 @@ pub fn wrapped_text(ui: &mut egui::Ui, text: &str, font: egui::FontId, color: Co
 }
 
 const ELLIPSIS: &str = "\u{2026}";
+
+/// Wrapped right-to-left text kept between frames. Wrapping measures many candidate lines, so
+/// re-wrapping every comment on every frame would make a panel of long comments slow; the
+/// result depends only on the text, font, width, scale and collapsed state, so it is looked up.
+#[derive(Clone, Default)]
+struct WrapCache {
+    lines: std::collections::HashMap<u64, std::sync::Arc<[crate::bidi::Line]>>,
+}
+
+/// How many wrapped texts the cache holds before it starts over (each costs its text's size).
+const WRAP_CACHE_MAX: usize = 256;
+
+/// A collapsed comment shows one line, so no more than this many characters are wrapped for it:
+/// a long comment doesn't cost a full wrap just to show its start.
+const COLLAPSED_WRAP_CHARS: usize = 1024;
+
+/// The lines `wrapped_text` paints for a right-to-left `text`, from the cache when the same text
+/// was wrapped the same way before.
+fn wrapped_lines(ui: &egui::Ui, text: &str, font: &egui::FontId, width: f32, truncate: bool) -> std::sync::Arc<[crate::bidi::Line]> {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    (text, font, width.to_bits(), ui.ctx().pixels_per_point().to_bits(), truncate).hash(&mut hasher);
+    let key = hasher.finish();
+    let cache_id = egui::Id::new("pdfcraft-rtl-wrap-cache");
+    if let Some(hit) = ui.ctx().data_mut(|d| d.get_temp_mut_or_default::<WrapCache>(cache_id).lines.get(&key).cloned()) {
+        return hit;
+    }
+    // Collapsed: only the start is wrapped (cut at a char boundary, so the slice can't fail).
+    let (measured, cut) = match text.char_indices().nth(COLLAPSED_WRAP_CHARS) {
+        Some((at, _)) if truncate => (text.get(..at).unwrap_or(text), true),
+        _ => (text, false),
+    };
+    let measure = |f: &mut egui::epaint::text::FontsView<'_>, s: &str| f.layout_no_wrap(s.to_owned(), font.clone(), Color32::WHITE).size().x;
+    let mut lines = ui.fonts_mut(|f| {
+        let room = if truncate { width - measure(f, ELLIPSIS) } else { width };
+        crate::bidi::wrap(measured, |s| measure(f, s) <= room)
+    });
+    if truncate && (lines.len() > 1 || cut) {
+        lines.truncate(1);
+        if let Some(line) = lines.first_mut() {
+            // The ellipsis goes where the line's reading ends: the left of a right-to-left line.
+            if line.rtl {
+                line.text.insert_str(0, ELLIPSIS);
+            } else {
+                line.text.push_str(ELLIPSIS);
+            }
+        }
+    }
+    let lines: std::sync::Arc<[crate::bidi::Line]> = lines.into();
+    ui.ctx().data_mut(|d| {
+        let cache = &mut d.get_temp_mut_or_default::<WrapCache>(cache_id).lines;
+        if cache.len() >= WRAP_CACHE_MAX {
+            cache.clear();
+        }
+        cache.insert(key, lines.clone());
+    });
+    lines
+}
 
 /// Transient message at the bottom centre.
 pub fn toast(app: &mut PdfCraftApp, ctx: &egui::Context) {
@@ -676,6 +719,41 @@ mod tests {
             .collect();
         output.drop_without_applying_deltas();
         shapes
+    }
+
+    /// Right-to-left text is wrapped once and looked up on later frames; the cache stays bounded
+    /// however many comments go by, and a collapsed comment of any length still shows one line.
+    #[test]
+    fn rtl_wrapping_is_cached_and_bounded() {
+        let ctx = egui::Context::default();
+        ctx.set_fonts(theme::font_definitions());
+        let cache_len =
+            |ctx: &egui::Context| ctx.data_mut(|d| d.get_temp_mut_or_default::<WrapCache>(egui::Id::new("pdfcraft-rtl-wrap-cache")).lines.len());
+        let persian = "این یک نظر طولانی به زبان فارسی است که باید در چند خط شکسته شود";
+        let long = persian.repeat(2_000);
+        let mut first = None;
+        for _ in 0..3 {
+            ctx.run_ui(egui::RawInput::default(), |ui| {
+                let lines = wrapped_lines(ui, persian, &theme::regular(13.0), 120.0, false);
+                assert!(lines.len() > 1);
+                if let Some(prev) = &first {
+                    assert!(std::sync::Arc::ptr_eq(prev, &lines), "the second frame reuses the first frame's wrap");
+                }
+                first = Some(lines);
+                let collapsed = wrapped_lines(ui, &long, &theme::regular(13.0), 120.0, true);
+                assert_eq!(collapsed.len(), 1);
+                assert!(collapsed[0].text.starts_with(ELLIPSIS), "{:?}", collapsed[0].text);
+            })
+            .drop_without_applying_deltas();
+        }
+        assert_eq!(cache_len(&ctx), 2, "one entry per text and layout");
+        ctx.run_ui(egui::RawInput::default(), |ui| {
+            for i in 0..WRAP_CACHE_MAX + 50 {
+                wrapped_lines(ui, &format!("{persian} {i}"), &theme::regular(13.0), 120.0, false);
+            }
+        })
+        .drop_without_applying_deltas();
+        assert!(cache_len(&ctx) <= WRAP_CACHE_MAX, "bounded: {}", cache_len(&ctx));
     }
 
     #[test]
