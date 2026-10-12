@@ -3,8 +3,8 @@
 //! While documents have unsaved changes, their working file is written every
 //! `AUTOSAVE_SECS` to a recovery folder in the user's data directory. Each entry is
 //! `<key>.pdf` plus `<key>.json` (name, original path, time). Saving, discarding or closing a
-//! document removes its entry, and a clean quit leaves the folder empty. If entries are found at
-//! startup, the previous session ended unexpectedly and the app offers to recover them.
+//! document removes its entry. At startup the app offers snapshots even when their metadata is
+//! missing or damaged; those recover without an original path, so saving asks for a destination.
 //!
 //! Encrypted documents are stored encrypted (the working file is), so recovery never writes
 //! plaintext of a protected document to disk. The web build has no recovery store yet.
@@ -76,27 +76,36 @@ impl RecoveryStore {
         let _ = std::fs::remove_file(self.dir.join(format!("{key}.pdf")));
     }
 
-    /// Complete entries, newest first. Incomplete leftovers (bytes without metadata) are removed.
+    /// Snapshots, newest first. Listing never removes files; missing metadata uses the file name.
     pub fn list(&self) -> Vec<RecoveryMeta> {
         let Ok(dir) = std::fs::read_dir(&self.dir) else { return Vec::new() };
         let mut out = Vec::new();
         for entry in dir.flatten() {
             let path = entry.path();
-            match path.extension().and_then(|e| e.to_str()) {
-                Some("json") => {
-                    let meta = std::fs::read(&path).ok().and_then(|b| serde_json::from_slice::<RecoveryMeta>(&b).ok());
-                    match meta {
-                        Some(m) if self.dir.join(format!("{}.pdf", m.key)).is_file() => out.push(m),
-                        _ => {
-                            let _ = std::fs::remove_file(&path);
-                        }
-                    }
-                }
-                Some("pdf") if !path.with_extension("json").is_file() => {
-                    let _ = std::fs::remove_file(&path);
-                }
-                _ => {}
+            if path.extension().and_then(|e| e.to_str()) != Some("pdf") || !entry.file_type().is_ok_and(|t| t.is_file()) {
+                continue;
             }
+            let Some(key) = path.file_stem().and_then(|s| s.to_str()) else { continue };
+            let meta = std::fs::read(path.with_extension("json"))
+                .and_then(|b| serde_json::from_slice::<RecoveryMeta>(&b).map_err(std::io::Error::other))
+                .and_then(|m| if m.key == key { Ok(m) } else { Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "snapshot key mismatch")) });
+            out.push(meta.unwrap_or_else(|e| {
+                log::warn!("recovering snapshot without metadata: {}: {e}", path.display());
+                let saved_at = entry
+                    .metadata()
+                    .and_then(|m| m.modified())
+                    .ok()
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map_or(0, |d| d.as_secs());
+                RecoveryMeta {
+                    key: key.to_string(),
+                    name: format!("{key}.pdf"),
+                    path: None,
+                    saved_at,
+                    // This is only a display hint; opening the PDF still detects encryption.
+                    encrypted: false,
+                }
+            }));
         }
         out.sort_by_key(|m| std::cmp::Reverse(m.saved_at));
         out
