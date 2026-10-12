@@ -4,6 +4,7 @@ use pdfcraft_engine::DocId;
 use pdfcraft_engine::a11y::{Category, Options, Report, Rule, Status};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+use std::collections::BTreeSet;
 
 use crate::{Args, Automation, Result, ToolError, child, failed, unused, write_atomic};
 
@@ -56,6 +57,81 @@ pub(crate) fn report_json(r: &Report) -> Value {
         "skipped": r.count(Status::Skipped),
         "results": results,
     })
+}
+
+fn review_hash(bytes: &[u8]) -> String {
+    Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect()
+}
+
+fn review_decisions(value: &Value, pages: usize) -> Result<Vec<Value>> {
+    let rows = value.as_array().ok_or_else(|| ToolError::InvalidArgs("decisions must be an array".into()))?;
+    let mut seen = BTreeSet::new();
+    rows.iter()
+        .map(|row| {
+            let fields = row.as_object().ok_or_else(|| ToolError::InvalidArgs("each decision must be an object".into()))?;
+            if fields.keys().any(|key| !matches!(key.as_str(), "rule" | "decision" | "page" | "note")) {
+                return Err(ToolError::InvalidArgs("unknown decision property".into()));
+            }
+            let rule = row["rule"].as_str().and_then(Rule::from_id).ok_or_else(|| ToolError::InvalidArgs("decision has an unknown rule".into()))?;
+            let decision = row["decision"].as_str().ok_or_else(|| ToolError::InvalidArgs("decision status is required".into()))?;
+            if !matches!(decision, "accepted" | "needs_work" | "skipped") {
+                return Err(ToolError::InvalidArgs("decision must be accepted, needs_work or skipped".into()));
+            }
+            let page = match row.get("page").filter(|value| !value.is_null()) {
+                Some(value) => {
+                    let page = value.as_u64().ok_or_else(|| ToolError::InvalidArgs("decision page must be positive".into()))?;
+                    if page == 0 || page > pages as u64 {
+                        return Err(ToolError::InvalidArgs("decision page is outside the document".into()));
+                    }
+                    Some(page)
+                }
+                None => None,
+            };
+            let note = match row.get("note").filter(|value| !value.is_null()) {
+                Some(value) => {
+                    let note = value.as_str().ok_or_else(|| ToolError::InvalidArgs("decision note must be text".into()))?;
+                    if note.len() > 4096 {
+                        return Err(ToolError::InvalidArgs("decision note exceeds 4096 bytes".into()));
+                    }
+                    Some(note)
+                }
+                None => None,
+            };
+            if !seen.insert((rule.id(), page)) {
+                return Err(ToolError::InvalidArgs("duplicate decision for a rule and page".into()));
+            }
+            Ok(json!({ "rule": rule.id(), "decision": decision, "page": page, "note": note }))
+        })
+        .collect()
+}
+
+/// A review sidecar is a few KiB of JSON; anything larger is not one.
+const MAX_REVIEW_SIDECAR_BYTES: u64 = 1 << 20;
+
+/// Read a review sidecar without trusting its size: the path is the caller's
+/// and may name any file, so the read stops past `MAX_REVIEW_SIDECAR_BYTES` and
+/// an oversized file is refused as not being a sidecar.
+fn read_review_sidecar(path: &std::path::Path) -> Result<Vec<u8>> {
+    use std::io::Read;
+    let mut bytes = Vec::new();
+    std::fs::File::open(path).and_then(|file| file.take(MAX_REVIEW_SIDECAR_BYTES.saturating_add(1)).read_to_end(&mut bytes)).map_err(failed)?;
+    if bytes.len() as u64 > MAX_REVIEW_SIDECAR_BYTES {
+        return Err(failed("file is not an accessibility review sidecar"));
+    }
+    Ok(bytes)
+}
+
+fn parse_review_sidecar(bytes: &[u8]) -> Result<Value> {
+    let value: Value = serde_json::from_slice(bytes).map_err(|_| failed("file is not an accessibility review sidecar"))?;
+    let hash = value["sha256"].as_str().ok_or_else(|| failed("review sidecar has no document hash"))?;
+    let Some(pages) = value["pages"].as_u64().and_then(|n| usize::try_from(n).ok()).filter(|n| *n > 0) else {
+        return Err(failed("unsupported or invalid accessibility review sidecar"));
+    };
+    if value["schema"] != 1 || hash.len() != 64 || !hash.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err(failed("unsupported or invalid accessibility review sidecar"));
+    }
+    review_decisions(&value["decisions"], pages).map_err(failed)?;
+    Ok(value)
 }
 
 fn html_escape(value: &str) -> String {
@@ -250,6 +326,35 @@ impl Automation {
         let bytes = serde_json::to_vec_pretty(&record).map_err(failed)?;
         write_atomic(&path, &bytes)?;
         Ok(json!({ "path": path.to_string_lossy(), "record": record }))
+    }
+
+    pub(crate) fn a11y_review_save(&self, a: &Args) -> Result<Value> {
+        let doc = self.doc(a)?;
+        let decisions = review_decisions(a.get("decisions").ok_or_else(|| Args::missing("decisions"))?, doc.info.pages.len())?;
+        let hash = review_hash(doc.bytes.as_slice());
+        let path = self.resolve(a.str("path")?, true)?;
+        if path.exists() {
+            let prior = read_review_sidecar(&path)?;
+            let prior = parse_review_sidecar(&prior)?;
+            if prior["sha256"] != hash && !a.opt_bool("replace")?.unwrap_or(false) {
+                return Err(failed("review sidecar belongs to a different PDF revision; pass replace: true to replace it"));
+            }
+        }
+        let (y, m, d) = self.session.today();
+        let sidecar =
+            json!({ "schema": 1, "date": format!("{y}-{m:02}-{d:02}"), "sha256": hash, "pages": doc.info.pages.len(), "decisions": decisions });
+        write_atomic(&path, &serde_json::to_vec_pretty(&sidecar).map_err(failed)?)?;
+        Ok(json!({ "path": path.to_string_lossy(), "review": sidecar }))
+    }
+
+    pub(crate) fn a11y_review_load(&self, a: &Args) -> Result<Value> {
+        let doc = self.doc(a)?;
+        let path = self.resolve(a.str("path")?, false)?;
+        let review = parse_review_sidecar(&read_review_sidecar(&path)?)?;
+        if review["sha256"] != review_hash(doc.bytes.as_slice()) {
+            return Err(failed("review sidecar belongs to a different PDF revision"));
+        }
+        Ok(json!({ "path": path.to_string_lossy(), "review": review }))
     }
 
     pub(crate) fn a11y_review_html(&self, a: &Args) -> Result<Value> {
