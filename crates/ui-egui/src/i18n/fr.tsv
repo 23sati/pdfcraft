@@ -2338,3 +2338,6 @@ animation effects	Off	Désactivés
 	The linked PDF opened, but its named destination was not applied.	Le PDF lié s'est ouvert, mais sa destination nommée n'a pas été appliquée.
 	The linked PDF opened, but its page destination was out of range.	Le PDF lié s'est ouvert, mais sa page de destination est hors limites.
 	Local cross-PDF links require the desktop app	Les liens locaux entre PDF nécessitent l'application de bureau
+	Find untagged content	Rechercher le contenu non balisé
+	No untagged content was found.	Aucun contenu non balisé n’a été trouvé.
+	Found {n} untagged content problems.	{n} problèmes de contenu non balisé trouvés.

@@ -2343,3 +2343,6 @@ animation effects	Off	Izklopljeni
 	The linked PDF opened, but its named destination was not applied.	Povezani PDF se je odprl, vendar njegov poimenovani cilj ni bil uporabljen.
 	The linked PDF opened, but its page destination was out of range.	Povezani PDF se je odprl, vendar je ciljna stran zunaj obsega.
 	Local cross-PDF links require the desktop app	Lokalne povezave med PDF-ji zahtevajo namizno aplikacijo
+	Find untagged content	Poišči neoznačeno vsebino
+	No untagged content was found.	Neoznačene vsebine ni bilo mogoče najti.
+	Found {n} untagged content problems.	Najdenih je {n} težav z neoznačeno vsebino.

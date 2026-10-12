@@ -2582,3 +2582,6 @@ key	Esc	Esc
 key	Home	Home
 key	End	End
 key	Space	Tarpas
+	Find untagged content	Rasti nepažymėtą turinį
+	No untagged content was found.	Nepažymėto turinio nerasta.
+	Found {n} untagged content problems.	Rasta nepažymėto turinio problemų: {n}.

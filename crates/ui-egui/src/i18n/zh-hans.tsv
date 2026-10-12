@@ -2302,3 +2302,6 @@ animation effects	Off	关
 	The linked PDF opened, but its named destination was not applied.	已打开链接的 PDF，但未应用其命名目标。
 	The linked PDF opened, but its page destination was out of range.	已打开链接的 PDF，但其页面目标超出范围。
 	Local cross-PDF links require the desktop app	PDF 之间的本地链接需要桌面应用
+	Find untagged content	查找未标记的内容
+	No untagged content was found.	未找到未标记的内容。
+	Found {n} untagged content problems.	发现 {n} 个未标记内容问题。

@@ -2412,3 +2412,6 @@ animation effects	Off	Vypnuto
 	The linked PDF opened, but its named destination was not applied.	Odkazovaný PDF se otevřel, ale jeho pojmenovaný cíl nebyl použit.
 	The linked PDF opened, but its page destination was out of range.	Odkazovaný PDF se otevřel, ale cílová stránka je mimo rozsah.
 	Local cross-PDF links require the desktop app	Místní odkazy mezi soubory PDF vyžadují desktopovou aplikaci
+	Find untagged content	Najít neoznačený obsah
+	No untagged content was found.	Nebyl nalezen žádný neoznačený obsah.
+	Found {n} untagged content problems.	Nalezeno problémů s neoznačeným obsahem: {n}.
