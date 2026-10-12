@@ -35,6 +35,7 @@
 	Create PDF from file…	Criar PDF a partir de arquivo…
 	Create PDF from images…	Criar PDF a partir de imagens…
 	Create PDF from multiple files…	Criar PDF a partir de vários arquivos…
+	Create separate PDFs…	Criar PDFs separados…
 	Create PDF from clipboard	Criar PDF a partir da área de transferência
 	Combine files…	Combinar arquivos…
 	Save	Salvar
@@ -895,6 +896,7 @@
 	Bring your own model (off by default)	Traga seu próprio modelo (desativado por padrão)
 	Single file	Arquivo único
 	Multiple files	Vários arquivos
+	Separate PDFs	PDFs separados
 	Images	Imagens
 	Clipboard	Área de transferência
 	Blank page	Página em branco
@@ -1832,6 +1834,8 @@
 	Images and text (converted to PDF)	Imagens e texto (convertidos para PDF)
 	Import {name}	Importar {name}
 	Insert pages from {name}	Inserir páginas de {name}
+	Insert pages from {name} — 1 field renamed	Inserir páginas de {name} — 1 campo renomeado
+	Insert pages from {name} — fields renamed	Inserir páginas de {name} — campos renomeados
 	Items marked Ready work today.	Os itens marcados como Pronto já funcionam hoje.
 	JavaScript	JavaScript
 	JavaScript, e.g. getField("total").value	JavaScript, ex.: getField("total").value
@@ -1942,6 +1946,7 @@
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	Formulário XFA: seus campos e seus dados XFA são mantidos sincronizados, para que outros leitores exibam o que você preencher.
 @plural	{n} page|{n} pages	{n} página|{n} páginas
 @plural	{n} field|{n} fields	{n} campo|{n} campos
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} nome de campo colide com arquivos anteriores e será renomeado: {list}|{n} nomes de campos colidem com arquivos anteriores e serão renomeados: {list}
 	Fit to width scrolling	Ajustar à largura com rolagem
 	Fit one full page	Ajustar uma página inteira
 	Default page display	Exibição de página padrão
@@ -2291,3 +2296,16 @@ scroll speed	Fast	Rápida
 	This document has no editable structure tags.	Este documento não tem tags estruturais editáveis.
 	{n} tags	{n} tags
 	Save or revert changes before selecting another tag.	Salve ou reverta as alterações antes de selecionar outra tag.
+	Left out: {names}	Deixados de fora: {names}
+	already a PDF	já é um PDF
+	no unused output name	nenhum nome de saída disponível
+	no output folder was chosen	nenhuma pasta de saída foi escolhida
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	{n} PDF baixado|{n} PDFs baixados
+	Scan	Digitalizar
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Assine uma folha de papel branco e tire uma foto dela com luz forte e uniforme (use o flash). Escolha a foto ou solte-a aqui: o PdfCraft encontra a assinatura e remove o papel.
+	Choose photo…	Escolher foto…
+	No photo chosen	Nenhuma foto escolhida
+	Photo	Foto
+	Ink sensitivity	Sensibilidade à tinta
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Nenhuma assinatura encontrada no quadro. Mova o quadro sobre a assinatura ou aumente a sensibilidade à tinta.
+	Couldn't use the photo: {e}	Não foi possível usar a foto: {e}

@@ -20,6 +20,7 @@
 	Create PDF from file…	Dosyadan PDF oluştur…
 	Create PDF from images…	Görsellerden PDF oluştur…
 	Create PDF from multiple files…	Birden çok dosyadan PDF oluştur…
+	Create separate PDFs…	Ayrı PDF'ler oluştur…
 	Create PDF from clipboard	Panodan PDF oluştur
 	Combine files…	Dosyaları birleştir…
 	Save	Kaydet
@@ -304,6 +305,7 @@
 	Create from	Şuradan oluştur
 	Single file	Tek dosya
 	Multiple files	Birden çok dosya
+	Separate PDFs	Ayrı PDF'ler
 	Images	Resimler
 	Clipboard	Pano
 	Blank page	Boş sayfa
@@ -1766,6 +1768,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	{key} değiştir
 	Insert pages from {name}	{name} belgesinden sayfalar ekle
+	Insert pages from {name} — 1 field renamed	{name} dosyasından sayfa ekle — 1 alan yeniden adlandırıldı
+	Insert pages from {name} — fields renamed	{name} dosyasından sayfa ekle — alanlar yeniden adlandırıldı
 	Fill in {name}	{name} doldur
 	Set the image of {name}	{name} resmini ayarla
 	Edit script of {name}	{name} komut dosyasını düzenle
@@ -2273,3 +2277,17 @@ scroll speed	Fast	Hızlı
 	This document has no editable structure tags.	Bu belgede düzenlenebilir yapı etiketleri yok.
 	{n} tags	{n} etiket
 	Save or revert changes before selecting another tag.	Başka bir etiket seçmeden önce değişiklikleri kaydedin veya geri alın.
+	Left out: {names}	Dışarıda bırakılanlar: {names}
+	already a PDF	zaten bir PDF
+	no unused output name	kullanılmayan çıktı adı yok
+	no output folder was chosen	çıktı klasörü seçilmedi
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	{n} PDF indirildi
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} alan adı önceki dosyalarla çakışıyor ve yeniden adlandırılacak: {list}
+	Scan	Tara
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Beyaz bir kâğıda imzanızı atın ve parlak, eşit ışıkta fotoğrafını çekin (flaş kullanın). Fotoğrafı seçin veya buraya bırakın: PdfCraft imzayı bulur ve kâğıdı kaldırır.
+	Choose photo…	Fotoğraf seç…
+	No photo chosen	Fotoğraf seçilmedi
+	Photo	Fotoğraf
+	Ink sensitivity	Mürekkep hassasiyeti
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Çerçevede imza bulunamadı. Çerçeveyi imzanın üzerine taşıyın veya mürekkep hassasiyetini artırın.
+	Couldn't use the photo: {e}	Fotoğraf kullanılamadı: {e}

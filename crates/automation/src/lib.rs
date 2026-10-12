@@ -1361,7 +1361,7 @@ impl Automation {
         let bytes = std::fs::read(&path).map_err(|e| failed(format!("{}: {e}", path.display())))?;
         let pages = a.opt_ints("pages")?.map(|p| one_based(&p)).transpose()?;
         let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-        self.apply(a, Edit::InsertPagesFrom { name, bytes: Arc::new(bytes), pages, at })
+        self.apply(a, Edit::InsertPagesFrom { name, bytes: Arc::new(bytes), pages, at, field_conflicts: pdfcraft_organize::FieldConflicts::Rename })
     }
 
     /// Write freshly created bytes to `out` and/or open them as a new document.
@@ -1498,6 +1498,13 @@ impl Automation {
             }
             Some(_) => return Err(ToolError::InvalidArgs("groups must list a number (or null) for each path".into())),
         };
+        let field_conflicts = match a.opt_str("field_conflicts")? {
+            None | Some("rename") => pdfcraft_organize::FieldConflicts::Rename,
+            Some("merge") => pdfcraft_organize::FieldConflicts::Merge,
+            Some(other) => {
+                return Err(ToolError::InvalidArgs(format!("field_conflicts must be \"rename\" or \"merge\", not {other:?}")));
+            }
+        };
         let mut sources: Vec<CombineSource> = Vec::new();
         let mut firsts: Vec<(u64, PathBuf, usize)> = Vec::new();
         for (i, (p, range)) in paths.into_iter().zip(ranges).enumerate() {
@@ -1525,8 +1532,8 @@ impl Automation {
             sources.push((name, bytes, range));
         }
         let passwords: Vec<Option<&str>> = passwords.iter().map(Option::as_deref).collect();
-        let bytes = match groups {
-            None => self.session.combine_unlocked(&sources, &passwords),
+        let combined = match groups {
+            None => self.session.combine_unlocked_reporting(&sources, &passwords, field_conflicts),
             Some(groups) => {
                 // A path without a group is a file of its own: give it a key no group uses.
                 let mut next = groups.iter().flatten().max().map_or(Some(0), |m| m.checked_add(1));
@@ -1541,11 +1548,15 @@ impl Automation {
                         }
                     });
                 }
-                self.session.combine_grouped(&sources, &keys, &passwords)
+                self.session.combine_grouped_reporting(&sources, &keys, &passwords, field_conflicts)
             }
         }
         .map_err(failed)?;
-        self.deliver(a, "Combined", bytes)
+        let mut result = self.deliver(a, "Combined", combined.bytes)?;
+        if !combined.renamed_fields.is_empty() {
+            result["renamed_fields"] = json!(combined.renamed_fields.iter().map(|(old, new)| json!([old, new])).collect::<Vec<_>>());
+        }
+        Ok(result)
     }
 
     fn doc_split(&mut self, a: &Args) -> Result<Value> {

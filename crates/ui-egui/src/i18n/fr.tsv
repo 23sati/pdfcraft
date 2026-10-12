@@ -28,6 +28,7 @@
 	Create PDF from file…	Créer un PDF à partir d'un fichier…
 	Create PDF from images…	Créer un PDF à partir d'images…
 	Create PDF from multiple files…	Créer un PDF à partir de plusieurs fichiers…
+	Create separate PDFs…	Créer des PDF séparés…
 	Create PDF from clipboard	Créer un PDF à partir du presse-papiers
 	Combine files…	Combiner des fichiers…
 	Save	Enregistrer
@@ -319,6 +320,7 @@
 	Create from	Créer à partir de
 	Single file	Un seul fichier
 	Multiple files	Plusieurs fichiers
+	Separate PDFs	PDF séparés
 	Images	Images
 	Clipboard	Presse-papiers
 	Blank page	Page vierge
@@ -1799,6 +1801,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	Modifier {key}
 	Insert pages from {name}	Insérer des pages depuis {name}
+	Insert pages from {name} — 1 field renamed	Insérer des pages depuis {name} — 1 champ renommé
+	Insert pages from {name} — fields renamed	Insérer des pages depuis {name} — champs renommés
 	Fill in {name}	Remplir {name}
 	Set the image of {name}	Définir l'image de {name}
 	Edit script of {name}	Modifier le script de {name}
@@ -1956,6 +1960,7 @@
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	Formulaire XFA : ses champs et ses données XFA restent synchronisés, afin que les autres visionneuses affichent ce que vous remplissez.
 @plural	{n} page|{n} pages	{n} page|{n} pages
 @plural	{n} field|{n} fields	{n} champ|{n} champs
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} nom de champ entre en collision avec les fichiers précédents et sera renommé : {list}|{n} noms de champs entrent en collision avec les fichiers précédents et seront renommés : {list}
 	Switch to two-page view first to show the cover page	Passez d'abord à l'affichage sur deux pages pour montrer la couverture
 	Page display: {layout}	Affichage des pages : {layout}
 	Fit to width scrolling	Défilement ajusté à la largeur
@@ -2277,3 +2282,16 @@ scroll speed	Fast	Rapide
 	This document has no editable structure tags.	Ce document ne contient aucune balise de structure modifiable.
 	{n} tags	{n} balises
 	Save or revert changes before selecting another tag.	Enregistrez ou annulez les modifications avant de sélectionner une autre balise.
+	Left out: {names}	Ignorés : {names}
+	already a PDF	déjà un PDF
+	no unused output name	aucun nom de sortie libre
+	no output folder was chosen	aucun dossier de sortie choisi
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	{n} PDF téléchargé|{n} PDF téléchargés
+	Scan	Numériser
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Signez une feuille de papier blanc et prenez-la en photo sous une lumière vive et uniforme (utilisez le flash). Choisissez la photo ou déposez-la ici : PdfCraft trouve la signature et retire le papier.
+	Choose photo…	Choisir une photo…
+	No photo chosen	Aucune photo choisie
+	Photo	Photo
+	Ink sensitivity	Sensibilité à l’encre
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Aucune signature trouvée dans le cadre. Placez le cadre sur la signature ou augmentez la sensibilité à l’encre.
+	Couldn't use the photo: {e}	Impossible d’utiliser la photo : {e}
