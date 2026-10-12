@@ -1890,13 +1890,14 @@ fn copying_out_of_a_document_honours_its_security() {
             app.submit_password(Some(password.into()));
             app
         });
-        // Select the page's text once its text layer is loaded.
-        for _ in 0..40 {
+        // Select the page's text once its text layer is loaded (up to ~4 s: a loaded test machine
+        // can take far longer than the 0.2 s this used to allow).
+        for _ in 0..200 {
             h.run_steps(2);
             if h.state_mut().views[0].select_all() {
                 break;
             }
-            std::thread::sleep(std::time::Duration::from_millis(5));
+            std::thread::sleep(std::time::Duration::from_millis(20));
         }
         assert_eq!(h.state().views[0].selected_text().as_deref(), Some("Page 1"));
         h
