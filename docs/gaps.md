@@ -1,5 +1,6 @@
 # Where PdfCraft falls short of Acrobat Pro
 
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (gap 6: #1319, #1305, #1324 and #1306; estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-12 · **Change:** gap 4 closed: the web build prints through the browser's print dialog; exclusive image-crop resize follow-up; minor (Word invoice regression coverage, #773; Office fidelity still partial; gap 2: hayro patch counts after the native-gradient backport) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-12 · **Change:** minor (gap 13: large-file memory measured, edits keep two copies instead of three, file-backed input blocked on gap 2) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (gap 1 closed by #836; fixed issues removed from gaps 3, 6 and 16) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
@@ -123,8 +124,11 @@ update the numbers.
 - **Missing:** fixes for the ≈ 13 of ≈ 25 filed reports of features marked `shipped` that give wrong results still open,
   plus triage of ≈ 220 other open issues.
 - **Evidence:** 245 open issues on 2026-10-10. The first batch of `fix(...)` reports was fixed by
-  2026-10-10 (#799, #800, #807, #809, #810, #811, #815, #816, #817, #818, #819, #821); the rest of
-  the backlog is untriaged.
+  2026-10-10 (#799, #800, #807, #809, #810, #811, #815, #816, #817, #818, #819, #821). A later
+  batch keeps a spaced XFA radio value in the datasets (#1319), replaces only the selected pages
+  when they are not adjacent (#1305), leaves unrelated page streams in place when a figure is
+  marked decorative (#1324), and rejects control coordinates that overflow to infinity (#1306).
+  The rest of the backlog is untriaged.
 - **Impact:** every one is a user who lost trust. Crash reports outrank feature work
   (`AGENTS.md` §4).
 - **Estimate:** 45–80 h (≈ 0.2–0.4 h per issue). **Doc:** this file.
