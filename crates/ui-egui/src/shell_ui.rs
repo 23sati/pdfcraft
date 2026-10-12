@@ -246,6 +246,7 @@ impl crate::PdfCraftApp {
         let mut save = false;
         let mut cancel = false;
         egui::Window::new(tl!("Prepare email draft")).id(egui::Id::new("shell-email")).default_width(510.0).resizable(true).collapsible(false).show(ctx, |ui| {
+            crate::widgets::begin_dialog(ui);
             ui.label(tl!("PDF attachments"));
             egui::ScrollArea::vertical().max_height(220.0).show(ui, |ui| {
                 for (i, path) in self.shell_email_paths.iter().enumerate() {
@@ -318,6 +319,36 @@ fn shell_memory_limit(limit: usize) -> String {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     #![allow(clippy::unwrap_used, clippy::panic)]
+    #[test]
+    fn permissions_password_prompt_defers_every_explorer_action_until_cancelled() {
+        let directory = std::env::temp_dir().join(format!("pdfcraft-shell-permissions-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let source = directory.join("notes.txt");
+        std::fs::write(&source, b"Synthetic Explorer conversion").unwrap();
+        let path = source.to_string_lossy().into_owned();
+        let mut app = crate::PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        let pdf = app.session.create_blank(200.0, 300.0, 1).unwrap();
+        app.open_bytes("original.pdf", None, pdf.as_ref().clone()).unwrap();
+        app.request_unlock(None);
+        for action in [super::ShellAction::Convert, super::ShellAction::Combine, super::ShellAction::Email] {
+            app.receive_shell(action, std::slice::from_ref(&path));
+        }
+        app.poll_shell_requests();
+        assert!(app.unlock_prompt.is_some());
+        assert_eq!(app.active, Some(0));
+        assert_eq!(app.views.len(), 1);
+        assert!(app.combine_draft.is_empty() && app.shell_email_paths.is_empty());
+        assert_eq!(app.shell_requests.len(), 3);
+        app.submit_unlock(None);
+        app.poll_shell_requests();
+        assert_eq!(app.views.len(), 2);
+        assert_eq!(app.active, None, "the later Combine action remains selected");
+        assert_eq!(app.combine_draft.len(), 1);
+        assert_eq!(app.shell_email_paths, [path]);
+        assert!(app.shell_requests.is_empty());
+    }
+
     #[test]
     fn worker_cancel_retains_review_and_late_arrivals_without_opening_mail() {
         let mut app = crate::PdfCraftApp::new();

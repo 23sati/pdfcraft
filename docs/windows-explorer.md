@@ -33,6 +33,7 @@ The current converter does not import Word, Excel or PowerPoint files; those ext
 Windows `.lnk` shortcuts are not registered. There is no modern Windows 11 `IExplorerCommand`
 COM extension in this change. Menu text is a localized executable resource, selected by Windows'
 UI language with neutral English fallback, rather than fixed by the installer language.
+The resources cover all 21 current UI languages, including Greek, Kazakh, Slovenian and Turkish.
 
 Explorer requests are limited to 100 paths; IPC is bounded to 1 MiB and file reads to 64 MiB per
 source. Explorer conversion/combination checks a 128 MiB aggregate PDF-source budget across the

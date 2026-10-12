@@ -100,11 +100,10 @@ pub(crate) fn dialog(app: &mut PdfCraftApp, ctx: &egui::Context) {
         return;
     }
     let mut answer = None;
-    let modal = egui::Modal::new(egui::Id::new("default-pdf")).show(ctx, |ui| {
+    let modal = widgets::show_modal(ctx, "default-pdf", |ui| {
         ui.set_width(410.0);
         let tokens = theme::Tokens::get(ctx);
-        // This modal does not inherit dialogs.rs's outlined controls. Keep an unchecked
-        // box distinct from its background in both themes without changing global styling.
+        // Keep the opt-out box distinct in both themes within the shared dialog styling.
         let widgets = &mut ui.visuals_mut().widgets;
         widgets.inactive.bg_stroke = egui::Stroke::new(1.0, tokens.text_muted);
         widgets.inactive.bg_fill = tokens.hover;

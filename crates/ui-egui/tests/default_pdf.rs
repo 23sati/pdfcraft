@@ -137,7 +137,13 @@ fn default_pdf_checkbox_persists_for_yes_later_close_and_escape() {
         restarted.state_mut().set_option("dialog", "preferences").unwrap();
         restarted.run_steps(3);
         restarted.get_by_label("Ask to make PdfCraft the default PDF app").scroll_to_me();
-        restarted.run_steps(3);
+        restarted.run_steps(20);
+        let option = restarted.get_by_label("Ask to make PdfCraft the default PDF app").rect();
+        let card = restarted.ctx.data(|d| d.get_temp::<egui::Rect>(egui::Id::new("dialog").with("card"))).unwrap();
+        assert!(restarted.ctx.content_rect().contains_rect(option), "preference is inside the viewport");
+        assert!(card.contains_rect(option), "preference is inside the dialog");
+        restarted.run_steps(1);
+        assert_eq!(restarted.get_by_label("Ask to make PdfCraft the default PDF app").rect(), option, "preference stays in place before clicking");
         restarted.get_by_label("Ask to make PdfCraft the default PDF app").click();
         restarted.run_steps(2);
         assert!(restarted.state().ask_default_pdf, "Preferences re-enables the persistent preference");

@@ -93,6 +93,7 @@ pub mod prepare;
 mod print_ui;
 mod shell_ui;
 mod signature_drag;
+pub mod units;
 pub use print_ui::{Handling as PrintHandling, PrintDraft, PrinterSource, Which as PrintWhich, system_printers};
 pub use shell_ui::ShellAction;
 mod redact_ui;
@@ -399,6 +400,23 @@ pub struct PasswordPrompt {
     then: Option<&'static str>,
 }
 
+/// Asks for the permissions password of an open document whose security restricts it, which
+/// lifts the restrictions (#995). Acrobat asks for it when such a document's security is changed.
+pub struct UnlockPrompt {
+    pub doc: DocId,
+    pub name: String,
+    pub input: String,
+    pub error: Option<String>,
+    /// The command to run once unlocked (Protect using password, Remove security), if any.
+    pub then: Option<&'static str>,
+}
+
+impl UnlockPrompt {
+    pub(crate) fn new(doc: &pdfcraft_engine::Document, then: Option<&'static str>) -> Self {
+        Self { doc: doc.id, name: doc.name.clone(), input: String::new(), error: None, then }
+    }
+}
+
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct RecentFile {
     pub name: String,
@@ -421,6 +439,8 @@ pub struct PdfCraftApp {
     /// Documents and view). Continuous scrolling at fit width by default, which never snaps
     /// between pages.
     pub view_defaults: canvas::ViewDefaults,
+    /// The unit page sizes and margins are shown in (Preferences ▸ Documents and view).
+    pub units: units::Unit,
     /// The Preferences ▸ Date format box while it's being edited, or while it holds an invalid
     /// pattern (the session keeps the last valid one).
     pub date_format_draft: Option<String>,
@@ -444,10 +464,11 @@ pub struct PdfCraftApp {
     /// Resolved colours, including the current OS theme when following the system.
     pub theme: ThemeKind,
     pub theme_preference: ThemePreference,
-    /// The desktop's light/dark choice, watched while the app runs (Linux has no winit answer).
-    desktop_theme: pdfcraft_platform::desktop_theme::DesktopTheme,
-    /// The last answer [`desktop_theme`] gave, so a frame that asks costs nothing.
-    desktop_dark: Option<bool>,
+    /// The Linux portal is enabled only by the native host, and starts on the first System choice.
+    #[cfg(target_os = "linux")]
+    desktop_theme: Option<pdfcraft_platform::desktop_theme::DesktopTheme>,
+    #[cfg(target_os = "linux")]
+    desktop_theme_enabled: bool,
     /// How far a mouse-wheel notch scrolls.
     pub scroll_speed: scroll_speed::ScrollSpeed,
     /// Interface language preference: `auto` (follow the system) or a code from [`i18n::LANGUAGES`].
@@ -498,6 +519,7 @@ pub struct PdfCraftApp {
     /// Whether the macOS title bar is drawn by us (traffic lights over our tab strip).
     pub integrated_titlebar: bool,
     pub password_prompt: Option<PasswordPrompt>,
+    pub unlock_prompt: Option<UnlockPrompt>,
     pub full_screen: bool,
     /// Files delivered asynchronously (web drag-and-drop, web file picker).
     pub inbox: Inbox,
@@ -737,12 +759,6 @@ impl Default for PdfCraftApp {
     }
 }
 
-/// What the operating system says about light and dark, as "draw dark". `None` means nobody
-/// answered, not a preference, so the caller keeps what it chose.
-fn system_theme(ctx: &egui::Context, desktop_dark: Option<bool>) -> Option<bool> {
-    ctx.system_theme().map(|theme| theme == egui::Theme::Dark).or(desktop_dark)
-}
-
 /// A restored colour: an `[r, g, b]` array of finite numbers, each clamped to 0–1 (restored
 /// settings are untrusted). Anything else (a string, a wrong length, a null or a non-finite
 /// number) is refused whole, so the caller keeps its default.
@@ -771,6 +787,7 @@ impl PdfCraftApp {
             mode: Mode::AllTools,
             default_mode: Mode::AllTools,
             view_defaults: Default::default(),
+            units: Default::default(),
             date_format_draft: None,
             mode_override: None,
             left: LeftPanel::AllTools,
@@ -785,8 +802,10 @@ impl PdfCraftApp {
             comment_prefs: Default::default(),
             theme: ThemeKind::Light,
             theme_preference: ThemePreference::Light,
-            desktop_theme: pdfcraft_platform::desktop_theme::DesktopTheme::start(),
-            desktop_dark: None,
+            #[cfg(target_os = "linux")]
+            desktop_theme: None,
+            #[cfg(target_os = "linux")]
+            desktop_theme_enabled: false,
             scroll_speed: scroll_speed::ScrollSpeed::default(),
             language: i18n::AUTO.to_string(),
             ui_scale: None,
@@ -815,6 +834,7 @@ impl PdfCraftApp {
             toast: None,
             integrated_titlebar: false,
             password_prompt: None,
+            unlock_prompt: None,
             full_screen: false,
             inbox: Default::default(),
             startup_inbox: Default::default(),
@@ -1242,6 +1262,33 @@ impl PdfCraftApp {
         }
     }
 
+    /// Ask for the active document's permissions password, then run `then` (if any).
+    pub(crate) fn request_unlock(&mut self, then: Option<&'static str>) {
+        let Some(doc) = self.active_ids().and_then(|(_, id)| self.session.get(id)) else { return };
+        self.unlock_prompt = Some(UnlockPrompt::new(doc, then));
+    }
+
+    /// Answer the permissions password prompt (`None` cancels).
+    pub fn submit_unlock(&mut self, password: Option<String>) {
+        let Some(mut p) = self.unlock_prompt.take() else { return };
+        let Some(pw) = password else { return };
+        match self.session.unlock(p.doc, &pw) {
+            // Carry on with what asked for the password, if its document is still the one shown.
+            Ok(()) => match p.then {
+                Some(command) if self.active_ids().is_some_and(|(_, id)| id == p.doc) => {
+                    self.execute(command);
+                }
+                _ => self.notify_tr("Restrictions lifted"),
+            },
+            Err(pdfcraft_engine::EditError::WrongPassword) => {
+                p.input.clear();
+                p.error = Some("Incorrect password. Try again.".to_string());
+                self.unlock_prompt = Some(p);
+            }
+            Err(e) => self.notify_fmt("Couldn't unlock {name}: {e}", &[("name", &p.name), ("e", &e.to_string())]),
+        }
+    }
+
     /// Open a file from a recent list: focus the tab already showing it, else open it (File ▸
     /// Open Recent and the Home view's list share this).
     pub fn open_recent(&mut self, path: &str) {
@@ -1346,6 +1393,7 @@ impl PdfCraftApp {
         self.dialog.is_some()
             || self.close_request.is_some()
             || self.password_prompt.is_some()
+            || self.unlock_prompt.is_some()
             || self.pending_link.is_some()
             || self.updates.open
             || self.default_pdf.open
@@ -1422,12 +1470,19 @@ impl PdfCraftApp {
 
     pub fn set_theme_preference(&mut self, preference: ThemePreference) {
         self.theme_preference = preference;
-        // Before the first frame there is no context to ask, so the last choice stands.
-        let system = self.ctx.as_ref().and_then(|ctx| system_theme(ctx, self.desktop_dark));
-        self.theme = preference.resolve(system, self.theme);
-        if let Some(ctx) = &self.ctx {
-            theme::apply(ctx, self.theme);
+        if let Some(ctx) = self.ctx.clone() {
+            self.sync_theme(&ctx);
+            theme::apply(&ctx, self.theme);
+        } else {
+            self.theme = preference.resolve(None, ThemeKind::Light);
         }
+    }
+
+    /// Enable the Linux desktop portal in a native window. Headless contexts keep
+    /// their supplied input and never connect to the user's session bus.
+    #[cfg(target_os = "linux")]
+    pub fn enable_desktop_theme(&mut self) {
+        self.desktop_theme_enabled = true;
     }
 
     /// Draw the running job's progress card and pass a Cancel click on to the job.
@@ -1438,10 +1493,23 @@ impl PdfCraftApp {
     }
 
     fn sync_theme(&mut self, ctx: &egui::Context) {
-        if let Some(dark) = self.desktop_theme.take_change() {
-            self.desktop_dark = Some(dark);
+        #[cfg_attr(not(target_os = "linux"), expect(unused_mut))]
+        let mut system = ctx.system_theme().map(|theme| theme == egui::Theme::Dark);
+        #[cfg(target_os = "linux")]
+        {
+            let active = self.theme_preference == ThemePreference::System;
+            if self.desktop_theme_enabled && active && self.desktop_theme.is_none() {
+                let ctx = ctx.clone();
+                self.desktop_theme = Some(pdfcraft_platform::desktop_theme::DesktopTheme::start(move || ctx.request_repaint()));
+            }
+            if let Some(desktop) = &self.desktop_theme {
+                desktop.set_active(active);
+                // The standard portal supplies Linux desktop appearance. No preference
+                // must clear an earlier answer rather than retaining stale dark chrome.
+                system = desktop.get().map(|appearance| appearance == pdfcraft_platform::desktop_theme::DesktopAppearance::Dark);
+            }
         }
-        let kind = self.theme_preference.resolve(system_theme(ctx, self.desktop_dark), self.theme);
+        let kind = self.theme_preference.resolve(system, ThemeKind::Light);
         if kind != self.theme {
             self.theme = kind;
             theme::apply(ctx, kind);
@@ -1603,6 +1671,7 @@ impl PdfCraftApp {
             "default_layout": canvas::display_token(self.view_defaults.layout, self.view_defaults.continuous),
             "default_zoom": self.view_defaults.zoom_name(),
             "highlight_fields": self.view_defaults.highlight_fields,
+            "units": self.units,
             "language": self.language,
             // Null follows the system's text scaling.
             "ui_scale": self.ui_scale,
@@ -1691,6 +1760,9 @@ impl PdfCraftApp {
         }
         if let Some((layout, continuous)) = v["default_layout"].as_str().and_then(canvas::parse_display_token) {
             (self.view_defaults.layout, self.view_defaults.continuous) = (layout, continuous);
+        }
+        if let Ok(units) = serde_json::from_value::<units::Unit>(v["units"].clone()) {
+            self.units = units;
         }
         if let Some(on) = v["highlight_fields"].as_bool() {
             self.view_defaults.highlight_fields = on;
