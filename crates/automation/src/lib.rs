@@ -1,1 +1,1 @@
-FULL_FILE_NEXT
+//! pdfcraft-automation — agent control for PdfCraft (architecture §13).
