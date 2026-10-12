@@ -1881,7 +1881,10 @@ fn accessibility_review_sidecar_tracks_human_decisions_for_exact_pdf_revision() 
         std::fs::write(dir.join(name), &bytes).unwrap();
         assert!(matches!(a.call("accessibility_review_load", &json!({ "doc": doc, "path": name })), Err(ToolError::Failed(_))), "{name}");
         assert!(
-            matches!(a.call("accessibility_review_save", &json!({ "doc": doc, "path": name, "decisions": [], "replace": true })), Err(ToolError::Failed(_))),
+            matches!(
+                a.call("accessibility_review_save", &json!({ "doc": doc, "path": name, "decisions": [], "replace": true })),
+                Err(ToolError::Failed(_))
+            ),
             "{name}"
         );
         assert_eq!(std::fs::read(dir.join(name)).unwrap(), bytes, "{name}");

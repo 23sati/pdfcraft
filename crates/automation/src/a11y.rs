@@ -114,9 +114,7 @@ const MAX_REVIEW_SIDECAR_BYTES: u64 = 1 << 20;
 fn read_review_sidecar(path: &std::path::Path) -> Result<Vec<u8>> {
     use std::io::Read;
     let mut bytes = Vec::new();
-    std::fs::File::open(path)
-        .and_then(|file| file.take(MAX_REVIEW_SIDECAR_BYTES.saturating_add(1)).read_to_end(&mut bytes))
-        .map_err(failed)?;
+    std::fs::File::open(path).and_then(|file| file.take(MAX_REVIEW_SIDECAR_BYTES.saturating_add(1)).read_to_end(&mut bytes)).map_err(failed)?;
     if bytes.len() as u64 > MAX_REVIEW_SIDECAR_BYTES {
         return Err(failed("file is not an accessibility review sidecar"));
     }
