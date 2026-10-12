@@ -57,6 +57,9 @@ pub struct TextLine {
     /// Right-to-left `/ActualText` already supplies typing order; glyph text still needs bidi
     /// recovery. Left-to-right ActualText (e.g. a Latin ligature) joins its line as usual.
     logical_order: bool,
+    /// Some of the line's text is `/ActualText`, which is already in logical order: visual-order
+    /// Indic recovery would scramble it.
+    actual_text: bool,
 }
 
 impl TextLine {
@@ -473,6 +476,7 @@ struct Shown {
     decodable: bool,
     scope: Option<usize>,
     logical_order: bool,
+    actual_text: bool,
 }
 
 /// The graphics state carried from one of a page's content streams to the next: the streams
@@ -557,6 +561,7 @@ fn interpret(
                         // out of the line's bidi recovery. Word and Chrome wrap Latin ligatures
                         // (`fi`, `fl`) in ActualText spans mid-word; those keep joining their line.
                         first.logical_order = logical.chars().any(crate::bidi::is_rtl);
+                        first.actual_text = true;
                         first.text = logical;
                         first.start_x = first.rect[0];
                         first.end_x = first.rect[2];
@@ -717,6 +722,7 @@ fn interpret(
                     decodable,
                     scope: marked.last().copied().flatten(),
                     logical_order: false,
+                    actual_text: false,
                 });
             }
             _ => {}
@@ -770,6 +776,7 @@ pub fn text_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditErro
             l.ops.extend(s.extra_ops.iter().copied());
             l.decodable &= s.decodable;
             l.visual_order |= s.visual_order;
+            l.actual_text |= s.actual_text;
             // Spaces may use a separate subset font; they do not change the visible style.
         } else {
             lines.push(TextLine {
@@ -787,6 +794,7 @@ pub fn text_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditErro
                 stream: si,
                 scope: s.scope,
                 logical_order: s.logical_order,
+                actual_text: s.actual_text,
                 ops: std::iter::once(s.op).chain(s.extra_ops.iter().copied()).collect(),
                 origin: Origin {
                     tm: s.tm.0,
@@ -806,7 +814,7 @@ pub fn text_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditErro
     // Content streams draw right-to-left lines in visual order; the editor works in typing order.
     for l in lines.iter_mut().filter(|l| !l.logical_order) {
         // A visual-order Indic font draws pre-base vowel signs before their consonant.
-        if l.visual_order {
+        if l.visual_order && !l.actual_text {
             l.text = crate::indic::to_logical(&l.text);
         }
         l.text = crate::bidi::to_logical(&l.text);
@@ -855,6 +863,7 @@ fn add_shown(lines: &mut Vec<TextLine>, last: &mut Option<(usize, f64, f64, f64)
         l.ops.extend(s.extra_ops.iter().copied());
         l.decodable &= s.decodable;
         l.visual_order |= s.visual_order;
+        l.actual_text |= s.actual_text;
     } else {
         lines.push(TextLine {
             text: s.text.clone(),
@@ -871,6 +880,7 @@ fn add_shown(lines: &mut Vec<TextLine>, last: &mut Option<(usize, f64, f64, f64)
             stream,
             scope: s.scope,
             logical_order: s.logical_order,
+            actual_text: s.actual_text,
             ops: std::iter::once(s.op).chain(s.extra_ops.iter().copied()).collect(),
             origin: Origin {
                 tm: s.tm.0,
@@ -999,11 +1009,9 @@ fn reading_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditError
         walk(&mut w, &parse(&data).ops, &res, &mut carry, si);
     }
     let mut lines = w.lines;
-    for l in &mut lines {
-        if l.visual_order {
-            l.text = crate::indic::to_logical(&l.text);
-        }
-        l.text = crate::bidi::to_logical(&l.text);
+    // A visual-order Indic font draws pre-base vowel signs before their consonant.
+    for l in lines.iter_mut().filter(|l| l.visual_order && !l.actual_text) {
+        l.text = crate::indic::to_logical(&l.text);
     }
     lines.retain(|l| !l.text.trim().is_empty());
     Ok(lines)

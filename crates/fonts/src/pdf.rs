@@ -9,7 +9,6 @@ use std::borrow::Cow;
 use std::collections::{BinaryHeap, HashMap, HashSet};
 
 use pdfcraft_cos::{Dict, Document, Object};
-use skrifa::raw::TableProvider as _;
 
 /// How the bytes of a string map to codes.
 #[derive(Clone, Debug, PartialEq)]
@@ -56,7 +55,8 @@ pub struct Metrics {
     /// font name and, when present, `/FontDescriptor` flags/weight/angle.
     pub bold: bool,
     pub italic: bool,
-    /// Whether this font requires visual-order Indic text (legacy TrueType/Type 1 fonts without OpenType GSUB).
+    /// Whether this font draws Indic text in visual order (pre-base vowel signs before their
+    /// consonant): a known legacy Indic font whose Unicode mapping is Indic. See [`legacy_indic_font`].
     pub visual_order: bool,
     /// Bytes per code for writing new text (1 for simple fonts, else the codespace length).
     code_len: usize,
@@ -74,19 +74,14 @@ fn dict(doc: &Document, o: Option<&Object>) -> Option<Dict> {
     o.and_then(|o| doc.resolve(o).as_dict().cloned())
 }
 
-/// The embedded sfnt bytes (FontFile2 or FontFile3) of a font descriptor, if present.
-fn font_sfnt_bytes(doc: &Document, font: &Dict) -> Option<Vec<u8>> {
-    let descendant = dict(doc, font.get(b"DescendantFonts").and_then(|o| doc.resolve(o).as_array().and_then(|a| a.first()).cloned()).as_ref());
-    let descriptor = dict(doc, descendant.as_ref().unwrap_or(font).get(b"FontDescriptor"))?;
-    for key in [b"FontFile2".as_slice(), b"FontFile3".as_slice()] {
-        let Some(object) = descriptor.get(key) else { continue };
-        let object = doc.resolve(object);
-        let Object::Stream(stream) = object.as_ref() else { continue };
-        if let Ok(bytes) = stream.decoded_within(16 << 20) {
-            return Some(bytes);
-        }
-    }
-    None
+/// Whether `base_font` (subset tag allowed) names a legacy Indic font family that is laid out in
+/// visual order (Kruti Dev, DevLys, Chanakya, Shusha, Shivaji, Walkman, Akruti, APS-DV, DV-TT…).
+fn legacy_indic_font(base_font: &str) -> bool {
+    let name =
+        base_font.split_once('+').filter(|(tag, _)| tag.len() == 6 && tag.bytes().all(|b| b.is_ascii_uppercase())).map_or(base_font, |(_, n)| n);
+    let name = name.to_ascii_lowercase();
+    ["kruti", "devlys", "chanakya", "shusha", "shivaji", "walkman", "akruti"].iter().any(|n| name.contains(n))
+        || ["aps-", "dv-"].iter().any(|p| name.starts_with(p))
 }
 
 /// A source PDF's sfnt program for an in-memory editor. Never a bundled font or an export
@@ -579,14 +574,14 @@ impl Metrics {
             }
         }
         m.explicit_reverse = reverse;
-        let has_indic = m.unicode.explicit.values().any(|(_, t)| t.chars().any(|c| matches!(u32::from(c), 0x0900..=0x0D7F)))
-            || m.unicode.encoding.values().any(|t| t.chars().any(|c| matches!(u32::from(c), 0x0900..=0x0D7F)))
-            || m.unicode.ranges.iter().any(|r| r.units.iter().any(|&u| matches!(u, 0x0900..=0x0D7F)));
-        let base_lower = m.base_font.to_ascii_lowercase();
-        let legacy_indic =
-            ["kruti", "devlys", "chanakya", "shusha", "shivaji", "walkman", "akruti", "aps-", "dv-"].iter().any(|&name| base_lower.contains(name));
-        let has_gsub = font_sfnt_bytes(doc, font).is_some_and(|bytes| skrifa::FontRef::new(&bytes).is_ok_and(|face| face.gsub().is_ok()));
-        m.visual_order = legacy_indic || (has_indic && !has_gsub);
+        // Only a font known to be laid out in visual order counts: a missing GSUB proves nothing
+        // (bare CFF and subset fonts often drop it), and the font program is never decoded here.
+        if legacy_indic_font(&m.base_font) {
+            let indic = |c: char| matches!(u32::from(c), 0x0900..=0x0D7F);
+            m.visual_order = m.unicode.explicit.values().any(|(_, t)| t.chars().any(indic))
+                || m.unicode.encoding.values().any(|t| t.chars().any(indic))
+                || m.unicode.ranges.iter().any(|r| r.units.iter().any(|&u| matches!(u, 0x0900..=0x0D7F)));
+        }
         m
     }
 

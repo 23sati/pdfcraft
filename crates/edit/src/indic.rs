@@ -80,47 +80,56 @@ fn is_indic_vowel_modifier(c: char) -> bool {
     )
 }
 
+/// The character at `i`, if any.
+fn at(chars: &[char], i: usize) -> Option<char> {
+    chars.get(i).copied()
+}
+
+/// The end of the consonant cluster starting at `start` (consonants with their nuktas, joined by
+/// viramas and optional ZWNJ/ZWJ); `start` itself when no consonant starts there.
+fn cluster_end(chars: &[char], start: usize) -> usize {
+    let mut end = start;
+    while at(chars, end).is_some_and(is_indic_consonant) {
+        end += 1;
+        if at(chars, end).is_some_and(is_indic_nukta) {
+            end += 1;
+        }
+        if at(chars, end).is_some_and(is_indic_virama) {
+            end += 1;
+            if at(chars, end).is_some_and(|c| matches!(c, '\u{200C}' | '\u{200D}')) {
+                end += 1;
+            }
+            if at(chars, end).is_some_and(is_indic_consonant) {
+                continue;
+            }
+        }
+        break;
+    }
+    end
+}
+
+/// The end of the vowel-modifier run (candrabindu, anusvara, visarga) starting at `start`.
+fn modifiers_end(chars: &[char], start: usize) -> usize {
+    let mut end = start;
+    while at(chars, end).is_some_and(is_indic_vowel_modifier) {
+        end += 1;
+    }
+    end
+}
+
 /// Convert Indic text from visual glyph order (pre-base vowels before their consonant cluster)
 /// to standard Unicode logical order.
 pub fn to_logical(text: &str) -> String {
     let chars: Vec<char> = text.chars().collect();
     let mut out: Vec<char> = Vec::with_capacity(chars.len());
     let mut i = 0;
-    while i < chars.len() {
-        let ch = chars[i];
-        if is_indic_pre_base_vowel(ch) && i + 1 < chars.len() {
-            let mut v_end = i + 1;
-            while v_end < chars.len() && is_indic_vowel_modifier(chars[v_end]) {
-                v_end += 1;
-            }
-            if v_end < chars.len() && is_indic_consonant(chars[v_end]) {
-                let mut c_end = v_end;
-                while c_end < chars.len() {
-                    if is_indic_consonant(chars[c_end]) {
-                        c_end += 1;
-                        if c_end < chars.len() && is_indic_nukta(chars[c_end]) {
-                            c_end += 1;
-                        }
-                        if c_end < chars.len() && is_indic_virama(chars[c_end]) {
-                            c_end += 1;
-                            if c_end < chars.len() && matches!(chars[c_end], '\u{200C}' | '\u{200D}') {
-                                c_end += 1;
-                            }
-                            if c_end < chars.len() && is_indic_consonant(chars[c_end]) {
-                                continue;
-                            }
-                        }
-                        break;
-                    } else {
-                        break;
-                    }
-                }
-                for &c in &chars[v_end..c_end] {
-                    out.push(c);
-                }
-                for &v in &chars[i..v_end] {
-                    out.push(v);
-                }
+    while let Some(ch) = at(&chars, i) {
+        if is_indic_pre_base_vowel(ch) {
+            let v_end = modifiers_end(&chars, i + 1);
+            let c_end = cluster_end(&chars, v_end);
+            if c_end > v_end {
+                out.extend_from_slice(chars.get(v_end..c_end).unwrap_or_default());
+                out.extend_from_slice(chars.get(i..v_end).unwrap_or_default());
                 i = c_end;
                 continue;
             }
@@ -137,53 +146,21 @@ pub fn to_visual(text: &str) -> String {
     let chars: Vec<char> = text.chars().collect();
     let mut out: Vec<char> = Vec::with_capacity(chars.len());
     let mut i = 0;
-    while i < chars.len() {
-        if is_indic_consonant(chars[i]) {
-            let cluster_start = i;
-            let mut c_end = i;
-            while c_end < chars.len() {
-                if is_indic_consonant(chars[c_end]) {
-                    c_end += 1;
-                    if c_end < chars.len() && is_indic_nukta(chars[c_end]) {
-                        c_end += 1;
-                    }
-                    if c_end < chars.len() && is_indic_virama(chars[c_end]) {
-                        c_end += 1;
-                        if c_end < chars.len() && matches!(chars[c_end], '\u{200C}' | '\u{200D}') {
-                            c_end += 1;
-                        }
-                        if c_end < chars.len() && is_indic_consonant(chars[c_end]) {
-                            continue;
-                        }
-                    }
-                    break;
-                } else {
-                    break;
-                }
-            }
-            if c_end < chars.len() && is_indic_pre_base_vowel(chars[c_end]) {
-                let v_start = c_end;
-                let mut v_end = v_start + 1;
-                while v_end < chars.len() && is_indic_vowel_modifier(chars[v_end]) {
-                    v_end += 1;
-                }
-                for &v in &chars[v_start..v_end] {
-                    out.push(v);
-                }
-                for &c in &chars[cluster_start..c_end] {
-                    out.push(c);
-                }
+    while let Some(ch) = at(&chars, i) {
+        if is_indic_consonant(ch) {
+            let c_end = cluster_end(&chars, i);
+            if at(&chars, c_end).is_some_and(is_indic_pre_base_vowel) {
+                let v_end = modifiers_end(&chars, c_end + 1);
+                out.extend_from_slice(chars.get(c_end..v_end).unwrap_or_default());
+                out.extend_from_slice(chars.get(i..c_end).unwrap_or_default());
                 i = v_end;
-                continue;
             } else {
-                for &c in &chars[cluster_start..c_end] {
-                    out.push(c);
-                }
+                out.extend_from_slice(chars.get(i..c_end).unwrap_or_default());
                 i = c_end;
-                continue;
             }
+            continue;
         }
-        out.push(chars[i]);
+        out.push(ch);
         i += 1;
     }
     out.into_iter().collect()
