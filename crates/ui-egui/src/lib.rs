@@ -28,7 +28,6 @@ mod appearance;
 pub mod canvas;
 mod chrome;
 mod combine_grid;
-mod image_pick;
 mod tags_ui;
 pub use combine_grid::ThumbState as CombineThumb;
 mod combine_ui;
@@ -642,12 +641,6 @@ pub struct PdfCraftApp {
     /// The last snapshot (width, height, RGBA); `system_clipboard` also puts it on the
     /// system clipboard (tests turn that off).
     pub last_snapshot: Option<(u32, u32, pdfcraft_render::Pixels)>,
-    /// The last image copied with Copy Image (width, height, straight RGBA), also put on the
-    /// system clipboard when `system_clipboard` is on.
-    pub last_copied_image: Option<(u32, u32, Vec<u8>)>,
-    /// The last image copied in its original format (file name, bytes), also put on the
-    /// system clipboard as a file when `system_clipboard` is on.
-    pub last_copied_file: Option<(String, Vec<u8>)>,
     pub system_clipboard: bool,
     /// Attach file: the file to attach instead of asking (tests, automation).
     pub attach_override: Option<(String, Vec<u8>)>,
@@ -912,8 +905,6 @@ impl PdfCraftApp {
             page_clipboard: None,
             grid_drop: None,
             last_snapshot: None,
-            last_copied_image: None,
-            last_copied_file: None,
             system_clipboard: true,
             attach_override: None,
             duplicate_draft: None,
@@ -2300,7 +2291,6 @@ impl PdfCraftApp {
             self.tool_keys(i, ctx);
             canvas::shortcuts(&mut self.views[i], ctx);
             self.copy_key(i, ctx);
-            self.image_pick_keys(i, ctx);
         }
     }
 }

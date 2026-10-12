@@ -98,17 +98,12 @@ impl<'a> Walker<'a> {
                     pending = None;
                 }
                 b"cm" => {
-                    let before = gs.ctm;
                     if let Some(m) = Matrix::from_operands(&op.operands)
                         && m.0.iter().all(|v| v.is_finite())
                     {
                         gs.ctm = m.then(&gs.ctm);
                     }
-                    // A `cm` that leaves the CTM unchanged (an identity matrix) cannot move the
-                    // pending rectangle, so keep it for the fill (#1333).
-                    if gs.ctm != before {
-                        pending = None;
-                    }
+                    pending = None;
                 }
                 b"g" => {
                     if let Some(v) = op.num(0).filter(|v| v.is_finite()) {

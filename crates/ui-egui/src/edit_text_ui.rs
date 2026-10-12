@@ -392,8 +392,6 @@ fn grab_at(boxes: &[Rect], p: Pos2, upright: bool) -> Option<(usize, Grip)> {
 pub(crate) enum ImageAction {
     Replace(usize, usize),
     Save(usize, usize),
-    Copy(usize, usize),
-    CopyFile(usize, usize),
 }
 
 fn user_box(xf: &PageXform, info: &DocInfo, page: usize, r: Rect) -> [f64; 4] {
@@ -591,15 +589,6 @@ pub(crate) fn image_input(
             }
             if ui.add_enabled(raster, egui::Button::new(tl!("Save Image As…"))).clicked() {
                 *action = Some(ImageAction::Save(page, hit));
-                ui.close();
-            }
-            // Copying also finds the picture inside grouped Form artwork.
-            if ui.button(tl!("Copy Image")).clicked() {
-                *action = Some(ImageAction::Copy(page, hit));
-                ui.close();
-            }
-            if ui.button(tl!("Copy Image in Original Format")).clicked() {
-                *action = Some(ImageAction::CopyFile(page, hit));
                 ui.close();
             }
             ui.separator();
@@ -944,12 +933,7 @@ pub(crate) fn overlay(ctx: &egui::Context, view: &mut DocView, info: &DocInfo) -
     let page = view.line_editor.as_ref()?.page;
     let xf = view.page_xform(page)?;
     let hold = view.objects.hold_editor;
-    // An OCR word is invisible text over a scan: the textless background still shows the scanned
-    // word, so the editor covers it, as the applied edit will.
-    let background_ready = view
-        .line_editor
-        .as_ref()
-        .is_some_and(|ed| view.text_background.ready(ed.page, ed.block) && !ed.source.as_ref().is_some_and(|(b, _)| b.invisible));
+    let background_ready = view.line_editor.as_ref().is_some_and(|ed| view.text_background.ready(ed.page, ed.block));
     let draft_rect = view.text_background.draft_rect.map(|r| xf.user_rect(info, page, r.map(|v| v as f32)));
     let ed = view.line_editor.as_mut()?;
     if hold {
@@ -976,8 +960,7 @@ pub(crate) fn overlay(ctx: &egui::Context, view: &mut DocView, info: &DocInfo) -
             // The editor opens at the source size. Once text changes, show the real draft
             // extent: single rows grow toward the page edge, paragraphs rewrap at their
             // source width, and the visible frame grows/shrinks vertically with their rows.
-            // An OCR phrase (several stretched words on one scanned line) also grows rightwards.
-            let single_run = ed.source.as_ref().is_some_and(|(block, _)| block.lines.len() == 1 || block.invisible);
+            let single_run = ed.source.as_ref().is_some_and(|(block, _)| block.lines.len() == 1);
             let width = if !ed.multiline && single_run && !ed.text.contains('\n') && ed.has_changes() {
                 let job = editor_job(ui, ed, &ed.text, scale, f32::INFINITY);
                 let natural = ui.fonts_mut(|f| f.layout_job(job)).size().x;
