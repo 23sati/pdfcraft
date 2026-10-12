@@ -28,33 +28,62 @@ pub enum FilePurpose {
     RedactWords,
 }
 
-/// Discover installed document fonts off the GUI thread, only when the picker is opened.
+/// Cache eligible installed faces off the GUI thread. Opening a document starts the scan;
+/// the same immutable bytes serve automatic subset completion and the optional picker.
 #[cfg(not(target_arch = "wasm32"))]
-pub(crate) fn installed_font_files(ctx: &egui::Context) -> Option<Vec<pdfcraft_engine::text_fonts::FontFile>> {
+fn installed_font_catalogue(ctx: &egui::Context) -> Option<Arc<pdfcraft_engine::text_fonts::Catalogue>> {
     use std::sync::{Mutex, OnceLock};
-    type Files = Arc<Mutex<Option<Vec<pdfcraft_engine::text_fonts::FontFile>>>>;
-    static CACHE: OnceLock<Files> = OnceLock::new();
-    let files = CACHE.get_or_init(|| {
-        let files: Files = Arc::new(Mutex::new(None));
-        let result = files.clone();
+    type Cache = Arc<Mutex<Option<Arc<pdfcraft_engine::text_fonts::Catalogue>>>>;
+    static CACHE: OnceLock<Cache> = OnceLock::new();
+    let cache = CACHE.get_or_init(|| {
+        let cache: Cache = Arc::new(Mutex::new(None));
+        let result = cache.clone();
         let ctx = ctx.clone();
         if std::thread::Builder::new()
             .name("document-font-discovery".into())
             .spawn(move || {
-                let fonts = pdfcraft_engine::text_fonts::discover(&pdfcraft_engine::text_fonts::installed_directories());
+                let fonts = pdfcraft_engine::text_fonts::Catalogue::discover(&pdfcraft_engine::text_fonts::installed_directories());
                 if let Ok(mut result) = result.lock() {
-                    *result = Some(fonts);
+                    *result = Some(Arc::new(fonts));
                 }
                 ctx.request_repaint();
             })
             .is_err()
-            && let Ok(mut result) = files.lock()
+            && let Ok(mut result) = cache.lock()
         {
-            *result = Some(Vec::new());
+            *result = Some(Arc::new(Default::default()));
         }
-        files
+        cache
     });
-    files.lock().ok().and_then(|f| f.clone())
+    cache.lock().ok().and_then(|f| f.clone())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) fn installed_font_files(ctx: &egui::Context) -> Option<Vec<pdfcraft_engine::text_fonts::FontFile>> {
+    installed_font_catalogue(ctx).map(|c| c.files().cloned().collect())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl PdfCraftApp {
+    /// Returns true when newly available editor families take effect on the next frame.
+    pub(crate) fn prepare_installed_fonts(&mut self, ctx: &egui::Context) -> bool {
+        if self.views.is_empty() || self.session.has_text_font_catalogue() {
+            return false;
+        }
+        let Some(fonts) = installed_font_catalogue(ctx) else { return false };
+        self.session.set_text_font_catalogue(fonts);
+        let mut changed = false;
+        for view in &mut self.views {
+            if let Some(ed) = &mut view.line_editor
+                && let Some(doc) = self.session.get(view.id)
+            {
+                ed.fonts = crate::edit_text_ui::install_source_fonts(ctx, doc, ed.page);
+                view.text_background = Default::default();
+                changed = true;
+            }
+        }
+        changed
+    }
 }
 
 /// The picker for `purpose`: PDFs, and for Create and Insert also what they convert.

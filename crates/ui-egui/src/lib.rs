@@ -2457,6 +2457,13 @@ impl eframe::App for PdfCraftApp {
         self.show_progress(&ctx);
         widgets::toast(self, &ctx);
         self.finish_render_frame(&ctx);
+        // Register document families after processing input and drawing this frame. They
+        // take effect next pass, without skipping a click/release/keystroke or using a
+        // newly named family before egui has installed it.
+        #[cfg(not(target_arch = "wasm32"))]
+        if self.prepare_installed_fonts(&ctx) {
+            ctx.request_repaint();
+        }
     }
 }
 

@@ -134,3 +134,12 @@ faces complete absent subset glyphs. `text_edit.ranges` accepts disjoint UTF-8 b
 undoable and survive saving/reopening. `image_hit` shares the UI's curve and hole hit testing.
 The bounds, limits and font requirements are in [existing-text editing](../../docs/editing-existing-text.md)
 and [image editing](../../docs/editing-images.md).
+
+Automatic document-font completion uses a cached catalogue prepared when opening a document.
+With `--root`, only that root is scanned; otherwise standard installed font directories are
+used. `text_font_refresh` replaces the catalogue with a fresh scan (optional confined
+`directories`), without changing documents or their undo history. `text_edit` and
+`text_edit_layout` use eligible full faces whose PostScript name matches a source subset when
+it lacks draft glyphs. Completion is part of the text transaction. See
+`automatic_installed_font_completion_is_root_confined_atomic_and_portable` for end-to-end
+refresh, draft, edit, render, save/reopen, one-step undo and font-file-removal coverage.

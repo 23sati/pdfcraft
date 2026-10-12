@@ -82,3 +82,11 @@ family (`sign`, `sign_with_timestamp`, `timestamp_document`, `embed_ltv`).
 `doc.text_edit_preview(page, block)` prepares a read-only page background with the selected
 paragraph’s glyphs removed, preserving text positioning, images and colours. It shares the
 working document’s render configuration and never enters the undo history.
+
+Installed document fonts are opt-in inputs to the façade: discover eligible faces with
+`text_fonts::Catalogue::discover(&roots)` and pass the immutable snapshot to
+`Session::set_text_font_catalogue`. All current and future documents then complete matching
+source subsets automatically in `text_edit_layout` and `EditTextBlock`. Completion uses the
+same cached bytes for preview and Apply and shares the text transaction's undo entry. It does
+not use interface fallback fonts. Desktop discovery runs off the UI thread; automation keeps
+its catalogue inside `--root`. A saved full program remains editable without the installed file.

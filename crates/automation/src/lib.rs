@@ -124,6 +124,8 @@ impl Automation {
         if !root.is_dir() {
             return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "the root must be a folder"));
         }
+        // Changing confinement also replaces cached font inputs from the old scope.
+        self.session.set_text_font_catalogue(Arc::new(pdfcraft_engine::text_fonts::Catalogue::discover(std::slice::from_ref(&root))));
         self.root = Some(root);
         Ok(self)
     }
@@ -163,7 +165,14 @@ impl Automation {
         tools::check_args(def, args)?;
         let a = Args(args);
         let out = match name {
-            "doc_open" => self.doc_open(&a)?,
+            "doc_open" => {
+                if !self.session.has_text_font_catalogue() {
+                    self.session.set_text_font_catalogue(Arc::new(pdfcraft_engine::text_fonts::Catalogue::discover(
+                        &pdfcraft_engine::text_fonts::installed_directories(),
+                    )));
+                }
+                self.doc_open(&a)?
+            }
             "doc_list" => json!({ "documents": self.session.docs().iter().map(summary).collect::<Vec<_>>() }),
             "doc_info" => {
                 let id = self.doc(&a)?.id;
@@ -500,7 +509,7 @@ impl Automation {
                     .collect();
                 json!({ "page": page + 1, "count": blocks.len(), "paragraphs": blocks })
             }
-            "text_font_files" => {
+            "text_font_files" | "text_font_refresh" => {
                 let roots = if let Some(paths) = a.get("directories") {
                     let paths = paths
                         .as_array()
@@ -515,7 +524,12 @@ impl Automation {
                 } else {
                     pdfcraft_engine::text_fonts::installed_directories()
                 };
-                json!({"fonts": pdfcraft_engine::text_fonts::discover(&roots).into_iter().map(|f| json!({"path":f.path,"family":f.family,"font":f.face})).collect::<Vec<_>>()})
+                let catalogue = Arc::new(pdfcraft_engine::text_fonts::Catalogue::discover(&roots));
+                let out = json!({"fonts": catalogue.files().map(|f| json!({"path":f.path,"family":f.family,"font":f.face})).collect::<Vec<_>>()});
+                if name == "text_font_refresh" {
+                    self.session.set_text_font_catalogue(catalogue);
+                }
+                out
             }
             "text_font_import" => {
                 let page = self.page(&a)?;

@@ -29,6 +29,10 @@ fn index(items: &[Vec<u8>]) -> Vec<u8> {
     out
 }
 pub fn cff_font() -> Vec<u8> {
+    named_cff_font("Rect Font", "RectFont-Regular", "MIT License")
+}
+
+pub fn named_cff_font(family: &str, face: &str, license: &str) -> Vec<u8> {
     let name = index(&[b"RectFont".to_vec()]);
     let mut dict = Vec::new();
     for n in [0, 0, 500, 700] {
@@ -88,7 +92,7 @@ pub fn cff_font() -> Vec<u8> {
         be32(&mut cmap, cp);
         be32(&mut cmap, gid);
     }
-    let names = [(1, "Rect Font"), (2, "Regular"), (6, "RectFont-Regular"), (13, "MIT License")];
+    let names = [(1, family), (2, "Regular"), (6, face), (13, license)];
     let mut name = Vec::new();
     be16(&mut name, 0);
     be16(&mut name, names.len() as u16);

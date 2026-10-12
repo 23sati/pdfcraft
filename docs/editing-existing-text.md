@@ -6,13 +6,18 @@ source font programs, colour, size and baseline anchors stay intact. A textless 
 prevents a second copy underneath. The frame shows the live extent as text grows or shrinks.
 
 A subset font contains only some of the original face's glyphs. A new character cannot be
-reconstructed from a glyph the PDF does not contain. **Load font…** imports an openly licensed,
-embeddable standalone `.ttf` or `.otf` face. **Installed fonts…** discovers eligible user-installed
-faces on request, off the UI thread; the document-font menu selects resources already on the
-page. Select **Keep source fonts** to preserve each run's original face. A matching full face
-completes its subsets automatically, including new Chinese characters. Choosing another face
-is explicit. Fonts with restricted embedding, unsupported collections, excluded families or
-no open-licence declaration are refused. Interface fallback fonts are never exported.
+reconstructed from a glyph the PDF does not contain. The desktop automatically discovers
+eligible installed `.ttf`/`.otf` faces in the background when a document opens. **Keep source
+fonts** matches the subset's PostScript face name against these complete programs, including
+new Chinese characters. Filename and family-only guesses never select a different weight or
+italic face. Discovery and font bytes are cached: typing performs no filesystem scan. Preview
+and Apply use the same bytes, and a completed preview map is reused between keystrokes.
+
+The full matching face is embedded only when a text edit needs absent glyphs. Completion and
+text are one atomic, undoable change; discovery and previews do not dirty the document.
+**Load font…** and **Installed fonts…** remain available for explicitly changing a face.
+Fonts with restricted embedding, unsupported collections, excluded families or no
+open-licence declaration are refused. Interface fallback fonts are never exported.
 
 The full selected program, glyph mappings, widths and Unicode text are embedded in the PDF.
 Saving and reopening therefore needs no locally installed font. Original subset bytes are
@@ -24,14 +29,19 @@ add a font binary or change the release font pin. Fonts shared by releases belon
 Select text within the editor before changing size, colour, font, underline or spacing to
 format that selection. Automation supports up to 1024 disjoint UTF-8 byte ranges with the
 same properties; invalid or overlapping ranges fail atomically. Untouched source formatting
-survives. OpenType shaping uses the selected/source face's substitution and positioning
-rules, preserves marks and ligatures, and applies Unicode bidi ordering for a single face.
-Logical text remains available after save/reopen through ToUnicode and ActualText.
+survives. The existing single-face OpenType shaping path writes ToUnicode/ActualText. Main's
+Hebrew single-style path and refusal of partial Hebrew formatting stay unchanged. Mixed
+Arabic bidi extraction still has a known optional-test failure; do not claim RTL parity.
 
-For headless editing, use `text_font_files` → `text_font_import` → `text_fonts` and pass a
-resource to `text_edit.font_resource`. `text_edit.ranges` holds selected range formatting.
-`text_edit_layout` accepts resource/ranges too and measures a draft without applying it.
-All file inputs respect CLI root confinement; importing a font and applying text are undoable.
+Headless document opening also prepares a font catalogue. With `--root`, discovery is limited
+to that root; it never reads system fonts outside it. `text_font_refresh` refreshes the
+catalogue or selects confined directories for automatically matching future edits. Neither
+`text_font_import` nor a resource selection is required for matching subset completion.
+For an explicit face change, use `text_font_files` → `text_font_import` → `text_fonts` and pass
+a resource to `text_edit.font_resource`. `text_edit.ranges` holds selected range formatting.
+`text_edit_layout` measures a draft without applying it. All file inputs respect root
+confinement. The engine API is `Catalogue::discover` → `Session::set_text_font_catalogue`;
+callers control discovery roots rather than enabling ambient filesystem access implicitly.
 
 Explicit marked paragraph/heading scopes prevent unrelated tagged regions from merging.
 Compatible geometry groups untagged content, including runs split across content streams
@@ -42,10 +52,13 @@ layout fidelity still need broader coverage. Do not interpret the passing real-f
 as a guarantee for every PDF.
 
 Private acceptance tests are opt-in and keep inputs unmodified. They exercise actual Chinese
-keyboard insertion/deletion on all four pages, source-face/baseline checks and identical
+keyboard insertion/deletion on all four pages with the matching face discovered in a private
+font directory and no Load font edit, source-face/baseline checks and identical
 in-memory renders before and after saving/reopening. Synthetic tests cover full TrueType
-mapping, OpenType/CFF, Arabic marks/ligatures/mixed bidi, repeated edits, disjoint styles,
-invalid ranges, font selection and root confinement. CLI acceptance repeats insertion/deletion
+mapping, OpenType/CFF, repeated edits, disjoint styles,
+invalid ranges, font selection, automatic face matching, wrong-style rejection, one-step
+undo, cached file removal and root confinement. Reopened edits also insert a previously unused
+character with no installed font file. CLI acceptance repeats insertion/deletion
 and two saves/reopens on four pages; independent PDFium checks extraction and rendering.
 No private document, font or screenshot
 is included in the repository.

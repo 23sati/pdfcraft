@@ -282,6 +282,8 @@ pub struct Document {
     trust: Arc<TrustStore>,
     sig_cache: Arc<pdfcraft_sign::DigestCache>,
     editor: Option<Editor>,
+    text_fonts: Option<Arc<text_fonts::Catalogue>>,
+    text_font_preview: std::sync::Mutex<Option<text_preview::PreparedFonts>>,
     config: RenderConfig,
     /// What field scripts printed or asked for (see [`Session::take_js_output`]).
     js_output: js::JsOutput,
@@ -1885,6 +1887,7 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
 
 /// Dates and unique ids stamped onto what an edit creates.
 struct EditCtx {
+    text_fonts: Option<Arc<text_fonts::Catalogue>>,
     /// Field scripts run (`None`: JavaScript is off) and what they produced.
     js: Option<js::JsRunner>,
     /// A laid-out XFA form's template (`None`: not an XFA form, or JavaScript is off) and what
@@ -1919,6 +1922,7 @@ impl EditCtx {
             seed ^= std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.subsec_nanos() as u64).unwrap_or(0) << 32;
         }
         Self {
+            text_fonts: None,
             js: None,
             xfa: None,
             xfa_out: Default::default(),
@@ -2187,6 +2191,9 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         }
         Edit::MoveObjects { page, objects, offset } => pdfcraft_edit::move_objects(doc, *page, objects, *offset)?,
         Edit::EditTextBlock { page, block, text, style } => {
+            if let Some(fonts) = &cx.text_fonts {
+                fonts.complete(doc, *page, *block, text, style)?;
+            }
             pdfcraft_edit::rewrite_block(doc, *page, *block, Some(text), style)?;
         }
         Edit::RegisterTextFont { page, bytes } => {
@@ -2524,6 +2531,7 @@ impl From<pdfcraft_sign::SignError> for EditError {
 #[derive(Default)]
 pub struct Session {
     docs: Vec<Document>,
+    text_fonts: Option<Arc<text_fonts::Catalogue>>,
     next_id: u64,
     /// Seconds since the Unix epoch, injected so saves are deterministic in tests.
     clock: Option<fn() -> i64>,
@@ -3055,6 +3063,8 @@ impl Session {
             trust: self.trust.clone(),
             sig_cache,
             editor,
+            text_fonts: self.text_fonts.clone(),
+            text_font_preview: Default::default(),
             config,
             js_output: Default::default(),
             xfa,
@@ -3083,6 +3093,7 @@ impl Session {
         if !js_off {
             cx.xfa = doc.xfa_template.clone();
         }
+        cx.text_fonts = doc.text_fonts.clone();
         cx.pages = doc.info.pages.len();
         cx.today = today;
         let reason = doc.read_only_reason.clone().unwrap_or_default();

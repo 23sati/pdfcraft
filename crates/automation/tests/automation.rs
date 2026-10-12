@@ -4813,3 +4813,51 @@ fn architectural_and_iso_papers_through_tools() {
     assert_eq!(std::fs::read(dir.join("plot.pdf")).unwrap(), before);
     assert!(a.call("doc_print", &json!({"doc": doc, "paper": "ARCH D", "path": "../escape.pdf"})).is_err());
 }
+
+#[path = "../../engine/tests/support/source_subset.rs"]
+mod source_subset;
+
+#[test]
+fn automatic_installed_font_completion_is_root_confined_atomic_and_portable() {
+    let dir = workdir("automatic-document-font");
+    std::fs::write(dir.join("source.pdf"), source_subset::source_subset().as_slice()).unwrap();
+    std::fs::create_dir_all(dir.join("fonts")).unwrap();
+    let font = dir.join("fonts/misleading-name.ttf");
+    std::fs::write(&font, include_bytes!("../../../assets/fonts/Inter-Regular.ttf")).unwrap();
+    let mut a = auto(&dir);
+    let id = ok(&mut a, "doc_open", json!({"path":"source.pdf"}))["doc"].as_u64().unwrap();
+    let before = a.session().get(pdfcraft_engine::DocId(id)).unwrap().bytes.clone();
+    assert!(a.call("text_font_refresh", &json!({"directories":["../outside"]})).is_err());
+    let inventory = ok(&mut a, "text_font_refresh", json!({"directories":["fonts"]}));
+    assert_eq!(inventory["fonts"][0]["font"], "Inter-Regular");
+    assert_eq!(a.session().get(pdfcraft_engine::DocId(id)).unwrap().bytes, before);
+    assert!(!a.session().get(pdfcraft_engine::DocId(id)).unwrap().dirty);
+    // No Load font call and no resource selection: the source face determines the match.
+    let layout = ok(&mut a, "text_edit_layout", json!({"doc":id,"page":1,"paragraph":1,"text":"ABΩ","width":230}));
+    assert!(layout["draft_rect"].is_array());
+    assert_eq!(a.session().get(pdfcraft_engine::DocId(id)).unwrap().bytes, before);
+    std::fs::remove_file(font).unwrap();
+    ok(&mut a, "text_edit", json!({"doc":id,"page":1,"paragraph":1,"text":"ABΩ","width":230}));
+    let fonts = ok(&mut a, "text_fonts", json!({"doc":id,"page":1}));
+    assert!(fonts["fonts"].as_array().unwrap().iter().any(|f| f["font"] == "Inter-Regular" && f["full_face"] == true));
+    let lines = ok(&mut a, "text_lines", json!({"doc":id,"page":1}));
+    assert!(lines["lines"].as_array().unwrap().iter().all(|l| l["font"].as_str().unwrap().ends_with("Inter-Regular")));
+    let rendered = a.call("page_render", &json!({"doc":id,"page":1,"dpi":144})).unwrap();
+    ok(&mut a, "doc_save", json!({"doc":id,"path":"saved.pdf"}));
+    let mut portable = auto(&dir); // The installed file is gone; new catalogue is empty.
+    assert!(ok(&mut portable, "text_font_files", json!({}))["fonts"].as_array().unwrap().is_empty());
+    let rid = ok(&mut portable, "doc_open", json!({"path":"saved.pdf"}))["doc"].as_u64().unwrap();
+    assert_eq!(portable.call("page_render", &json!({"doc":rid,"page":1,"dpi":144})).unwrap(), rendered);
+    assert_eq!(ok(&mut portable, "text_lines", json!({"doc":rid,"page":1})), lines);
+    ok(&mut portable, "text_edit", json!({"doc":rid,"page":1,"paragraph":1,"text":"ABЖ","width":230}));
+    ok(&mut portable, "doc_save", json!({"doc":rid,"path":"twice.pdf"}));
+    let twice = ok(&mut portable, "doc_open", json!({"path":"twice.pdf"}))["doc"].as_u64().unwrap();
+    assert_eq!(
+        portable.call("page_render", &json!({"doc":rid,"page":1})).unwrap(),
+        portable.call("page_render", &json!({"doc":twice,"page":1})).unwrap()
+    );
+    ok(&mut a, "edit_undo", json!({"doc":id}));
+    assert_eq!(a.session().get(pdfcraft_engine::DocId(id)).unwrap().bytes, before);
+    assert!(a.session().get(pdfcraft_engine::DocId(id)).unwrap().can_undo().is_none());
+    std::fs::remove_dir_all(dir).unwrap();
+}
