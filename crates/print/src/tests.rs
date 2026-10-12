@@ -65,16 +65,46 @@ fn page_selection() {
     assert_eq!(select_pages(5, Some("ii-2, A-1"), &labels, Subset::All, false).unwrap(), [1, 2, 3, 4], "labels, even with a dash");
     assert_eq!(select_pages(5, None, &[], Subset::Even, true).unwrap(), [3, 1]);
     assert_eq!(select_pages(5, None, &[], Subset::Odd, false).unwrap(), [0, 2, 4]);
-    assert!(matches!(select_pages(5, Some("7"), &[], Subset::All, false), Err(PrintError::Invalid(_))));
-    assert!(matches!(select_pages(5, Some("x"), &[], Subset::All, false), Err(PrintError::Invalid(_))));
+    assert_eq!(select_pages(5, Some("7"), &[], Subset::All, false), Err(PrintError::OutOfRange(7, 5)));
+    assert_eq!(select_pages(5, Some("x"), &[], Subset::All, false), Err(PrintError::NotAPage("x".into())));
+    assert_eq!(select_pages(5, Some("7"), &[], Subset::All, false).unwrap_err().to_string(), "page 7 is out of range (1–5)");
     assert_eq!(select_pages(1, None, &[], Subset::Even, false), Err(PrintError::NoPages));
     // An explicit list (selected thumbnails): positions, never labels, in the order given.
     assert_eq!(select_listed(5, &[1, 3], Subset::All, false).unwrap(), [1, 3]);
     assert_eq!(select_listed(5, &[0, 2, 4], Subset::Even, false).unwrap(), [2]);
     assert_eq!(select_listed(5, &[0, 2, 4], Subset::Odd, true).unwrap(), [4, 0]);
-    assert!(matches!(select_listed(5, &[1, 5], Subset::All, false), Err(PrintError::Invalid(_))));
-    assert!(matches!(select_listed(0, &[usize::MAX], Subset::All, false), Err(PrintError::Invalid(_))));
+    assert_eq!(select_listed(5, &[1, 5], Subset::All, false), Err(PrintError::OutOfRange(6, 5)));
+    assert!(matches!(select_listed(0, &[usize::MAX], Subset::All, false), Err(PrintError::OutOfRange(_, 0))));
     assert_eq!(select_listed(5, &[], Subset::All, false), Err(PrintError::NoPages));
+}
+
+/// Every mistake a person can make about what to print says itself out of a wording on the list
+/// and the numbers apart from it, and says itself in English exactly as the error prints itself.
+#[test]
+fn wordings_are_said() {
+    let mistakes = [PrintError::NoPages, PrintError::OutOfRange(7, 5), PrintError::NotAPage("x".into())];
+    for e in &mistakes {
+        assert_eq!(e.said(&in_english), e.to_string(), "{e:?} says itself in English the way it prints itself");
+    }
+    // Each wording is one of a mistake's, and each mistake's is on the list: the hole names and
+    // all, so a catalog that translates the list translates every sentence a person can be shown.
+    let said: Vec<String> = WORDINGS.iter().map(|w| w.to_string()).collect();
+    assert_eq!(said.len(), mistakes.len(), "one wording per mistake");
+    for w in WORDINGS {
+        assert!(!w.is_empty() && w.ends_with(|c: char| c.is_alphanumeric() || c == ')'), "a whole sentence, not a fragment: {w:?}");
+    }
+    // A fault is not a mistake: it carries its own text and is not on the list.
+    let fault = PrintError::Spool("lp: no such printer".into());
+    assert_eq!(fault.said(&in_english), "lp: no such printer");
+    assert_eq!(fault.said(&|_| "traducido".to_string()), "lp: no such printer", "nothing to translate");
+    // Said in another language, the numbers still go in, and in that language's own order.
+    let other = |w: &str| match w {
+        "page {n} is out of range (1–{count})" => "el documento tiene {count} páginas, no {n}".to_string(),
+        w => w.to_string(),
+    };
+    assert_eq!(PrintError::OutOfRange(7, 5).said(&other), "el documento tiene 5 páginas, no 7");
+    // What was typed goes in as it stands, braces and all, and is never read as a hole.
+    assert_eq!(PrintError::NotAPage("{count}".into()).said(&other), "\"{count}\" is not a page number or label");
 }
 
 #[test]
@@ -204,7 +234,10 @@ fn spooler_arguments_and_printer_list() {
     let out = "printer Office_Laser is idle.  enabled since Thu Oct  1 09:00:00 2026\nprinter Label_Writer disabled since …\nsystem default destination: Office_Laser\n";
     assert_eq!(
         parse_lpstat(out),
-        [spool::Printer { name: "Office_Laser".into(), default: true }, spool::Printer { name: "Label_Writer".into(), default: false }]
+        [
+            spool::Printer { name: "Office_Laser".into(), default: true, two_sided: None },
+            spool::Printer { name: "Label_Writer".into(), default: false, two_sided: None }
+        ]
     );
     assert!(parse_lpstat("lpstat: No destinations added.\nno system default destination\n").is_empty());
     let job = Job {
@@ -244,16 +277,19 @@ fn driverless_printers_join_the_list_without_a_queue() {
     let queues = "printer Office_Laser is idle.  enabled since Thu Oct  1 09:00:00 2026\nsystem default destination: Office_Laser\n";
     assert_eq!(
         spool::printers_parsed(queues, Some("Basement_Color\nOffice_Laser\n")),
-        [spool::Printer { name: "Office_Laser".into(), default: true }, spool::Printer { name: "Basement_Color".into(), default: false },],
+        [
+            spool::Printer { name: "Office_Laser".into(), default: true, two_sided: None },
+            spool::Printer { name: "Basement_Color".into(), default: false, two_sided: None },
+        ],
         "queues first, then the driverless destination; the queue listed twice is not doubled"
     );
     // An old spooler without `-e` (CUPS < 1.7) keeps its queues; only the driverless names are lost.
-    assert_eq!(spool::printers_parsed(queues, None), [spool::Printer { name: "Office_Laser".into(), default: true }]);
+    assert_eq!(spool::printers_parsed(queues, None), [spool::Printer { name: "Office_Laser".into(), default: true, two_sided: None }]);
     // The default can itself be driverless (`lpoptions -d` names a destination no queue exists
     // for): it keeps its marker, so the dialog preselects the user's default, not the first queue.
     assert_eq!(
         spool::printers_parsed("system default destination: Basement_Color\n", Some("Basement_Color\n")),
-        [spool::Printer { name: "Basement_Color".into(), default: true }],
+        [spool::Printer { name: "Basement_Color".into(), default: true, two_sided: None }],
         "a default destination without a queue is still the default"
     );
     assert!(spool::parse_lpstat_e("\n \n").is_empty(), "no destinations is empty, not [\"\"]");
@@ -413,12 +449,26 @@ fn windows_printers_carry_one_default_and_keep_their_names() {
     // Windows marks the system default with a `*` no queue name may contain; names hold spaces,
     // parentheses and non-ASCII letters, and the lines end with CRLF.
     let printers = parse_windows_printers("*Microsoft Print to PDF\r\nHP LaserJet 400 (Copy 2)\r\nКопир Canon iR\r\n\r\n*XPS via USB\r\n");
-    assert_eq!(printers[0], Printer { name: "Microsoft Print to PDF".into(), default: true });
-    assert_eq!(printers[1], Printer { name: "HP LaserJet 400 (Copy 2)".into(), default: false });
-    assert_eq!(printers[2], Printer { name: "Копир Canon iR".into(), default: false });
+    assert_eq!(printers[0], Printer { name: "Microsoft Print to PDF".into(), default: true, two_sided: None });
+    assert_eq!(printers[1], Printer { name: "HP LaserJet 400 (Copy 2)".into(), default: false, two_sided: None });
+    assert_eq!(printers[2], Printer { name: "Копир Canon iR".into(), default: false, two_sided: None });
     // A spooler marking two defaults: the first still wins, so the dialog has one to preselect.
-    assert_eq!(printers[3], Printer { name: "XPS via USB".into(), default: false });
+    assert_eq!(printers[3], Printer { name: "XPS via USB".into(), default: false, two_sided: None });
     assert_eq!(parse_windows_printers("\r\n"), Vec::new());
+    // After a tab, whether the driver reports two-sided printing; a tab inside a name stays.
+    let sided = parse_windows_printers("*Office PCL\t2\r\nOffice PS\t1\r\nTab\tName\t2\r\n");
+    assert_eq!(sided[0], Printer { name: "Office PCL".into(), default: true, two_sided: Some(true) });
+    assert_eq!(sided[1], Printer { name: "Office PS".into(), default: false, two_sided: Some(false) });
+    assert_eq!(sided[2], Printer { name: "Tab\tName".into(), default: false, two_sided: Some(true) });
+}
+
+#[test]
+fn the_windows_print_script_binds_long_edge_on_the_long_edge() {
+    // System.Drawing's Duplex values are DEVMODE's: Vertical binds a portrait page on its long
+    // edge, Horizontal on its short edge (checked against a PCL driver's @PJL SET BINDING).
+    let script = include_str!("windows_print.ps1").replace("\r\n", "\n");
+    assert!(script.contains("'long-edge' { [System.Drawing.Printing.Duplex]::Vertical }"));
+    assert!(script.contains("'short-edge' { [System.Drawing.Printing.Duplex]::Horizontal }"));
 }
 
 #[test]
@@ -630,4 +680,31 @@ fn a_scaled_appearance_is_not_scaled_twice() {
     let m = appearance_matrix(&doc, &form, [10.0, 10.0, 50.0, 50.0]).unwrap();
     assert!(close(m.0[0], 2.0) && close(m.0[3], 2.0), "{:?}", m.0);
     assert!(close(m.0[4], 10.0) && close(m.0[5], 10.0), "{:?}", m.0);
+}
+
+#[test]
+fn architectural_sheets_preserve_full_scale() {
+    let index = matching_paper((2592.0, 1728.0)).unwrap();
+    assert_eq!(PAPERS[index].0, "ARCH D (24 x 36 in)");
+    assert_eq!(matching_paper((1728.0, 2592.0)), Some(index));
+    assert_eq!(matching_paper((f64::NAN, 2592.0)), None);
+    let s = Settings { pages: vec![0], paper: PAPERS[index].1, layout: Layout::Size(SizeMode::Actual), ..Settings::default() };
+    let sheets = layout(&[(2592.0, 1728.0)], &s).unwrap();
+    assert_eq!(sheets[0].size, (2592.0, 1728.0));
+    assert_eq!(sheets[0].placed[0].matrix.0, [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+    let fit = layout(&[(2592.0, 1728.0)], &Settings { layout: Layout::Size(SizeMode::Fit), ..s }).unwrap();
+    assert!(fit[0].placed[0].matrix.0[0] < 1.0, "Fit adds margins and must not masquerade as full scale");
+}
+
+#[test]
+fn paper_matching_accepts_rounded_metric_sizes_but_not_custom_or_invalid_sizes() {
+    for (i, (_, (w, h))) in PAPERS.iter().enumerate() {
+        assert_eq!(matching_paper((*w, *h)), Some(i));
+        assert_eq!(matching_paper((*h, *w)), Some(i));
+        assert_eq!(matching_paper((w.round(), h.round())), Some(i));
+        assert_eq!(matching_paper((w + 0.51, *h)), None);
+    }
+    for size in [(0.0, 0.0), (-1728.0, 2592.0), (f64::INFINITY, 2592.0), (1728.0, f64::NAN), (1000.0, 1000.0)] {
+        assert_eq!(matching_paper(size), None);
+    }
 }

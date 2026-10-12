@@ -292,7 +292,7 @@ licensed OCR or AI model.
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-11 | minor | Contributor fork: document-font selection and subset completion, CFF, style ranges, contextual/bidi save/reopen and all-page Chinese keyboard acceptance; curve/hole hit testing and shared path-clip isolation. Scope remains bounded; percentages unchanged |
+| 2026-10-11 | minor | Contributor fork: document-font selection and subset completion, CFF, style ranges, contextual/bidi save/reopen and all-page Chinese keyboard acceptance; curve/hole hit testing (shared clips stay fixed, as on main). Scope remains bounded; percentages unchanged |
 | 2026-10-11 | minor | Synced with closed issues: encrypted output opens in Acrobat (#774, #836), Windows prints (#756, #847), column select (#740), 1:1 touchpad scrolling (#759), same-page multi-object move (#844), #825 and the #799–#821 fix batch. Text only: scores, readiness and hours not re-judged |
 | 2026-10-10 | minor | Readiness table: hours to ≈ 95% per audience (full 780–1,400, mainstream 500–900, essentials 180–330). Full number restated as the standard's additive weighted sum over dimensions with written weights: 47% → 49%. Method aligned with the standard, no new evidence |
 | 2026-10-10 | minor | Added the essentials-user score (≈ 66%): weighted depth of 13 everyday features, discounted for launch, discoverability and opening others' files |

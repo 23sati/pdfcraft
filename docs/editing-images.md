@@ -26,19 +26,17 @@ return a clear error for Form artwork.
 
 Selection frames follow the visible portion of artwork after page and path clipping. Clicking
 editable text takes precedence over overlapping artwork, including labels inside an image's
-visible rectangle. Hidden image placements have no selection frame. Bezier extrema determine curved-path frames. Hit testing evaluates the actual clipping
-paths with their nonzero or even-odd fill rule, so holes and empty corners do not intercept
-clicks. Intersections of several curved clips can still have a loose bounding frame. For an isolated cropped image, moving, resizing, rotating or flipping transforms the
-clipping path together with its full placement: the same visible pixels follow the selection
-frame. Resizing keeps the opposite corner fixed, including horizontal-only or vertical-only
-corner drags; grabbing a grip slightly off-centre does not jump. A selected corner keeps control of its drag
-even over a text label; the drag previews one frame and applies one undoable edit on release.
-A path clip shared with other painted content is replayed privately around the selected
-placement, then the original state is restored. Neighbouring text and images keep their
-paint order and geometry. Text-outline clips and excessive state replay are refused with
-a clear error. The page boundary remains fixed.
+visible rectangle. Hidden image placements have no selection frame. Bezier extrema determine
+curved-path frames. Hit testing evaluates the actual clipping paths with their nonzero or
+even-odd fill rule, so holes and empty corners do not intercept clicks. Intersections of several
+curved clips can still have a loose bounding frame. Dragging the visible frame moves or resizes
+the full placement by the same change; resizing keeps the opposite corner fixed, including
+horizontal-only or vertical-only corner drags, and grabbing a grip slightly off-centre does not
+jump. A selected corner keeps control of its drag even over a text label; the drag previews one
+frame and applies one undoable edit on release. A clip that belongs to the image alone
+(`q re W n cm Do Q`) moves with it; a clip shared with other content stays where it is.
 
-`image_hit` applies the same path and hole checks headlessly. `page_images` retains `rect` as the full placement rectangle used by `image_edit` and adds
-`visible_rect` for selection (null when fully clipped). `object_list` reports visible artwork
-bounds while keeping the original source indexes. A selection frame does not create, remove
-or enlarge the PDF's clipping path; an explicit image transform changes its private crop with it.
+`image_hit` applies the same path and hole checks headlessly. `page_images` retains `rect` as
+the full placement rectangle used by `image_edit` and adds `visible_rect` for selection (null
+when fully clipped). `object_list` reports visible artwork bounds while keeping the original
+source indexes. A selection frame does not create, remove or enlarge the PDF's clipping path.

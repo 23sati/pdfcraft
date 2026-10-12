@@ -399,7 +399,7 @@
 	Centre	居中
 	Align right	右对齐
 	Justify	两端对齐
-	Standard fonts; text outside Windows-1252 isn't supported yet.	标准字体；尚不支持 Windows-1252 之外的文本。
+	Thai and Arabic use regular fallback fonts when available.	泰语和阿拉伯语使用可用的常规样式备用字体。
 	Edit image	编辑图像
 	Rotate counterclockwise	逆时针旋转
 	Rotate clockwise	顺时针旋转
@@ -470,7 +470,7 @@
 	{verb} Header and Footer	{verb}页眉和页脚
 	{verb} Watermark	{verb}水印
 	{verb} Background	{verb}背景
-	Margins (in)	边距（英寸）
+	Margins	边距
 	Left Header Text	左页眉文本
 	Center Header Text	居中页眉文本
 	Right Header Text	右页眉文本
@@ -936,6 +936,8 @@
 	Searchable Image (Exact)	可搜索图像（精确）
 	Adds invisible text over each word; the page image is not changed	在每个词上添加不可见文本；页面图像保持不变
 	Downsample to	降采样至
+	Also recognize pages that already have text	同时识别已有文本的页面
+	Pictures on those pages are recognized too; words already in the page's text are not added again	这些页面上的图片也会被识别；页面文本中已有的单词不会重复添加
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	未安装文本识别：缺少模型文件。请重新安装 PdfCraft，或将 PDFCRAFT_MODELS 设置为包含这些文件的文件夹。
 	Settings	设置
 	Protect	保护
@@ -1691,7 +1693,12 @@
 	watermark	水印
 	background	背景
 	This document isn't password-protected	本文档未受密码保护
-	Only the document's owner can change its security (open it with the permissions password)	只有文档所有者才能更改安全性（请使用权限密码打开）
+	Enter permissions password…	输入权限密码…
+	Permissions password	权限密码
+	“{name}” has security restrictions. Enter its permissions password to lift them.	“{name}”有安全限制。请输入其权限密码以解除限制。
+	Restrictions lifted	已解除限制
+	Couldn't unlock {name}: {e}	无法解锁 {name}：{e}
+	This document has no restrictions to lift	此文档没有可解除的限制
 	The document's security settings don't allow this change	文档安全设置不允许此更改
 	The document's security settings don't allow copying text and images	文档安全设置不允许复制文本和图像
 	Open a document first	请先打开文档
@@ -1947,6 +1954,7 @@
 	Edit document JavaScript	编辑文档 JavaScript
 	Edit script of {name}	编辑 {name} 的脚本
 	Edit text	编辑文本
+	Load document font	加载文档字体
 	Embedded files must be PDF/A files themselves (use PDF/A-3 for others)	嵌入文件本身必须符合 PDF/A 标准（其他类型的文件请使用 PDF/A-3）
 	Erase	擦除
 	Fill & Sign: change initials	填写与签名：更改姓名首字母
@@ -2102,7 +2110,11 @@
 	Choose a PNG or JPEG image (up to 4 MiB). Transparency is preserved.	选择 PNG 或 JPEG 图像（最大 4 MiB）。透明度会保留。
 	Couldn't import the signature image: {e}	无法导入签名图像：{e}
 	Go to page…	转到页面…
+	For page sizes and margins.	用于页面尺寸和边距。
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	PDF 文本字体无法显示“{c}”（{code}）。请选择受支持的文本。
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	标准字体无法显示“{c}”（{code}）。目前只能添加西欧字符作为文本。
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	此字段的字体无法显示“{c}”（{code}），PdfCraft 会在该处显示 ?。值已保存，其他 PDF 阅读器会根据该值重新绘制此字段。
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	PdfCraft 写入时使用的字体无法显示“{c}”（{code}），因此它在所有 PDF 阅读器中都会显示为 ?。文本已保存。
 	Larger pages	放大页面
 	Smaller pages	缩小页面
 	Reset page size	重置页面大小
@@ -2188,6 +2200,13 @@ key	Space	空格
 	Resize panel window	调整面板窗口大小
 	Tools	工具
 	Inspector	检查器
+
+# Architectural print controls (follow-up to #599).
+	PDF page: {size}	PDF 页面：{size}
+	Match page at 100%	匹配页面并设为 100%
+	PDF scale: {scale}%	PDF 缩放：{scale}%
+	Printer paper and scaling may differ. Check driver settings.	打印机纸张和缩放可能不同。请检查驱动程序设置。
+	Drawing scale changes. Use Actual size for full-scale plans.	图纸比例发生变化。按原比例打印图纸时请使用实际大小。
 	Select page {label}	选择页面 {label}
 	Rotate page {label} counterclockwise	逆时针旋转页面 {label}
 	Rotate page {label} clockwise	顺时针旋转页面 {label}
@@ -2199,3 +2218,12 @@ scroll speed	Fast	快
 	Enhance camera image	增强相机图像
 	Drag the corners onto the document's edges, then choose Enhance page.	将四个角拖到文档边缘，然后选择“增强页面”。
 	Enhance page	增强页面
+	Done adding text	完成添加文本
+	Discard this text (Esc)	放弃此文本 (Esc)
+	Clean-up	清理
+	Original	原始
+	Greyscale	灰度
+	Black and white	黑白
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	此打印机的驱动程序不接受其他程序的双面打印设置，因此使用其自身设置。更改位置：属性…
+	Tools panel side	工具面板位置
+	Add comment	添加注释

@@ -54,6 +54,14 @@ fn group_layout(lines: &[TextLine], mixed: bool) -> Vec<TextBlock> {
                 && (prev.origin.baseline - line.origin.baseline).abs() < prev.size.min(line.size) * 0.2
                 && gap >= -prev.size.min(line.size) * 0.2
                 && gap < prev.size.max(line.size) * 1.5
+                // Separate same-style text objects that merely touch or overlap, with no space
+                // between them, are separate labels (for example a paragraph dragged against
+                // another, #594). Style runs and words separated by a space or gap still join.
+                && (prev.origin.bt_op == line.origin.bt_op
+                    || gap > prev.size.min(line.size) * 0.01
+                    || !same_style(prev, line)
+                    || prev.text.ends_with(char::is_whitespace)
+                    || line.text.starts_with(char::is_whitespace))
         });
         if joins && let Some(row) = rows.last_mut() {
             row.push(i);
@@ -136,8 +144,8 @@ fn shape_source(
     fonts: &Dict,
     name: &str,
     text: &str,
-) -> Result<Option<(Vec<u8>, pdfcraft_fonts::shaping::ShapedRun, String)>, EditError> {
-    if !pdfcraft_fonts::shaping::required(text) {
+) -> Result<Option<(Vec<u8>, pdfcraft_fonts::source_shaping::ShapedRun, String)>, EditError> {
+    if !pdfcraft_fonts::source_shaping::required(text) {
         return Ok(None);
     }
     let source =
@@ -153,7 +161,7 @@ fn shape_source(
     for font in candidates {
         if let Some(bytes) = pdfcraft_fonts::pdf::embedded_sfnt(doc, &font)
             && pdfcraft_fonts::embedding::covers(&bytes, text)
-            && let Ok(shaped) = pdfcraft_fonts::shaping::shape(&bytes, text)
+            && let Ok(shaped) = pdfcraft_fonts::source_shaping::shape(&bytes, text)
         {
             return Ok(Some((bytes, shaped, family)));
         }
@@ -487,7 +495,7 @@ pub(super) fn rewrite_styled_block(
     }
     for row in &rows {
         let text: String = row.iter().map(|v| v.0).collect();
-        if pdfcraft_fonts::shaping::required(&text) && row.first().is_some_and(|first| row.iter().any(|v| v.1 != first.1 || v.2 != first.2)) {
+        if pdfcraft_fonts::source_shaping::required(&text) && row.first().is_some_and(|first| row.iter().any(|v| v.1 != first.1 || v.2 != first.2)) {
             return Err(EditError::Invalid(
                 "contextual/bidi text across font or style boundaries needs a uniform full-face row; mixed contextual runs are not yet supported"
                     .into(),

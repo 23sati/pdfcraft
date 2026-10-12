@@ -46,3 +46,25 @@ printer isn't available yet; the print-ready PDF can always be saved.
 
 Not yet: the web spooler, print as image, poster labels, PostScript output, colour conversion for
 grayscale.
+
+## Architectural sheets and scale
+
+The Paper menu and `doc_print` share Letter, Legal, Tabloid, A3/A4/A5 plus
+ARCH A/B/C/D/E1/E, ANSI C/D/E and ISO A0/A1/A2. ARCH D is 24 × 36 inches;
+ANSI D is 22 × 34 inches. Dimensions follow the [HP DesignJet paper-size table](https://support.hp.com/hr-en/document/bpp01676).
+Automation accepts short names such as `"ARCH D"` (case-insensitive) or the full menu label.
+For example, `doc_print` with `paper: "ARCH D"`, `layout: "actual"`,
+`orientation: "auto"` and `path: "plan.pdf"` writes a print-ready PDF at 100%.
+
+**Match page at 100%** uses the currently viewed document page to choose a standard
+sheet (either orientation, within 0.5 pt for rounded metric dimensions), Actual size
+and Auto orientation. It leaves the selected page range intact. It is disabled
+for a custom page size with no matching preset. One preset applies to the whole job;
+this is not per-page paper-source selection.
+
+**PDF scale** describes the source-to-sheet transform in the previewed print-ready
+PDF, not measured physical output. Fit reserves an 18 pt margin and can reduce even
+a matching page. The current Windows backend still rasterises and can substitute
+paper/shrink a job if its driver lacks the requested size. These controls do not
+add #599's strict PrintTicket validation or vector spooler. Verify the driver's
+paper/scaling settings and physical calibration before relying on drawing scale.

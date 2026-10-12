@@ -75,6 +75,19 @@ fn every_registered_command_is_implemented() {
         app.set_option("language", "en").unwrap();
         if spec.id.starts_with("form.") || spec.id == "comment.flatten" {
             app.open_bytes("form.pdf", None, include_bytes!("data/form.pdf").to_vec()).unwrap();
+        } else if spec.id == "protect.unlock" {
+            // Only a permissions password: opens restricted, and can be unlocked.
+            let mut doc = pdfcraft_cos::Document::open(std::sync::Arc::new(fixture(3))).unwrap();
+            doc.set_encryption(&pdfcraft_cos::NewEncryption {
+                algorithm: pdfcraft_cos::Algorithm::Aes256,
+                user_password: "",
+                owner_password: "owner",
+                permissions: 0b0100,
+                encrypt_metadata: true,
+                seed: [5; 32],
+            })
+            .unwrap();
+            app.open_bytes("restricted.pdf", None, pdfcraft_cos::write_full(&doc, &Default::default()).unwrap()).unwrap();
         } else {
             app.open_bytes("doc.pdf", None, fixture(3)).unwrap();
         }

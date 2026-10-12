@@ -399,6 +399,34 @@ pub fn turn_about_centre(rect: [f64; 4], quarters: i32, flip_h: bool, flip_v: bo
     [a, b, c, d, cx - a * cx - c * cy, cy - b * cx - d * cy]
 }
 
+/// For a `Do` at `op` that sits alone in `q re W n cm Do Q`: the index of the `re` and the `cm` matrix.
+/// That clip belongs to this image only, so it may move with it. A `cm` this move put before the
+/// `re` earlier (`q cm re W n cm Do Q`) keeps the pattern, so the image can be moved again.
+fn exclusive_clip(ops: &[Op], op: usize) -> Option<(usize, Matrix)> {
+    let at = op.checked_sub(4)?;
+    let mut q = at.checked_sub(1)?;
+    while ops.get(q)?.is("cm") {
+        q = q.checked_sub(1)?;
+    }
+    let ok = ops.get(q)?.is("q")
+        && ops.get(at)?.is("re")
+        && (ops.get(at + 1)?.is("W") || ops.get(at + 1)?.is("W*"))
+        && ops.get(at + 2)?.is("n")
+        && ops.get(at + 3)?.is("cm")
+        && ops.get(op + 1)?.is("Q");
+    if !ok {
+        return None;
+    }
+    Some((at, Matrix(ops.get(at + 3)?.nums::<6>()?)))
+}
+
+/// The `cm` to put before the clip so that user-space transform `t` also moves the clip:
+/// the clip is drawn in the CTM before the image's own `cm` (`cm` · that = `draw`).
+fn clip_matrix(draw: Matrix, cm: Matrix, t: Matrix) -> Option<Matrix> {
+    let outer = cm.invert()?.then(&draw);
+    Some(outer.then(&t).then(&outer.invert()?))
+}
+
 /// Change image `index` (from [`page_images`]) on `page`.
 pub fn change_image(doc: &mut Document, page: usize, index: usize, change: &ImageChange) -> Result<(), EditError> {
     let images = page_images(doc, page)?;
@@ -407,14 +435,33 @@ pub fn change_image(doc: &mut Document, page: usize, index: usize, change: &Imag
     let all = streams(doc, &p.dict);
     let (obj, data) = all.get(img.stream).cloned().ok_or_else(|| EditError::Invalid("the image stream is missing".into()))?;
     let mut ops = parse(&data).ops;
-    if ops.get(img.op).is_none() {
-        return Err(EditError::Invalid("the image operation is missing".into()));
-    }
+    let original = ops.get(img.op).cloned().ok_or_else(|| EditError::Invalid("the image operation is missing".into()))?;
     let mut resources = None;
+    let mut clip_move = None;
     let replacement: Vec<Op> = match change {
         ImageChange::Delete => Vec::new(),
         ImageChange::Transform(t) => {
-            return transform_image(doc, &p, &all, &img, *t);
+            if !t.iter().all(|v| v.is_finite()) {
+                return Err(EditError::Invalid("the image transform must be finite".into()));
+            }
+            // New CTM = placement × T; as a `cm` before the Do: M = P · T · P⁻¹.
+            let pm = Matrix(img.draw_matrix);
+            let inv = pm.invert().ok_or_else(|| EditError::Invalid("the image has no area".into()))?;
+            let m = pm.then(&Matrix(*t)).then(&inv);
+            if !m.0.iter().all(|v| v.is_finite()) {
+                return Err(EditError::Invalid("the image transform is too large".into()));
+            }
+            // `q re W n cm Do Q` clips only this image: move the clip with it instead of leaving it behind.
+            if let Some((at, cm)) = exclusive_clip(&ops, img.op) {
+                if let Some(c) = clip_matrix(Matrix(img.draw_matrix), cm, Matrix(*t)).filter(|c| c.0.iter().all(|v| v.is_finite())) {
+                    clip_move = Some((at, Op::new("cm", c.0.iter().map(|v| pdfcraft_content::num(*v)).collect())));
+                    vec![original]
+                } else {
+                    return Err(EditError::Invalid("the image transform is too large".into()));
+                }
+            } else {
+                vec![Op::new("q", vec![]), Op::new("cm", m.0.iter().map(|v| pdfcraft_content::num(*v)).collect()), original, Op::new("Q", vec![])]
+            }
         }
         ImageChange::Replace(r) => {
             if img.is_form {
@@ -432,6 +479,9 @@ pub fn change_image(doc: &mut Document, page: usize, index: usize, change: &Imag
         }
     };
     ops.splice(img.op..=img.op, replacement);
+    if let Some((at, cm)) = clip_move {
+        ops.insert(at, cm);
+    }
     let mut dict = match &*doc.resolve(&obj) {
         Object::Stream(s) => s.dict.clone(),
         _ => Dict::new(),
@@ -445,259 +495,6 @@ pub fn change_image(doc: &mut Document, page: usize, index: usize, change: &Imag
             d.set(b"Resources".to_vec(), Object::Dict(res));
         }
     })?;
-    Ok(())
-}
-
-/// Find the saved graphics-state scope containing just this image and its crop. Applying
-/// the transform before that scope moves the actual clipping path as well as the pixels.
-/// A shared clip must never be moved along with unrelated artwork or text.
-fn image_transform_scope(ops: &[Op], target: usize) -> Result<(usize, usize, Matrix), EditError> {
-    struct Scope {
-        start: usize,
-        matrix: Matrix,
-        inherited_clip: bool,
-        inherited_path: bool,
-        selected: bool,
-        other_paint: bool,
-    }
-    let mut stack: Vec<Scope> = Vec::new();
-    let mut matrix = Matrix::IDENTITY;
-    let mut clipped = false;
-    let mut path = false;
-    let mut pending_clip = false;
-    let mut text = false;
-    let mut at_image = None;
-    let mut isolated = None;
-    for (index, op) in ops.iter().enumerate() {
-        match op.op.as_slice() {
-            b"q" => {
-                if stack.len() >= 256 {
-                    return Err(EditError::Invalid("the image graphics state is too deeply nested to transform".into()));
-                }
-                stack.push(Scope { start: index, matrix, inherited_clip: clipped, inherited_path: path, selected: false, other_paint: false });
-            }
-            b"Q" => {
-                if let Some(scope) = stack.pop() {
-                    if scope.selected && !scope.other_paint && !scope.inherited_clip && !scope.inherited_path {
-                        // Prefer the innermost scope that contains every active clipping path.
-                        isolated.get_or_insert((scope.start, index, scope.matrix));
-                    }
-                    matrix = scope.matrix;
-                    clipped = scope.inherited_clip;
-                }
-            }
-            b"cm" => {
-                if let Some(m) = op.nums::<6>() {
-                    matrix = Matrix(m).then(&matrix);
-                }
-            }
-            b"BT" => text = true,
-            b"ET" => text = false,
-            b"m" | b"l" | b"c" | b"v" | b"y" | b"re" => path = true,
-            b"W" | b"W*" => pending_clip = true,
-            _ => {}
-        }
-        if index == target {
-            if text {
-                return Err(EditError::Invalid("an image inside a text object cannot be transformed".into()));
-            }
-            at_image = Some((matrix, clipped));
-            for scope in &mut stack {
-                scope.selected = true;
-            }
-        } else if matches!(
-            op.op.as_slice(),
-            b"Do" | b"Tj" | b"TJ" | b"'" | b"\"" | b"sh" | b"BI" | b"S" | b"s" | b"f" | b"F" | b"f*" | b"B" | b"B*" | b"b" | b"b*"
-        ) {
-            for scope in &mut stack {
-                scope.other_paint = true;
-            }
-        }
-        if matches!(op.op.as_slice(), b"n" | b"S" | b"s" | b"f" | b"F" | b"f*" | b"B" | b"B*" | b"b" | b"b*") {
-            clipped |= pending_clip;
-            pending_clip = false;
-            path = false;
-        }
-    }
-    let (placement, clipped) = at_image.ok_or_else(|| EditError::Invalid("the image operation is missing".into()))?;
-    if !clipped {
-        return Ok((target, target, placement));
-    }
-    isolated.ok_or_else(|| {
-        EditError::Invalid("this image shares a clipping path with other content; transforming its crop independently is not supported".into())
-    })
-}
-
-fn transform_image(
-    doc: &mut Document,
-    page: &pdfcraft_model::Page,
-    streams: &[(Object, Vec<u8>)],
-    image: &PageImage,
-    transform: [f64; 6],
-) -> Result<(), EditError> {
-    if !transform.iter().all(|v| v.is_finite() && v.abs() <= 1e12) {
-        return Err(EditError::Invalid("the image transform must be finite and no larger than 1e12".into()));
-    }
-    let mut offset = 0_usize;
-    for (_, data) in streams.iter().take(image.stream) {
-        offset = offset
-            .checked_add(data.len())
-            .and_then(|n| n.checked_add(1))
-            .ok_or_else(|| EditError::Invalid("the image content is too large".into()))?;
-    }
-    let data = streams.get(image.stream).ok_or_else(|| EditError::Invalid("the image stream is missing".into()))?;
-    let op = parse(&data.1).ops.get(image.op).cloned().ok_or_else(|| EditError::Invalid("the image operation is missing".into()))?;
-    let span = offset.checked_add(op.span.start).ok_or_else(|| EditError::Invalid("the image content is too large".into()))?;
-    let pieces = pdfcraft_content::Pieces::join(&streams.iter().map(|(_, data)| data.as_slice()).collect::<Vec<_>>());
-    let ops = pieces.parse().ops;
-    let target = ops
-        .iter()
-        .position(|op| op.span.start == span && op.is("Do"))
-        .ok_or_else(|| EditError::Invalid("the image operation could not be located".into()))?;
-    let scope = image_transform_scope(&ops, target);
-    if scope.is_err() {
-        return transform_shared_image(doc, page, streams, &pieces, &ops, target, transform);
-    }
-    let (start, end, placement) = scope?;
-    let inverse = placement.invert().ok_or_else(|| EditError::Invalid("the image has no area".into()))?;
-    let local = placement.then(&Matrix(transform)).then(&inverse);
-    if !local.0.iter().all(|v| v.is_finite() && v.abs() <= 1e12) {
-        return Err(EditError::Invalid("the image transform is too large".into()));
-    }
-    let changed = crate::text::splice(&pieces, &ops, |index| {
-        if index == start {
-            let mut out = vec![Op::new("q", vec![]), Op::new("cm", local.0.map(Object::Real).to_vec())];
-            if start == end {
-                out.extend(ops.get(index).cloned());
-                out.push(Op::new("Q", vec![]));
-                return (out, false);
-            }
-            (out, true)
-        } else if index == end {
-            let mut out: Vec<_> = ops.get(index).cloned().into_iter().collect();
-            out.push(Op::new("Q", vec![]));
-            (out, false)
-        } else {
-            (Vec::new(), true)
-        }
-    });
-    let contents = crate::text::rewritten_contents(doc, streams, changed);
-    doc.update_dict(page.obj, |d| d.set(b"Contents".to_vec(), contents))?;
-    Ok(())
-}
-
-/// Replay graphics/text state and clipping, without replaying any painted content. At an
-/// image outside BT/ET the text matrices are irrelevant; font/spacing/colour state survives.
-/// This makes the shared crop private while preserving every neighbor and painting order.
-fn unpainted_prefix(ops: &[Op]) -> Result<(Vec<Op>, usize), EditError> {
-    if ops.len() > 100_000 {
-        return Err(EditError::Invalid("the shared image scope is too large to isolate".into()));
-    }
-    let mut out = Vec::new();
-    let mut depth = 0usize;
-    let mut text = false;
-    let mut render_mode = 0.0;
-    let mut render_stack = Vec::new();
-    for op in ops {
-        match op.op.as_slice() {
-            b"q" => {
-                depth = depth
-                    .checked_add(1)
-                    .filter(|d| *d <= 256)
-                    .ok_or_else(|| EditError::Invalid("image graphics state is nested too deeply".into()))?;
-                out.push(op.clone());
-                render_stack.push(render_mode);
-            }
-            b"Q" => {
-                depth = depth.checked_sub(1).ok_or_else(|| EditError::Invalid("image graphics state has an unmatched restore".into()))?;
-                render_mode = render_stack.pop().unwrap_or(0.0);
-                out.push(op.clone());
-            }
-            b"BT" => {
-                text = true;
-                out.push(op.clone());
-            }
-            b"ET" => {
-                text = false;
-                out.push(op.clone());
-            }
-            b"Tr" => {
-                render_mode = op.nums::<1>().map_or(0.0, |[n]| n);
-                out.push(op.clone());
-            }
-            b"Tj" | b"TJ" | b"'" | b"\"" => {
-                if render_mode >= 4.0 {
-                    return Err(EditError::Invalid(
-                        "this image's clip contains text outlines; independent transforms require outlining that text clip".into(),
-                    ));
-                }
-                if op.is("'") {
-                    out.push(Op::new("T*", vec![]));
-                }
-                if op.is("\"")
-                    && let Some([word, character, _]) = op.operands.get(..3).and_then(|a| <&[Object; 3]>::try_from(a).ok())
-                {
-                    out.push(Op::new("Tw", vec![word.clone()]));
-                    out.push(Op::new("Tc", vec![character.clone()]));
-                    out.push(Op::new("T*", vec![]));
-                }
-            }
-            b"Do" | b"sh" | b"BI" | b"BMC" | b"BDC" | b"EMC" | b"MP" | b"DP" => {}
-            b"s" | b"b" | b"b*" => {
-                out.push(Op::new("h", vec![]));
-                out.push(Op::new("n", vec![]));
-            }
-            b"S" | b"f" | b"F" | b"f*" | b"B" | b"B*" => out.push(Op::new("n", vec![])),
-            _ => out.push(op.clone()),
-        }
-    }
-    if text {
-        return Err(EditError::Invalid("an image inside a text object cannot be transformed".into()));
-    }
-    Ok((out, depth))
-}
-
-fn transform_shared_image(
-    doc: &mut Document,
-    page: &pdfcraft_model::Page,
-    streams: &[(Object, Vec<u8>)],
-    pieces: &pdfcraft_content::Pieces,
-    ops: &[Op],
-    target: usize,
-    transform: [f64; 6],
-) -> Result<(), EditError> {
-    let (prefix, depth) = unpainted_prefix(ops.get(..target).unwrap_or_default())?;
-    let mut insertion = vec![Op::new("n", vec![])];
-    // A new outer save provides an initial state even when the original page did not use q.
-    insertion.extend((0..=depth).map(|_| Op::new("Q", vec![])));
-    insertion.push(Op::new("q", vec![]));
-    insertion.push(Op::new("cm", transform.map(Object::Real).to_vec()));
-    insertion.extend(prefix.iter().cloned());
-    insertion.extend(ops.get(target).cloned());
-    insertion.push(Op::new("n", vec![]));
-    insertion.extend((0..=depth).map(|_| Op::new("Q", vec![])));
-    insertion.push(Op::new("q", vec![]));
-    insertion.extend(prefix);
-    if serialize_ops(&insertion).len() > 16 << 20 {
-        return Err(EditError::Invalid("the image scope exceeds the isolation budget".into()));
-    }
-    let data = crate::text::splice(pieces, ops, |index| {
-        let mut out = Vec::new();
-        if index == 0 {
-            out.push(Op::new("q", vec![]));
-        }
-        if index == target {
-            out.append(&mut insertion);
-        } else {
-            out.extend(ops.get(index).cloned());
-        }
-        if index + 1 == ops.len() {
-            out.push(Op::new("Q", vec![]));
-        }
-        (out, false)
-    });
-    let contents = crate::text::rewritten_contents(doc, streams, data);
-    doc.update_dict(page.obj, |d| d.set(b"Contents".to_vec(), contents))?;
     Ok(())
 }
 
@@ -722,10 +519,66 @@ pub(crate) fn translate_images(doc: &mut Document, page: usize, indexes: &[usize
     if indexes.is_empty() {
         return Ok(());
     }
-    let mut work = doc.clone();
+    let images = page_images(doc, page)?;
+    let p = page_of(doc, page)?;
+    let all = streams(doc, &p.dict);
+    let mut plans = std::collections::BTreeMap::new();
     for index in indexes {
-        change_image(&mut work, page, *index, &ImageChange::Transform(Matrix::translate(offset[0], offset[1]).0))?;
+        let image = images.get(*index).ok_or_else(|| EditError::Invalid("a selected image no longer exists".into()))?;
+        let placement = Matrix(image.draw_matrix);
+        let inverse = placement.invert().ok_or_else(|| EditError::Invalid("a selected image has no area".into()))?;
+        let [a, b, c, d, _, _] = inverse.0;
+        let movement = Matrix([1.0, 0.0, 0.0, 1.0, a * offset[0] + c * offset[1], b * offset[0] + d * offset[1]]);
+        if !movement.0.iter().all(|v| v.is_finite() && v.abs() <= 1e12) {
+            return Err(EditError::Invalid("the image move is too large".into()));
+        }
+        plans.insert((image.stream, image.op), (movement, placement, offset));
     }
-    *doc = work;
+    let mut data = Vec::with_capacity(all.len());
+    let mut inside_text = false;
+    for (stream, (_, bytes)) in all.iter().enumerate() {
+        let pieces = pdfcraft_content::Pieces::join(&[bytes.as_slice()]);
+        let ops = pieces.parse().ops;
+        for (index, op) in ops.iter().enumerate() {
+            if op.is("BT") {
+                inside_text = true;
+            } else if op.is("ET") {
+                inside_text = false;
+            } else if inside_text && plans.contains_key(&(stream, index)) {
+                return Err(EditError::Invalid("an image inside a text object cannot be moved in a group".into()));
+            }
+        }
+        // Images alone in their own `q re W n cm Do Q` take the clip with them.
+        let mut clips = std::collections::BTreeMap::new();
+        for index in 0..ops.len() {
+            let Some(&(_, placement, offset)) = plans.get(&(stream, index)) else { continue };
+            let Some((at, cm)) = exclusive_clip(&ops, index) else { continue };
+            let translation = Matrix([1.0, 0.0, 0.0, 1.0, offset[0], offset[1]]);
+            let Some(c) = clip_matrix(placement, cm, translation).filter(|c| c.0.iter().all(|v| v.is_finite() && v.abs() <= 1e12)) else {
+                return Err(EditError::Invalid("the image move is too large".into()));
+            };
+            plans.remove(&(stream, index));
+            clips.insert((stream, at), c);
+        }
+        let changed = crate::text::splice(&pieces, &ops, |index| {
+            if let Some(c) = clips.remove(&(stream, index)) {
+                return (vec![Op::new("cm", c.0.map(Object::Real).to_vec())], true);
+            }
+            let Some((matrix, _, _)) = plans.remove(&(stream, index)) else { return (Vec::new(), true) };
+            let original = ops.get(index).cloned().into_iter();
+            // Local translations can be tiny under a large CTM. Preserve their precision
+            // rather than rounding them to zero or amplifying an error on the page.
+            let mut out = vec![Op::new("q", vec![]), Op::new("cm", matrix.0.map(Object::Real).to_vec())];
+            out.extend(original);
+            out.push(Op::new("Q", vec![]));
+            (out, false)
+        });
+        data.push(changed.into_iter().next().unwrap_or_default());
+    }
+    if !plans.is_empty() {
+        return Err(EditError::Invalid("a selected image operation is missing".into()));
+    }
+    let contents = crate::text::rewritten_contents(doc, &all, data);
+    doc.update_dict(p.obj, |d| d.set(b"Contents".to_vec(), contents))?;
     Ok(())
 }

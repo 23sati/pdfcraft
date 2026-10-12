@@ -77,8 +77,8 @@ update the numbers.
   visible text, and `text_edit_layout` measures saved draft bounds without applying them.
   Page/path-clipped artwork bounds and text-first hit testing prevent large cropped images from
   blocking text. A separate private four-page regression opens all 73 detected text regions;
-  curve/hole hit testing now evaluates clipping paths and fill rules. Shared path clips are
-  replayed privately around one transformed placement, preserving neighbouring paint.
+  curve/hole hit testing now evaluates clipping paths and fill rules. A clip the image owns
+  (`q re W n cm Do Q`) moves with it; shared path clips stay where they are.
   Full matching document fonts complete absent subset glyphs; explicit installed/file font
   selection, TrueType/OpenType-CFF embedding, disjoint style ranges, marked paragraph boundaries
   and single-face OpenType shaping/bidi have regression coverage. Actual Chinese keyboard
