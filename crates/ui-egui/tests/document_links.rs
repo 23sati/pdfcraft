@@ -208,13 +208,15 @@ fn a_gotor_link_to_a_directory_or_device_is_refused_without_reading_it() {
     let dir = std::env::temp_dir().join(format!("pdfcraft-ui-gotor-not-a-file-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("folder.pdf")).unwrap();
-    let mut targets = vec!["folder.pdf"];
+    let targets = vec!["folder.pdf"];
     #[cfg(unix)]
-    {
+    let targets = {
+        let mut targets = targets;
         // /dev/zero never ends: reading it would exhaust memory.
         std::os::unix::fs::symlink("/dev/zero", dir.join("zero.pdf")).unwrap();
         targets.push("zero.pdf");
-    }
+        targets
+    };
     for target in targets {
         let mut h = remote_harness(Some(dir.join("source.pdf").to_string_lossy().into_owned()), target, "[0 /Fit]");
         click_remote_link(&mut h);
