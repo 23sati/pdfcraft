@@ -196,6 +196,16 @@ fn reachable_tag_properties_round_trip_and_reject_unrelated_objects() {
     assert!(matches!(set_tag_property(&mut doc, pdfcraft_cos::ObjRef::new(4, 1), TagProperty::Title, Some("No")), Err(TagError::NotATag(_))));
 }
 
+#[test]
+fn tag_hierarchy_keeps_indirect_parent_through_inline_tags() {
+    let doc = structure_doc(&["<< /S /Document /K 4 0 R >>".into(), "<< /S /Sect /K << /S /Div /K 5 0 R >> >>".into(), "<< /S /Figure >>".into()]);
+    let listed = tags(&doc);
+    assert_eq!(
+        listed.iter().map(|t| (t.object.num, t.parent.map(|p| p.num), t.depth)).collect::<Vec<_>>(),
+        [(3, None, 0), (4, Some(3), 1), (5, Some(4), 2)]
+    );
+}
+
 fn checked(doc: &Document, rules: &[Rule]) -> Report {
     check(doc, &Options { rules: rules.iter().copied().collect(), pages: None })
 }

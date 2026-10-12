@@ -835,6 +835,7 @@
 	{verb} as "{name}"	{verb} mint „{name}”
 	Certify	Hitelesítés
 	The signature will be invisible.	Az aláírás láthatatlan lesz.
+	The existing action will be preserved.	A meglévő művelet megmarad.
 	Distinguished name	Megkülönböztető név
 	Labels	Címkék
 	Graphic	Grafika
@@ -2266,9 +2267,28 @@ scroll speed	Fast	Gyors
 	Greyscale	Szürkeárnyalatos
 	Black and white	Fekete-fehér
 	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	A nyomtató illesztőprogramja nem fogadja el más programoktól a kétoldalas nyomtatás beállítását, ezért a saját beállítása érvényes. Módosítás: Tulajdonságok…
+	Browser's print dialog	A böngésző nyomtatási párbeszédablaka
+	Copies, two-sided printing and colour are chosen in the browser's print dialog.	A példányszámot, a kétoldalas nyomtatást és a színt a böngésző nyomtatási párbeszédablakában lehet megadni.
+	Preparing {n} sheets for printing…	{n} lap előkészítése nyomtatásra…
+	Preparing sheet {done} of {total} for printing…	{done}/{total}. lap előkészítése nyomtatásra…
+	Opening the browser's print dialog…	A böngésző nyomtatási párbeszédablakának megnyitása…
+	Couldn't print from the browser ({e}); downloaded {name} to print instead	Nem sikerült nyomtatni a böngészőből ({e}); helyette a(z) {name} letöltődött nyomtatáshoz
 	Tools panel side	Az Eszközök panel oldala
 	Add comment	Megjegyzés hozzáadása
 	Change tag properties	Címke tulajdonságainak módosítása
+# Accessibility structure tags.
+	Tags panel	Címkék panel
+	Tags	Címkék
+	Tag type	Címke típusa
+	Actual text	Tényleges szöveg
+	Find a tag	Címke keresése
+	Collapse tag	Címke összecsukása
+	Expand tag	Címke kibontása
+	Revert changes	Módosítások visszavonása
+	Save tag properties	Címke tulajdonságainak mentése
+	This document has no editable structure tags.	Ebben a dokumentumban nincsenek szerkeszthető szerkezeti címkék.
+	{n} tags	{n} címke
+	Save or revert changes before selecting another tag.	Másik címke kiválasztása előtt mentse vagy vonja vissza a módosításokat.
 	Left out: {names}	Kihagyva: {names}
 	already a PDF	már PDF
 	no unused output name	nincs szabad kimeneti név
@@ -2282,3 +2302,7 @@ scroll speed	Fast	Gyors
 	Ink sensitivity	Tintaérzékenység
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	A keretben nem található aláírás. Húzza a keretet az aláírásra, vagy növelje a tintaérzékenységet.
 	Couldn't use the photo: {e}	A fénykép nem használható: {e}
+	Couldn't follow linked PDF: {reason}	A hivatkozott PDF nem nyitható meg: {reason}
+	The linked PDF opened, but its named destination was not applied.	A hivatkozott PDF megnyílt, de a nevesített cél nem lett alkalmazva.
+	The linked PDF opened, but its page destination was out of range.	A hivatkozott PDF megnyílt, de a céloldal a tartományon kívül esik.
+	Local cross-PDF links require the desktop app	A PDF-ek közötti helyi hivatkozásokhoz az asztali alkalmazás szükséges
