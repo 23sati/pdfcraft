@@ -143,7 +143,6 @@ M2 (renderer), M7 (content editing), M10 (OCR and Office), M11 (Preflight and st
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-12 | minor | M8: applying redaction removes bookmark titles that may repeat removed text. Estimates unchanged. |
 | 2026-10-12 | minor | M3: case-insensitive Find matches normal, final and capital Greek sigma; exact search, word boundaries, glyph ranges and match limits have regression coverage. The tab-menu test uses Finder on macOS. Estimates unchanged. |
 | 2026-10-12 | minor | M14: Windows low-DPI JetBrains Mono hinting candidate; raster and layout evidence recorded without a Windows runtime claim. Estimates unchanged. |
 | 2026-10-12 | minor | M7/#1200 candidate: bounded local GoToR opening, root-confined automation, and action-preserving appearance edits; named destinations and window behavior remain partial; estimates unchanged. |
@@ -160,6 +159,7 @@ M2 (renderer), M7 (content editing), M10 (OCR and Office), M11 (Preflight and st
 | 2026-10-11 | minor | Contributor fork: compatible word/subset-space grouping, source-font space reuse and a read-only textless editor background. Mixed-style regions now covered by engine/tool/UI regressions and private real-file checks; embedded sfnt faces, stable baselines and live draft extents now covered; installed-font selection and unsupported source programs remain open; estimates unchanged |
 | 2026-10-11 | minor | Synced with closed issues: encrypted output opens in Acrobat (#774, #836), so gap 1 left rank 0 and convert and share (32–55 h, the gap's 8–15 h removed); organize, XFDF and multi-object move fixes (#817, #821, #809, #819, #844); the #816 panic and the #799–#821 batch fixed; rank 1 names web printing (Windows shipped, #756). Stage and readiness numbers not re-measured |
 | 2026-10-11 | minor | M6: respect existing form-font encodings; retain source fonts on appearance fallback. Estimates unchanged. |
+| 2026-10-12 | minor | M8: applying redaction removes bookmark titles that may repeat removed text. Estimates unchanged. |
 | 2026-10-11 | minor | M5: partial XFDF/FDF imports preserve existing replies and review statuses through save and export. Estimates unchanged. |
 | 2026-10-11 | minor | M6: keep accepted form values when Tab reopens the same field before Save. Estimates unchanged. |
 | 2026-10-11 | minor | M13: reject malformed CLI --root options before dispatch. Estimates unchanged. |
