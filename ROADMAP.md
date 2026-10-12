@@ -137,6 +137,8 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 ## Progress log
 
+- **2026-10-12 (M5, Fill & Sign text size):** The active Fill & Sign toolbar now chooses 4–300 pt for new text and dates; the in-place editor and saved annotation use that size, which persists in local settings. `fill_sign_add` accepts the same `font_size`. Feature and readiness estimates unchanged.
+
 - **2026-10-12 (M2, short text redraws):** Same-line redraws that restart a matching three-glyph prefix after more than one glyph-height of progress split before placement, so short doubled words no longer interleave. The existing redraw-position tolerance is reused; controls cover negative TJ movement, combining marks, RTL, CJK, vertical and turned text. Estimates unchanged.
 - **2026-10-11 (M10.5, focused follow-up to #599):** Carry the architectural/ANSI/large ISO paper presets, current-page matching at 100%, and previewed PDF scale into the current print dialog and `doc_print`. Retains the #847/#1007 spooler and background discovery. Driver substitution, physical calibration, vector Windows printing and managed-endpoint restrictions remain separate gaps. Overall estimates unchanged.
 
