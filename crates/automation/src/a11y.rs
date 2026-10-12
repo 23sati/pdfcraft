@@ -652,6 +652,56 @@ impl Automation {
         }))
     }
 
+    pub(crate) fn print_readiness(&self, a: &Args) -> Result<Value> {
+        let report = self.doc(a)?.print_readiness();
+        let findings: Vec<Value> =
+            report.findings.iter().map(|f| json!({ "id": f.id, "severity": f.severity, "message": f.message, "page": f.page })).collect();
+        let pages: Vec<Value> = report
+            .pages
+            .iter()
+            .map(|p| {
+                json!({
+                    "page": p.page,
+                    "media_mm": p.media_mm,
+                    "crop_mm": p.crop_mm,
+                    "trim_mm": p.trim_mm,
+                    "bleed_mm": p.bleed_mm,
+                    "trim_set": p.trim_set,
+                    "bleed_set": p.bleed_set,
+                    "bleed_margin_mm": p.bleed_margin_mm,
+                })
+            })
+            .collect();
+        let images: Vec<Value> = report
+            .images
+            .iter()
+            .map(|image| {
+                json!({
+                    "page": image.page,
+                    "name": image.name,
+                    "ppi": image.ppi,
+                    "pixels": image.pixels,
+                    "size_mm": image.size_mm,
+                })
+            })
+            .collect();
+        let pdfa: Vec<Value> = report
+            .pdfa_issues
+            .iter()
+            .map(|issue| json!({ "clause": issue.clause, "message": issue.message, "page": issue.page.map(|p| p + 1) }))
+            .collect();
+        Ok(json!({
+            "text": report.text(),
+            "findings": findings,
+            "pages": pages,
+            "images": images,
+            "output_intents": report.output_intents,
+            "fonts_not_embedded": report.fonts_not_embedded,
+            "pdfa_issues": pdfa,
+            "resolution_unknown": report.resolution_unknown,
+        }))
+    }
+
     pub(crate) fn pdfa_convert(&mut self, a: &Args) -> Result<Value> {
         let level = self.pdfa_level(a)?;
         let id = self.doc(a)?.id;
