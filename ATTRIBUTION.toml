@@ -7,7 +7,7 @@ licence = "MIT OR Apache-2.0"
 licence_file = "LICENSE-MIT"
 kind = "translation"
 usage = "Greek UI strings, compiled in by crates/ui-egui/src/i18n/mod.rs"
-sha256 = "9825aae49019d4a4bf9c689e71d18a67d764df7e4466eac1ec2fb4d2bdb6c42e"
+sha256 = "8c1acfe20632401ab300ca33a4d82a85264d511d271e2dae9ef7c7e89ba8e3b9"
 
 # ATTRIBUTION.toml: one entry per asset (AGENTS.md §1). The source of truth for provenance and licences.
 # ATTRIBUTION.md is generated from this file: `cargo xtask assets --write`. Checked by `cargo xtask assets` (part of `xtask ci`).
@@ -41,7 +41,7 @@ licence = "MIT OR Apache-2.0"
 licence_file = "LICENSE-MIT"
 kind = "translation"
 usage = "Traditional Chinese UI strings, compiled in by crates/ui-egui/src/i18n/mod.rs"
-sha256 = "09db938e6a0a63bb9ecda5fafed65c1bb753112b8af361b99527643492682078"
+sha256 = "67f61607d17f7f6f389f31fb64446aa984f8623e56ea864221abcdf8ad4c3be4"
 
 [[asset]]
 path = "crates/ui-egui/src/i18n/cs.tsv"
@@ -74,7 +74,7 @@ licence = "MIT OR Apache-2.0"
 licence_file = "LICENSE-MIT"
 kind = "translation"
 usage = "Spanish UI strings, compiled in by crates/ui-egui/src/i18n/mod.rs"
-sha256 = "27290455fc9aacfe708dbf0888e3d65f2500b6fafba8bbb7e287f6e07c13d17c"
+sha256 = "fd4ea0ddc5ca0cb7466d35c23e908b6da3369f9102f4b9544c52e65ff7cde70e"
 
 [[asset]]
 path = "crates/ui-egui/src/i18n/fr.tsv"
@@ -107,7 +107,7 @@ licence = "MIT OR Apache-2.0"
 licence_file = "LICENSE-MIT"
 kind = "translation"
 usage = "Telugu UI strings, compiled in by crates/ui-egui/src/i18n/mod.rs"
-sha256 = "095dd072669b1b4b4752de65b1ab225b479980696c3a7ed30d4ea9bc1716b505"
+sha256 = "cfe7dfabaa6bdc679ce802c88dac47a388a5af6496bc2ac531f4e3f54943d8da"
 
 [[asset]]
 path = "crates/ui-egui/src/i18n/it.tsv"
@@ -129,7 +129,7 @@ licence = "MIT OR Apache-2.0"
 licence_file = "LICENSE-MIT"
 kind = "translation"
 usage = "Polish UI strings, compiled in by crates/ui-egui/src/i18n/mod.rs"
-sha256 = "e08117f26be8dea744bd073054d111afdda37c016eb8e35ef2a1e969bf5e73ec"
+sha256 = "6fff6a9544d3d9e05732f0d0dad958994f83496bd74d2c7972268972510d1744"
 
 [[asset]]
 path = "crates/ui-egui/src/i18n/ru.tsv"

@@ -2413,3 +2413,13 @@ scroll speed	Fast	Rápida
 	Ink sensitivity	Sensibilidad de la tinta
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	No se encontró ninguna firma en el marco. Mueva el marco sobre la firma o aumente la sensibilidad de la tinta.
 	Couldn't use the photo: {e}	No se puede usar la foto: {e}
+	Reading colours	Colores de lectura
+	Replace document colours	Reemplazar colores del documento
+	Page background	Fondo de página
+	Only change the colour of black text or line art	Cambiar solo el color del texto negro o los dibujos lineales
+	Change the colour of line art as well as text	Cambiar también el color de los dibujos lineales, no solo del texto
+	Colours are remapped while rendering; the document itself never changes.	Los colores se reasignan al mostrar la página; el documento en sí nunca cambia.
+	Black on white	Negro sobre blanco
+	White on black	Blanco sobre negro
+	Yellow on black	Amarillo sobre negro
+	Green on black	Verde sobre negro

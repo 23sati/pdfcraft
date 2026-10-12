@@ -2299,3 +2299,13 @@ scroll speed	Fast	Γρήγορη
 	Ink sensitivity	Ευαισθησία μελανιού
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Δεν βρέθηκε υπογραφή στο πλαίσιο. Μετακινήστε το πλαίσιο πάνω από την υπογραφή ή αυξήστε την ευαισθησία μελανιού.
 	Couldn't use the photo: {e}	Δεν ήταν δυνατή η χρήση της φωτογραφίας: {e}
+	Reading colours	Χρώματα ανάγνωσης
+	Replace document colours	Αντικατάσταση χρωμάτων εγγράφου
+	Page background	Φόντο σελίδας
+	Only change the colour of black text or line art	Αλλαγή χρώματος μόνο για μαύρο κείμενο ή γραμμικά σχέδια
+	Change the colour of line art as well as text	Αλλαγή χρώματος και στα γραμμικά σχέδια, όχι μόνο στο κείμενο
+	Colours are remapped while rendering; the document itself never changes.	Τα χρώματα αντιστοιχίζονται εκ νέου κατά την απόδοση· το ίδιο το έγγραφο δεν αλλάζει ποτέ.
+	Black on white	Μαύρο σε λευκό
+	White on black	Λευκό σε μαύρο
+	Yellow on black	Κίτρινο σε μαύρο
+	Green on black	Πράσινο σε μαύρο

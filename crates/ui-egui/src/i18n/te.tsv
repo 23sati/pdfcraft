@@ -2196,3 +2196,13 @@ scroll speed	Fast	వేగంగా
 	Ink sensitivity	ఇంక్ సున్నితత్వం
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	ఫ్రేమ్‌లో సంతకం కనబడలేదు. ఫ్రేమ్‌ను సంతకం మీదకు జరపండి లేదా ఇంక్ సున్నితత్వాన్ని పెంచండి.
 	Couldn't use the photo: {e}	ఫోటోను ఉపయోగించలేకపోయాం: {e}
+	Reading colours	చదవడానికి రంగులు
+	Replace document colours	పత్రం రంగులను మార్చు
+	Page background	పేజీ నేపథ్యం
+	Only change the colour of black text or line art	నలుపు వచనం లేదా రేఖా చిత్రాల రంగును మాత్రమే మార్చు
+	Change the colour of line art as well as text	వచనంతో పాటు రేఖా చిత్రాల రంగును కూడా మార్చు
+	Colours are remapped while rendering; the document itself never changes.	రెండర్ చేసేటప్పుడు రంగులు మార్చబడతాయి; పత్రం మాత్రం ఎప్పుడూ మారదు.
+	Black on white	తెలుపుపై నలుపు
+	White on black	నలుపుపై తెలుపు
+	Yellow on black	నలుపుపై పసుపు
+	Green on black	నలుపుపై ఆకుపచ్చ

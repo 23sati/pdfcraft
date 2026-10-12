@@ -2263,3 +2263,13 @@ scroll speed	Fast	Szybka
 	Ink sensitivity	Czułość na atrament
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	W ramce nie znaleziono podpisu. Przesuń ramkę na podpis lub zwiększ czułość na atrament.
 	Couldn't use the photo: {e}	Nie można użyć zdjęcia: {e}
+	Reading colours	Kolory do czytania
+	Replace document colours	Zastąp kolory dokumentu
+	Page background	Tło strony
+	Only change the colour of black text or line art	Zmieniaj kolor tylko czarnego tekstu lub grafiki liniowej
+	Change the colour of line art as well as text	Zmieniaj kolor grafiki liniowej, a nie tylko tekstu
+	Colours are remapped while rendering; the document itself never changes.	Kolory są zmieniane podczas renderowania; sam dokument nigdy się nie zmienia.
+	Black on white	Czarny na białym
+	White on black	Biały na czarnym
+	Yellow on black	Żółty na czarnym
+	Green on black	Zielony na czarnym

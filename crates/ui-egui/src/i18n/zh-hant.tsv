@@ -2157,3 +2157,13 @@ scroll speed	Fast	快
 	Ink sensitivity	墨跡靈敏度
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	框內找不到簽名。請將框移到簽名上，或提高墨跡靈敏度。
 	Couldn't use the photo: {e}	無法使用此相片：{e}
+	Reading colours	閱讀色彩
+	Replace document colours	取代文件色彩
+	Page background	頁面背景
+	Only change the colour of black text or line art	僅變更黑色文字或線條圖的色彩
+	Change the colour of line art as well as text	除文字外，也變更線條圖的色彩
+	Colours are remapped while rendering; the document itself never changes.	色彩僅在顯示時重新對應；文件本身不會變更。
+	Black on white	白底黑字
+	White on black	黑底白字
+	Yellow on black	黑底黃字
+	Green on black	黑底綠字
