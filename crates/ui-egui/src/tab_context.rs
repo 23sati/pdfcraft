@@ -265,7 +265,8 @@ mod ui_tests {
         h.get_by_role_and_label(egui::accesskit::Role::Tab, "first.pdf").click_secondary();
         h.run_steps(2);
         assert!(h.get_by_label("Reopen Closed Tab").accesskit_node().is_disabled());
-        assert!(h.get_by_label("Reveal in File Explorer").accesskit_node().is_disabled());
+        let reveal_label = if cfg!(target_os = "macos") { "Reveal in Finder" } else { "Reveal in File Explorer" };
+        assert!(h.get_by_label(reveal_label).accesskit_node().is_disabled());
         assert_eq!(h.state().active, Some(1));
         h.get_by_label("Close Tab").click();
         h.run_steps(3);

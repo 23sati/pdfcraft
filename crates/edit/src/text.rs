@@ -52,6 +52,9 @@ pub struct TextLine {
     origin: Origin,
     /// Explicit marked-content scope (when present); distinct scopes must not be guessed into one paragraph.
     scope: Option<usize>,
+    /// Right-to-left `/ActualText` already supplies typing order; glyph text still needs bidi
+    /// recovery. Left-to-right ActualText (e.g. a Latin ligature) joins its line as usual.
+    logical_order: bool,
 }
 
 impl TextLine {
@@ -466,6 +469,7 @@ struct Shown {
     italic: bool,
     decodable: bool,
     scope: Option<usize>,
+    logical_order: bool,
 }
 
 /// The graphics state carried from one of a page's content streams to the next: the streams
@@ -518,18 +522,16 @@ fn interpret(
     let mut actual: Vec<Option<(usize, usize, String)>> = Vec::new();
     for (i, op) in ops.iter().enumerate() {
         match op.op.as_slice() {
-            b"BMC" | b"BDC" => {
-                if marked.len() < 256 {
-                    // Marked text paragraphs/headings are authoritative boundaries. Ignore
-                    // artifacts and inner spans, which inherit their enclosing region.
-                    let region = matches!(op.name(0), Some(b"P" | b"H" | b"H1" | b"H2" | b"H3" | b"H4" | b"H5" | b"H6" | b"LI" | b"TD" | b"TH"));
-                    marked.push(if region { Some(i) } else { marked.last().copied().flatten() });
-                    let logical = op.operands.get(1).and_then(Object::as_dict).and_then(|d| d.get(b"ActualText")).and_then(|s| match s {
-                        Object::String(s) if s.bytes.len() <= 4_000_000 => Some(s.to_text()),
-                        _ => None,
-                    });
-                    actual.push(if logical_text { logical.map(|s| (out.len(), i, s)) } else { None });
-                }
+            b"BMC" | b"BDC" if marked.len() < 256 => {
+                // Marked text paragraphs/headings are authoritative boundaries. Ignore
+                // artifacts and inner spans, which inherit their enclosing region.
+                let region = matches!(op.name(0), Some(b"P" | b"H" | b"H1" | b"H2" | b"H3" | b"H4" | b"H5" | b"H6" | b"LI" | b"TD" | b"TH"));
+                marked.push(if region { Some(i) } else { marked.last().copied().flatten() });
+                let logical = op.operands.get(1).and_then(Object::as_dict).and_then(|d| d.get(b"ActualText")).and_then(|s| match s {
+                    Object::String(s) if s.bytes.len() <= 4_000_000 => Some(s.to_text()),
+                    _ => None,
+                });
+                actual.push(if logical_text { logical.map(|s| (out.len(), i, s)) } else { None });
             }
             b"EMC" => {
                 marked.pop();
@@ -548,6 +550,10 @@ fn interpret(
                             ];
                         }
                         first.extra_ops.extend([open, i]);
+                        // Only right-to-left ActualText is already in typing order and must stay
+                        // out of the line's bidi recovery. Word and Chrome wrap Latin ligatures
+                        // (`fi`, `fl`) in ActualText spans mid-word; those keep joining their line.
+                        first.logical_order = logical.chars().any(crate::bidi::is_rtl);
                         first.text = logical;
                         first.start_x = first.rect[0];
                         first.end_x = first.rect[2];
@@ -706,6 +712,7 @@ fn interpret(
                     italic: m.italic,
                     decodable,
                     scope: marked.last().copied().flatten(),
+                    logical_order: false,
                 });
             }
             _ => {}
@@ -737,7 +744,7 @@ pub fn text_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditErro
         let si = ops.get(s.op).map_or(0, |op| pieces.pieces_of(op).0);
         let joins = last.is_some_and(|(piece, bt, base, end, size)| {
             piece == si
-                && lines.last().is_some_and(|l| l.scope == s.scope)
+                && lines.last().is_some_and(|l| l.scope == s.scope && l.logical_order == s.logical_order)
                 && (bt == s.bt || lines.last().is_some_and(|l| compatible_word(l, &s)))
                 && (s.text.trim().is_empty() || lines.last().is_some_and(|l| same_font(l, &s.font, s.face.as_deref())))
                 && (s.text.trim().is_empty()
@@ -773,6 +780,7 @@ pub fn text_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditErro
                 face: s.face.clone(),
                 stream: si,
                 scope: s.scope,
+                logical_order: s.logical_order,
                 ops: std::iter::once(s.op).chain(s.extra_ops.iter().copied()).collect(),
                 origin: Origin {
                     tm: s.tm.0,
@@ -790,7 +798,7 @@ pub fn text_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditErro
         last = Some((si, s.bt, s.baseline, s.end_x, s.size.max(1.0)));
     }
     // Content streams draw right-to-left lines in visual order; the editor works in typing order.
-    for l in &mut lines {
+    for l in lines.iter_mut().filter(|l| !l.logical_order) {
         l.text = crate::bidi::to_logical(&l.text);
     }
     // Lines of only spaces aren't editable text.
@@ -815,7 +823,7 @@ fn compatible_word(line: &TextLine, shown: &Shown) -> bool {
 /// (`bt`, baseline, end x, size).
 fn add_shown(lines: &mut Vec<TextLine>, last: &mut Option<(usize, f64, f64, f64)>, s: Shown, stream: usize) {
     let joins = last.is_some_and(|(bt, base, end, size)| {
-        lines.last().is_some_and(|l| l.scope == s.scope)
+        lines.last().is_some_and(|l| l.scope == s.scope && l.logical_order == s.logical_order)
             && (bt == s.bt || lines.last().is_some_and(|l| compatible_word(l, &s)))
             && (s.text.trim().is_empty() || lines.last().is_some_and(|l| same_font(l, &s.font, s.face.as_deref())))
             && (s.text.trim().is_empty()
@@ -850,6 +858,7 @@ fn add_shown(lines: &mut Vec<TextLine>, last: &mut Option<(usize, f64, f64, f64)
             face: s.face.clone(),
             stream,
             scope: s.scope,
+            logical_order: s.logical_order,
             ops: std::iter::once(s.op).chain(s.extra_ops.iter().copied()).collect(),
             origin: Origin {
                 tm: s.tm.0,
@@ -1425,7 +1434,7 @@ pub(crate) fn replace_line_with_limit(doc: &mut Document, page: usize, line: usi
     }
     // Rebuild: the line's first operator becomes the replacement, its others go. Copies of the
     // line drawn in the same area go too, so the replacement is all that shows.
-    let drops = coincident_ops(&lines, std::slice::from_ref(&target.rect));
+    let drops = coincident_ops(&lines, &[&target]);
     let new_data = splice(&pieces, &ops, |i| if i == first { (std::mem::take(&mut replacement), false) } else { (Vec::new(), !drops.contains(&i)) });
     let contents = rewritten_contents(doc, &streams, new_data);
     let page_ref = p.obj;
@@ -1446,19 +1455,21 @@ fn font_size_before(ops: &[Op], at: usize) -> Option<f64> {
     ops[..at].iter().rev().find(|o| o.is("Tf")).and_then(|o| o.num(1))
 }
 
-/// The operators of every line drawn in the same area as one of `rects`. Documents sometimes
+/// The operators of every copy of one of `members`. Documents sometimes
 /// draw a line more than once (fake bold, an invisible text layer), and a surviving copy would
-/// show the old text under the replaced line. Copies overlap a member's rect by more than half of
-/// the smaller rect; neighbouring lines share no area.
-fn coincident_ops(lines: &[TextLine], rects: &[[f64; 4]]) -> std::collections::HashSet<usize> {
+/// show the old text under the replaced line. Copies show the same text and overlap a member's
+/// rect by more than half of the smaller rect; neighbouring lines share no area, and other text
+/// that merely overlaps (a paragraph dragged across another, #1368) is not a copy.
+fn coincident_ops(lines: &[TextLine], members: &[&TextLine]) -> std::collections::HashSet<usize> {
     let area = |r: [f64; 4]| ((r[2] - r[0]) * (r[3] - r[1])).max(0.0);
     let mut drop = std::collections::HashSet::new();
     for l in lines {
-        let covered = rects.iter().any(|m| {
-            let ix = (m[2].min(l.rect[2]) - m[0].max(l.rect[0])).max(0.0);
-            let iy = (m[3].min(l.rect[3]) - m[1].max(l.rect[1])).max(0.0);
-            let small = area(*m).min(area(l.rect));
-            small > 0.0 && ix * iy / small > 0.5
+        let covered = members.iter().any(|m| {
+            let r = m.rect;
+            let ix = (r[2].min(l.rect[2]) - r[0].max(l.rect[0])).max(0.0);
+            let iy = (r[3].min(l.rect[3]) - r[1].max(l.rect[1])).max(0.0);
+            let small = area(r).min(area(l.rect));
+            small > 0.0 && ix * iy / small > 0.5 && l.text.trim() == m.text.trim()
         });
         if covered {
             drop.extend(l.ops.iter().copied());
@@ -1480,9 +1491,9 @@ pub fn clear_block(doc: &mut Document, page: usize, block: usize) -> Result<(), 
     let lines = text_lines(doc, page)?;
     let blocks = group_blocks(&lines);
     let target = blocks.get(block).ok_or_else(|| EditError::Invalid("the paragraph no longer exists".into()))?;
-    let rects: Vec<_> = target.lines.iter().filter_map(|i| lines.get(*i)).map(|l| l.rect).collect();
-    let mut drops = coincident_ops(&lines, &rects);
-    drops.extend(target.lines.iter().filter_map(|i| lines.get(*i)).flat_map(|l| l.ops.iter().copied()));
+    let members: Vec<_> = target.lines.iter().filter_map(|i| lines.get(*i)).collect();
+    let mut drops = coincident_ops(&lines, &members);
+    drops.extend(members.iter().flat_map(|l| l.ops.iter().copied()));
     let p = page_dict(doc, page)?;
     let res = p.dict.get(b"Resources").and_then(|r| doc.resolve(r).as_dict().cloned()).unwrap_or_default();
     let fonts = res.get(b"Font").and_then(|r| doc.resolve(r).as_dict().cloned()).unwrap_or_default();
@@ -1864,8 +1875,7 @@ pub(crate) fn rewrite_block_with_limit(
     block_ops.push(Op::new("Q", vec![]));
     // The paragraph's operators go, and so does anything drawn in the same area (a fake-bold
     // second copy, an invisible text layer): the new text is all that may show.
-    let member_rects: Vec<[f64; 4]> = members.iter().map(|l| l.rect).collect();
-    let mut drop = coincident_ops(&lines, &member_rects);
+    let mut drop = coincident_ops(&lines, &members);
     drop.extend(members.iter().flat_map(|l| l.ops.iter().copied()));
     // Text shown earlier in the same text object stays first: the paragraph then goes where it
     // was, between two halves of the text object, so it keeps its place in reading order.

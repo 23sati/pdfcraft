@@ -2147,6 +2147,9 @@
 	Add or edit links	Προσθήκη ή επεξεργασία συνδέσμων
 	Create links from URLs	Δημιουργία συνδέσμων από URL
 	Remove all links	Αφαίρεση όλων των συνδέσμων
+	No links to remove	Δεν υπάρχουν σύνδεσμοι για κατάργηση
+	Removed 1 link	Καταργήθηκε 1 σύνδεσμος
+	Removed {n} links	Σύνδεσμοι που καταργήθηκαν: {n}
 	Add Bates numbering…	Προσθήκη αρίθμησης Bates…
 	Add image…	Προσθήκη εικόνας…
 	Redact text and images	Οριστική απόκρυψη κειμένου και εικόνων
@@ -2344,3 +2347,4 @@ animation effects	Off	Ανενεργά
 	The linked PDF opened, but its page destination was out of range.	Το συνδεδεμένο PDF άνοιξε, αλλά ο προορισμός σελίδας του είναι εκτός εύρους.
 	Local cross-PDF links require the desktop app	Οι τοπικοί σύνδεσμοι μεταξύ PDF απαιτούν την εφαρμογή υπολογιστή
 	The existing action will be preserved.	Η υπάρχουσα ενέργεια θα διατηρηθεί.
+	This form's scripts are turned off because one ran too long. Reopen the document to run them again.	Τα σενάρια αυτής της φόρμας είναι απενεργοποιημένα, επειδή ένα από αυτά εκτελούνταν για πολύ ώρα. Ανοίξτε ξανά το έγγραφο για να εκτελεστούν ξανά.

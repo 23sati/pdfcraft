@@ -300,6 +300,8 @@ pub struct DocView {
     pub highlight_fields: bool,
     pub page_input: String,
     pub notice_dismissed: bool,
+    /// The user has been told that the form's scripts were turned off (it is said once).
+    pub scripts_off_noted: bool,
     /// The file changed on disk while this document had unsaved changes: the notice bar asks
     /// before replacing it (#431).
     pub disk_changed: bool,
@@ -581,6 +583,7 @@ impl DocView {
             highlight_fields: defaults.highlight_fields,
             page_input: "1".into(),
             notice_dismissed: false,
+            scripts_off_noted: false,
             disk_changed: false,
             cover: false,
             back: Vec::new(),
@@ -895,9 +898,24 @@ impl DocView {
         f.case_query = f.query.clone();
         f.matches.clear();
         f.current = None;
-        let pages: Vec<usize> = self.texts.keys().copied().collect();
-        for p in pages {
-            self.refresh_find_page(p);
+        if f.case_query.trim().is_empty() {
+            return;
+        }
+        let mut pages: Vec<usize> = self.texts.keys().copied().collect();
+        pages.sort();
+        for &p in &pages {
+            if let Some(text) = self.texts.get(&p) {
+                f.matches.extend(text.find_opts(&f.case_query, f.case_sensitive, f.whole_words).into_iter().map(|r| (p, r)));
+            }
+        }
+        f.matches.sort_by_key(|(p, r)| (*p, r.start));
+        if !f.matches.is_empty() {
+            // First match at or after the page being viewed.
+            let cur = self.current;
+            let i = f.matches.iter().position(|(p, _)| *p >= cur).unwrap_or(0);
+            f.current = Some(i);
+            let (p, _) = f.matches[i];
+            self.flash_match(p);
         }
     }
 
@@ -1545,6 +1563,10 @@ impl DocView {
                         let current_key = f.current.and_then(|c| f.matches.get(c).cloned());
                         f.matches.retain(|(p, _)| *p != r.request.page);
                         f.current = current_key.and_then(|k| f.matches.iter().position(|m| *m == k));
+                        if f.current.is_none() && !f.matches.is_empty() {
+                            let cur = self.current;
+                            f.current = Some(f.matches.iter().position(|(p, _)| *p >= cur).unwrap_or(0));
+                        }
                     }
                 }
             }
@@ -2046,6 +2068,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         Some(Notice::Unlock) => app.unlock_prompt = Some(crate::UnlockPrompt::new(doc, None)),
         Some(Notice::Signatures) => app.right = Some(RightPanel::Signatures),
         Some(Notice::FieldHighlights(on)) => app.view_defaults.highlight_fields = on,
+        Some(Notice::Console) => app.dialog = Some(crate::Dialog::JsConsole),
         None => {}
     }
     // No dialog, close prompt or palette over the page: only then does page input count.
@@ -2375,6 +2398,10 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         let mut current_overlap = -1.0f32;
         let mut current_height = f32::INFINITY;
         let pointer = ui.input(|i| i.pointer.hover_pos());
+        if resp.secondary_clicked() {
+            // Set again below when the right-click lands on a link.
+            view.links.context = None;
+        }
         for &i in &visible_pages {
             let r = snap_to_pixels(rects[i].translate(origin.to_vec2()), ppp);
             if !r.intersects(visible.expand(400.0)) {
@@ -2582,6 +2609,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                     i,
                     info,
                     ft,
+                    app.fill_text_size,
                     view,
                     signature.as_ref(),
                     initials.as_ref(),
@@ -2671,6 +2699,14 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                 text_used || image_used
             };
             let on_link = tool == QuickTool::Link && can_modify && crate::link_ui::page_input(ui, &resp, &xf, i, info, &doc_links, view);
+            if tool == QuickTool::Select
+                && resp.secondary_clicked()
+                && can_modify
+                && let Some(p) = pointer.filter(|p| xf.rect.contains(*p))
+                && let Some(l) = doc.links.iter().find(|l| l.page == i && crate::link_ui::screen_rect(&xf, info, i, l.rect).expand(2.0).contains(p))
+            {
+                view.links.context = Some((i, l.index));
+            }
             let consumed = on_objects || on_edit_text || on_link || on_content || boxing || on_field || comments::page_input(ui, &resp, &pcx, view);
 
             let preview_target =
@@ -2995,6 +3031,26 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                 let delete = if view.prepare.also.is_empty() { "Delete" } else { "Delete selected fields" };
                 if ui.add_enabled(can_modify, egui::Button::new(tl!(delete))).clicked() {
                     view.pending_edit = crate::prepare::delete_selected(view);
+                    ui.close();
+                }
+                return;
+            }
+            if let Some((page, index)) = view.links.context {
+                if ui.button(tl!("Properties…")).clicked() {
+                    view.links.open_existing = Some((page, index));
+                    ui.close();
+                }
+                if ui.add_enabled(can_modify, egui::Button::new(tl!("Delete"))).clicked() {
+                    view.pending_edit = Some(Edit::DeleteLink { page, index });
+                    view.links.selected = None;
+                    view.links.context = None;
+                    ui.close();
+                }
+                ui.separator();
+                if ui.add_enabled(can_modify, egui::Button::new(tl!("Remove all links"))).clicked() {
+                    view.pending_edit = Some(Edit::RemoveLinks { pages: None });
+                    view.links.selected = None;
+                    view.links.context = None;
                     ui.close();
                 }
                 return;
@@ -3574,12 +3630,14 @@ enum Notice {
     Repairs,
     /// Highlight fields was turned on or off.
     FieldHighlights(bool),
+    /// Open the JavaScript console (the form's scripts were turned off; the error is there).
+    Console,
     /// Unlock… (enter the permissions password).
     Unlock,
 }
 
 /// The notice bar above the pages: the signature status first (Acrobat's signature bar), then
-/// security, forms and warnings.
+/// a form's scripts having been turned off, security, forms and warnings.
 fn notices(
     view: &mut DocView,
     doc: &pdfcraft_engine::Document,
@@ -3627,8 +3685,14 @@ fn notices(
     let mut open_security = false;
     let mut unlock = false;
     let mut open_repairs = false;
+    let mut open_console = false;
     let mut toggled = None;
-    let msg = if secured {
+    // A form whose scripts were turned off no longer calculates or answers its buttons: that
+    // comes before what else there is to say about the document.
+    let scripts_off = doc.xfa_scripts_off();
+    let msg = if scripts_off {
+        Some(("triangle-alert", crate::js_ui::scripts_off_notice(), true))
+    } else if secured {
         Some(("lock", tl!("This document is secured. Some changes are restricted by its security settings.").to_string(), false))
     } else if let Some(x) = xfa {
         let lang = crate::i18n::current();
@@ -3680,6 +3744,9 @@ fn notices(
                 toggled = Some(Notice::FieldHighlights(view.highlight_fields));
             }
         }
+        if scripts_off && crate::widgets::pill_button(ui, tl!("JavaScript Console"), false).clicked() {
+            open_console = true;
+        }
         if secured && crate::widgets::pill_button(ui, tl!("Security settings"), false).clicked() {
             open_security = true;
         }
@@ -3692,6 +3759,9 @@ fn notices(
     });
     if open_repairs {
         return Some(Notice::Repairs);
+    }
+    if open_console {
+        return Some(Notice::Console);
     }
     if unlock {
         return Some(Notice::Unlock);
@@ -3875,6 +3945,15 @@ fn quick_bar(app: &mut PdfCraftApp, area: Rect, ui: &mut egui::Ui) {
                                 ui.close();
                             }
                         });
+                    if matches!(current_fill, Some(crate::fill_sign::FillTool::Text | crate::fill_sign::FillTool::Date)) {
+                        ui.label(tl!("Font size:"));
+                        ui.add(
+                            egui::DragValue::new(&mut app.fill_text_size)
+                                .range(crate::fill_sign::MIN_TEXT_SIZE..=crate::fill_sign::MAX_TEXT_SIZE)
+                                .speed(0.25)
+                                .suffix(" pt"),
+                        );
+                    }
                     if let QuickTool::Comment(tool) = app.quick_tool {
                         let (r, _) = ui.allocate_exact_size(vec2(32.0, 9.0), Sense::hover());
                         ui.painter().hline(r.x_range().shrink(6.0), r.center().y, Stroke::new(1.0, t.divider));
@@ -5133,5 +5212,38 @@ trailer << /Root 1 0 R >>
         let empty = pdfcraft_render::DocInfo::default();
         v.go_to_dest(1, DestView::FitH { top: Some(100.0) }, &empty);
         assert_eq!((v.current, v.goto_point), (1, None));
+    }
+
+    #[test]
+    fn page_text_failure_preserves_valid_search_match_without_jitter() {
+        let mut v = view(3, PageLayout::Single, true);
+        v.current = 1;
+        v.find = Some(Find {
+            query: "test".into(),
+            case_query: "test".into(),
+            matches: vec![(0, 0..4), (1, 5..9)],
+            current: Some(0),
+            ..Default::default()
+        });
+        let req = RenderRequest { page: 0, kind: RequestKind::Text, ..Default::default() };
+        v.last_queue = vec![req];
+        let ctx = egui::Context::default();
+        v.receive_result(
+            &ctx,
+            pdfcraft_render::RenderedPage {
+                request: req,
+                width: 0,
+                height: 0,
+                rgba: Default::default(),
+                error: Some("extraction failed".into()),
+                text: None,
+                warnings: Vec::new(),
+                millis: 0,
+            },
+        );
+        // Active match was on page 0 which failed: current should fall back to match on page 1 without jitter
+        assert_eq!(v.find.as_ref().unwrap().current, Some(0));
+        assert_eq!(v.find.as_ref().unwrap().matches, vec![(1, 5..9)]);
+        assert!(v.goto.is_none());
     }
 }

@@ -221,6 +221,9 @@
 	Add or edit links	Dodaj lub edytuj łącza
 	Create links from URLs	Utwórz łącza z adresów URL
 	Remove all links	Usuń wszystkie łącza
+	No links to remove	Brak łączy do usunięcia
+	Removed 1 link	Usunięto 1 łącze
+	Removed {n} links	Usunięte łącza: {n}
 	Add Bates numbering…	Dodaj numerację Batesa…
 	Add image…	Dodaj obraz…
 	Redact text and images	Utajnij tekst i obrazy
@@ -2308,3 +2311,4 @@ animation effects	Off	Wyłączone
 	The linked PDF opened, but its page destination was out of range.	Połączony plik PDF został otwarty, ale jego strona docelowa jest poza zakresem.
 	Local cross-PDF links require the desktop app	Lokalne łącza między plikami PDF wymagają aplikacji komputerowej
 	The existing action will be preserved.	Istniejąca akcja zostanie zachowana.
+	This form's scripts are turned off because one ran too long. Reopen the document to run them again.	Skrypty tego formularza są wyłączone, ponieważ jeden z nich działał zbyt długo. Otwórz dokument ponownie, aby znów je uruchomić.

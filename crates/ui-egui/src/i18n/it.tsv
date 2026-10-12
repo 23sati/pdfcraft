@@ -222,6 +222,9 @@
 	Add or edit links	Aggiungi o modifica collegamenti
 	Create links from URLs	Crea collegamenti dagli URL
 	Remove all links	Rimuovi tutti i collegamenti
+	No links to remove	Nessun collegamento da rimuovere
+	Removed 1 link	1 collegamento rimosso
+	Removed {n} links	{n} collegamenti rimossi
 	Add Bates numbering…	Aggiungi numerazione Bates…
 	Add image…	Aggiungi immagine…
 	Redact text and images	Oscura testo e immagini
@@ -2052,6 +2055,7 @@
 	DPI sets the printed page size without resampling the image.	I DPI determinano la dimensione della pagina stampata senza ricampionare l'immagine.
 	Create	Crea
 	Dynamic XFA form laid out from its template: {pages}, {fields}.	Modulo XFA dinamico impaginato dal suo modello: {pages}, {fields}.
+	This form's scripts are turned off because one ran too long. Reopen the document to run them again.	Gli script di questo modulo sono disattivati perché uno è rimasto in esecuzione troppo a lungo. Riapri il documento per eseguirli di nuovo.
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	Modulo XFA: i suoi campi e i dati XFA restano allineati, così gli altri visualizzatori mostrano ciò che compili.
 	Default page display	Visualizzazione pagina predefinita
 	Default zoom	Ingrandimento predefinito
