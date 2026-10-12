@@ -48,6 +48,55 @@ fn fixture() -> Vec<u8> {
     out
 }
 
+fn remote_fixture(file: &str, destination: &str) -> Vec<u8> {
+    let objs = [
+        "<< /Type /Catalog /Pages 2 0 R >>".to_string(),
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 300 400] >>".to_string(),
+        "<< /Type /Page /Parent 2 0 R /Annots [4 0 R] >>".to_string(),
+        format!("<< /Type /Annot /Subtype /Link /Rect [50 300 250 350] /A << /S /GoToR /F ({file}) /D {destination} /NewWindow true >> >>"),
+    ];
+    let mut out = b"%PDF-1.7\n".to_vec();
+    let mut offs = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offs.push(out.len());
+        out.extend_from_slice(format!("{} 0 obj\n{o}\nendobj\n", i + 1).as_bytes());
+    }
+    let x = out.len();
+    out.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+    for o in offs {
+        out.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+    }
+    out.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{x}\n%%EOF\n", objs.len() + 1).as_bytes());
+    out
+}
+
+fn remote_harness(source_path: Option<String>, file: &str, destination: &str) -> Harness<'static, PdfCraftApp> {
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("source.pdf", source_path, remote_fixture(file, destination)).unwrap();
+        app.set_option("left", "closed").unwrap();
+        app.set_option("panel", "none").unwrap();
+        app.set_option("zoom", "150").unwrap();
+        app
+    });
+    h.run_steps(8);
+    h
+}
+
+fn linked_pages(count: usize, password: Option<&str>) -> Vec<u8> {
+    use pdfcraft_engine::{Edit, Protection, Session};
+    let mut session = Session::new();
+    let id = session.open("target.pdf", None, std::sync::Arc::new(fixture()), None).unwrap();
+    for page in 1..count {
+        session.apply(id, Edit::InsertBlankPage { at: page, width: 300.0, height: 400.0 }).unwrap();
+    }
+    if let Some(password) = password {
+        session.apply(id, Edit::Protect(Protection { open_password: Some(password.into()), ..Default::default() })).unwrap();
+    }
+    session.save_bytes(id).unwrap().as_ref().clone()
+}
+
 fn harness() -> Harness<'static, PdfCraftApp> {
     let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(|_cc| {
         let mut app = PdfCraftApp::new();
@@ -75,6 +124,10 @@ fn click_link_at(h: &mut Harness<'static, PdfCraftApp>, y: f32) {
     let r = h.state().views[0].page_screen_rect(0).expect("page 1 on screen");
     let at = egui::pos2(r.min.x + r.width() * (150.0 / 300.0), r.min.y + r.height() * (1.0 - y / 400.0));
     click_at(h, at);
+}
+
+fn click_remote_link(h: &mut Harness<'static, PdfCraftApp>) {
+    click_link(h);
 }
 
 fn click_link(h: &mut Harness<'static, PdfCraftApp>) {
@@ -107,6 +160,80 @@ fn a_link_asks_first_and_opens_when_allowed() {
     h.run_steps(3);
     assert_eq!(h.state().last_opened_url.as_deref(), Some(LINK_URL));
     assert_eq!(h.state().pending_link, None);
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn a_local_gotor_link_opens_in_a_tab_and_applies_its_destination() {
+    let _gpu = gpu();
+    let dir = std::env::temp_dir().join(format!("pdfcraft-ui-gotor-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("target.pdf"), linked_pages(2, None)).unwrap();
+    let mut h = remote_harness(Some(dir.join("source.pdf").to_string_lossy().into_owned()), "target.pdf", "[1 /FitH 200]");
+    click_remote_link(&mut h);
+    assert_eq!(h.state().views.len(), 2);
+    assert_eq!(h.state().active, Some(1));
+    assert_eq!(h.state().views[1].current, 1, "the remote page destination is applied");
+    assert_eq!(h.state().last_opened_url, None, "no URL or external launcher is involved");
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn a_remote_destination_survives_password_retries_and_cancel_opens_no_tab() {
+    let _gpu = gpu();
+    let dir = std::env::temp_dir().join(format!("pdfcraft-ui-gotor-password-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("target.pdf"), linked_pages(2, Some("test-password"))).unwrap();
+
+    let mut h = remote_harness(Some(dir.join("source.pdf").to_string_lossy().into_owned()), "target.pdf", "[1 /Fit]");
+    click_remote_link(&mut h);
+    assert!(h.state().password_prompt.is_some());
+    assert_eq!(h.state().views.len(), 1);
+    h.state_mut().submit_password(Some("wrong-password".into()));
+    assert!(h.state().password_prompt.as_ref().is_some_and(|p| p.error.is_some()));
+    h.state_mut().submit_password(Some("test-password".into()));
+    assert_eq!(h.state().views.len(), 2);
+    assert_eq!(h.state().views[1].current, 1, "the destination survives a wrong-password retry");
+
+    let mut cancelled = remote_harness(Some(dir.join("source.pdf").to_string_lossy().into_owned()), "target.pdf", "[1 /Fit]");
+    click_remote_link(&mut cancelled);
+    cancelled.state_mut().submit_password(None);
+    assert_eq!(cancelled.state().views.len(), 1, "cancelling does not leave a half-open target tab");
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn a_gotor_link_to_a_directory_or_device_is_refused_without_reading_it() {
+    let _gpu = gpu();
+    let dir = std::env::temp_dir().join(format!("pdfcraft-ui-gotor-not-a-file-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("folder.pdf")).unwrap();
+    let mut targets = vec!["folder.pdf"];
+    #[cfg(unix)]
+    {
+        // /dev/zero never ends: reading it would exhaust memory.
+        std::os::unix::fs::symlink("/dev/zero", dir.join("zero.pdf")).unwrap();
+        targets.push("zero.pdf");
+    }
+    for target in targets {
+        let mut h = remote_harness(Some(dir.join("source.pdf").to_string_lossy().into_owned()), target, "[0 /Fit]");
+        click_remote_link(&mut h);
+        assert_eq!(h.state().views.len(), 1, "{target} opens no tab");
+        let toast = &h.state().toast.as_ref().unwrap().0;
+        assert!(toast.contains("not a regular file"), "{target}: {toast}");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn an_in_memory_source_does_not_resolve_a_relative_gotor_against_cwd() {
+    let _gpu = gpu();
+    let mut h = remote_harness(None, "target.pdf", "[0 /Fit]");
+    click_remote_link(&mut h);
+    assert_eq!(h.state().views.len(), 1);
+    let toast = &h.state().toast.as_ref().unwrap().0;
+    assert!(toast.contains("relative link needs a source document path"), "{toast}");
 }
 
 #[test]

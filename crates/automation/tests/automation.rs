@@ -35,6 +35,39 @@ fn fixture(n: usize) -> Vec<u8> {
     out
 }
 
+fn remote_link_pdf(file: &str, destination: Option<&str>) -> Vec<u8> {
+    let destination = destination.map_or_else(String::new, |d| format!("/D {d}"));
+    let objects: Vec<Vec<u8>> = vec![
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 200 300] >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /Annots [4 0 R] >>".to_vec(),
+        format!("<< /Type /Annot /Subtype /Link /Rect [10 10 80 30] /A << /S /GoToR /F ({file}) {destination} >> >>").into_bytes(),
+    ];
+    let mut bytes = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, object) in objects.iter().enumerate() {
+        offsets.push(bytes.len());
+        bytes.extend_from_slice(format!("{} 0 obj\n", i + 1).as_bytes());
+        bytes.extend_from_slice(object);
+        bytes.extend_from_slice(b"\nendobj\n");
+    }
+    let xref = bytes.len();
+    bytes.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objects.len() + 1).as_bytes());
+    for offset in offsets {
+        bytes.extend_from_slice(format!("{offset:010} 00000 n \n").as_bytes());
+    }
+    bytes.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objects.len() + 1).as_bytes());
+    bytes
+}
+
+fn protected_fixture(password: &str) -> Vec<u8> {
+    use pdfcraft_engine::{Edit, Protection, Session};
+    let mut session = Session::new();
+    let id = session.open("target.pdf", None, std::sync::Arc::new(fixture(1)), None).unwrap();
+    session.apply(id, Edit::Protect(Protection { open_password: Some(password.into()), ..Default::default() })).unwrap();
+    session.save_bytes(id).unwrap().as_ref().clone()
+}
+
 /// A fresh directory with `a.pdf` (3 pages) and `b.pdf` (2 pages).
 #[track_caller]
 fn workdir(test: &str) -> PathBuf {
@@ -122,6 +155,10 @@ fn ok(a: &mut Automation, tool: &str, args: Value) -> Value {
         },
         Err(e) => panic!("{tool} {args}: {e}"),
     }
+}
+
+fn err(a: &mut Automation, tool: &str, args: Value) -> ToolError {
+    a.call(tool, &args).unwrap_err()
 }
 
 fn page_text(a: &mut Automation, doc: u64) -> Vec<String> {
@@ -1699,6 +1736,10 @@ fn accessibility_check_report_and_fixes_through_tools() {
     assert_eq!(r["failed"].as_u64(), Some(3), "tagging, tagged content and (undone) title");
     let html = std::fs::read_to_string(dir.join("report.html")).unwrap();
     assert!(html.contains("Accessibility Report") && html.contains("a.pdf"));
+    ok(&mut a, "accessibility_report", json!({ "doc": doc, "path": "manual-report.html", "rules": ["scripts"] }));
+    let manual_html = std::fs::read_to_string(dir.join("manual-report.html")).unwrap();
+    assert!(manual_html.contains("<p>Needs manual check: 1</p>"));
+    assert!(!manual_html.contains("no problems"));
     // Figures: list, describe, mark decorative.
     std::fs::write(
         dir.join("figures.pdf"),
@@ -1724,6 +1765,8 @@ trailer << /Root 1 0 R >>
     assert_eq!(tags["count"], 3);
     assert_eq!(tags["tags"][1]["object"], 7);
     assert_eq!(tags["tags"][1]["type"], "Figure");
+    assert_eq!(tags["tags"][1]["parent"], json!({ "object": 6, "generation": 0 }));
+    assert_eq!(tags["tags"][1]["depth"], 1);
     let changed = ok(
         &mut a,
         "accessibility_set_tag_property",
@@ -1827,6 +1870,68 @@ fn accessibility_review_record_compares_two_versions_without_changing_them() {
     assert!(a.call("accessibility_review_record", &json!({ "before": before, "after": after, "path": "../escape.json" })).is_err());
     assert!(a.call("accessibility_review_html", &json!({ "before": before, "after": after, "path": "../escape.html" })).is_err());
     assert!(!dir.parent().unwrap().join("escape.html").exists());
+}
+
+#[test]
+fn accessibility_review_sidecar_tracks_human_decisions_for_exact_pdf_revision() {
+    let dir = workdir("a11y-review-sidecar");
+    let source = std::fs::read(dir.join("a.pdf")).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    let decisions = json!([
+        { "rule": "logical-reading-order", "decision": "needs_work", "page": 1, "note": "Check heading order" },
+        { "rule": "figures-alt-text", "decision": "accepted", "page": 2 }
+    ]);
+    let saved = ok(&mut a, "accessibility_review_save", json!({ "doc": doc, "path": "review.json", "decisions": decisions }));
+    assert_eq!(saved["review"]["schema"], 1);
+    assert_eq!(saved["review"]["sha256"].as_str().unwrap().len(), 64);
+    let original_sidecar = std::fs::read(dir.join("review.json")).unwrap();
+    assert_eq!(ok(&mut a, "accessibility_review_load", json!({ "doc": doc, "path": "review.json" }))["review"], saved["review"]);
+    let mut reopened = auto(&dir);
+    let reopened_doc = ok(&mut reopened, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    assert_eq!(ok(&mut reopened, "accessibility_review_load", json!({ "doc": reopened_doc, "path": "review.json" }))["review"], saved["review"]);
+    assert!(matches!(
+        reopened.call("accessibility_review_save", &json!({ "doc": reopened_doc, "path": "a.pdf", "decisions": [], "replace": true })),
+        Err(ToolError::Failed(_))
+    ));
+    assert_eq!(std::fs::read(dir.join("a.pdf")).unwrap(), source);
+
+    assert!(matches!(
+        a.call(
+            "accessibility_review_save",
+            &json!({ "doc": doc, "path": "review.json", "decisions": [
+        { "rule": "title", "decision": "accepted" }, { "rule": "title", "decision": "skipped" }
+    ] })
+        ),
+        Err(ToolError::InvalidArgs(_))
+    ));
+    assert_eq!(std::fs::read(dir.join("review.json")).unwrap(), original_sidecar);
+    ok(&mut a, "accessibility_fix", json!({ "doc": doc, "rule": "primary-language", "value": "en-GB" }));
+    assert!(matches!(a.call("accessibility_review_load", &json!({ "doc": doc, "path": "review.json" })), Err(ToolError::Failed(_))));
+    assert!(matches!(a.call("accessibility_review_save", &json!({ "doc": doc, "path": "review.json", "decisions": [] })), Err(ToolError::Failed(_))));
+    assert_eq!(std::fs::read(dir.join("review.json")).unwrap(), original_sidecar);
+    let replacement = ok(&mut a, "accessibility_review_save", json!({ "doc": doc, "path": "review.json", "decisions": decisions, "replace": true }));
+    assert_ne!(replacement["review"]["sha256"], saved["review"]["sha256"]);
+    assert_eq!(ok(&mut a, "accessibility_review_load", json!({ "doc": doc, "path": "review.json" }))["review"], replacement["review"]);
+    assert_eq!(std::fs::read(dir.join("a.pdf")).unwrap(), source);
+    assert!(a.call("accessibility_review_save", &json!({ "doc": doc, "path": "../escape.json", "decisions": [] })).is_err());
+    assert!(!dir.parent().unwrap().join("escape.json").exists());
+
+    // Malformed or oversized files are not sidecars: loading fails cleanly and
+    // saving leaves them alone, without reading more than the size cap.
+    let oversized = [b"{\"schema\": 1, \"pad\": \"".as_slice(), &vec![b'x'; (1 << 20) + 16], b"\"}"].concat();
+    for (name, bytes) in [("malformed.json", b"{ not json".to_vec()), ("binary.json", vec![0xff, 0x00, 0xfe]), ("oversized.json", oversized)] {
+        std::fs::write(dir.join(name), &bytes).unwrap();
+        assert!(matches!(a.call("accessibility_review_load", &json!({ "doc": doc, "path": name })), Err(ToolError::Failed(_))), "{name}");
+        assert!(
+            matches!(
+                a.call("accessibility_review_save", &json!({ "doc": doc, "path": name, "decisions": [], "replace": true })),
+                Err(ToolError::Failed(_))
+            ),
+            "{name}"
+        );
+        assert_eq!(std::fs::read(dir.join(name)).unwrap(), bytes, "{name}");
+    }
 }
 
 #[test]
@@ -3060,6 +3165,107 @@ fn links_through_tools() {
     assert_eq!(r["removed"], 2);
     assert_eq!(ok(&mut a, "link_list", json!({ "doc": doc }))["count"], 0);
     assert!(matches!(a.call("link_add", &json!({ "doc": doc, "page": 1, "rect": [0, 0, 50, 20] })), Err(ToolError::InvalidArgs(_))));
+}
+
+#[test]
+fn local_gotor_link_open_refuses_directories_devices_and_non_pdf_targets() {
+    let (_base, root) = sandbox("gotor-not-a-file");
+    std::fs::create_dir_all(root.join("folder.pdf")).unwrap();
+    std::fs::write(root.join("notes.txt"), fixture(1)).unwrap();
+    std::fs::write(root.join("dir-source.pdf"), remote_link_pdf("folder.pdf", None)).unwrap();
+    std::fs::write(root.join("txt-source.pdf"), remote_link_pdf("notes.txt", None)).unwrap();
+    let mut cases = vec![("dir-source.pdf", "not a regular file"), ("txt-source.pdf", "not a .pdf file")];
+    #[cfg(unix)]
+    {
+        // A FIFO inside the root would block a plain read forever.
+        if std::process::Command::new("mkfifo").arg(root.join("pipe.pdf")).status().is_ok_and(|s| s.success()) {
+            std::fs::write(root.join("fifo-source.pdf"), remote_link_pdf("pipe.pdf", None)).unwrap();
+            cases.push(("fifo-source.pdf", "not a regular file"));
+        }
+    }
+    let mut a = auto(&root);
+    for (source_path, reason) in cases {
+        let source = ok(&mut a, "doc_open", json!({ "path": source_path }))["doc"].as_u64().unwrap();
+        let documents_before = a.session().docs().len();
+        let e = err(&mut a, "link_open", json!({ "doc": source, "page": 1, "index": 1 }));
+        assert!(matches!(&e, ToolError::Failed(m) if m.contains(reason)), "{source_path}: {e:?}");
+        assert_eq!(a.session().docs().len(), documents_before, "a refused target is not opened: {source_path}");
+    }
+}
+
+#[test]
+fn local_gotor_link_open_applies_destinations_and_honors_root() {
+    let (base, root) = sandbox("gotor-open");
+    std::fs::create_dir_all(root.join("sub")).unwrap();
+    std::fs::write(root.join("target.pdf"), fixture(3)).unwrap();
+    std::fs::write(root.join("a.pdf"), fixture(1)).unwrap();
+    std::fs::write(root.join("sub/source.pdf"), remote_link_pdf("../target.pdf", Some("[2 /FitH 180]"))).unwrap();
+    std::fs::write(root.join("sub/escape.pdf"), remote_link_pdf("../../outside/secret.pdf", Some("[0 /Fit]"))).unwrap();
+    std::fs::write(root.join("named.pdf"), remote_link_pdf("target.pdf", Some("(chapter)"))).unwrap();
+    std::fs::write(root.join("range.pdf"), remote_link_pdf("target.pdf", Some("[99 /Fit]"))).unwrap();
+    std::fs::write(root.join("url.pdf"), remote_link_pdf("https://example.org/target.pdf", Some("[0 /Fit]"))).unwrap();
+    std::fs::write(root.join("missing-source.pdf"), remote_link_pdf("does-not-exist.pdf", Some("[0 /Fit]"))).unwrap();
+    std::fs::write(root.join("not-pdf.pdf"), b"not a PDF").unwrap();
+    std::fs::write(root.join("non-pdf-source.pdf"), remote_link_pdf("not-pdf.pdf", Some("[0 /Fit]"))).unwrap();
+    std::fs::write(root.join("encrypted.pdf"), protected_fixture("secret")).unwrap();
+    std::fs::write(root.join("password-source.pdf"), remote_link_pdf("encrypted.pdf", Some("[0 /Fit]"))).unwrap();
+    std::fs::write(root.join("absolute.pdf"), remote_link_pdf(root.join("target.pdf").to_str().unwrap(), Some("[1 /Fit]"))).unwrap();
+    link_dir(&root, "outside-link", &base.join("outside"));
+    std::fs::write(root.join("symlink.pdf"), remote_link_pdf("outside-link/secret.pdf", Some("[0 /Fit]"))).unwrap();
+
+    let mut a = auto(&root);
+    let source = ok(&mut a, "doc_open", json!({ "path": "sub/source.pdf" }))["doc"].as_u64().unwrap();
+    let listed = ok(&mut a, "link_list", json!({ "doc": source }));
+    assert_eq!(listed["links"][0]["other"], "GoToR");
+    let opened = ok(&mut a, "link_open", json!({ "doc": source, "page": 1, "index": 1 }));
+    assert_eq!(opened["path"], "target.pdf");
+    assert_eq!(opened["destination_applied"], true);
+    assert_eq!(opened["destination"]["page"], 3);
+    assert_eq!(opened["destination"]["view"]["kind"], "fit_h");
+    assert_eq!(opened["document"]["pages"], 3);
+    let target_id = opened["document"]["doc"].as_u64().unwrap();
+    assert_eq!(a.session().get(pdfcraft_engine::DocId(target_id)).unwrap().info.pages.len(), 3);
+
+    let absolute = ok(&mut a, "doc_open", json!({ "path": "absolute.pdf" }))["doc"].as_u64().unwrap();
+    let opened = ok(&mut a, "link_open", json!({ "doc": absolute, "page": 1, "index": 1 }));
+    assert_eq!(opened["path"], "target.pdf");
+    assert_eq!(opened["destination"]["page"], 2);
+
+    for (source_path, warning) in [("named.pdf", "named destination"), ("range.pdf", "out of range")] {
+        let source = ok(&mut a, "doc_open", json!({ "path": source_path }))["doc"].as_u64().unwrap();
+        let opened = ok(&mut a, "link_open", json!({ "doc": source, "page": 1, "index": 1 }));
+        assert_eq!(opened["destination_applied"], false);
+        assert!(opened["warning"].as_str().unwrap().contains(warning), "{opened}");
+    }
+
+    let password_source = ok(&mut a, "doc_open", json!({ "path": "password-source.pdf" }))["doc"].as_u64().unwrap();
+    let documents_before = a.session().docs().len();
+    assert!(matches!(err(&mut a, "link_open", json!({ "doc": password_source, "page": 1, "index": 1 })), ToolError::Failed(_)));
+    assert_eq!(a.session().docs().len(), documents_before);
+    assert!(matches!(err(&mut a, "link_open", json!({ "doc": password_source, "page": 1, "index": 1, "password": "wrong" })), ToolError::Failed(_)));
+    assert_eq!(a.session().docs().len(), documents_before);
+    let opened = ok(&mut a, "link_open", json!({ "doc": password_source, "page": 1, "index": 1, "password": "secret" }));
+    assert_eq!(opened["document"]["encrypted"], true);
+
+    for source_path in ["url.pdf", "missing-source.pdf", "non-pdf-source.pdf"] {
+        let source = ok(&mut a, "doc_open", json!({ "path": source_path }))["doc"].as_u64().unwrap();
+        let documents_before = a.session().docs().len();
+        assert!(matches!(err(&mut a, "link_open", json!({ "doc": source, "page": 1, "index": 1 })), ToolError::Failed(_)));
+        assert_eq!(a.session().docs().len(), documents_before, "a rejected target is not opened: {source_path}");
+    }
+
+    for source_path in ["sub/escape.pdf", "symlink.pdf"] {
+        let source = ok(&mut a, "doc_open", json!({ "path": source_path }))["doc"].as_u64().unwrap();
+        let documents_before = a.session().docs().len();
+        assert!(matches!(err(&mut a, "link_open", json!({ "doc": source, "page": 1, "index": 1 })), ToolError::Failed(m) if m.contains("outside")));
+        assert_eq!(a.session().docs().len(), documents_before, "a refused target is not opened");
+    }
+
+    let missing_source = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    ok(&mut a, "link_add", json!({ "doc": missing_source, "page": 1, "rect": [20, 30, 80, 50], "url": "https://example.org" }));
+    assert!(
+        matches!(err(&mut a, "link_open", json!({ "doc": missing_source, "page": 1, "index": 1 })), ToolError::InvalidArgs(m) if m.contains("not a supported local PDF GoToR"))
+    );
 }
 
 /// doc_info reports annotation and link rectangles in the tools' displayed-page convention,
@@ -4927,6 +5133,128 @@ fn architectural_and_iso_papers_through_tools() {
     assert!(matches!(bad, Err(ToolError::InvalidArgs(m)) if m.contains("ARCH E1") && m.contains("A0")));
     assert_eq!(std::fs::read(dir.join("plot.pdf")).unwrap(), before);
     assert!(a.call("doc_print", &json!({"doc": doc, "paper": "ARCH D", "path": "../escape.pdf"})).is_err());
+}
+
+/// A 2-page 200×300 pt PDF in the `fixture()` style for the reading-colours test: bold black
+/// "Page N" text on a white page; page 2 also draws a 4×4 uncompressed `/DeviceRGB` image,
+/// scaled to 40×40 pt at 120, 200.
+fn reading_colors_fixture() -> Vec<u8> {
+    let body1 = "BT /F1 48 Tf 20 150 Td (Page 1) Tj ET";
+    let body2 = "BT /F1 48 Tf 20 150 Td (Page 2) Tj ET\nq 40 0 0 40 120 200 cm /Im1 Do Q";
+    // 16 opaque pure-red pixels; images are never remapped by the reading-colours setting.
+    let image: Vec<u8> = (0..16).flat_map(|_| [0xff_u8, 0x00, 0x00]).collect();
+    let mut objs: Vec<Vec<u8>> = vec![
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 /MediaBox [0 0 200 300] >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /Contents 5 0 R /Resources << /Font << /F1 7 0 R >> >> >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /Contents 6 0 R /Resources << /Font << /F1 7 0 R >> /XObject << /Im1 8 0 R >> >> >>".to_vec(),
+        format!("<< /Length {} >>\nstream\n{body1}\nendstream", body1.len()).into_bytes(),
+        format!("<< /Length {} >>\nstream\n{body2}\nendstream", body2.len()).into_bytes(),
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>".to_vec(),
+    ];
+    let mut image_obj = format!(
+        "<< /Type /XObject /Subtype /Image /Width 4 /Height 4 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Length {} >>\nstream\n",
+        image.len()
+    )
+    .into_bytes();
+    image_obj.extend_from_slice(&image);
+    image_obj.extend_from_slice(b"\nendstream");
+    objs.push(image_obj);
+    let mut out = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offsets.push(out.len());
+        out.extend_from_slice(format!("{} 0 obj\n", i + 1).as_bytes());
+        out.extend_from_slice(o);
+        out.extend_from_slice(b"\nendobj\n");
+    }
+    let xref = out.len();
+    out.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+    for o in offsets {
+        out.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+    }
+    out.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objs.len() + 1).as_bytes());
+    out
+}
+
+/// A fresh directory whose `a.pdf` is `reading_colors_fixture()`.
+fn reading_colors_workdir() -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("pdfcraft-automation-reading-colors-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("a.pdf"), reading_colors_fixture()).unwrap();
+    dir
+}
+
+/// Decodes a `page_render` PNG (pages here are 200×300 pt) into RGBA pixels.
+fn png_pixels(content: &Content) -> Vec<u8> {
+    let Content::Png { data, width, height } = content else { panic!("expected a PNG") };
+    assert_eq!((*width, *height), (200, 300));
+    let mut reader = png::Decoder::new(std::io::Cursor::new(data)).read_info().unwrap();
+    let mut pixels = vec![0; reader.output_buffer_size().unwrap()];
+    let info = reader.next_frame(&mut pixels).unwrap();
+    assert_eq!((info.width, info.height), (200, 300));
+    pixels
+}
+
+/// The RGBA pixel at (`x`, `y`), top-left origin, of a 200-wide image.
+fn pixel(pixels: &[u8], x: u32, y: u32) -> [u8; 4] {
+    let at = ((y * 200 + x) * 4) as usize;
+    pixels[at..at + 4].try_into().unwrap()
+}
+
+/// The `view_reading_colors` tool changes what `page_render` draws — text and background remap,
+/// images never do — without touching the file, and its errors name what's wrong (#897).
+#[test]
+fn reading_colors_through_tools() {
+    let dir = reading_colors_workdir();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({ "path": "a.pdf" }))["doc"].as_u64().unwrap();
+    let render = |a: &mut Automation, page: u64| png_pixels(&a.call("page_render", &json!({ "doc": doc, "page": page, "dpi": 72 })).unwrap()[0]);
+
+    // Off: black text on a white page.
+    let page1_off = render(&mut a, 1);
+    let page2_off = render(&mut a, 2);
+    assert_eq!(pixel(&page1_off, 10, 290), [255, 255, 255, 255]);
+
+    let echo = ok(&mut a, "view_reading_colors", json!({ "doc": doc, "mode": "white-on-black" }));
+    assert_eq!(echo, json!({ "mode": "white-on-black", "text": "#ffffff", "background": "#000000", "only_black": false, "line_art": true }));
+
+    // The page clears to the setting's background, and the text paints with its colour.
+    let page1_on = render(&mut a, 1);
+    assert_eq!(pixel(&page1_on, 10, 290), [0, 0, 0, 255], "background clears to black");
+    // The brightest pixel inside the text band is a stroke interior: a 48 pt bold stem covers it.
+    let (tx, ty) = (20..172u32).flat_map(|x| (116..160u32).map(move |y| (x, y))).max_by_key(|&(x, y)| u32::from(pixel(&page1_on, x, y)[0])).unwrap();
+    let on = pixel(&page1_on, tx, ty);
+    assert!(on[0] >= 250, "a text-interior pixel renders white: {on:?}");
+    let off = pixel(&page1_off, tx, ty);
+    assert!(off[0] <= 60, "the same pixel is black ink without the setting: {off:?}");
+
+    // Images are never remapped: page 2's picture draws byte-identically in both modes.
+    let page2_on = render(&mut a, 2);
+    fn image_row(px: &[u8], y: u32) -> &[u8] {
+        let at = ((y * 200 + 122) * 4) as usize;
+        &px[at..at + 36 * 4]
+    }
+    assert_eq!(pixel(&page2_on, 140, 80), [255, 0, 0, 255], "the image keeps its colour");
+    for y in 62..98u32 {
+        assert_eq!(image_row(&page2_on, y), image_row(&page2_off, y), "image row {y}");
+    }
+
+    // Errors name the problem and the allowed values.
+    let missing = a.call("view_reading_colors", &json!({ "doc": doc, "mode": "custom", "text": "#00ff00" }));
+    assert!(matches!(&missing, Err(ToolError::InvalidArgs(m)) if m.contains("background")), "{missing:?}");
+    let unknown = a.call("view_reading_colors", &json!({ "doc": doc, "mode": "nope" }));
+    assert!(matches!(&unknown, Err(ToolError::InvalidArgs(m)) if m.contains("off") && m.contains("custom")), "{unknown:?}");
+    let no_mode = a.call("view_reading_colors", &json!({ "doc": doc }));
+    assert!(matches!(&no_mode, Err(ToolError::InvalidArgs(m)) if m.contains("mode")), "{no_mode:?}");
+
+    // Back off: the render matches the original one again.
+    assert_eq!(
+        ok(&mut a, "view_reading_colors", json!({ "doc": doc, "mode": "off" })),
+        json!({ "mode": "off", "text": null, "background": null, "only_black": false, "line_art": false })
+    );
+    assert_eq!(render(&mut a, 1), page1_off);
 }
 
 #[test]
