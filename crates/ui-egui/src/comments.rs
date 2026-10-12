@@ -1600,6 +1600,7 @@ mod tests {
     #[test]
     fn other_colour_applies_the_picked_colour_once() {
         // #1193: the swatch grid has a full picker; Apply returns its colour and remembers it.
+        use egui_kittest::kittest::Queryable;
         let current = [0.2, 0.4, 0.6];
         let mut h = egui_kittest::Harness::new_ui_state(
             |ui, picked: &mut Vec<Rgb>| {
