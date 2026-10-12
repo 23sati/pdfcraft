@@ -213,36 +213,43 @@ pub fn ppd_text(bytes: &[u8]) -> String {
 pub fn printer_options(printer: &str) -> Vec<PrinterOption> {
     #[cfg(all(unix, not(target_arch = "wasm32")))]
     {
-        // Queue names never contain `/`; anything else is not a queue and not a path to follow.
-        if !is_ppd_keyword(printer) {
-            return Vec::new();
-        }
-        const PPD_CAP: u64 = 16 << 20;
-        let ppd = std::fs::File::open(format!("/etc/cups/ppd/{printer}.ppd")).ok().and_then(|f| {
-            use std::io::Read as _;
-            let mut bytes = Vec::new();
-            f.take(PPD_CAP).read_to_end(&mut bytes).ok().map(|_| bytes)
-        });
-        let mut options = ppd.map(|b| parse_ppd(&ppd_text(&b))).unwrap_or_default();
-        let current = std::process::Command::new("lpoptions")
-            .args(["-p", printer, "-l"])
-            .output()
-            .map(|o| parse_lpoptions(&String::from_utf8_lossy(&o.stdout)))
-            .unwrap_or_default();
-        for (key, value) in current {
-            if let Some(o) = options.iter_mut().find(|o| o.key == key)
-                && o.choices.iter().any(|(c, _)| *c == value)
-            {
-                o.default = value;
-            }
-        }
-        options
+        printer_options_via(printer, std::path::Path::new("/etc/cups/ppd"), std::process::Command::new("lpoptions"))
     }
     #[cfg(not(all(unix, not(target_arch = "wasm32"))))]
     {
         let _ = printer;
         Vec::new()
     }
+}
+
+/// Read a destination's options with the PPD directory and command supplied, so tests need
+/// neither a system queue nor a physical printer. CUPS instances share their queue's PPD but
+/// have their own defaults, queried with the complete `queue/instance` destination.
+#[cfg(all(unix, not(target_arch = "wasm32")))]
+pub(crate) fn printer_options_via(printer: &str, ppd_dir: &std::path::Path, mut lpoptions: std::process::Command) -> Vec<PrinterOption> {
+    let (queue, instance) = printer.split_once('/').map_or((printer, None), |(q, i)| (q, Some(i)));
+    // Retain the conservative name checks, applied to each component. Neither component is
+    // a path: reject dot components, backslashes and any additional separator before I/O.
+    let valid = |name: &str| is_ppd_keyword(name) && !matches!(name, "." | "..") && !name.contains('\\');
+    if !valid(queue) || instance.is_some_and(|name| !valid(name)) {
+        return Vec::new();
+    }
+    const PPD_CAP: u64 = 16 << 20;
+    let ppd = std::fs::File::open(ppd_dir.join(format!("{queue}.ppd"))).ok().and_then(|f| {
+        use std::io::Read as _;
+        let mut bytes = Vec::new();
+        f.take(PPD_CAP).read_to_end(&mut bytes).ok().map(|_| bytes)
+    });
+    let mut options = ppd.map(|b| parse_ppd(&ppd_text(&b))).unwrap_or_default();
+    let current = lpoptions.args(["-p", printer, "-l"]).output().map(|o| parse_lpoptions(&String::from_utf8_lossy(&o.stdout))).unwrap_or_default();
+    for (key, value) in current {
+        if let Some(o) = options.iter_mut().find(|o| o.key == key)
+            && o.choices.iter().any(|(c, _)| *c == value)
+        {
+            o.default = value;
+        }
+    }
+    options
 }
 
 /// Whether [`open_printer_preferences`] can show the driver's own settings window (Windows).
