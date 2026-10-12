@@ -203,6 +203,29 @@ fn review_html(record: &Value) -> Result<String> {
 }
 
 impl Automation {
+    pub(crate) fn accessibility_autotag_preview(&self, a: &Args) -> Result<Value> {
+        let page = self.page(a)?;
+        let preview = self.doc(a)?.autotag_preview(page).map_err(failed)?;
+        let candidates: Vec<Value> = preview
+            .candidates
+            .into_iter()
+            .map(|c| {
+                json!({
+                    "type": c.kind, "reason": c.reason, "text": c.text,
+                    "text_truncated": c.text_truncated, "bbox_user_space": c.rect,
+                    "font_size": c.size, "bold": c.bold, "needs_review": true,
+                })
+            })
+            .collect();
+        Ok(json!({
+            "page": page + 1, "candidates": candidates,
+            "unclassified_images": preview.unclassified_images,
+            "unclassified_text_blocks": preview.unclassified_text_blocks,
+            "existing_structure": preview.existing_structure,
+            "note": "Text roles are proposals only. Review images, tables, lists, annotations and existing tags before applying structure.",
+        }))
+    }
+
     fn a11y_options(&self, a: &Args) -> Result<Options> {
         let mut o = Options::default();
         if a.opt_bool("all")?.unwrap_or(false) {
