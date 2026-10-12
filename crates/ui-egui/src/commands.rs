@@ -687,14 +687,25 @@ impl PdfCraftApp {
 
 /// Render a top-level menu's registered commands (with live labels, shortcuts and enablement).
 pub(crate) fn registry_menu(app: &mut PdfCraftApp, ui: &mut egui::Ui, menu: &str) {
-    if menu == "File" {
-        file_menu(app, ui);
-    } else {
-        for spec in commands::menu(menu) {
-            menu_command(app, ui, spec);
+    match layout(menu) {
+        Some(sections) => sectioned_menu(app, ui, menu, sections),
+        None => {
+            for spec in commands::menu(menu) {
+                menu_command(app, ui, spec);
+            }
         }
     }
     let _ = widgets::menu_item;
+}
+
+/// The sections a top-level menu is drawn in, for the menus laid out like Acrobat's; others list
+/// their commands in registry order.
+fn layout(menu: &str) -> Option<&'static [&'static [&'static str]]> {
+    match menu {
+        "File" => Some(FILE_MENU),
+        "Edit" => Some(EDIT_MENU),
+        _ => None,
+    }
 }
 
 /// Where File ▸ Create and File ▸ Export to sit in [`FILE_MENU`].
@@ -723,8 +734,20 @@ const CREATE_MENU: &[&[&str]] =
 const EXPORT_MENU: &[&[&str]] =
     &[&["export.docx", "export.pptx", "export.image", "export.html"], &["export.rtf", "export.text"], &["export.all_images"]];
 
-fn file_menu(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
-    for (i, section) in FILE_MENU.iter().enumerate() {
+/// The Edit menu in Acrobat's order, one slice per section (separated): undo; selecting and
+/// copying (Acrobat's Cut, Copy, Paste); changing content (Edit PDF, Add Text); search;
+/// preferences.
+const EDIT_MENU: &[&[&str]] = &[
+    &["edit.undo", "edit.redo"],
+    &["edit.column_select", "edit.snapshot"],
+    &["form.clear"],
+    &["edit.find", "edit.advanced_search"],
+    &["app.preferences"],
+];
+
+/// A top-level menu drawn from `sections`, with separators between them.
+fn sectioned_menu(app: &mut PdfCraftApp, ui: &mut egui::Ui, menu: &str, sections: &[&[&str]]) {
+    for (i, section) in sections.iter().enumerate() {
         if i > 0 {
             ui.separator();
         }
@@ -740,9 +763,9 @@ fn file_menu(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
             }
         }
     }
-    // A File command missing from the layout above still appears, in a last section.
-    let listed = |id: &str| FILE_MENU.iter().chain(CREATE_MENU).chain(EXPORT_MENU).any(|s| s.contains(&id));
-    let mut rest = commands::menu("File").filter(|s| !listed(s.id)).peekable();
+    // A command of this menu missing from the layout still appears, in a last section.
+    let listed = |id: &str| sections.iter().chain(CREATE_MENU).chain(EXPORT_MENU).any(|s| s.contains(&id));
+    let mut rest = commands::menu(menu).filter(|s| !listed(s.id)).peekable();
     if rest.peek().is_some() {
         ui.separator();
     }
@@ -855,20 +878,19 @@ mod tests {
     }
 
     #[test]
-    fn file_menu_lists_every_file_command_once() {
-        let listed: Vec<&str> = FILE_MENU
-            .iter()
-            .chain(CREATE_MENU)
-            .chain(EXPORT_MENU)
-            .flat_map(|s| s.iter().copied())
-            .filter(|id| ![CREATE, EXPORT].contains(id))
-            .collect();
-        for id in &listed {
-            assert!(commands::command(id).is_some_and(|s| s.menu == Some("File")), "{id} is a File command");
-            assert_eq!(listed.iter().filter(|x| *x == id).count(), 1, "{id} listed once");
-        }
-        for spec in commands::menu("File") {
-            assert!(listed.contains(&spec.id), "{} has a place in the File menu layout", spec.id);
+    fn laid_out_menus_list_each_of_their_commands_once() {
+        for menu in ["File", "Edit"] {
+            let sections = layout(menu).unwrap();
+            let submenus: &[&[&str]] = if menu == "File" { &[CREATE_MENU, EXPORT_MENU].concat() } else { &[] };
+            let listed: Vec<&str> =
+                sections.iter().chain(submenus).flat_map(|s| s.iter().copied()).filter(|id| ![CREATE, EXPORT].contains(id)).collect();
+            for id in &listed {
+                assert!(commands::command(id).is_some_and(|s| s.menu == Some(menu)), "{id} is a {menu} command");
+                assert_eq!(listed.iter().filter(|x| *x == id).count(), 1, "{id} listed once");
+            }
+            for spec in commands::menu(menu) {
+                assert!(listed.contains(&spec.id), "{} has a place in the {menu} menu layout", spec.id);
+            }
         }
     }
 }
