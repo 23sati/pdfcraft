@@ -14,6 +14,8 @@
 
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
+use std::collections::HashSet;
+
 use pdfcraft_cos::{Dict, Document, ObjRef, Object, Stream};
 
 pub mod codes;
@@ -271,6 +273,32 @@ fn overlay_content(marks: &[&Mark]) -> Vec<u8> {
     c
 }
 
+fn localize_resources(doc: &mut Document) -> Result<(), pdfcraft_cos::CosError> {
+    let pages = pdfcraft_model::pages(doc);
+    let mut ancestors = HashSet::new();
+    for page in pages {
+        let resources = page.dict.get(b"Resources").cloned();
+        doc.update_dict(page.obj, |d| {
+            if let Some(r) = resources {
+                d.set(b"Resources".to_vec(), r);
+            }
+        })?;
+        let mut parent = page.dict.get(b"Parent").and_then(Object::as_ref);
+        while let Some(r) = parent {
+            if !ancestors.insert(r) {
+                break;
+            }
+            parent = doc.get(r).as_dict().and_then(|d| d.get(b"Parent")).and_then(Object::as_ref);
+        }
+    }
+    for r in ancestors {
+        doc.update_dict(r, |d| {
+            d.remove(b"Resources");
+        })?;
+    }
+    Ok(())
+}
+
 /// Apply every redaction mark (or only those on `pages`, 0-based). Irreversible for the saved
 /// file; callers keep the previous document for undo.
 pub fn apply(doc: &mut Document, pages: Option<&[usize]>) -> Result<Report, RedactError> {
@@ -287,6 +315,7 @@ pub fn apply(doc: &mut Document, pages: Option<&[usize]>) -> Result<Report, Reda
             pdfcraft_fonts::undrawable_message(&format!("the overlay text of a redaction mark on page {}", m.page + 1), c)
         )));
     }
+    localize_resources(doc)?;
     let mut report = Report { marks: chosen.len(), ..Report::default() };
     let mut by_page: Vec<usize> = chosen.iter().map(|m| m.page).collect();
     by_page.sort_unstable();

@@ -33,6 +33,10 @@ A verification pass re-reads each redacted page and fails the operation if any g
 image is still under an area. Content that can't be decoded makes the operation fail rather than
 leave it unredacted.
 
+Effective page resources are copied onto every leaf before rewriting selected pages.
+Parent resource dictionaries are retired so they cannot keep removed XObjects reachable.
+Unselected pages keep their original resources.
+
 ## Remove hidden information / Sanitize
 
 ```rust

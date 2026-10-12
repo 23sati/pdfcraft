@@ -631,3 +631,56 @@ fn tags_lose_what_redaction_removed() {
     assert_eq!(public.get(b"K").and_then(Object::as_int), Some(1));
     assert!(public.get(b"ActualText").is_some(), "untouched content keeps its tags");
 }
+
+fn assert_no_secret(doc: &Document, secret: &[u8]) {
+    let saved = reopen(doc);
+    for (r, object) in saved.scan_objects() {
+        let mut bytes = Vec::new();
+        pdfcraft_cos::serialize(&object, &mut bytes);
+        assert!(!bytes.windows(secret.len()).any(|w| w == secret), "secret remains in object {r:?}");
+        if let Object::Stream(s) = &*object {
+            let data = s.decoded().unwrap();
+            assert!(!data.windows(secret.len()).any(|w| w == secret), "secret remains in stream {r:?}");
+        }
+    }
+}
+
+#[test]
+fn inherited_resources_do_not_keep_the_original_form() {
+    let form = stream("/Type /XObject /Subtype /Form /BBox [0 0 300 300]", b"BT /F1 10 Tf 10 200 Td (LEAK_INHERITED) Tj ET");
+    let mut doc = one_page(b"/Fm Do", "/XObject << /Fm 7 0 R >>", vec![form]);
+    let resources = doc.get(ObjRef::new(3, 0)).as_dict().unwrap().get(b"Resources").unwrap().clone();
+    doc.update_dict(ObjRef::new(2, 0), |d| d.set(b"Resources".to_vec(), resources)).unwrap();
+    doc.update_dict(ObjRef::new(3, 0), |d| {
+        d.remove(b"Resources");
+    })
+    .unwrap();
+    mark(&mut doc, 0, &[[0.0, 190.0, 300.0, 220.0]], "");
+    apply(&mut doc, None).unwrap();
+    assert_no_secret(&doc, b"LEAK_");
+    assert!(!doc.get(ObjRef::new(2, 0)).as_dict().unwrap().contains(b"Resources"));
+}
+
+#[test]
+fn unselected_pages_keep_inherited_forms() {
+    let form = stream("/Type /XObject /Subtype /Form /BBox [0 0 300 300]", b"BT /F1 10 Tf 10 200 Td (SECRET) Tj ET");
+    let mut doc = one_page(b"/Fm Do", "/XObject << /Fm 7 0 R >>", vec![form]);
+    let mut page = doc.get(ObjRef::new(3, 0)).as_dict().unwrap().clone();
+    let resources = page.remove(b"Resources").unwrap();
+    let second = doc.add(Object::Dict(page));
+    doc.update_dict(ObjRef::new(2, 0), |d| {
+        d.set(b"Resources".to_vec(), resources);
+        d.set(b"Kids".to_vec(), Object::Array(vec![Object::Ref(ObjRef::new(3, 0)), Object::Ref(second)]));
+        d.set(b"Count".to_vec(), Object::Int(2));
+    })
+    .unwrap();
+    doc.update_dict(ObjRef::new(3, 0), |d| {
+        d.remove(b"Resources");
+    })
+    .unwrap();
+    mark(&mut doc, 0, &[[0.0, 190.0, 300.0, 220.0]], "");
+    apply(&mut doc, Some(&[0])).unwrap();
+    let mut saved = reopen(&doc);
+    assert_eq!(under(&mut saved, 0, &[[0.0, 190.0, 300.0, 220.0]]), 0);
+    assert_eq!(under(&mut saved, 1, &[[0.0, 190.0, 300.0, 220.0]]), 6);
+}
