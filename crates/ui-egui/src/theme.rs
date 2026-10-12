@@ -578,6 +578,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "measurement probe: asserts exact egui rasterisation deltas, which change with egui upgrades; run with --ignored when retuning the hinting"]
     fn windows_hinting_improves_low_dpi_mono_raster_without_changing_layout_or_coverage() {
         let mut baseline = hinting_test_fonts(FontPolicyPlatform::Other);
         let mut windows = hinting_test_fonts(FontPolicyPlatform::Windows);
