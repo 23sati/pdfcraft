@@ -223,6 +223,9 @@
 	Add or edit links	Додати або редагувати посилання
 	Create links from URLs	Створити посилання з URL
 	Remove all links	Видалити всі посилання
+	No links to remove	Немає посилань для вилучення
+	Removed 1 link	Вилучено 1 посилання
+	Removed {n} links	Вилучено посилань: {n}
 	Add Bates numbering…	Додати нумерацію Бейтса…
 	Add image…	Додати зображення…
 	Redact text and images	Вилучити текст і зображення
@@ -2280,6 +2283,9 @@ key	Space	Пробіл
 scroll speed	Slow	Повільна
 scroll speed	Normal	Звичайна
 scroll speed	Fast	Швидка
+	Animation effects	Ефекти анімації
+animation effects	On	Увімкнено
+animation effects	Off	Вимкнено
 	Enhance camera image	Поліпшити знімок з камери
 	Drag the corners onto the document's edges, then choose Enhance page.	Перетягніть кути до країв документа, потім виберіть «Поліпшити сторінку».
 	Enhance page	Поліпшити сторінку
@@ -2289,6 +2295,16 @@ scroll speed	Fast	Швидка
 	Original	Оригінал
 	Greyscale	Відтінки сірого
 	Black and white	Чорно-білий
+	Reading colours	Кольори для читання
+	Replace document colours	Замінити кольори документа
+	Black on white	Чорний на білому
+	White on black	Білий на чорному
+	Yellow on black	Жовтий на чорному
+	Green on black	Зелений на чорному
+	Page background	Фон сторінки
+	Only change the colour of black text or line art	Змінювати лише колір чорного тексту та ліній
+	Change the colour of line art as well as text	Змінювати колір і ліній, а не лише тексту
+	Colours are remapped while rendering; the document itself never changes.	Кольори змінюються під час рендерення; сам документ ніколи не змінюється.
 	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Драйвер цього принтера не приймає налаштування двобічного друку від інших програм, тому діє його власне налаштування. Змініть його у вікні Властивості…
 	Browser's print dialog	Діалог друку браузера
 	Copies, two-sided printing and colour are chosen in the browser's print dialog.	Кількість копій, двосторонній друк і колір вибирають у діалозі друку браузера.
@@ -2325,6 +2341,14 @@ scroll speed	Fast	Швидка
 	Ink sensitivity	Чутливість до чорнила
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	У рамці не знайдено підпису. Наведіть рамку на підпис або збільште чутливість до чорнила.
 	Couldn't use the photo: {e}	Не вдалося використати фото: {e}
+
+# PDF tab context menu (#1233)
+	Close Tab	Закрити вкладку
+	Reopen Closed Tab	Відкрити закриту вкладку
+	Reveal in Finder	Показати у Finder
+	Reveal in File Explorer	Показати у файловому провіднику
+	Other colour…	Інший колір…
+	Recent colours	Нещодавні кольори
 	Couldn't follow linked PDF: {reason}	Не вдалося відкрити пов’язаний PDF: {reason}
 	The linked PDF opened, but its named destination was not applied.	Пов’язаний PDF відкрито, але його іменоване призначення не застосовано.
 	The linked PDF opened, but its page destination was out of range.	Пов’язаний PDF відкрито, але сторінка призначення поза межами діапазону.

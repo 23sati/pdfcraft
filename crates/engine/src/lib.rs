@@ -143,7 +143,7 @@ pub type SplitPart = (usize, usize, Arc<Vec<u8>>);
 use std::sync::Arc;
 
 use pdfcraft_cos::{SaveOptions, write_full, write_incremental};
-use pdfcraft_render::{DocInfo, Layer, LayerOp, OpenError, RenderConfig, RenderPool, inspect};
+use pdfcraft_render::{DocInfo, Layer, LayerOp, OpenError, ReadingColors, RenderConfig, RenderPool, inspect};
 
 /// Stable identifier of an open document within a session.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -4096,6 +4096,24 @@ impl Session {
         doc.renderer = RenderPool::new(doc.display.clone(), render_threads(), doc.config.clone());
         doc.generation += 1;
         true
+    }
+
+    /// Set the document's reading colours (Acrobat's Replace Document Colors). Returns whether
+    /// anything changed; callers must drop cached rasters and text for the document.
+    pub fn set_reading_colors(&mut self, id: DocId, colors: ReadingColors) -> bool {
+        let Some(doc) = self.docs.iter_mut().find(|d| d.id == id) else { return false };
+        if doc.config.reading_colors == colors {
+            return false;
+        }
+        doc.config.reading_colors = colors;
+        doc.renderer = RenderPool::new(doc.display.clone(), render_threads(), doc.config.clone());
+        doc.generation += 1;
+        true
+    }
+
+    /// The document's reading-colours setting; `None` when no such document is open.
+    pub fn reading_colors(&self, id: DocId) -> Option<ReadingColors> {
+        Some(self.get(id)?.config.reading_colors)
     }
 
     /// Acrobat's Summarize Comments ("Comments only" layout): a new PDF listing every comment
