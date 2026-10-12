@@ -2251,3 +2251,6 @@ animation effects	Off	ఆఫ్
 	Local cross-PDF links require the desktop app	PDFల మధ్య స్థానిక లింక్‌లకు డెస్క్‌టాప్ యాప్ అవసరం
 	The existing action will be preserved.	ఉన్న చర్య అలాగే ఉంచబడుతుంది.
 	This form's scripts are turned off because one ran too long. Reopen the document to run them again.	ఒక స్క్రిప్ట్ చాలా సేపు నడిచినందున ఈ ఫారమ్ స్క్రిప్ట్‌లు ఆపివేయబడ్డాయి. వాటిని మళ్లీ నడపడానికి పత్రాన్ని మళ్లీ తెరవండి.
+	Find untagged content	ట్యాగ్ చేయని కంటెంట్‌ను కనుగొను
+	No untagged content was found.	ట్యాగ్ చేయని కంటెంట్ కనుగొనబడలేదు.
+	Found {n} untagged content problems.	ట్యాగ్ చేయని కంటెంట్‌లో {n} సమస్యలు కనుగొనబడ్డాయి.

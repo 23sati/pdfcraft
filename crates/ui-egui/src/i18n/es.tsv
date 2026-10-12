@@ -2468,3 +2468,6 @@ animation effects	Off	Desactivados
 	The linked PDF opened, but its page destination was out of range.	El PDF vinculado se abrió, pero su página de destino está fuera de rango.
 	Local cross-PDF links require the desktop app	Los enlaces locales entre PDF requieren la aplicación de escritorio
 	The existing action will be preserved.	Se conservará la acción existente.
+	Find untagged content	Buscar contenido sin etiquetar
+	No untagged content was found.	No se encontró contenido sin etiquetar.
+	Found {n} untagged content problems.	Se encontraron {n} problemas de contenido sin etiquetar.
