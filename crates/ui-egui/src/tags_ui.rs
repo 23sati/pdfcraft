@@ -187,7 +187,20 @@ pub(crate) fn panel(ui: &mut Ui, t: &Tokens, doc: DocId, tags: &[TagInfo], state
             state.draft = Draft::from_tag(tag);
         }
     });
-    (page, if save { edit } else { None })
+    let artifact = ui
+        .add_enabled(can_edit && !dirty, egui::Button::new(tl!("Mark as artifact")))
+        .on_hover_text(tl!("Remove this leaf tag from reading order and mark its direct content as an artifact"))
+        .clicked();
+    (
+        page,
+        if save {
+            edit
+        } else if artifact {
+            Some(Edit::MarkTagArtifact { object: tag.object })
+        } else {
+            None
+        },
+    )
 }
 
 fn visible_tags<'a>(tags: &'a [TagInfo], query: &str, collapsed: &BTreeSet<ObjRef>) -> Vec<&'a TagInfo> {
