@@ -89,17 +89,23 @@ jobs:
         run: cargo check -p pdfcraft-cli --no-default-features
 
   ui-egui-topology:
-    name: UI egui topology (${{ matrix.os }})
+    name: UI egui topology (${{ matrix.comparison.id }}, ${{ matrix.os }})
     if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'codex/build-disk-ui-tests-stateless'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 300
     env:
-      BASELINE_SHA: e5117f0e9e538eaef70d50810d133e1fa33c49b8
-      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+      BASELINE_SHA: ${{ matrix.comparison.baseline }}
+      CANDIDATE_SHA: ${{ matrix.comparison.candidate || github.event.pull_request.head.sha }}
       TEST_RUNS: "3"
     strategy:
       fail-fast: false
       matrix:
+        comparison:
+          - id: stateless-fold
+            baseline: e5117f0e9e538eaef70d50810d133e1fa33c49b8
+            candidate: 9bb13debe170adb2bcee3222fac3d487885e1550
+          - id: filesystem-light
+            baseline: 9bb13debe170adb2bcee3222fac3d487885e1550
         os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -154,7 +160,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: ui-egui-topology-${{ matrix.os }}
+          name: ui-egui-topology-${{ matrix.comparison.id }}-${{ matrix.os }}
           path: ${{ runner.temp }}/ui-egui-topology-measurement.md
           if-no-files-found: ignore
           retention-days: 14

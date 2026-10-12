@@ -670,7 +670,7 @@ milestone = "M3"
 status = "shipped"
 commands = ["file.open_recent", "file.clear_recent"]
 tools = []
-evidence = ["crates/ui-egui/tests/ui.rs::persistence_round_trips_and_tolerates_garbage", "crates/ui-egui/tests/commands.rs::the_open_recent_menu_lists_files_and_opens_one", "crates/ui-egui/tests/commands.rs::the_open_recent_menu_is_disabled_while_the_list_is_empty", "crates/ui-egui/tests/commands.rs::clear_recent_files_at_the_foot_of_open_recent_empties_the_list", "crates/ui-egui/tests/commands.rs::clear_recent_files_runs_from_the_palette_and_is_saved", "crates/ui-egui/tests/ui.rs::home_removes_one_recent_file_or_clears_them_all"]
+evidence = ["crates/ui-egui/tests/ui.rs::persistence_round_trips_and_tolerates_garbage", "crates/ui-egui/tests/ui_group/commands.rs::the_open_recent_menu_lists_files_and_opens_one", "crates/ui-egui/tests/ui_group/commands.rs::the_open_recent_menu_is_disabled_while_the_list_is_empty", "crates/ui-egui/tests/ui_group/commands.rs::clear_recent_files_at_the_foot_of_open_recent_empties_the_list", "crates/ui-egui/tests/ui_group/commands.rs::clear_recent_files_runs_from_the_palette_and_is_saved", "crates/ui-egui/tests/ui.rs::home_removes_one_recent_file_or_clears_them_all"]
 notes = "never reads other apps' lists; File ▸ Open Recent lists them (#290), an already-open file focuses its tab instead of reopening it; Clear Recent Files at the foot of Open Recent, on Home and in the palette, and a remove button on each Home row (#430); missing: the row's remove button shows on pointer hover only (keyboard users clear the whole list)"
 
 [[feature]]
@@ -1082,7 +1082,7 @@ milestone = "M3"
 status = "shipped"
 commands = ["view.read_mode"]
 tools = []
-evidence = ["crates/ui-egui/tests/control.rs::inspect_and_click_by_label_and_id", "crates/ui-egui/tests/commands.rs::every_registered_command_is_implemented"]
+evidence = ["crates/ui-egui/tests/control.rs::inspect_and_click_by_label_and_id", "crates/ui-egui/tests/ui_group/commands.rs::every_registered_command_is_implemented"]
 notes = ""
 
 [[feature]]
@@ -1094,7 +1094,7 @@ milestone = "M3"
 status = "shipped"
 commands = ["view.full_screen"]
 tools = []
-evidence = ["crates/ui-egui/tests/commands.rs::full_screen_toggles_by_shortcut_and_command_and_escape_leaves"]
+evidence = ["crates/ui-egui/tests/ui_group/commands.rs::full_screen_toggles_by_shortcut_and_command_and_escape_leaves"]
 notes = ""
 
 [[feature]]
@@ -1646,7 +1646,7 @@ milestone = "M3"
 status = "shipped"
 commands = ["file.pin_folder"]
 tools = []
-evidence = ["crates/ui-egui/tests/ui.rs::home_shows_welcome_and_tools", "crates/ui-egui/tests/folders.rs::a_pinned_folder_lists_its_newest_pdfs_on_home", "crates/ui-egui/tests/folders.rs::clicking_a_pinned_pdf_opens_it_and_adds_it_to_recent", "crates/ui-egui/tests/folders.rs::pinned_folders_survive_a_restart"]
+evidence = ["crates/ui-egui/tests/ui.rs::home_shows_welcome_and_tools", "crates/ui-egui/tests/ui_group/folders.rs::a_pinned_folder_lists_its_newest_pdfs_on_home", "crates/ui-egui/tests/ui_group/folders.rs::clicking_a_pinned_pdf_opens_it_and_adds_it_to_recent", "crates/ui-egui/tests/ui_group/folders.rs::pinned_folders_survive_a_restart"]
 notes = "Desktop: folders pinned to Home (File ▸ Pin folder to Home…, up to 8) list their newest PDFs, read on a worker thread and refreshed every few seconds while Home shows; a folder that can't be read (moved, offline synced drive) stays pinned and says so. Pinned folders are local paths, so a cloud drive works through its synced folder (iCloud Drive, OneDrive, Dropbox). Not yet: subfolders, search within a pinned folder, the web build."
 
 [[feature]]
@@ -1670,7 +1670,7 @@ milestone = "M3"
 status = "shipped"
 commands = ["view.palette"]
 tools = []
-evidence = ["crates/ui-egui/tests/commands.rs::the_palette_lists_commands_with_shortcuts_and_runs_them"]
+evidence = ["crates/ui-egui/tests/ui_group/commands.rs::the_palette_lists_commands_with_shortcuts_and_runs_them"]
 notes = ""
 
 [[feature]]
@@ -1682,7 +1682,7 @@ milestone = "M4"
 status = "shipped"
 commands = []
 tools = []
-evidence = ["crates/ui-egui/tests/commands.rs::shortcuts_run_registered_commands", "crates/engine/src/commands.rs::shortcut_labels_follow_platform_conventions"]
+evidence = ["crates/ui-egui/tests/ui_group/commands.rs::shortcuts_run_registered_commands", "crates/engine/src/commands.rs::shortcut_labels_follow_platform_conventions"]
 notes = ""
 
 [[feature]]
@@ -1694,7 +1694,7 @@ milestone = "M4"
 status = "shipped"
 commands = ["help.shortcuts"]
 tools = []
-evidence = ["crates/ui-egui/tests/commands.rs::the_shortcuts_dialog_lists_the_real_bindings"]
+evidence = ["crates/ui-egui/tests/ui_group/commands.rs::the_shortcuts_dialog_lists_the_real_bindings"]
 notes = ""
 
 [[feature]]
@@ -1706,7 +1706,7 @@ milestone = "M4"
 status = "shipped"
 commands = []
 tools = []
-evidence = ["crates/ui-egui/tests/commands.rs::the_pages_menu_comes_from_the_registry"]
+evidence = ["crates/ui-egui/tests/ui_group/commands.rs::the_pages_menu_comes_from_the_registry"]
 notes = ""
 
 [[feature]]
@@ -1718,7 +1718,7 @@ milestone = "M3"
 status = "shipped"
 commands = ["help.about"]
 tools = []
-evidence = ["crates/ui-egui/tests/commands.rs::the_about_dialog_shows_the_running_version"]
+evidence = ["crates/ui-egui/tests/ui_group/commands.rs::the_about_dialog_shows_the_running_version"]
 notes = ""
 
 [[feature]]
@@ -2286,7 +2286,7 @@ milestone = "M6"
 status = "shipped"
 commands = []
 tools = []
-evidence = ["crates/ui-egui/tests/buttons.rs::hide_actions_hide_and_show_fields", "crates/forms/src/tests.rs::push_buttons_read_hide_actions"]
+evidence = ["crates/ui-egui/tests/ui_group/buttons.rs::hide_actions_hide_and_show_fields", "crates/forms/src/tests.rs::push_buttons_read_hide_actions"]
 notes = "A push button's Hide action (/T names, field or widget references, arrays; /H) hides or shows the fields and their kids; hidden widgets take no clicks, tab stops or highlights. A widget reference acts on its whole field, and only form fields are hidden, not other annotations."
 
 [[feature]]
@@ -4410,7 +4410,7 @@ milestone = "M6"
 status = "partial"
 commands = ["form.fields"]
 tools = []
-evidence = ["crates/ui-egui/tests/buttons.rs::buttons_reset_navigate_and_print", "crates/forms/src/af.rs::common_button_scripts_are_recognised", "crates/ui-egui/tests/javascript.rs::button_scripts_run_and_alert"]
+evidence = ["crates/ui-egui/tests/ui_group/buttons.rs::buttons_reset_navigate_and_print", "crates/forms/src/af.rs::common_button_scripts_are_recognised", "crates/ui-egui/tests/javascript.rs::button_scripts_run_and_alert"]
 notes = "Reset form, Named (print, page navigation), URI, Go to, and any JavaScript (run in the sandboxed engine); submit explained, not sent"
 
 [[feature]]
@@ -8390,7 +8390,7 @@ milestone = "M12"
 status = "shipped"
 commands = ["a11y.check"]
 tools = ["accessibility_check"]
-evidence = ["crates/a11y/src/tests.rs::an_untagged_document_fails_the_document_rules", "crates/a11y/src/tests.rs::a_well_tagged_document_passes", "crates/a11y/src/tests.rs::structure_findings_identify_indirect_elements_without_guessing_inline_objects", "crates/a11y/src/tests.rs::figures_are_listed_with_their_alt_text_and_place", "crates/a11y/src/tests.rs::annotation_findings_only_locate_valid_rectangles", "crates/automation/tests/automation.rs::accessibility_check_locates_field_description_on_page", "crates/ui-egui/tests/accessibility.rs::checking_fixing_skipping_and_reporting", "crates/ui-egui/tests/accessibility.rs::checker_shows_a_figure_finding_on_its_page", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools"]
+evidence = ["crates/a11y/src/tests.rs::an_untagged_document_fails_the_document_rules", "crates/a11y/src/tests.rs::a_well_tagged_document_passes", "crates/a11y/src/tests.rs::structure_findings_identify_indirect_elements_without_guessing_inline_objects", "crates/a11y/src/tests.rs::figures_are_listed_with_their_alt_text_and_place", "crates/a11y/src/tests.rs::annotation_findings_only_locate_valid_rectangles", "crates/automation/tests/automation.rs::accessibility_check_locates_field_description_on_page", "crates/ui-egui/tests/ui_group/accessibility.rs::checking_fixing_skipping_and_reporting", "crates/ui-egui/tests/ui_group/accessibility.rs::checker_shows_a_figure_finding_on_its_page", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools"]
 notes = "full check: options dialog (report, page range, 32 rules by category, 31 on by default), results panel by category with Passed / Failed / Needs manual check / Skipped and findings that go to their page. Locatable figure, annotation and form-widget findings flash their bounds on the page; accessibility_check exposes those bounds in PDF user space. Other findings navigate to their page. Structure findings expose the indirect tag object number and generation through accessibility_check, when available, for precise follow-up in the Tags Panel."
 
 [[feature]]
@@ -8402,7 +8402,7 @@ milestone = "M12"
 status = "shipped"
 commands = ["a11y.report"]
 tools = ["accessibility_report", "accessibility_review_record", "accessibility_review_html"]
-evidence = ["crates/a11y/src/tests.rs::rules_have_ids_and_the_report_lists_them", "crates/ui-egui/tests/accessibility.rs::checking_fixing_skipping_and_reporting", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools", "crates/automation/tests/automation.rs::accessibility_review_record_compares_two_versions_without_changing_them", "crates/automation/src/a11y.rs::document_names_are_escaped_in_review_html"]
+evidence = ["crates/a11y/src/tests.rs::rules_have_ids_and_the_report_lists_them", "crates/ui-egui/tests/ui_group/accessibility.rs::checking_fixing_skipping_and_reporting", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools", "crates/automation/tests/automation.rs::accessibility_review_record_compares_two_versions_without_changing_them", "crates/automation/src/a11y.rs::document_names_are_escaped_in_review_html"]
 notes = "HTML checker report: summary counts and a table per category with descriptions and findings. Headless comparison of two open versions exports the same before-and-after evidence as JSON or accessible, self-contained HTML with hashes, rule changes, and remaining review items."
 
 [[feature]]
@@ -8414,7 +8414,7 @@ milestone = "M12"
 status = "shipped"
 commands = ["a11y.check"]
 tools = ["accessibility_fix", "accessibility_review_record"]
-evidence = ["crates/ui-egui/tests/accessibility.rs::checking_fixing_skipping_and_reporting", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools", "crates/automation/tests/automation.rs::accessibility_review_record_compares_two_versions_without_changing_them"]
+evidence = ["crates/ui-egui/tests/ui_group/accessibility.rs::checking_fixing_skipping_and_reporting", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools", "crates/automation/tests/automation.rs::accessibility_review_record_compares_two_versions_without_changing_them"]
 notes = "right-click a rule: Fix (language via Document Properties, title, tab order), Skip Rule (kept on Check Again), Explain, Check Again, Show Report, Options. The panel compares outcome counts and changed rules with the previous check of the same document and options; the headless review record compares two open revisions."
 
 [[feature]]
@@ -8846,7 +8846,7 @@ milestone = "M12"
 status = "partial"
 commands = ["a11y.tags"]
 tools = ["accessibility_tags"]
-evidence = ["crates/ui-egui/tests/accessibility.rs::tags_panel_edits_a_tag_property_and_undoes_it", "crates/ui-egui/tests/accessibility.rs::checker_finding_opens_its_structure_tag"]
+evidence = ["crates/ui-egui/tests/ui_group/accessibility.rs::tags_panel_edits_a_tag_property_and_undoes_it", "crates/ui-egui/tests/ui_group/accessibility.rs::checker_finding_opens_its_structure_tag"]
 notes = "The right-side Tags panel lists reachable indirect tags as a collapsible hierarchy, filters by type or title with ancestors, navigates to their page and edits properties. Checker findings linked to indirect tags open the matching tag without losing unsaved edits. Inline tags, adding/deleting tags, artifact marking and finding content remain planned in #982."
 
 [[feature]]
@@ -8858,7 +8858,7 @@ milestone = "M12"
 status = "partial"
 commands = ["a11y.tags"]
 tools = ["accessibility_tags", "accessibility_set_tag_property"]
-evidence = ["crates/a11y/src/tests.rs::reachable_tag_properties_round_trip_and_reject_unrelated_objects", "crates/a11y/src/tests.rs::tag_hierarchy_keeps_indirect_parent_through_inline_tags", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools", "crates/ui-egui/tests/accessibility.rs::tags_panel_edits_a_tag_property_and_undoes_it"]
+evidence = ["crates/a11y/src/tests.rs::reachable_tag_properties_round_trip_and_reject_unrelated_objects", "crates/a11y/src/tests.rs::tag_hierarchy_keeps_indirect_parent_through_inline_tags", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools", "crates/ui-egui/tests/ui_group/accessibility.rs::tags_panel_edits_a_tag_property_and_undoes_it"]
 notes = "The engine, headless tools and right-side editor list reachable indirect tags with parent and depth and edit type, title, actual text, alternate text and language with undo. Inline tag dictionaries and structural operations remain planned with the Tags Panel (#982)."
 
 [[feature]]
@@ -8966,7 +8966,7 @@ milestone = "M12"
 status = "shipped"
 commands = ["a11y.alt_text"]
 tools = ["accessibility_figures", "accessibility_set_alt"]
-evidence = ["crates/a11y/src/tests.rs::figures_are_listed_with_their_alt_text_and_place", "crates/a11y/src/tests.rs::setting_alt_text_and_marking_decorative", "crates/ui-egui/tests/accessibility.rs::setting_alternate_text_figure_by_figure", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools"]
+evidence = ["crates/a11y/src/tests.rs::figures_are_listed_with_their_alt_text_and_place", "crates/a11y/src/tests.rs::setting_alt_text_and_marking_decorative", "crates/ui-egui/tests/ui_group/accessibility.rs::setting_alternate_text_figure_by_figure", "crates/automation/tests/automation.rs::accessibility_check_report_and_fixes_through_tools"]
 notes = "Set Alternate Text dialog: each tagged figure (role map honoured) with a preview of where it is drawn, its alternate text, Decorative figure (content becomes /Artifact, element leaves the tags and parent tree), Previous/Next, Save & Close as one undo step"
 
 [[feature]]
@@ -9186,7 +9186,7 @@ milestone = "M13"
 status = "shipped"
 commands = ["actions.wizard"]
 tools = ["action_list", "action_run"]
-evidence = ["crates/ui-egui/tests/actions.rs::desktop_actions_preserve_duplicate_names_and_results_from_earlier_runs", "crates/engine/src/tests.rs::actions_run_their_steps_on_files", "crates/automation/tests/automation.rs::actions_through_tools", "crates/ui-egui/tests/actions.rs::run_and_create_actions"]
+evidence = ["crates/ui-egui/tests/ui_group/actions.rs::desktop_actions_preserve_duplicate_names_and_results_from_earlier_runs", "crates/engine/src/tests.rs::actions_run_their_steps_on_files", "crates/automation/tests/automation.rs::actions_through_tools", "crates/ui-egui/tests/ui_group/actions.rs::run_and_create_actions"]
 notes = "Desktop output filenames receive numbered suffixes when occupied, preserving every batch result and previous outputs. Pick an action and files; results go to a chosen folder, in the background with progress."
 
 [[feature]]
@@ -9198,7 +9198,7 @@ milestone = "M13"
 status = "shipped"
 commands = ["actions.wizard"]
 tools = ["action_run"]
-evidence = ["crates/automation/tests/automation.rs::actions_through_tools", "crates/ui-egui/tests/actions.rs::run_and_create_actions"]
+evidence = ["crates/automation/tests/automation.rs::actions_through_tools", "crates/ui-egui/tests/ui_group/actions.rs::run_and_create_actions"]
 notes = "New/Edit/Delete actions with 12 step kinds (OCR, reduce size, remove hidden information, sanitize, flatten, watermark, header, footer, title, detect fields, JavaScript); remembered between runs."
 
 [[feature]]
@@ -9222,7 +9222,7 @@ milestone = "M13"
 status = "shipped"
 commands = ["actions.distribution"]
 tools = ["action_run"]
-evidence = ["crates/engine/src/tests.rs::actions_run_their_steps_on_files", "crates/automation/tests/automation.rs::actions_through_tools", "crates/ui-egui/tests/actions.rs::run_and_create_actions"]
+evidence = ["crates/engine/src/tests.rs::actions_run_their_steps_on_files", "crates/automation/tests/automation.rs::actions_through_tools", "crates/ui-egui/tests/ui_group/actions.rs::run_and_create_actions"]
 notes = "Remove hidden information, flatten comments and fields."
 
 [[feature]]
@@ -9270,7 +9270,7 @@ milestone = "M13"
 status = "partial"
 commands = ["actions.wizard", "ocr.recognize_batch"]
 tools = ["action_run", "ocr_recognize_files"]
-evidence = ["crates/automation/tests/automation.rs::actions_through_tools", "crates/ui-egui/tests/actions.rs::run_and_create_actions"]
+evidence = ["crates/automation/tests/automation.rs::actions_through_tools", "crates/ui-egui/tests/ui_group/actions.rs::run_and_create_actions"]
 notes = "Actions and OCR run over chosen files; whole folders (with subfolders) not yet."
 
 [[feature]]
@@ -9330,7 +9330,7 @@ milestone = "M4"
 status = "shipped"
 commands = []
 tools = ["command_list"]
-evidence = ["crates/engine/src/commands.rs::ids_and_shortcuts_are_unique", "crates/ui-egui/tests/commands.rs::every_registered_command_is_implemented"]
+evidence = ["crates/engine/src/commands.rs::ids_and_shortcuts_are_unique", "crates/ui-egui/tests/ui_group/commands.rs::every_registered_command_is_implemented"]
 notes = ""
 
 [[feature]]
@@ -9342,7 +9342,7 @@ milestone = "M4"
 status = "shipped"
 commands = []
 tools = []
-evidence = ["crates/ui-egui/tests/commands.rs::disabled_commands_explain_themselves"]
+evidence = ["crates/ui-egui/tests/ui_group/commands.rs::disabled_commands_explain_themselves"]
 notes = ""
 
 [[feature]]
@@ -9894,7 +9894,7 @@ milestone = "M14"
 status = "partial"
 commands = ["app.preferences"]
 tools = []
-evidence = ["crates/ui-egui/src/commands.rs::localized_shortcut_labels_follow_language_and_platform", "crates/ui-egui/src/i18n/mod.rs::keyboard_key_names_have_a_separate_context_and_english_fallback", "crates/ui-egui/tests/commands.rs::localized_shortcuts_update_immediately_and_keep_command_ids_and_key_bindings", "crates/ui-egui/src/i18n/mod.rs::windows_display_language_resolves_chinese_scripts", "crates/ui-egui/src/i18n/mod.rs::neutral_locale_does_not_override_display_language", "crates/ui-egui/src/i18n/mod.rs::windows_display_language_query_returns_a_locale_tag", "crates/ui-egui/src/i18n/mod.rs::language_persists_and_invalid_input_keeps_current_language", "crates/ui-egui/src/i18n/mod.rs::bundled_catalogs_are_consistent", "crates/ui-egui/src/i18n/mod.rs::arabic_is_registered_and_persists", "crates/ui-egui/src/i18n/mod.rs::arabic_lookups_are_in_display_order", "crates/ui-egui/src/i18n/mod.rs::arabic_plurals_follow_the_six_cldr_forms", "crates/ui-egui/src/i18n/mod.rs::arabic_covers_commands_and_catalogue", "crates/ui-egui/src/i18n/mod.rs::arabic_covers_ui_literals", "crates/ui-egui/src/i18n/mod.rs::arabic_labels_have_glyphs", "crates/ui-egui/src/bidi.rs::rtl_labels_keep_placeholders_whole", "crates/ui-egui/src/i18n/mod.rs::japanese_covers_commands_and_catalogue", "crates/ui-egui/src/i18n/mod.rs::simplified_chinese_covers_commands_and_catalogue", "crates/ui-egui/src/i18n/mod.rs::simplified_chinese_covers_ui_literals", "crates/ui-egui/src/i18n/mod.rs::simplified_chinese_history_and_diagnostics_preserve_user_values", "crates/ui-egui/tests/control.rs::simplified_chinese_signature_prompts_and_errors_keep_document_state", "crates/ui-egui/tests/control.rs::language_switch_preserves_document_and_command_ids", "crates/ui-egui/tests/control.rs::japanese_controls_and_search_keep_command_ids", "crates/ui-egui/tests/control.rs::japanese_dialogs_errors_and_custom_action_names", "crates/ui-egui/src/i18n/mod.rs::french_is_registered", "crates/ui-egui/src/i18n/mod.rs::french_covers_commands_and_catalogue", "crates/ui-egui/src/i18n/mod.rs::french_covers_ui_literals", "crates/ui-egui/src/i18n/mod.rs::french_history_and_diagnostics_preserve_user_values", "crates/ui-egui/src/i18n/mod.rs::german_certificate_subject_has_a_distinct_context", "crates/ui-egui/src/widgets.rs::search_placeholder_never_overlaps_the_shortcut", "crates/ui-egui/src/home.rs::translated_card_description_leaves_room_for_the_action", "crates/ui-egui/tests/control.rs::german_preferences_and_search_keep_command_ids", "crates/ui-egui/src/i18n/mod.rs::telugu_covers_commands_and_catalogue", "crates/ui-egui/src/i18n/mod.rs::telugu_labels_have_glyphs", "crates/ui-egui/src/i18n/mod.rs::hungarian_is_registered", "crates/ui-egui/src/i18n/mod.rs::hungarian_covers_commands_and_catalogue", "crates/ui-egui/src/i18n/mod.rs::hungarian_covers_ui_literals", "crates/ui-egui/src/i18n/mod.rs::hungarian_history_and_diagnostics_preserve_user_values", "crates/ui-egui/src/i18n/mod.rs::ukrainian_is_registered_and_persists", "crates/ui-egui/src/i18n/mod.rs::ukrainian_integer_plurals_cover_teens_and_large_counts", "crates/ui-egui/src/i18n/mod.rs::ukrainian_calendar_uses_month_case_for_dates", "crates/ui-egui/src/i18n/mod.rs::ukrainian_catalog_does_not_leave_english_ui_text", "crates/ui-egui/src/i18n/mod.rs::ukrainian_covers_commands_and_catalogue", "crates/ui-egui/src/i18n/mod.rs::ukrainian_covers_ui_literals", "crates/ui-egui/src/i18n/mod.rs::ukrainian_history_and_diagnostics_preserve_user_values", "crates/ui-egui/src/i18n/mod.rs::spanish_covers_what_the_engine_says", "crates/ui-egui/src/i18n/mod.rs::spanish_keeps_the_holes_in_what_the_engine_says", "crates/print/src/tests.rs::wordings_are_said"]
+evidence = ["crates/ui-egui/src/commands.rs::localized_shortcut_labels_follow_language_and_platform", "crates/ui-egui/src/i18n/mod.rs::keyboard_key_names_have_a_separate_context_and_english_fallback", "crates/ui-egui/tests/ui_group/commands.rs::localized_shortcuts_update_immediately_and_keep_command_ids_and_key_bindings", "crates/ui-egui/src/i18n/mod.rs::windows_display_language_resolves_chinese_scripts", "crates/ui-egui/src/i18n/mod.rs::neutral_locale_does_not_override_display_language", "crates/ui-egui/src/i18n/mod.rs::windows_display_language_query_returns_a_locale_tag", "crates/ui-egui/src/i18n/mod.rs::language_persists_and_invalid_input_keeps_current_language", "crates/ui-egui/src/i18n/mod.rs::bundled_catalogs_are_consistent", "crates/ui-egui/src/i18n/mod.rs::arabic_is_registered_and_persists", "crates/ui-egui/src/i18n/mod.rs::arabic_lookups_are_in_display_order", "crates/ui-egui/src/i18n/mod.rs::arabic_plurals_follow_the_six_cldr_forms", "crates/ui-egui/src/i18n/mod.rs::arabic_covers_commands_and_catalogue", "crates/ui-egui/src/i18n/mod.rs::arabic_covers_ui_literals", "crates/ui-egui/src/i18n/mod.rs::arabic_labels_have_glyphs", "crates/ui-egui/src/bidi.rs::rtl_labels_keep_placeholders_whole", "crates/ui-egui/src/i18n/mod.rs::japanese_covers_commands_and_catalogue", "crates/ui-egui/src/i18n/mod.rs::simplified_chinese_covers_commands_and_catalogue", "crates/ui-egui/src/i18n/mod.rs::simplified_chinese_covers_ui_literals", "crates/ui-egui/src/i18n/mod.rs::simplified_chinese_history_and_diagnostics_preserve_user_values", "crates/ui-egui/tests/control.rs::simplified_chinese_signature_prompts_and_errors_keep_document_state", "crates/ui-egui/tests/control.rs::language_switch_preserves_document_and_command_ids", "crates/ui-egui/tests/control.rs::japanese_controls_and_search_keep_command_ids", "crates/ui-egui/tests/control.rs::japanese_dialogs_errors_and_custom_action_names", "crates/ui-egui/src/i18n/mod.rs::french_is_registered", "crates/ui-egui/src/i18n/mod.rs::french_covers_commands_and_catalogue", "crates/ui-egui/src/i18n/mod.rs::french_covers_ui_literals", "crates/ui-egui/src/i18n/mod.rs::french_history_and_diagnostics_preserve_user_values", "crates/ui-egui/src/i18n/mod.rs::german_certificate_subject_has_a_distinct_context", "crates/ui-egui/src/widgets.rs::search_placeholder_never_overlaps_the_shortcut", "crates/ui-egui/src/home.rs::translated_card_description_leaves_room_for_the_action", "crates/ui-egui/tests/control.rs::german_preferences_and_search_keep_command_ids", "crates/ui-egui/src/i18n/mod.rs::telugu_covers_commands_and_catalogue", "crates/ui-egui/src/i18n/mod.rs::telugu_labels_have_glyphs", "crates/ui-egui/src/i18n/mod.rs::hungarian_is_registered", "crates/ui-egui/src/i18n/mod.rs::hungarian_covers_commands_and_catalogue", "crates/ui-egui/src/i18n/mod.rs::hungarian_covers_ui_literals", "crates/ui-egui/src/i18n/mod.rs::hungarian_history_and_diagnostics_preserve_user_values", "crates/ui-egui/src/i18n/mod.rs::ukrainian_is_registered_and_persists", "crates/ui-egui/src/i18n/mod.rs::ukrainian_integer_plurals_cover_teens_and_large_counts", "crates/ui-egui/src/i18n/mod.rs::ukrainian_calendar_uses_month_case_for_dates", "crates/ui-egui/src/i18n/mod.rs::ukrainian_catalog_does_not_leave_english_ui_text", "crates/ui-egui/src/i18n/mod.rs::ukrainian_covers_commands_and_catalogue", "crates/ui-egui/src/i18n/mod.rs::ukrainian_covers_ui_literals", "crates/ui-egui/src/i18n/mod.rs::ukrainian_history_and_diagnostics_preserve_user_values", "crates/ui-egui/src/i18n/mod.rs::spanish_covers_what_the_engine_says", "crates/ui-egui/src/i18n/mod.rs::spanish_keeps_the_holes_in_what_the_engine_says", "crates/print/src/tests.rs::wordings_are_said"]
 notes = "Shortcut modifiers and key names use a dedicated catalog context across toolbar, menus, palette, Help and tooltips, with English fallback and macOS symbols preserved. Preferences switches Auto (system language)/English/Japanese/Simplified Chinese/Traditional Chinese/Czech/Brazilian Portuguese/German/Spanish/French/Telugu/Hungarian/Ukrainian/Italian/Arabic and persists; ui.set language auto|en|ja|zh-hans|zh-hant|cs|pt-br|de|es|fr|te|hu|uk|it|ar and ui.state expose it. TSV catalogs per language (same system as PhotoCraft); every dialog, panel and notice goes through tl!. Japanese, Traditional Chinese, Simplified Chinese, German, Spanish, French and Hungarian cover commands, dialogs, panels, shortcuts and history labels; Czech and Brazilian Portuguese the menus. French locales (fr, fr_FR, fr_CA, fr_BE) select the French catalog, German locales (de, de_DE, de_AT, de_CH) the German one, Hungarian locales (hu, hu_HU) the Hungarian one. German search hints reserve shortcut space, Home cards bound translated text, certificate Subject has its own context, and inserted tool names keep their capitalization. The sentences the layers below word for themselves (accessibility findings and the saved report, PDF/A problems, signature details, page-range mistakes, edit labels) are handed over apart from the document's own values and go through the catalog too, through said(&i18n::words); Spanish translates them and the other catalogs fall back to English. OS error details, and faults rather than mistakes, stay as they are. Auto detects the Windows display language after explicitly named supported locale overrides; neutral C/POSIX launcher locales are skipped on Windows, with Chinese script/region mapping and English fallback. Arabic (ar and every ar-* locale) covers commands, dialogs and panels with the six CLDR plural forms; its labels are put into display order when the catalog loads, because egui joins Arabic letters but lays words out left to right. Missing: a right-to-left layout (Arabic labels sit in the left-to-right layout, a wrapped Arabic paragraph breaks at the wrong end, and text typed into a field is not reordered), Czech and Brazilian Portuguese dialogs, Chinese and Telugu font delivery in releases (the pinned craft-fonts revision has an Arabic face; its Noto Sans CJK SC is never embedded, AGENTS.md §1.1), the engine's sentences in the other catalogs, a full localization audit."
 
 [[feature]]

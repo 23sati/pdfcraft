@@ -19,7 +19,7 @@ import psutil
 
 ROOT = Path(__file__).resolve().parents[2]
 TEMP_ROOT = Path(os.environ["RUNNER_TEMP"])
-BASELINE_SHA = os.environ["BASELINE_SHA"]
+BASELINE_SHA = os.environ.get("BASELINE_SHA")
 CANDIDATE_SHA = os.environ["CANDIDATE_SHA"]
 TEST_RUNS = int(os.environ.get("TEST_RUNS", "3"))
 TEST_COMMAND = ["cargo", "test", "-p", "pdfcraft-ui-egui", "--tests", "--locked"]
@@ -266,7 +266,10 @@ def render_report(results: list[dict[str, object]]) -> str:
 
 def main() -> None:
     subprocess.run(["cargo", "fetch", "--locked"], cwd=ROOT, check=True)
-    results = [measure_layout("baseline", BASELINE_SHA), measure_layout("candidate", CANDIDATE_SHA)]
+    baseline_sha = BASELINE_SHA or subprocess.run(
+        ["git", "rev-parse", f"{CANDIDATE_SHA}^"], cwd=ROOT, check=True, capture_output=True, text=True
+    ).stdout.strip()
+    results = [measure_layout("baseline", baseline_sha), measure_layout("candidate", CANDIDATE_SHA)]
     report = render_report(results)
     report_path = TEMP_ROOT / "ui-egui-topology-measurement.md"
     report_path.write_text(report, encoding="utf-8")
