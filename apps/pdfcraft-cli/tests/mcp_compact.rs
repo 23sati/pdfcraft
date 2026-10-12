@@ -40,10 +40,7 @@ fn listed_tools(flags: &[&str]) -> Vec<String> {
 #[test]
 fn mcp_rejects_unknown_options_before_starting_the_server() {
     for option in ["--totally-bogus-flag", "--rot", "--root=."] {
-        let out = Command::new(env!("CARGO_BIN_EXE_pdfcraft-cli"))
-            .args(["mcp", option])
-            .output()
-            .expect("run CLI");
+        let out = Command::new(env!("CARGO_BIN_EXE_pdfcraft-cli")).args(["mcp", option]).output().expect("run CLI");
 
         let stderr = String::from_utf8_lossy(&out.stderr);
         assert!(!out.status.success(), "mcp {option} unexpectedly succeeded");
