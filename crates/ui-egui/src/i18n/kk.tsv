@@ -2265,9 +2265,28 @@ scroll speed	Fast	Жылдам
 	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Бұл принтердің драйвері басқа бағдарламалардан екі жақты басып шығару баптауларын қабылдамайды, сондықтан өз баптауы қолданылады. Оны мына жерден өзгертіңіз: Сипаттар…
 	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Бұл өрістің қаріпі «{c}» ({code}) таңбасын сала алмайды, сондықтан PdfCraft оның орнына ? көрсетеді. Мән сақталады, ал басқа PDF қарау құралдары өрісті соған қарап қайта салады.
 	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	PdfCraft жазатын қаріптер «{c}» ({code}) таңбасын сала алмайды, сондықтан ол барлық PDF қарау құралдарында ? болып көрінеді. Мәтін сақталады.
+	Browser's print dialog	Браузердің басып шығару терезесі
+	Copies, two-sided printing and colour are chosen in the browser's print dialog.	Көшірмелер саны, екі жақты басып шығару және түс браузердің басып шығару терезесінде таңдалады.
+	Preparing {n} sheets for printing…	Басып шығаруға парақтар дайындалуда: {n}…
+	Preparing sheet {done} of {total} for printing…	Басып шығаруға {total} парақтың {done}-сі дайындалуда…
+	Opening the browser's print dialog…	Браузердің басып шығару терезесі ашылуда…
+	Couldn't print from the browser ({e}); downloaded {name} to print instead	Браузерден басып шығару мүмкін болмады ({e}); оның орнына басып шығару үшін {name} жүктелді
 	Tools panel side	Құралдар панелінің жағы
 	Add comment	Түсініктеме қосу
 	Change tag properties	Тег қасиеттерін өзгерту
+# Accessibility structure tags.
+	Tags panel	Тегтер панелі
+	Tags	Тегтер
+	Tag type	Тег түрі
+	Actual text	Нақты мәтін
+	Find a tag	Тегті табу
+	Collapse tag	Тегті жинау
+	Expand tag	Тегті жаю
+	Revert changes	Өзгерістерді қайтару
+	Save tag properties	Тег қасиеттерін сақтау
+	This document has no editable structure tags.	Бұл құжатта өңделетін құрылымдық тегтер жоқ.
+	{n} tags	{n} тег
+	Save or revert changes before selecting another tag.	Басқа тегті таңдамас бұрын өзгерістерді сақтаңыз немесе қайтарыңыз.
 	Left out: {names}	Қалдырылды: {names}
 	already a PDF	бұл қазірдің өзінде PDF
 	no unused output name	бос шығыс атауы жоқ

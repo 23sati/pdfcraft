@@ -2269,9 +2269,28 @@ scroll speed	Fast	Schnell
 	Greyscale	Graustufen
 	Black and white	Schwarzweiß
 	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Der Treiber dieses Druckers übernimmt keine Einstellungen für beidseitigen Druck von anderen Programmen, daher gilt seine eigene Einstellung. Ändern unter Eigenschaften…
+	Browser's print dialog	Druckdialog des Browsers
+	Copies, two-sided printing and colour are chosen in the browser's print dialog.	Exemplare, beidseitiger Druck und Farbe werden im Druckdialog des Browsers gewählt.
+	Preparing {n} sheets for printing…	{n} Blätter werden für den Druck vorbereitet…
+	Preparing sheet {done} of {total} for printing…	Blatt {done} von {total} wird für den Druck vorbereitet…
+	Opening the browser's print dialog…	Der Druckdialog des Browsers wird geöffnet…
+	Couldn't print from the browser ({e}); downloaded {name} to print instead	Drucken aus dem Browser nicht möglich ({e}); stattdessen wurde {name} zum Drucken heruntergeladen
 	Tools panel side	Seite des Werkzeugbereichs
 	Add comment	Kommentar hinzufügen
 	Change tag properties	Tag-Eigenschaften ändern
+# Accessibility structure tags.
+	Tags panel	Tags-Bereich
+	Tags	Tags
+	Tag type	Tag-Typ
+	Actual text	Tatsächlicher Text
+	Find a tag	Tag suchen
+	Collapse tag	Tag einklappen
+	Expand tag	Tag ausklappen
+	Revert changes	Änderungen verwerfen
+	Save tag properties	Tag-Eigenschaften speichern
+	This document has no editable structure tags.	Dieses Dokument enthält keine bearbeitbaren Struktur-Tags.
+	{n} tags	{n} Tags
+	Save or revert changes before selecting another tag.	Speichere oder verwerfe die Änderungen, bevor du ein anderes Tag auswählst.
 	Left out: {names}	Ausgelassen: {names}
 	already a PDF	bereits ein PDF
 	no unused output name	kein freier Ausgabename

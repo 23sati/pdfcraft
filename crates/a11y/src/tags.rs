@@ -8,6 +8,10 @@ use crate::alt;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TagInfo {
     pub object: ObjRef,
+    /// Nearest reachable indirect parent, if any. Inline ancestors are skipped.
+    pub parent: Option<ObjRef>,
+    /// Indentation level among reachable indirect tags.
+    pub depth: usize,
     pub kind: String,
     pub title: Option<String>,
     pub actual_text: Option<String>,
@@ -81,7 +85,7 @@ pub fn move_tag(doc: &mut Document, object: ObjRef, anchor: ObjRef, placement: T
         return Err(TagError::NotSiblings);
     }
     let reachable = alt::elements(doc);
-    if !reachable.iter().any(|e| e.0 == object) || !reachable.iter().any(|e| e.0 == anchor) {
+    if !reachable.iter().any(|e| e.object == object) || !reachable.iter().any(|e| e.object == anchor) {
         return Err(TagError::NotSiblings);
     }
     let parent_of = |r| doc.get(r).as_dict().and_then(|d| d.get(b"P").and_then(Object::as_ref));
@@ -120,15 +124,17 @@ pub fn tags(doc: &Document) -> Vec<TagInfo> {
     let page_index: std::collections::HashMap<ObjRef, usize> = pages.iter().enumerate().map(|(i, p)| (p.obj, i)).collect();
     alt::elements(doc)
         .into_iter()
-        .filter_map(|(object, d, page)| {
+        .filter_map(|e| {
             Some(TagInfo {
-                object,
-                kind: String::from_utf8_lossy(d.name(b"S")?).into_owned(),
-                title: text(doc, &d, b"T"),
-                actual_text: text(doc, &d, b"ActualText"),
-                alt: text(doc, &d, b"Alt"),
-                language: text(doc, &d, b"Lang"),
-                page: page.and_then(|p| page_index.get(&p).copied()),
+                object: e.object,
+                parent: e.parent,
+                depth: e.depth,
+                kind: String::from_utf8_lossy(e.dict.name(b"S")?).into_owned(),
+                title: text(doc, &e.dict, b"T"),
+                actual_text: text(doc, &e.dict, b"ActualText"),
+                alt: text(doc, &e.dict, b"Alt"),
+                language: text(doc, &e.dict, b"Lang"),
+                page: e.page.and_then(|p| page_index.get(&p).copied()),
             })
         })
         .collect()
@@ -136,7 +142,7 @@ pub fn tags(doc: &Document) -> Vec<TagInfo> {
 
 /// Change one property of a reachable tag; `None` removes a text property.
 pub fn set_tag_property(doc: &mut Document, object: ObjRef, property: TagProperty, value: Option<&str>) -> Result<(), TagError> {
-    if !alt::elements(doc).iter().any(|(r, _, _)| *r == object) {
+    if !alt::elements(doc).iter().any(|e| e.object == object) {
         return Err(TagError::NotATag(object));
     }
     // ActualText may intentionally contain leading or trailing whitespace; preserve it.

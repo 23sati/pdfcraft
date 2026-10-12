@@ -2231,9 +2231,28 @@ scroll speed	Fast	Висока
 	Greyscale	Нива на сивото
 	Black and white	Черно-бяло
 	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Драйверът на този принтер не приема настройки за двустранен печат от други програми и прилага собствената си настройка. Променете я от Свойства…
+	Browser's print dialog	Диалог за печат на браузъра
+	Copies, two-sided printing and colour are chosen in the browser's print dialog.	Броят копия, двустранният печат и цветът се избират в диалога за печат на браузъра.
+	Preparing {n} sheets for printing…	Подготовка на листове за печат: {n}…
+	Preparing sheet {done} of {total} for printing…	Подготовка за печат на лист {done} от {total}…
+	Opening the browser's print dialog…	Отваряне на диалога за печат на браузъра…
+	Couldn't print from the browser ({e}); downloaded {name} to print instead	Не може да се печата от браузъра ({e}); вместо това за печат е изтеглен {name}
 	Tools panel side	Страна на панела с инструменти
 	Add comment	Добавяне на коментар
 	Change tag properties	Промяна на свойствата на етикета
+# Accessibility structure tags.
+	Tags panel	Панел с тагове
+	Tags	Тагове
+	Tag type	Тип на тага
+	Actual text	Действителен текст
+	Find a tag	Намери таг
+	Collapse tag	Свий тага
+	Expand tag	Разгъни тага
+	Revert changes	Отмени промените
+	Save tag properties	Запази свойствата на тага
+	This document has no editable structure tags.	Този документ няма структурни тагове за редактиране.
+	{n} tags	{n} тага
+	Save or revert changes before selecting another tag.	Запазете или отменете промените, преди да изберете друг таг.
 	Left out: {names}	Пропуснати: {names}
 	already a PDF	вече е PDF
 	no unused output name	няма свободно име за изходния файл

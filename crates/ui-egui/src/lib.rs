@@ -28,6 +28,7 @@ mod appearance;
 pub mod canvas;
 mod chrome;
 mod combine_grid;
+mod tags_ui;
 pub use combine_grid::ThumbState as CombineThumb;
 mod combine_ui;
 pub mod docking;
@@ -92,6 +93,7 @@ pub mod prepare;
 mod print_ui;
 mod signature_drag;
 pub mod units;
+mod web_print;
 pub use print_ui::{Handling as PrintHandling, PrintDraft, PrinterSource, Which as PrintWhich, system_printers};
 mod redact_ui;
 pub use redact_ui::{HiddenDraft, PagesDraft as RedactPagesDraft, RedactPrefs, SearchDraft as RedactSearchDraft, SearchMode as RedactSearchMode};
@@ -177,6 +179,8 @@ pub enum RightPanel {
     Signatures,
     /// Accessibility Checker results.
     Accessibility,
+    /// Reachable PDF structure tags and their properties.
+    Tags,
     /// Advanced Search results.
     Search,
     /// Compare files: the differences.
@@ -584,6 +588,7 @@ pub struct PdfCraftApp {
     pub js_console: js_ui::JsConsole,
     pub doc_js: js_ui::DocJsDraft,
     pub a11y: a11y_ui::A11yState,
+    pub(crate) tags_state: tags_ui::State,
     pub a11y_skipped: std::collections::BTreeSet<pdfcraft_engine::a11y::Rule>,
     pub alt_draft: a11y_ui::AltDraft,
     /// List the OS key store's signing identities among the digital IDs (the desktop app).
@@ -861,6 +866,7 @@ impl PdfCraftApp {
             js_console: Default::default(),
             doc_js: Default::default(),
             a11y: a11y_ui::A11yState::default(),
+            tags_state: Default::default(),
             a11y_skipped: Default::default(),
             alt_draft: Default::default(),
             os_key_store_ids: false,
@@ -1923,6 +1929,7 @@ impl PdfCraftApp {
                     "attachments" => Some(RightPanel::Attachments),
                     "signatures" => Some(RightPanel::Signatures),
                     "accessibility" => Some(RightPanel::Accessibility),
+                    "tags" => Some(RightPanel::Tags),
                     "search" => Some(RightPanel::Search),
                     "compare" => Some(RightPanel::Compare),
                     "none" => None,

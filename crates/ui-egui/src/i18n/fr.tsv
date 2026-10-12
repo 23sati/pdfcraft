@@ -2268,9 +2268,28 @@ scroll speed	Fast	Rapide
 	Greyscale	Niveaux de gris
 	Black and white	Noir et blanc
 	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Le pilote de cette imprimante n'accepte pas les réglages recto verso des autres programmes ; son propre réglage s'applique. Modifiez-le dans Propriétés…
+	Browser's print dialog	Boîte de dialogue d'impression du navigateur
+	Copies, two-sided printing and colour are chosen in the browser's print dialog.	Le nombre de copies, l'impression recto verso et la couleur se choisissent dans la boîte de dialogue d'impression du navigateur.
+	Preparing {n} sheets for printing…	Préparation de {n} feuilles pour l'impression…
+	Preparing sheet {done} of {total} for printing…	Préparation de la feuille {done} sur {total} pour l'impression…
+	Opening the browser's print dialog…	Ouverture de la boîte de dialogue d'impression du navigateur…
+	Couldn't print from the browser ({e}); downloaded {name} to print instead	Impossible d'imprimer depuis le navigateur ({e}) ; {name} a été téléchargé pour être imprimé
 	Tools panel side	Côté du panneau Outils
 	Add comment	Ajouter un commentaire
 	Change tag properties	Modifier les propriétés de la balise
+# Accessibility structure tags.
+	Tags panel	Panneau des balises
+	Tags	Balises
+	Tag type	Type de balise
+	Actual text	Texte réel
+	Find a tag	Rechercher une balise
+	Collapse tag	Réduire la balise
+	Expand tag	Développer la balise
+	Revert changes	Annuler les modifications
+	Save tag properties	Enregistrer les propriétés de la balise
+	This document has no editable structure tags.	Ce document ne contient aucune balise de structure modifiable.
+	{n} tags	{n} balises
+	Save or revert changes before selecting another tag.	Enregistrez ou annulez les modifications avant de sélectionner une autre balise.
 	Left out: {names}	Ignorés : {names}
 	already a PDF	déjà un PDF
 	no unused output name	aucun nom de sortie libre
