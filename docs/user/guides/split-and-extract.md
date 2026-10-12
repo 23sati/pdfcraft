@@ -45,4 +45,4 @@ pdfcraft-cli extract report.pdf --pages 1,3,5 --out highlights.pdf
 pdfcraft-cli split   report.pdf --every 10 --out-dir parts/
 ```
 
-The command-line tool is a separate download on the release page.
+On macOS and Linux the command-line tool is a separate `pdfcraft-cli` download on the release page. On Windows, `pdfcraft-cli.exe` is in the portable zip.

@@ -6,4 +6,4 @@ order: 40
 
 - [Is PdfCraft free?](is-it-free.md)
 - [Can PdfCraft replace Adobe Acrobat?](replace-acrobat.md)
-- [Edit with PdfCraft is missing from the right-click menu](open-with-menu.md)
+- [PdfCraft is missing from Open with](open-with-menu.md)

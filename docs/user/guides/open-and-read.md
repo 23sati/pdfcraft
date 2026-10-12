@@ -7,6 +7,8 @@ verified: 0.6.0
 
 Open a file with **File**, **Open…** (`Ctrl+O`), then use the **View** menu for layout and zoom and `Ctrl+F` to search.
 
+Shortcuts on this page use Ctrl. On macOS, use Cmd instead of Ctrl.
+
 ## Open a file
 
 1. Click the **Menu** button, then **File**, then **Open…**. Or press `Ctrl+O`.

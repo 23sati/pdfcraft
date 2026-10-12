@@ -7,6 +7,8 @@ verified: 0.6.0
 
 - [Install PdfCraft](install.md)
 
+Shortcuts on this page use Ctrl. On macOS, use Cmd instead of Ctrl.
+
 ## Open your first PDF
 
 1. Start PdfCraft. With no document open it shows the **Welcome to PdfCraft** home screen.

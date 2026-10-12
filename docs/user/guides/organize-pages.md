@@ -7,11 +7,13 @@ verified: 0.6.0
 
 Open **Menu**, **Pages**, **Organize pages** to see every page as a thumbnail. Select pages, use the toolbar above the grid, then save.
 
+Shortcuts on this page use Ctrl. On macOS, use Cmd instead of Ctrl.
+
 ## Steps
 
 1. Open the PDF.
 2. Click the **Menu** button, then **Pages**, then **Organize pages**.
-3. Select pages. Click one page, `Ctrl`-click to add or remove single pages, or `Shift`-click to select a range. The toolbar shows how many pages are selected.
+3. Select pages. Click one page, `Ctrl`-click (`Cmd`-click on macOS) to add or remove single pages, or `Shift`-click to select a range. The toolbar shows how many pages are selected.
 4. Use the toolbar buttons above the grid. Hover over a button to see its name.
 
    | Button                                  | What it does                                  |

@@ -7,6 +7,8 @@ verified: 0.6.0
 
 In PdfCraft 0.6.0 on Windows 11, the Print dialog lists only **Save as PDF**. Choose **Save as PDF**, then print the saved file from another PDF app or your browser. A fix is merged but not in 0.6.0.
 
+Shortcuts on this page use Ctrl. On macOS, use Cmd instead of Ctrl.
+
 ## Symptoms
 
 - **File**, **Print…** (`Ctrl+P`) opens the **Print** dialog, but the **Printer:** list has no printers.

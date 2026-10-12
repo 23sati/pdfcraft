@@ -7,6 +7,8 @@ verified: 0.6.0
 
 Choose **File**, **Protect using password…**, pick what the password is for, type it twice and click **Apply**. The password is added when you save.
 
+Shortcuts on this page use Ctrl. On macOS, use Cmd instead of Ctrl.
+
 ## Add a password
 
 1. Open the PDF.
@@ -30,11 +32,8 @@ PdfCraft opens every encryption level from 40-bit RC4 to AES-256. Edits to an en
 
 ## Lift restrictions
 
-A document restricted by its author shows a notice, and PdfCraft honors the restrictions. Some page and editing commands stay off.
-
-1. Click the **Menu** button, then **File**, then **Enter permissions password…**.
-2. Type the owner password and click **Unlock**.
+A document restricted by its author shows "This document is secured. Some changes are restricted by its security settings." PdfCraft honors the restrictions, and some page and editing commands stay off. In 0.6.0 you can only lift them by opening the document with its permissions password. A command to unlock a restricted document that is already open was added after 0.6.0 and is not in a release yet.
 
 ## Remove the password
 
-Choose **File**, **Remove security**. PdfCraft says "Security will be removed when you save", so save the file afterwards. If the document is restricted, PdfCraft first asks for the permissions password. **File**, **Security properties…** shows the encryption method and each permission.
+Choose **File**, **Remove security**. PdfCraft says "Security will be removed when you save", so save the file afterwards. If the document was not opened with its permissions password, PdfCraft says "Only the document's owner can change its security (open it with the permissions password)". **File**, **Security properties…** shows the encryption method and each permission.

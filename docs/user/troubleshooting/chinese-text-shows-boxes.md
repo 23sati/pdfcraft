@@ -7,6 +7,8 @@ verified: 0.6.0
 
 In PdfCraft 0.6.0, some Chinese characters in the menus and dialogs, mostly Simplified-only ones, appear as empty boxes. The release has no Simplified Chinese interface font. A change merged after 0.6.0 draws them with a Chinese font already installed on your PC. Until you have it, switch the interface language to English or another language.
 
+Shortcuts on this page use Ctrl. On macOS, use Cmd instead of Ctrl.
+
 ## Symptoms
 
 - With the interface in Simplified Chinese, characters such as 欢, 签 and 导 show as boxes. Only characters shared with the Japanese fonts draw correctly ([issue #984](https://github.com/storytold/pdfcraft/issues/984)).
