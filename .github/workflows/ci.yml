@@ -20,6 +20,9 @@ jobs:
   test:
     name: test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    env:
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
+      CARGO_PROFILE_TEST_DEBUG: line-tables-only
     strategy:
       fail-fast: false
       matrix:
@@ -81,6 +84,7 @@ jobs:
           cargo test --workspace
 
       - name: Layering
+        if: runner.os == 'Linux'
         run: cargo xtask layers
 
       - name: Assets (licences and attribution)
