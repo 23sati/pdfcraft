@@ -78,6 +78,7 @@ jobs:
         run: cargo test --workspace
 
       - name: Layering
+        if: runner.os == 'Linux'
         run: cargo xtask layers
 
       - name: Assets (licences and attribution)
