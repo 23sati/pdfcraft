@@ -82,6 +82,13 @@ fn an_explicit_colour_is_kept_for_the_new_text() {
     assert!(!px.iter().any(|p| near(*p, INK)), "no scanned ink is left");
 }
 
+/// A word as OCR boxes it on a scan set at `size` on `baseline`: tight around its ink, from the
+/// descender line when it has descenders, up to the cap height.
+fn scanned_word(text: &str, x0: f64, x1: f64, baseline: f64, size: f64) -> PlacedWord {
+    let low = if text.chars().any(|c| "gjpqy".contains(c)) { 0.21 * size } else { 0.0 };
+    PlacedWord { text: text.into(), origin: [x0, baseline - low], across: [x1 - x0, 0.0], up: [0.0, 0.718 * size + low] }
+}
+
 fn word(text: &str, x0: f64, x1: f64, baseline: f64) -> PlacedWord {
     PlacedWord { text: text.into(), origin: [x0, baseline], across: [x1 - x0, 0.0], up: [0.0, 10.0] }
 }
@@ -110,7 +117,11 @@ fn ocr_words_group_into_phrases_that_edit_in_place() {
 /// Several words of one OCR phrase rewrite as one line, without wrapping onto the line below.
 #[test]
 fn a_longer_ocr_phrase_grows_rightwards() {
-    let (mut s, id) = scanned_with(vec![word("Project", 20.0, 55.0, 70.0), word("Lead", 59.0, 80.0, 70.0), word("Testing", 20.0, 56.0, 56.0)]);
+    let (mut s, id) = scanned_with(vec![
+        scanned_word("Project", 20.0, 55.0, 70.0, 11.0),
+        scanned_word("Lead", 59.0, 80.0, 70.0, 11.0),
+        scanned_word("Testing", 20.0, 56.0, 56.0, 11.0),
+    ]);
     s.apply(id, Edit::EditTextBlock { page: 0, block: 0, text: "Project Coordinator Lead".into(), style: Default::default() }).unwrap();
     let blocks = s.get(id).unwrap().text_blocks(0);
     assert_eq!(blocks.iter().map(|b| b.text.as_str()).collect::<Vec<_>>(), ["Project Coordinator Lead", "Testing"]);
@@ -121,8 +132,11 @@ fn a_longer_ocr_phrase_grows_rightwards() {
 /// word's width, so the words don't run into one another.
 #[test]
 fn a_rewritten_ocr_phrase_keeps_its_word_widths() {
-    let sized = |text: &str, x0: f64, x1: f64, up: f64| PlacedWord { text: text.into(), origin: [x0, 70.0], across: [x1 - x0, 0.0], up: [0.0, up] };
-    let (mut s, id) = scanned_with(vec![sized("John", 20.0, 45.0, 9.5), sized("Smith", 49.0, 78.0, 10.0), sized("Example", 82.0, 124.0, 10.8)]);
+    let (mut s, id) = scanned_with(vec![
+        scanned_word("John", 20.0, 45.0, 70.0, 10.5),
+        scanned_word("Smith", 49.0, 78.0, 70.0, 11.0),
+        scanned_word("Example", 82.0, 124.0, 70.0, 11.5),
+    ]);
     s.apply(id, Edit::EditTextBlock { page: 0, block: 0, text: "John Smith Exam".into(), style: Default::default() }).unwrap();
     let lines = s.get(id).unwrap().text_lines(0);
     assert_eq!(lines.iter().map(|l| l.text.trim()).collect::<Vec<_>>(), ["John", "Smith", "Exam"]);
