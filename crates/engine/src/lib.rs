@@ -27,6 +27,7 @@ pub mod js;
 pub mod links;
 pub mod ocr;
 pub mod optimizer;
+pub mod printcheck;
 mod scan_colours;
 pub mod signature_image;
 pub mod signature_scan;

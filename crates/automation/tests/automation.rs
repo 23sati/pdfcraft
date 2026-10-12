@@ -4301,6 +4301,29 @@ fn pdfa_through_tools() {
 }
 
 #[test]
+fn print_readiness_through_tools() {
+    let dir = workdir("print-readiness");
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_create", json!({ "from": "text", "text": "Proof me" }))["doc"].as_u64().unwrap();
+    let before = ok(&mut a, "doc_info", json!({ "doc": doc }));
+    let r = ok(&mut a, "print_readiness", json!({ "doc": doc }));
+    assert!(r["text"].as_str().unwrap().contains("verification only"), "{r}");
+    assert_eq!(r["pages"].as_array().unwrap().len(), 1, "{r}");
+    assert_eq!(r["pages"][0]["trim_set"], false, "{r}");
+    assert_eq!(r["resolution_unknown"], 0, "{r}");
+    let findings = r["findings"].as_array().unwrap();
+    // A page without a TrimBox is one informational note for the document, not a bleed warning.
+    assert!(!findings.iter().any(|f| f["id"] == "page-bleed"), "{r}");
+    let trim: Vec<_> = findings.iter().filter(|f| f["id"] == "page-trim").collect();
+    assert_eq!(trim.len(), 1, "{r}");
+    assert_eq!(trim[0]["severity"], "info");
+    assert!(trim[0]["page"].is_null(), "{r}");
+    assert_eq!(ok(&mut a, "doc_info", json!({ "doc": doc })), before, "verification doesn't change the document");
+    assert!(a.call("print_readiness", &json!({ "doc": 999 })).is_err());
+    assert!(pdfcraft_automation::tools().iter().any(|t| t.name == "print_readiness" && t.read_only));
+}
+
+#[test]
 fn exporting_to_word_html_and_rtf() {
     let dir = workdir("office");
     let mut a = auto(&dir);
