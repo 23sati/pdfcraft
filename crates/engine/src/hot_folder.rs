@@ -307,17 +307,28 @@ pub fn read_worker_error(config: &Path) -> Result<Option<String>, String> {
 
 /// Canonicalize before opening anything; reject symbolic links on the final path and root escapes.
 pub fn confined(path: &Path, root: Option<&Path>) -> Result<PathBuf, String> {
+    if root.is_some() && path.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
+        return Err("hot folder path is outside the allowed directory".into());
+    }
+    // Resolving the explicitly authorized root is allowed. Do not resolve an arbitrary
+    // candidate until its spelling is strictly inside that root (possibly an 8.3 alias)
+    // or the root's canonical spelling. Alias uncertainty never grants access.
+    let requested_root = root.map(std::path::absolute).transpose().map_err(|e| e.to_string())?;
+    let canonical_root = requested_root.as_ref().map(fs::canonicalize).transpose().map_err(|e| e.to_string())?;
     let absolute = if path.is_absolute() {
         path.to_path_buf()
     } else {
-        root.map(Path::to_path_buf).unwrap_or(std::env::current_dir().map_err(|e| e.to_string())?).join(path)
+        let base = match &requested_root {
+            Some(root) => root.clone(),
+            None => std::env::current_dir().map_err(|e| e.to_string())?,
+        };
+        base.join(path)
     };
-    if let Some(root) = root {
-        let root = root.canonicalize().map_err(|e| e.to_string())?;
-        // Reject '..' before filesystem access; a confined call cannot probe outside the root.
-        if absolute.components().any(|c| matches!(c, std::path::Component::ParentDir)) || !lexically_inside(&absolute, &root) {
-            return Err("hot folder path is outside the allowed directory".into());
-        }
+    if let (Some(requested), Some(canonical)) = (&requested_root, &canonical_root)
+        && !lexically_inside(&absolute, requested)
+        && !lexically_inside(&absolute, canonical)
+    {
+        return Err("hot folder path is outside the allowed directory".into());
     }
     if fs::symlink_metadata(&absolute).is_ok_and(|m| m.file_type().is_symlink()) {
         return Err(format!("symbolic links are not allowed: {}", path.display()));
@@ -328,8 +339,8 @@ pub fn confined(path: &Path, root: Option<&Path>) -> Result<PathBuf, String> {
         absolute.parent().ok_or("path needs a parent folder")?.canonicalize().map(|p| p.join(absolute.file_name().unwrap_or_default()))
     }
     .map_err(|e| format!("{}: {e}", path.display()))?;
-    if let Some(root) = root
-        && !result.starts_with(root.canonicalize().map_err(|e| e.to_string())?)
+    if let Some(root) = canonical_root
+        && !result.starts_with(root)
     {
         return Err("hot folder path is outside the allowed directory".into());
     }
@@ -339,17 +350,91 @@ pub fn confined(path: &Path, root: Option<&Path>) -> Result<PathBuf, String> {
 fn lexically_inside(path: &Path, root: &Path) -> bool {
     #[cfg(windows)]
     {
-        let normalize = |p: &Path| {
-            let raw = p.to_string_lossy().replace('/', "\\");
-            let path = if let Some(unc) = raw.strip_prefix(r"\\?\UNC\") { format!(r"\\{unc}") } else { raw.trim_start_matches(r"\\?\").to_owned() };
-            path.to_ascii_lowercase()
+        let (Some((path_volume, path)), Some((root_volume, root))) = (windows_path_parts(path), windows_path_parts(root)) else {
+            return false;
         };
-        let path = normalize(path);
-        let root = normalize(root);
-        path == root || path.starts_with(&format!("{}\\", root.trim_end_matches('\\')))
+        windows_part_eq(&path_volume, &root_volume)
+            && path.len() >= root.len()
+            && path.iter().zip(&root).all(|(part, parent)| windows_part_eq(part, parent))
     }
     #[cfg(not(windows))]
     path.starts_with(root)
+}
+
+#[cfg(windows)]
+fn windows_path_parts(path: &Path) -> Option<(String, Vec<String>)> {
+    use std::path::{Component, Prefix};
+    let mut components = path.components();
+    let volume = match components.next()? {
+        Component::Prefix(prefix) => match prefix.kind() {
+            Prefix::Disk(drive) | Prefix::VerbatimDisk(drive) => format!("drive:{}", char::from(drive)),
+            Prefix::UNC(server, share) | Prefix::VerbatimUNC(server, share) => format!("unc:{}\\{}", server.to_str()?, share.to_str()?),
+            // Device namespaces and unidentified volume aliases cannot establish safe boundaries.
+            _ => return None,
+        },
+        _ => return None,
+    };
+    if !matches!(components.next(), Some(Component::RootDir)) {
+        return None;
+    }
+    let mut parts = Vec::new();
+    for part in components {
+        match part {
+            Component::Normal(name) => {
+                let name = name.to_str()?;
+                if matches!(name, "." | "..") {
+                    return None;
+                }
+                parts.push(name.to_owned());
+            }
+            Component::CurDir => {}
+            _ => return None,
+        }
+    }
+    Some((volume, parts))
+}
+
+#[cfg(windows)]
+fn windows_part_eq(left: &str, right: &str) -> bool {
+    left.eq_ignore_ascii_case(right)
+}
+
+#[cfg(windows)]
+fn windows_case_may_match(left: &str, right: &str) -> bool {
+    // Unicode expansions can conservatively deny overlap, but must not authorize access
+    // to another spelling (NTFS case rules are not Rust's full Unicode case conversion).
+    windows_part_eq(left, right) || left.to_lowercase() == right.to_lowercase() || left.to_uppercase() == right.to_uppercase()
+}
+
+#[cfg(windows)]
+fn possible_short_name(name: &str) -> bool {
+    let (stem, extension) = name.split_once('.').unwrap_or((name, ""));
+    let Some((prefix, number)) = stem.rsplit_once('~') else { return false };
+    !prefix.is_empty()
+        && stem.chars().count() <= 8
+        && !number.is_empty()
+        && number.bytes().all(|byte| byte.is_ascii_digit())
+        && extension.chars().count() <= 3
+        && !name.chars().any(|c| c.is_control() || matches!(c, ' ' | '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*'))
+        && !extension.contains('.')
+}
+
+/// DENY-only overlap check. An 8.3-looking component may be an unknown long spelling;
+/// ambiguous overlap is refused without resolving or contacting another task's volume.
+/// Never use this conservative predicate to authorize filesystem access.
+fn paths_may_overlap(left: &Path, right: &Path) -> bool {
+    #[cfg(windows)]
+    {
+        let (Some((left_volume, left)), Some((right_volume, right))) = (windows_path_parts(left), windows_path_parts(right)) else {
+            return true;
+        };
+        windows_case_may_match(&left_volume, &right_volume)
+            && left.iter().zip(&right).all(|(a, b)| windows_case_may_match(a, b) || possible_short_name(a) || possible_short_name(b))
+    }
+    #[cfg(not(windows))]
+    {
+        left.starts_with(right) || right.starts_with(left)
+    }
 }
 
 /// Validate scheduler/configuration structure without probing source or output volumes.
@@ -400,8 +485,10 @@ pub fn validate_structure(config: &Config, root: Option<&Path>) -> Result<(), St
                 outputs.push(lexical_path(folder, root)?);
             }
         }
-        if outputs.iter().any(|out| lexically_inside(out, &input) || lexically_inside(&input, out)) {
-            return Err("input, output and archive folders must not contain one another".into());
+        if outputs.iter().any(|out| paths_may_overlap(out, &input)) {
+            return Err(
+                "input, output and archive folders must not contain one another; use full folder names when short aliases are ambiguous".into()
+            );
         }
         if t.enabled {
             sources.push(input);
@@ -409,8 +496,8 @@ pub fn validate_structure(config: &Config, root: Option<&Path>) -> Result<(), St
         }
     }
     for (index, source) in sources.iter().enumerate() {
-        if sources.iter().skip(index + 1).chain(&destinations).any(|other| lexically_inside(source, other) || lexically_inside(other, source)) {
-            return Err("task input/output folders must not overlap".into());
+        if sources.iter().skip(index + 1).chain(&destinations).any(|other| paths_may_overlap(source, other)) {
+            return Err("task input/output folders must not overlap; use full folder names when short aliases are ambiguous".into());
         }
     }
     Ok(())
@@ -698,8 +785,8 @@ fn validate_runtime(task: &Task, config: &Config, root: Option<&Path>) -> Result
                 boundaries.push(lexical_path(folder, root)?);
             }
         }
-        if originals.iter().any(|source| boundaries.iter().any(|boundary| lexically_inside(source, boundary) || lexically_inside(boundary, source))) {
-            return Err("project originals overlap another active task's folders; originals retained".into());
+        if originals.iter().any(|source| boundaries.iter().any(|boundary| paths_may_overlap(source, boundary))) {
+            return Err("project originals may overlap another active task's folders; use full folder names when short aliases are ambiguous; originals retained".into());
         }
     }
     Ok(())
@@ -832,6 +919,18 @@ fn remove_staged(path: &Path, expected: &str) -> Result<(), String> {
 }
 
 fn step(task: &Task, state: &mut State, current: u64, config_path: &Path, root: Option<&Path>, should_stop: &dyn Fn() -> bool) -> Result<(), String> {
+    step_with_model_check(task, state, current, config_path, root, should_stop, &|| ocr::engine().map(|_| ()))
+}
+
+fn step_with_model_check(
+    task: &Task,
+    state: &mut State,
+    current: u64,
+    config_path: &Path,
+    root: Option<&Path>,
+    should_stop: &dyn Fn() -> bool,
+    check_models: &dyn Fn() -> Result<(), String>,
+) -> Result<(), String> {
     let input = confined(&task.input, root)?;
     let output = confined(&task.output, root)?;
     let snapshot = serde_json::to_vec(task).map_err(|e| e.to_string())?;
@@ -967,10 +1066,6 @@ fn step(task: &Task, state: &mut State, current: u64, config_path: &Path, root: 
     if ready.is_empty() || batch && ready.len() != waiting {
         return Ok(());
     }
-    // Model installation is an environment failure, not a permanent bad input.
-    if !task.analysis_only && (task.settings.recognize || task.settings.auto_rotate || task.settings.deskew || task.settings.auto_crop) {
-        ocr::engine()?;
-    }
     let publication_time = state.tasks.get(&task.id).and_then(|status| status.attempt_started_at).unwrap_or(current);
     let mut prepared = Vec::new();
     let mut prepared_bytes = 0_u64;
@@ -1016,6 +1111,11 @@ fn step(task: &Task, state: &mut State, current: u64, config_path: &Path, root: 
             }
             state.tasks.entry(task.id.clone()).or_default().waiting = state.tasks.get(&task.id).map_or(0, |s| s.waiting.saturating_sub(1));
             continue;
+        }
+        // Completed receipts need only verified cleanup, even when the models are unavailable.
+        // New work still treats missing models as an environment failure, not a permanent bad input.
+        if !task.analysis_only && (task.settings.recognize || task.settings.auto_rotate || task.settings.deskew || task.settings.auto_crop) {
+            check_models()?;
         }
         let processed = match prepare(task, &source, bytes, config_path, MAX_INPUT.saturating_sub(prepared_bytes), publication_time, &task_stopped) {
             Ok(bytes) => bytes,
@@ -1658,6 +1758,39 @@ mod tests {
         assert_eq!(fs::read_dir(&task.archive).unwrap().count(), 1);
         assert_eq!(fs::read_dir(&task.output).unwrap().count(), 1);
         assert!(read_state(&config).unwrap().receipts[&key].cleanup.is_none());
+    }
+
+    #[test]
+    fn hot_folder_missing_models_leave_new_work_retryable_and_keep_its_original() {
+        let (_dir, config, mut task) = setup();
+        task.originals = Originals::Delete;
+        save_config(&config, &Config { tasks: vec![task.clone()] }, None).unwrap();
+        let original = text_pdf();
+        let source = task.input.join("new.pdf");
+        fs::write(&source, original.as_slice()).unwrap();
+        let mut state = State::default();
+        let checks = std::cell::Cell::new(0);
+        // Model discovery normally searches several installation paths. Inject its real missing-
+        // model error so this regression also exercises refusal on machines with models installed.
+        let unavailable = || {
+            checks.set(checks.get() + 1);
+            Err(ocr::OcrError::NoModels.to_string())
+        };
+        step_with_model_check(&task, &mut state, 10, &config, None, &|| false, &unavailable).unwrap();
+        assert_eq!(checks.get(), 0, "an unsettled input does not load models");
+        for current in [13, 16] {
+            assert_eq!(
+                step_with_model_check(&task, &mut state, current, &config, None, &|| false, &unavailable).unwrap_err(),
+                ocr::OcrError::NoModels.to_string()
+            );
+            assert_eq!(fs::read(&source).unwrap(), *original);
+            assert!(fs::read_dir(&task.output).unwrap().next().is_none());
+            assert!(fs::read_dir(&task.archive).unwrap().next().is_none());
+            assert!(state.receipts.is_empty());
+            assert!(state.observations.values().all(|observation| !observation.attempted));
+            assert!(!state.tasks[&task.id].blocked);
+        }
+        assert_eq!(checks.get(), 2, "an unavailable runtime must not permanently suppress retries");
     }
 
     #[test]
