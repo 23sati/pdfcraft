@@ -1761,6 +1761,50 @@ mod tests {
         assert!(remainder.is_empty());
         assert!(pixels.iter().all(|pixel| *pixel == [0, 0, 255, 255]));
     }
+    /// #1203: a /Lab colour space must honour its own /WhitePoint. The old path
+    /// fed every Lab value to the ICC transform as if the white point were D50,
+    /// shifting non-D50 pages several levels per channel (for example a D65
+    /// blue came out 45 levels too red). Conversion and expected values follow
+    /// ISO 32000-2 §8.6.5.4 with the space's own /WhitePoint [0.9505 1 1.089].
+    #[test]
+    fn lab_honours_the_space_white_point() {
+        use super::*;
+        let render = |l: f32, a: f32, b: f32| -> [u8; 4] {
+            let content = format!("/L cs {l} {a} {b} sc 0 0 200 200 re f");
+            let bytes = format!(
+                "%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n\
+                 2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n\
+                 3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /ColorSpace << /L [/Lab << /WhitePoint [0.9505 1 1.089] /Range [-100 100 -100 100] >>] >> >> /Contents 4 0 R >> endobj\n\
+                 4 0 obj << /Length {} >> stream\n{content}\nendstream endobj\n\
+                 trailer << /Root 1 0 R >>\n%%EOF",
+                content.len()
+            )
+            .into_bytes();
+            let page = PageRenderer::new(Arc::new(bytes), RenderConfig::default()).render(RenderRequest {
+                page: 0,
+                kind: RequestKind::Pixels,
+                tile: None,
+                scale: 1.0,
+                tag: 0,
+            });
+            assert!(page.error.is_none(), "Lab ({l} {a} {b}): {:?}", page.error);
+            assert_eq!((page.width, page.height), (200, 200));
+            page.rgba[(100 * page.width as usize + 100) * 4..][..4].try_into().unwrap()
+        };
+
+        for (l, a, b, expected) in [
+            (40.0, 20.0, -60.0, [19, 90, 194, 255]),
+            (70.0, -50.0, 30.0, [77, 193, 114, 255]),
+            (60.0, 0.0, -40.0, [87, 148, 215, 255]),
+            (50.0, 60.0, 40.0, [217, 61, 55, 255]),
+            (30.0, 40.0, 20.0, [130, 37, 42, 255]),
+        ] {
+            let got = render(l, a, b);
+            for (channel, (got, want)) in got.iter().zip(expected).enumerate() {
+                assert!((*got).abs_diff(want) <= 2, "Lab ({l} {a} {b}) channel {channel}: got {got:?}, expected {expected:?}");
+            }
+        }
+    }
     #[test]
     fn watchdog_skips_a_stuck_page_and_keeps_rendering() {
         use super::*;
