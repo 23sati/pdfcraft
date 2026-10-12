@@ -104,6 +104,9 @@ sync_github_name = true   # use the name on your public GitHub profile as displa
 [people.Losminek]
 sync_github_name = true
 
+[people.earlvanze]
+sync_github_name = true
+
 [people.rp6186030]
 real_name = "Raj Patel"
 sync_github_name = false
