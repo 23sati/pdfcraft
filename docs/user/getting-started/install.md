@@ -20,6 +20,7 @@ Pick the file that matches your PC:
 |------------------------------|----------------------------------------|-------------------------------------------------|
 | 64-bit Intel or AMD          | `pdfcraft-<version>-windows-x64.msi`   | `pdfcraft-<version>-windows-x64-portable.zip`   |
 | Snapdragon and other ARM PCs | `pdfcraft-<version>-windows-arm64.msi` | `pdfcraft-<version>-windows-arm64-portable.zip` |
+
 The release also has `x86` files. Do not use them: users who installed the `x86` build on a 64-bit PC reported that PdfCraft exited at launch (see [PdfCraft does not start](../troubleshooting/pdfcraft-does-not-start.md)).
 
 The installer adds PdfCraft to **Open with** for PDF files. It does not change which app opens PDFs by default.

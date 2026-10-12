@@ -23,7 +23,7 @@ The log is in `%APPDATA%\PdfCraft\data\logs\pdfcraft.log`. With the portable zip
 
 ### 1. Use the right build
 
-Two users in the issue had installed the 32-bit `x86` build on a 64-bit PC by mistake. If that is you, uninstall it and install `pdfcraft-<version>-windows-x64.msi` instead. See [Install PdfCraft](../getting-started/install.md). One user in the issue hit the same error on the x64 portable build, so if you already have the right build, go to step 2.
+Two users in the issue had installed the `x86` build on a 64-bit PC by mistake. If that is you, uninstall it and install `pdfcraft-<version>-windows-x64.msi` instead. See [Install PdfCraft](../getting-started/install.md). One user in the issue hit the same error on the x64 portable build, so if you already have the right build, go to step 2.
 
 ### 2. Start with OpenGL
 

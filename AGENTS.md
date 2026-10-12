@@ -122,7 +122,7 @@ Follow `CLAUDE.md`. It covers quality gates, layering, commit rules and how to r
 
 ## 6. User docs
 
-User docs live in `docs/user/` and are published at https://getartcraft.com/docs/pdfcraft. If a change alters something a user sees or does (menu or dialog labels, install, saving, printing, errors), update the matching page in `docs/user/` in the same PR, or add one. Windows 11 is the only supported Windows version. Rules: `docs/user/AGENTS.md`.
+User docs live in `docs/user/` and are published at https://getartcraft.com/docs/pdfcraft. If a change alters something a user sees or does (menu or dialog labels, install, saving, printing, errors), update the matching page in `docs/user/` in the same PR, or add one. Windows 11 is the only supported Windows version. Rules: `docs/user/AGENTS.md`. Pages describe the latest release. For a change that is not released yet, write that it was added after <version> and is not in a release yet, or update the page when the release ships.
 
 ## Contributor credits (About window)
 
