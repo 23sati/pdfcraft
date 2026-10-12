@@ -2609,6 +2609,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                     i,
                     info,
                     ft,
+                    app.fill_text_size,
                     view,
                     signature.as_ref(),
                     initials.as_ref(),
@@ -3944,6 +3945,15 @@ fn quick_bar(app: &mut PdfCraftApp, area: Rect, ui: &mut egui::Ui) {
                                 ui.close();
                             }
                         });
+                    if matches!(current_fill, Some(crate::fill_sign::FillTool::Text | crate::fill_sign::FillTool::Date)) {
+                        ui.label(tl!("Font size:"));
+                        ui.add(
+                            egui::DragValue::new(&mut app.fill_text_size)
+                                .range(crate::fill_sign::MIN_TEXT_SIZE..=crate::fill_sign::MAX_TEXT_SIZE)
+                                .speed(0.25)
+                                .suffix(" pt"),
+                        );
+                    }
                     if let QuickTool::Comment(tool) = app.quick_tool {
                         let (r, _) = ui.allocate_exact_size(vec2(32.0, 9.0), Sense::hover());
                         ui.painter().hline(r.x_range().shrink(6.0), r.center().y, Stroke::new(1.0, t.divider));
