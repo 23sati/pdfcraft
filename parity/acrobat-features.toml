@@ -5846,7 +5846,7 @@ milestone = "M9"
 status = "shipped"
 commands = ["sign.digital"]
 tools = ["sign_document"]
-evidence = ["crates/sign/tests/crypto.rs::opens_every_openssl_flavour_of_pkcs12", "crates/sign/tests/crypto.rs::opens_pkcs12_as_windows_writes_it", "crates/sign/tests/pdf.rs::signing_then_validating_with_and_without_trust", "crates/ui-egui/tests/signing.rs::certifying_without_a_visible_signature", "crates/automation/tests/automation.rs::digital_ids_signing_and_validation_through_tools"]
+evidence = ["crates/sign/tests/crypto.rs::opens_every_openssl_flavour_of_pkcs12", "crates/sign/tests/crypto.rs::opens_pkcs12_as_windows_writes_it", "crates/sign/tests/pdf.rs::signing_then_validating_with_and_without_trust", "crates/ui-egui/tests/ui_signing_group/signing.rs::certifying_without_a_visible_signature", "crates/automation/tests/automation.rs::digital_ids_signing_and_validation_through_tools"]
 notes = "PBES2 (AES, 3DES) and legacy SHA-1 3DES/RC2 files; RSA, P-256, P-384; both the DER OpenSSL writes and the BER Windows writes (indefinite lengths, segmented AuthenticatedSafe)"
 
 [[feature]]
@@ -5870,7 +5870,7 @@ milestone = "M9"
 status = "shipped"
 commands = ["sign.digital", "sign.certify"]
 tools = ["sign_windows_ids", "sign_document"]
-evidence = ["crates/sign/tests/pdf.rs::signing_with_windows_store_identities", "crates/sign/tests/pdf.rs::a_windows_store_identity_signs_with_its_issuers", "crates/sign/tests/pdf.rs::windows_store_enumeration_and_missing_identity", "crates/automation/tests/automation.rs::digital_ids_signing_and_validation_through_tools", "crates/ui-egui/tests/signing.rs::windows_store_identity_does_not_ask_for_a_file_password", "crates/ui-egui/tests/signing.rs::an_unusable_id_is_shown_with_its_reason_and_cannot_be_chosen"]
+evidence = ["crates/sign/tests/pdf.rs::signing_with_windows_store_identities", "crates/sign/tests/pdf.rs::a_windows_store_identity_signs_with_its_issuers", "crates/sign/tests/pdf.rs::windows_store_enumeration_and_missing_identity", "crates/automation/tests/automation.rs::digital_ids_signing_and_validation_through_tools", "crates/ui-egui/tests/ui_signing_group/signing.rs::windows_store_identity_does_not_ask_for_a_file_password", "crates/ui-egui/tests/ui_signing_group/signing.rs::an_unusable_id_is_shown_with_its_reason_and_cannot_be_chosen"]
 notes = "Current User Personal (My) CNG identities: RSA PKCS #1 v1.5 and DER-encoded ECDSA P-256/P-384. Keys never leave Windows; windows:<fingerprint|common name> for agents and Windows store labels in the desktop ID picker. The signature embeds the issuers Windows chains the certificate to. Store certificates that can't sign (no private key, another key type, a key CNG can't open) are reported with the reason and Windows error code (greyed in the picker, `unusable` in sign_windows_ids) rather than left out; keys that need a prompt to open are listed and prompt at signing. Tested with throwaway software-backed RSA-2048, P-256 and P-384 certificates and a key-less certificate (run with --ignored). Smart cards and tokens whose driver registers a CNG key storage provider sign with the provider's own PIN dialog (checked by hand with a SafeNet token only; no hardware in CI); still missing: the Local Machine store, legacy CryptoAPI-only providers, P-521/Brainpool/Ed25519 keys, direct PKCS #11."
 
 [[feature]]
@@ -5906,7 +5906,7 @@ milestone = "M9"
 status = "shipped"
 commands = ["sign.digital"]
 tools = ["sign_id_create"]
-evidence = ["crates/sign/tests/crypto.rs::new_digital_ids_are_self_signed_and_survive_a_p12_round_trip", "crates/ui-egui/tests/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting", "crates/automation/tests/automation.rs::digital_ids_signing_and_validation_through_tools"]
+evidence = ["crates/sign/tests/crypto.rs::new_digital_ids_are_self_signed_and_survive_a_p12_round_trip", "crates/ui-egui/tests/ui_signing_group/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting", "crates/automation/tests/automation.rs::digital_ids_signing_and_validation_through_tools"]
 notes = "RSA 2048/3072/4096 or P-256, saved as a password-protected .p12"
 
 [[feature]]
@@ -5930,7 +5930,7 @@ milestone = "M9"
 status = "shipped"
 commands = ["sign.digital"]
 tools = ["sign_document"]
-evidence = ["crates/ui-egui/tests/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting", "crates/automation/tests/automation.rs::digital_ids_signing_and_validation_through_tools"]
+evidence = ["crates/ui-egui/tests/ui_signing_group/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting", "crates/automation/tests/automation.rs::digital_ids_signing_and_validation_through_tools"]
 notes = "drag a rectangle; Acrobat's name-and-details appearance"
 
 [[feature]]
@@ -5942,7 +5942,7 @@ milestone = "M9"
 status = "shipped"
 commands = ["sign.digital"]
 tools = ["sign_document"]
-evidence = ["crates/sign/tests/pdf.rs::signing_an_existing_field_and_counter_signing", "crates/ui-egui/tests/signing.rs::clicking_an_empty_signature_field_signs_it"]
+evidence = ["crates/sign/tests/pdf.rs::signing_an_existing_field_and_counter_signing", "crates/ui-egui/tests/ui_signing_group/signing.rs::clicking_an_empty_signature_field_signs_it"]
 notes = ""
 
 [[feature]]
@@ -5954,7 +5954,7 @@ milestone = "M9"
 status = "shipped"
 commands = ["sign.certify_invisible"]
 tools = ["sign_document"]
-evidence = ["crates/sign/tests/pdf.rs::invisible_signatures_and_refusals", "crates/ui-egui/tests/signing.rs::certifying_without_a_visible_signature"]
+evidence = ["crates/sign/tests/pdf.rs::invisible_signatures_and_refusals", "crates/ui-egui/tests/ui_signing_group/signing.rs::certifying_without_a_visible_signature"]
 notes = ""
 
 [[feature]]
@@ -5966,7 +5966,7 @@ milestone = "M9"
 status = "partial"
 commands = ["sign.digital"]
 tools = ["sign_document"]
-evidence = ["crates/ui-egui/tests/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting", "crates/ui-egui/tests/signing.rs::the_fill_and_sign_signature_or_an_image_shows_in_a_digital_signature", "crates/sign/tests/pdf.rs::visible_signatures_show_a_drawn_typed_or_image_graphic", "crates/sign/tests/pdf.rs::malformed_signature_graphics_are_refused_not_drawn", "crates/sign/tests/pdf.rs::an_encrypted_documents_signature_graphic_is_encrypted_with_it", "crates/automation/tests/automation.rs::signing_with_an_image_typed_or_drawn_graphic_through_tools"]
+evidence = ["crates/ui-egui/tests/ui_signing_group/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting", "crates/ui-egui/tests/ui_signing_group/signing.rs::the_fill_and_sign_signature_or_an_image_shows_in_a_digital_signature", "crates/sign/tests/pdf.rs::visible_signatures_show_a_drawn_typed_or_image_graphic", "crates/sign/tests/pdf.rs::malformed_signature_graphics_are_refused_not_drawn", "crates/sign/tests/pdf.rs::an_encrypted_documents_signature_graphic_is_encrypted_with_it", "crates/automation/tests/automation.rs::signing_with_an_image_typed_or_drawn_graphic_through_tools"]
 notes = "text items (name, date, reason, location, DN, labels), and a graphic where the large name would be: the saved Fill & Sign signature (drawn, typed or image) or an imported PNG/JPEG (white paper made transparent, as in Fill & Sign), remembered for the next signing; alone it fills the box. Missing: named saved appearances (one remembered choice only), a PDF page as the graphic, the logo/watermark background, drawing a new signature inside the dialog"
 
 [[feature]]
@@ -6038,7 +6038,7 @@ milestone = "M9"
 status = "shipped"
 commands = ["sign.certify", "sign.certify_invisible"]
 tools = ["sign_document"]
-evidence = ["crates/sign/tests/pdf.rs::later_changes_are_classified_under_the_signature_permissions", "crates/ui-egui/tests/signing.rs::certifying_without_a_visible_signature"]
+evidence = ["crates/sign/tests/pdf.rs::later_changes_are_classified_under_the_signature_permissions", "crates/ui-egui/tests/ui_signing_group/signing.rs::certifying_without_a_visible_signature"]
 notes = ""
 
 [[feature]]
@@ -6158,7 +6158,7 @@ milestone = "M9"
 status = "partial"
 commands = ["sign.panel"]
 tools = ["sign_list"]
-evidence = ["crates/ui-egui/tests/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting"]
+evidence = ["crates/ui-egui/tests/ui_signing_group/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting"]
 notes = "per-signature tree with details and actions; no per-revision page outline yet"
 
 [[feature]]
@@ -6170,7 +6170,7 @@ milestone = "M9"
 status = "shipped"
 commands = ["sign.panel"]
 tools = ["sign_list"]
-evidence = ["crates/ui-egui/tests/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting"]
+evidence = ["crates/ui-egui/tests/ui_signing_group/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting"]
 notes = ""
 
 [[feature]]
@@ -6182,7 +6182,7 @@ milestone = "M9"
 status = "shipped"
 commands = ["sign.panel"]
 tools = []
-evidence = ["crates/ui-egui/tests/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting", "crates/ui-egui/tests/signing.rs::certifying_without_a_visible_signature"]
+evidence = ["crates/ui-egui/tests/ui_signing_group/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting", "crates/ui-egui/tests/ui_signing_group/signing.rs::certifying_without_a_visible_signature"]
 notes = "signed/valid, problems, invalid and certified bars"
 
 [[feature]]
@@ -6194,7 +6194,7 @@ milestone = "M9"
 status = "partial"
 commands = ["sign.panel"]
 tools = ["sign_list"]
-evidence = ["crates/ui-egui/tests/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting"]
+evidence = ["crates/ui-egui/tests/ui_signing_group/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting"]
 notes = "validity summary, signer, issuer, time, algorithm in the panel; no separate properties dialog"
 
 [[feature]]
@@ -6206,7 +6206,7 @@ milestone = "M9"
 status = "shipped"
 commands = ["sign.panel"]
 tools = ["sign_list"]
-evidence = ["crates/ui-egui/tests/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting"]
+evidence = ["crates/ui-egui/tests/ui_signing_group/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting"]
 notes = "Signatures panel ▸ Show certificate: the chain (root on top) and Summary, Details (serial, key, constraints, usage, SHA-1/SHA-256 digests) and Trust tabs; add to trusted certificates; export"
 
 [[feature]]
@@ -6218,7 +6218,7 @@ milestone = "M9"
 status = "shipped"
 commands = ["sign.panel"]
 tools = ["sign_trust"]
-evidence = ["crates/sign/tests/pdf.rs::signing_then_validating_with_and_without_trust", "crates/ui-egui/tests/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting", "crates/automation/tests/automation.rs::digital_ids_signing_and_validation_through_tools"]
+evidence = ["crates/sign/tests/pdf.rs::signing_then_validating_with_and_without_trust", "crates/ui-egui/tests/ui_signing_group/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting", "crates/automation/tests/automation.rs::digital_ids_signing_and_validation_through_tools"]
 notes = "trusted certificates persist with the app's settings"
 
 [[feature]]
@@ -6290,7 +6290,7 @@ milestone = "M9"
 status = "shipped"
 commands = ["sign.panel"]
 tools = []
-evidence = ["crates/ui-egui/tests/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting"]
+evidence = ["crates/ui-egui/tests/ui_signing_group/signing.rs::drawing_a_signature_creating_an_id_signing_and_trusting"]
 notes = ""
 
 [[feature]]
