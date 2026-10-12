@@ -819,6 +819,7 @@ fn copy_restricted_documents_refuse_extraction_unless_opened_by_the_owner() {
         assert!(!enabled(&s, id, c), "{c} is disabled");
     }
     assert!(enabled(&s, id, "edit.find") && enabled(&s, id, "a11y.check"), "searching and accessibility don't copy");
+    assert!(s.get(id).unwrap().autotag_preview(0).is_ok(), "like a11y.check, the auto-tag preview is allowed");
     let oid = s.open("r.pdf", None, bytes, Some("owner")).unwrap();
     assert!(s.get(oid).unwrap().allows_copying());
     assert!(extracting.iter().all(|c| enabled(&s, oid, c)));

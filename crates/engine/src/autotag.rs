@@ -38,7 +38,6 @@ impl Document {
     /// alter it. Every result needs review before tags are written; image and table semantics
     /// are outside this text-only proposal.
     pub fn autotag_preview(&self, page: usize) -> Result<Preview, String> {
-        self.check_copying().map_err(|e| e.to_string())?;
         if self.info.pages.get(page).is_none() {
             return Err(format!("page {} is outside the document", page.saturating_add(1)));
         }
