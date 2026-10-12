@@ -179,6 +179,7 @@ pub const COMMANDS: &[CommandSpec] = &[
     c("page.paste", "Paste pages", None, None, Assembly, "clipboard-paste"),
     c("create.file", "Create PDF from file…", FILE, None, Nothing, "file-input"),
     c("create.multiple", "Create PDF from multiple files…", FILE, None, Nothing, "files"),
+    c("create.multiple_separate", "Create separate PDFs…", FILE, None, Nothing, "files"),
     c("create.images", "Create PDF from images…", FILE, None, Nothing, "image"),
     c("create.clipboard", "Create PDF from clipboard", FILE, None, Nothing, "copy-plus"),
     c("page.combine", "Combine files…", FILE, None, Nothing, "files"),
@@ -310,6 +311,7 @@ pub const COMMANDS: &[CommandSpec] = &[
     c("optimize.advanced", "Optimize PDF…", FILE, None, Document, "settings-2"),
     c("export.text", "Export to text…", FILE, None, Copying, "type"),
     c("export.docx", "Export to Word…", FILE, None, Copying, "file-text"),
+    c("export.pptx", "Export to PowerPoint…", FILE, None, Copying, "presentation"),
     c("export.html", "Export to HTML…", FILE, None, Copying, "file-symlink"),
     c("export.rtf", "Export to RTF…", FILE, None, Copying, "file-text"),
     c("app.preferences", "Preferences…", EDIT, Some(Shortcut::cmd(",")), Nothing, "settings"),
@@ -322,6 +324,7 @@ pub const COMMANDS: &[CommandSpec] = &[
     c("a11y.report", "Open accessibility report", None, None, Document, "file-text"),
     c("a11y.reading_options", "Change reading options…", None, None, Document, "book-open"),
     c("a11y.alt_text", "Add alternate text…", None, None, Modification, "image"),
+    c("a11y.tags", "Tags panel", None, None, Document, "tag"),
     c("export.all_images", "Export all images…", FILE, None, Copying, "image"),
     c("edit.header_footer", "Add header & footer…", None, None, Modification, "heading"),
     c("edit.header_footer.update", "Update header & footer…", None, None, Marks(crate::MarkKind::HeaderFooter), "heading"),
@@ -393,13 +396,22 @@ pub fn is_enabled(spec: &CommandSpec, session: &Session, active: Option<DocId>) 
     }
 }
 
+/// The edit `spec` names now, with the wording that names it ("Undo {}"), so an interface can say
+/// each part in its own language. `None` for every other command, and when there is nothing to undo.
+pub fn current_edit<'a>(spec: &CommandSpec, session: &'a Session, active: Option<DocId>) -> Option<(&'static str, &'a crate::Label)> {
+    let doc = active.and_then(|id| session.get(id))?;
+    match spec.id {
+        "edit.undo" => doc.undo_label().map(|l| ("Undo {}", l)),
+        "edit.redo" => doc.redo_label().map(|l| ("Redo {}", l)),
+        _ => None,
+    }
+}
+
 /// The label to show for `spec` now ("Undo Rotate page" rather than "Undo").
 pub fn current_label(spec: &CommandSpec, session: &Session, active: Option<DocId>) -> String {
-    let doc = active.and_then(|id| session.get(id));
-    match (spec.id, doc) {
-        ("edit.undo", Some(d)) => d.can_undo().map(|l| format!("Undo {l}")).unwrap_or_else(|| spec.label.into()),
-        ("edit.redo", Some(d)) => d.can_redo().map(|l| format!("Redo {l}")).unwrap_or_else(|| spec.label.into()),
-        _ => spec.label.into(),
+    match current_edit(spec, session, active) {
+        Some((wording, label)) => wording.replacen("{}", label.as_str(), 1),
+        None => spec.label.into(),
     }
 }
 
