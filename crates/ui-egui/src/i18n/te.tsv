@@ -202,6 +202,9 @@ comment menu	Edit	సవరించు
 	Add or edit links	లింక్‌లను జోడించు లేదా సవరించు
 	Create links from URLs	URLల నుండి లింక్‌లను సృష్టించు
 	Remove all links	అన్ని లింక్‌లను తీసివేయి
+	No links to remove	తీసివేయడానికి లింక్‌లు లేవు
+	Removed 1 link	1 లింక్ తీసివేయబడింది
+	Removed {n} links	తీసివేసిన లింక్‌లు: {n}
 	Add Bates numbering…	బేట్స్ నంబరింగ్ జోడించు…
 	Add image…	చిత్రాన్ని జోడించు…
 	Redact text and images	టెక్స్ట్‌ను, చిత్రాలను రెడాక్ట్ చేయి
@@ -2173,6 +2176,9 @@ key	Space	స్పేస్
 scroll speed	Slow	నెమ్మదిగా
 scroll speed	Normal	సాధారణం
 scroll speed	Fast	వేగంగా
+	Animation effects	యానిమేషన్ ప్రభావాలు
+animation effects	On	ఆన్
+animation effects	Off	ఆఫ్
 	Enhance camera image	కెమెరా చిత్రాన్ని మెరుగుపరచు
 	Drag the corners onto the document's edges, then choose Enhance page.	మూలలను పత్రం అంచుల వరకు లాగి, ఆపై పేజీని మెరుగుపరచు ఎంచుకోండి.
 	Enhance page	పేజీని మెరుగుపరచు
@@ -2180,9 +2186,28 @@ scroll speed	Fast	వేగంగా
 	Original	అసలు
 	Greyscale	గ్రేస్కేల్
 	Black and white	నలుపు తెలుపు
+	Browser's print dialog	బ్రౌజర్ ముద్రణ డైలాగ్
+	Copies, two-sided printing and colour are chosen in the browser's print dialog.	కాపీలు, రెండు వైపుల ముద్రణ మరియు రంగును బ్రౌజర్ ముద్రణ డైలాగ్‌లో ఎంచుకుంటారు.
+	Preparing {n} sheets for printing…	ముద్రణ కోసం {n} షీట్‌లను సిద్ధం చేస్తోంది…
+	Preparing sheet {done} of {total} for printing…	ముద్రణ కోసం {total}లో షీట్ {done}ను సిద్ధం చేస్తోంది…
+	Opening the browser's print dialog…	బ్రౌజర్ ముద్రణ డైలాగ్‌ను తెరుస్తోంది…
+	Couldn't print from the browser ({e}); downloaded {name} to print instead	బ్రౌజర్ నుండి ముద్రించలేకపోయింది ({e}); బదులుగా ముద్రించడానికి {name}ను డౌన్‌లోడ్ చేసింది
 	Tools panel side	టూల్స్ ప్యానెల్ వైపు
 	Add comment	వ్యాఖ్యను జోడించు
 	Change tag properties	ట్యాగ్ లక్షణాలను మార్చు
+# Accessibility structure tags.
+	Tags panel	ట్యాగ్‌ల ప్యానెల్
+	Tags	ట్యాగ్‌లు
+	Tag type	ట్యాగ్ రకం
+	Actual text	వాస్తవ వచనం
+	Find a tag	ట్యాగ్‌ను కనుగొను
+	Collapse tag	ట్యాగ్‌ను కుదించు
+	Expand tag	ట్యాగ్‌ను విస్తరించు
+	Revert changes	మార్పులను రద్దు చేయి
+	Save tag properties	ట్యాగ్ లక్షణాలను సేవ్ చేయి
+	This document has no editable structure tags.	ఈ పత్రంలో సవరించగల నిర్మాణ ట్యాగ్‌లు లేవు.
+	{n} tags	{n} ట్యాగ్‌లు
+	Save or revert changes before selecting another tag.	మరొక ట్యాగ్‌ను ఎంచుకునే ముందు మార్పులను సేవ్ చేయండి లేదా రద్దు చేయండి.
 	Left out: {names}	వదిలివేసినవి: {names}
 	already a PDF	ఇప్పటికే PDF
 	no unused output name	ఉపయోగించని అవుట్‌పుట్ పేరు లేదు
@@ -2196,3 +2221,27 @@ scroll speed	Fast	వేగంగా
 	Ink sensitivity	ఇంక్ సున్నితత్వం
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	ఫ్రేమ్‌లో సంతకం కనబడలేదు. ఫ్రేమ్‌ను సంతకం మీదకు జరపండి లేదా ఇంక్ సున్నితత్వాన్ని పెంచండి.
 	Couldn't use the photo: {e}	ఫోటోను ఉపయోగించలేకపోయాం: {e}
+
+# PDF tab context menu (#1233)
+	Close Tab	ట్యాబ్‌ను మూసివేయి
+	Reopen Closed Tab	మూసివేసిన ట్యాబ్‌ను మళ్లీ తెరువు
+	Reveal in Finder	Finderలో చూపు
+	Reveal in File Explorer	ఫైల్ ఎక్స్‌ప్లోరర్‌లో చూపు
+	Other colour…	ఇతర రంగు…
+	Recent colours	ఇటీవలి రంగులు
+	Reading colours	చదవడానికి రంగులు
+	Replace document colours	పత్రం రంగులను మార్చు
+	Page background	పేజీ నేపథ్యం
+	Only change the colour of black text or line art	నలుపు వచనం లేదా రేఖా చిత్రాల రంగును మాత్రమే మార్చు
+	Change the colour of line art as well as text	వచనంతో పాటు రేఖా చిత్రాల రంగును కూడా మార్చు
+	Colours are remapped while rendering; the document itself never changes.	రెండర్ చేసేటప్పుడు రంగులు మార్చబడతాయి; పత్రం మాత్రం ఎప్పుడూ మారదు.
+	Black on white	తెలుపుపై నలుపు
+	White on black	నలుపుపై తెలుపు
+	Yellow on black	నలుపుపై పసుపు
+	Green on black	నలుపుపై ఆకుపచ్చ
+	Couldn't follow linked PDF: {reason}	లింక్ చేసిన PDFను తెరవలేకపోయాం: {reason}
+	The linked PDF opened, but its named destination was not applied.	లింక్ చేసిన PDF తెరుచుకుంది, కానీ దాని పేరున్న గమ్యం వర్తించలేదు.
+	The linked PDF opened, but its page destination was out of range.	లింక్ చేసిన PDF తెరుచుకుంది, కానీ దాని పేజీ గమ్యం పరిధికి వెలుపల ఉంది.
+	Local cross-PDF links require the desktop app	PDFల మధ్య స్థానిక లింక్‌లకు డెస్క్‌టాప్ యాప్ అవసరం
+	The existing action will be preserved.	ఉన్న చర్య అలాగే ఉంచబడుతుంది.
+	This form's scripts are turned off because one ran too long. Reopen the document to run them again.	ఒక స్క్రిప్ట్ చాలా సేపు నడిచినందున ఈ ఫారమ్ స్క్రిప్ట్‌లు ఆపివేయబడ్డాయి. వాటిని మళ్లీ నడపడానికి పత్రాన్ని మళ్లీ తెరవండి.
