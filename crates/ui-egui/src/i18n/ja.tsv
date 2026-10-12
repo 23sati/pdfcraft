@@ -57,6 +57,7 @@
 	Create PDF from file…	ファイルから PDF を作成…
 	Create PDF from images…	画像から PDF を作成…
 	Create PDF from multiple files…	複数のファイルから PDF を作成…
+	Create separate PDFs…	個別の PDF を作成…
 	Create PDF from clipboard	クリップボードから PDF を作成
 	Combine files…	ファイルを結合…
 	Save	保存
@@ -262,6 +263,7 @@
 	Optimize PDF…	PDF を最適化…
 	Export to text…	テキストに書き出す…
 	Export to Word…	Word に書き出す…
+	Export to PowerPoint…	PowerPoint に書き出す…
 	Export to HTML…	HTML に書き出す…
 	Export to RTF…	RTF に書き出す…
 	JavaScript console…	JavaScript コンソール…
@@ -346,6 +348,7 @@
 	Create from	作成元
 	Single file	単一ファイル
 	Multiple files	複数のファイル
+	Separate PDFs	個別の PDF
 	Images	画像
 	Clipboard	クリップボード
 	Blank page	空白のページ
@@ -698,6 +701,14 @@
 	of the following fields:	対象フィールド:
 	Simplified field notation:	簡易フィールド表記:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	フィールド名と + - * / および括弧を使用できます。名前に含まれる空白の前には \\ を付けてください。
+
+# Document font selection
+	Finding document fonts…	文書用フォントを検索中…
+	Installed fonts…	インストール済みフォント…
+	Keep source fonts	元のフォントを保持
+	Load font…	フォントを読み込む…
+	No openly licensed document fonts found. Load a font file.	オープンライセンスのフォントが見つかりません。フォントファイルを読み込んでください。
+
 	Format text	テキストの書式
 	Bold	太字
 	Italic	斜体
@@ -1872,6 +1883,8 @@
 	{month} {y}	{y}年{month}
 	Change {key}	{key}を変更
 	Insert pages from {name}	{name} からページを挿入
+	Insert pages from {name} — 1 field renamed	{name} からページを挿入 — 1 個のフィールド名を変更
+	Insert pages from {name} — fields renamed	{name} からページを挿入 — フィールド名を変更
 	Fill in {name}	{name} に入力
 	Set the image of {name}	{name} の画像を設定
 	Edit script of {name}	{name} のスクリプトを編集
@@ -1902,6 +1915,7 @@
 	Delete document JavaScript	文書の JavaScript を削除
 	Edit document JavaScript	文書の JavaScript を編集
 	Edit text	テキストを編集
+	Load document font	文書フォントを読み込む
 	Move image	画像を移動
 	Rotate image	画像を回転
 	Flip image	画像を反転
@@ -2150,6 +2164,7 @@
 	−Bin	−Bin
 	−LOC	−LOC
 @plural	{n} field|{n} fields	{n} 個のフィールド
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} 個のフィールド名が前のファイルと競合するため、名前が変更されます: {list}
 @plural	{n} page|{n} pages	{n} ページ
 signature pad	Type	入力
 	Flatten Fill & Sign when saving	保存時に入力と署名を統合する
@@ -2252,3 +2267,19 @@ scroll speed	Fast	速い
 	Greyscale	グレースケール
 	Black and white	白黒
 	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	このプリンターのドライバーは他のプログラムからの両面印刷の設定を受け付けないため、ドライバー自身の設定が使われます。変更先: プロパティ…
+	Tools panel side	ツールパネルの位置
+	Add comment	コメントを追加
+	Change tag properties	タグのプロパティを変更
+	Left out: {names}	除外: {names}
+	already a PDF	すでに PDF です
+	no unused output name	使用可能な出力名がありません
+	no output folder was chosen	出力フォルダーが選択されていません
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	{n} 個の PDF をダウンロードしました
+	Scan	スキャン
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	白い紙に署名し、明るく均一な光の下で写真を撮ってください（フラッシュを使用）。写真を選択するか、ここにドロップしてください。PdfCraft が署名を見つけ、紙の部分を取り除きます。
+	Choose photo…	写真を選択…
+	No photo chosen	写真が選択されていません
+	Photo	写真
+	Ink sensitivity	インクの感度
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	枠内に署名が見つかりません。枠を署名に合わせるか、インクの感度を上げてください。
+	Couldn't use the photo: {e}	写真を使用できません: {e}

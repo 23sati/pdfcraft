@@ -278,6 +278,20 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
             .small()
             .color(t.text_muted),
     );
+    ui.horizontal(|ui| {
+        ui.label(tl!("Tools panel side"));
+        let right = app.docking.tools_on_right();
+        if ui.selectable_label(!right, tl!("Left")).clicked()
+            && let Err(error) = app.docking.set_tools_on_right(false)
+        {
+            app.notify(error);
+        }
+        if ui.selectable_label(right, tl!("Right")).clicked()
+            && let Err(error) = app.docking.set_tools_on_right(true)
+        {
+            app.notify(error);
+        }
+    });
     ui.add_space(8.0);
     crate::appearance::preferences_section(ui, app, t);
     ui.add_space(8.0);
