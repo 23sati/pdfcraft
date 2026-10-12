@@ -31,6 +31,7 @@ pub mod printcheck;
 mod scan_colours;
 pub mod signature_image;
 pub mod signature_scan;
+pub mod speech;
 pub mod text_fonts;
 mod text_preview;
 mod upright_image;
