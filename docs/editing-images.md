@@ -23,3 +23,20 @@ Forms have `pixels: [0, 0]`, since they have no single bitmap resolution. Use th
 number with `image_edit` (move, rotate, flip_horizontal, flip_vertical, delete).
 Coordinates are top-left-origin page points. `image_save` and `image_edit`'s replace action
 return a clear error for Form artwork.
+
+Selection frames follow the visible portion of artwork after page and path clipping. Clicking
+editable text takes precedence over overlapping artwork, including labels inside an image's
+visible rectangle. Hidden image placements have no selection frame. Bezier extrema determine
+curved-path frames. Hit testing evaluates the actual clipping paths with their nonzero or
+even-odd fill rule, so holes and empty corners do not intercept clicks. Intersections of several
+curved clips can still have a loose bounding frame. Dragging the visible frame moves or resizes
+the full placement by the same change; resizing keeps the opposite corner fixed, including
+horizontal-only or vertical-only corner drags, and grabbing a grip slightly off-centre does not
+jump. A selected corner keeps control of its drag even over a text label; the drag previews one
+frame and applies one undoable edit on release. A clip that belongs to the image alone
+(`q re W n cm Do Q`) moves with it; a clip shared with other content stays where it is.
+
+`image_hit` applies the same path and hole checks headlessly. `page_images` retains `rect` as
+the full placement rectangle used by `image_edit` and adds `visible_rect` for selection (null
+when fully clipped). `object_list` reports visible artwork bounds while keeping the original
+source indexes. A selection frame does not create, remove or enlarge the PDF's clipping path.

@@ -181,6 +181,7 @@
 	Details	Λεπτομέρειες
 	More	Περισσότερα
 	Edit text	Επεξεργασία κειμένου
+	Load document font	Φόρτωση γραμματοσειράς εγγράφου
 	Add text	Προσθήκη κειμένου
 	Edit image	Επεξεργασία εικόνας
 	Add image	Προσθήκη εικόνας
@@ -1984,6 +1985,11 @@
 	of the following fields:	των παρακάτω πεδίων:
 	Simplified field notation:	Απλοποιημένη σύνταξη πεδίων:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Ονόματα πεδίων με + - * / και παρενθέσεις· προσθέστε \\ πριν από τα κενά των ονομάτων.
+	Finding document fonts…	Αναζήτηση γραμματοσειρών εγγράφου…
+	Installed fonts…	Εγκατεστημένες γραμματοσειρές…
+	Keep source fonts	Διατήρηση αρχικών γραμματοσειρών
+	Load font…	Φόρτωση γραμματοσειράς…
+	No openly licensed document fonts found. Load a font file.	Δεν βρέθηκαν γραμματοσειρές εγγράφου με ανοιχτή άδεια. Φορτώστε ένα αρχείο γραμματοσειράς.
 	Format text	Μορφοποίηση κειμένου
 	Centre	Κεντράρισμα
 	Thai and Arabic use regular fallback fonts when available.	Τα ταϊλανδικά και τα αραβικά χρησιμοποιούν κανονικές εναλλακτικές γραμματοσειρές, όταν είναι διαθέσιμες.
@@ -2277,3 +2283,6 @@ scroll speed	Fast	Γρήγορη
 	Preparing sheet {done} of {total} for printing…	Προετοιμασία φύλλου {done} από {total} για εκτύπωση…
 	Opening the browser's print dialog…	Άνοιγμα του παραθύρου εκτύπωσης του προγράμματος περιήγησης…
 	Couldn't print from the browser ({e}); downloaded {name} to print instead	Δεν ήταν δυνατή η εκτύπωση από το πρόγραμμα περιήγησης ({e}); έγινε λήψη του {name} για εκτύπωση
+	Tools panel side	Πλευρά πλαισίου εργαλείων
+	Add comment	Προσθήκη σχολίου
+	Change tag properties	Αλλαγή ιδιοτήτων ετικέτας

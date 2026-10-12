@@ -671,6 +671,14 @@
 	of the following fields:	der folgenden Felder:
 	Simplified field notation:	Vereinfachte Feldschreibweise:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Feldnamen mit + - * / und Klammern; setze \\ vor Leerzeichen in Namen.
+
+# Document font selection
+	Finding document fonts…	Dokumentschriftarten werden gesucht…
+	Installed fonts…	Installierte Schriftarten…
+	Keep source fonts	Quellschriftarten beibehalten
+	Load font…	Schriftart laden…
+	No openly licensed document fonts found. Load a font file.	Keine offen lizenzierten Schriftarten gefunden. Laden Sie eine Schriftartdatei.
+
 	Format text	Text formatieren
 	Bold	Fett
 	Italic	Kursiv
@@ -1826,6 +1834,7 @@
 	Delete document JavaScript	Dokument-JavaScript löschen
 	Edit document JavaScript	Dokument-JavaScript bearbeiten
 	Edit text	Text bearbeiten
+	Load document font	Dokumentschriftart laden
 	Move image	Bild verschieben
 	Rotate image	Bild drehen
 	Flip image	Bild spiegeln
@@ -2259,3 +2268,6 @@ scroll speed	Fast	Schnell
 	Preparing sheet {done} of {total} for printing…	Blatt {done} von {total} wird für den Druck vorbereitet…
 	Opening the browser's print dialog…	Der Druckdialog des Browsers wird geöffnet…
 	Couldn't print from the browser ({e}); downloaded {name} to print instead	Drucken aus dem Browser nicht möglich ({e}); stattdessen wurde {name} zum Drucken heruntergeladen
+	Tools panel side	Seite des Werkzeugbereichs
+	Add comment	Kommentar hinzufügen
+	Change tag properties	Tag-Eigenschaften ändern

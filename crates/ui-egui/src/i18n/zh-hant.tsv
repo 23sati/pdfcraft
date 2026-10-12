@@ -340,6 +340,11 @@
 	of the following fields:	以下欄位的：
 	Simplified field notation:	簡化欄位表示法：
 	Field names with + - * / and parentheses; put \\ before spaces in names.	欄位名支援 + - * / 和括號；名稱中的空格前加 \\。
+	Finding document fonts…	正在尋找文件字型…
+	Installed fonts…	已安裝的字型…
+	Keep source fonts	保留原始字型
+	Load font…	載入字型…
+	No openly licensed document fonts found. Load a font file.	找不到開放授權的文件字型。請載入字型檔。
 	Format text	設定文字格式
 	Bold	粗體
 	Italic	斜體
@@ -1893,6 +1898,7 @@
 	Delete document JavaScript	刪除文件 JavaScript
 	Edit document JavaScript	編輯文件 JavaScript
 	Edit text	編輯文字
+	Load document font	載入文件字型
 	Move image	移動圖片
 	Rotate image	旋轉圖片
 	Flip image	翻轉圖片
@@ -2135,3 +2141,6 @@ scroll speed	Fast	快
 	Preparing sheet {done} of {total} for printing…	正在準備列印第 {done} 張，共 {total} 張…
 	Opening the browser's print dialog…	正在開啟瀏覽器的列印對話框…
 	Couldn't print from the browser ({e}); downloaded {name} to print instead	無法從瀏覽器列印（{e}）；已改為下載 {name} 以供列印
+	Tools panel side	工具面板位置
+	Add comment	新增註解
+	Change tag properties	變更標籤屬性
