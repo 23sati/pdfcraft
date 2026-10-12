@@ -842,7 +842,7 @@ milestone = "M3"
 status = "shipped"
 commands = ["view.continuous"]
 tools = []
-evidence = ["crates/ui-egui/tests/view.rs::continuous_layout_stacks_pages_vertically", "crates/ui-egui/tests/view.rs::page_display_commands_switch_layouts", "crates/ui-egui/tests/view.rs::default_page_display_is_used_for_new_documents", "crates/ui-egui/src/canvas.rs::fit_page_and_height_hold_still_while_mixed_page_sizes_scroll_past"]
+evidence = ["crates/ui-egui/tests/ui_gpu_group/view.rs::continuous_layout_stacks_pages_vertically", "crates/ui-egui/tests/ui_gpu_group/view.rs::page_display_commands_switch_layouts", "crates/ui-egui/tests/ui_gpu_group/view.rs::default_page_display_is_used_for_new_documents", "crates/ui-egui/src/canvas.rs::fit_page_and_height_hold_still_while_mixed_page_sizes_scroll_past"]
 notes = "the default for PDFs that don't ask for a layout (Preferences ▸ Default page display); pages stack with no snapping. Fit page and Fit height fit the largest page, so the zoom holds still across mixed page sizes"
 
 [[feature]]
@@ -854,7 +854,7 @@ milestone = "M3"
 status = "shipped"
 commands = ["view.layout.single"]
 tools = []
-evidence = ["crates/ui-egui/tests/view.rs::single_page_layout_shows_one_page_at_a_time", "crates/ui-egui/tests/view.rs::single_page_wheel_pans_instead_when_zoomed_in", "crates/ui-egui/tests/view.rs::wheel_turns_one_page_per_notch_and_per_trackpad_swipe", "crates/ui-egui/tests/view.rs::rail_page_display_button_switches_layouts", "crates/ui-egui/tests/view.rs::view_menu_page_display_uses_the_same_commands"]
+evidence = ["crates/ui-egui/tests/ui_gpu_group/view.rs::single_page_layout_shows_one_page_at_a_time", "crates/ui-egui/tests/ui_gpu_group/view.rs::single_page_wheel_pans_instead_when_zoomed_in", "crates/ui-egui/tests/ui_gpu_group/view.rs::wheel_turns_one_page_per_notch_and_per_trackpad_swipe", "crates/ui-egui/tests/ui_gpu_group/view.rs::rail_page_display_button_switches_layouts", "crates/ui-egui/tests/ui_gpu_group/view.rs::view_menu_page_display_uses_the_same_commands"]
 notes = "when the whole page fits, each wheel notch turns a page and each trackpad swipe turns one, momentum included; zoomed in, the wheel pans and never turns the page. Switched from the View menu, the rail's Page display button or the palette"
 
 [[feature]]
@@ -866,7 +866,7 @@ milestone = "M3"
 status = "shipped"
 commands = ["view.layout.two_up"]
 tools = []
-evidence = ["crates/ui-egui/tests/view.rs::two_up_layout_places_pages_side_by_side", "crates/ui-egui/tests/viewer.rs::two_page_view_steps_a_spread_at_a_time"]
+evidence = ["crates/ui-egui/tests/ui_gpu_group/view.rs::two_up_layout_places_pages_side_by_side", "crates/ui-egui/tests/viewer.rs::two_page_view_steps_a_spread_at_a_time"]
 notes = "next/previous page step a spread at a time"
 
 [[feature]]
@@ -890,7 +890,7 @@ milestone = "M3"
 status = "shipped"
 commands = ["view.layout.cover"]
 tools = []
-evidence = ["crates/ui-egui/tests/viewer.rs::layouts_fit_height_labels_and_system_theme", "crates/ui-egui/tests/view.rs::page_display_commands_switch_layouts", "crates/ui-egui/tests/viewer.rs::page_down_steps_every_spread_when_several_fit_on_screen"]
+evidence = ["crates/ui-egui/tests/viewer.rs::layouts_fit_height_labels_and_system_theme", "crates/ui-egui/tests/ui_gpu_group/view.rs::page_display_commands_switch_layouts", "crates/ui-egui/tests/viewer.rs::page_down_steps_every_spread_when_several_fit_on_screen"]
 notes = "View ▸ Page display, the rail's Page display button or the palette; disabled outside two-page view; next / previous page step one spread at a time even when several spreads fit on screen"
 
 [[feature]]
@@ -950,7 +950,7 @@ milestone = "M3"
 status = "shipped"
 commands = []
 tools = []
-evidence = ["crates/ui-egui/tests/view.rs::actual_size_fit_width_and_fit_page"]
+evidence = ["crates/ui-egui/tests/ui_gpu_group/view.rs::actual_size_fit_width_and_fit_page"]
 notes = "Actual size is 100% on PdfCraft's fixed 96-dpi basis: 96/72 logical pixels per PDF point. Acrobat's Actual Size uses its Page Display resolution (ppi / 72 logical pixels per PDF point at 100%), which PdfCraft does not offer yet, so the two can draw a page at different sizes. Tracked with misc.prefs-page-display"
 
 [[feature]]
@@ -962,7 +962,7 @@ milestone = "M3"
 status = "shipped"
 commands = ["view.fit_one_page"]
 tools = []
-evidence = ["crates/ui-egui/tests/view.rs::actual_size_fit_width_and_fit_page", "crates/ui-egui/tests/view.rs::rail_page_display_menu_offers_acrobats_view_choices", "crates/ui-egui/tests/view.rs::fit_page_holds_zoom_across_mixed_page_sizes", "crates/ui-egui/tests/view.rs::single_page_fit_page_fits_the_shown_page"]
+evidence = ["crates/ui-egui/tests/ui_gpu_group/view.rs::actual_size_fit_width_and_fit_page", "crates/ui-egui/tests/ui_gpu_group/view.rs::rail_page_display_menu_offers_acrobats_view_choices", "crates/ui-egui/tests/ui_gpu_group/view.rs::fit_page_holds_zoom_across_mixed_page_sizes", "crates/ui-egui/tests/ui_gpu_group/view.rs::single_page_fit_page_fits_the_shown_page"]
 notes = "View ▸ Zoom to page level (⌘0) and the rail's Page display menu, which also offers Fit one full page (single-page view at Fit page). Scrolling views fit their largest page so mixed sizes never jump the zoom; single-page view fits the shown page"
 
 [[feature]]
@@ -974,7 +974,7 @@ milestone = "M3"
 status = "shipped"
 commands = ["view.fit_width_scrolling"]
 tools = []
-evidence = ["crates/ui-egui/tests/view.rs::actual_size_fit_width_and_fit_page", "crates/ui-egui/tests/view.rs::rail_page_display_menu_offers_acrobats_view_choices"]
+evidence = ["crates/ui-egui/tests/ui_gpu_group/view.rs::actual_size_fit_width_and_fit_page", "crates/ui-egui/tests/ui_gpu_group/view.rs::rail_page_display_menu_offers_acrobats_view_choices"]
 notes = "View ▸ Fit to width (⌘2) and the rail's Page display menu's Fit to width scrolling (continuous scrolling at Fit width)"
 
 [[feature]]
@@ -1058,7 +1058,7 @@ milestone = "M3"
 status = "shipped"
 commands = []
 tools = []
-evidence = ["crates/ui-egui/tests/view.rs::the_hand_tool_pans_by_dragging", "crates/ui-egui/tests/viewer.rs::v_h_and_space_pick_the_quick_tools"]
+evidence = ["crates/ui-egui/tests/ui_gpu_group/view.rs::the_hand_tool_pans_by_dragging", "crates/ui-egui/tests/viewer.rs::v_h_and_space_pick_the_quick_tools"]
 notes = "drag to pan; Grab/Grabbing cursors; H picks it, V goes back to Select, Space held pans temporarily"
 
 [[feature]]
@@ -1166,7 +1166,7 @@ milestone = "M3"
 status = "shipped"
 commands = []
 tools = ["link_open"]
-evidence = ["crates/ui-egui/tests/view.rs::clicking_a_link_goes_to_its_destination", "crates/ui-egui/tests/view.rs::link_destinations_scroll_to_their_position", "crates/render/src/inspect.rs::bookmarks_and_links_keep_their_destination_view", "crates/render/src/inspect.rs::links_read_bounded_local_remote_go_to_actions", "crates/automation/tests/automation.rs::local_gotor_link_open_applies_destinations_and_honors_root", "crates/ui-egui/tests/document_links.rs::a_local_gotor_link_opens_in_a_tab_and_applies_its_destination"]
+evidence = ["crates/ui-egui/tests/ui_gpu_group/view.rs::clicking_a_link_goes_to_its_destination", "crates/ui-egui/tests/ui_gpu_group/view.rs::link_destinations_scroll_to_their_position", "crates/render/src/inspect.rs::bookmarks_and_links_keep_their_destination_view", "crates/render/src/inspect.rs::links_read_bounded_local_remote_go_to_actions", "crates/automation/tests/automation.rs::local_gotor_link_open_applies_destinations_and_honors_root", "crates/ui-egui/tests/ui_gpu_group/document_links.rs::a_local_gotor_link_opens_in_a_tab_and_applies_its_destination"]
 notes = "GoTo and URI links plus local-PDF GoToR links: source-relative or local absolute /F paths, /UF preferred in file-spec dictionaries, explicit numeric page/view destinations, and internal tabs. link_open honors --root. Named remote destinations open at default view with a warning; /NewWindow is a tab hint. URL/network file systems, GoToE, Launch and other actions are not executed. Same-document destinations retain their supported /XYZ, /Fit, /FitH, /FitV and /FitR views; /FitB* is read as whole-page fit."
 
 [[feature]]
@@ -1262,7 +1262,7 @@ milestone = "M3"
 status = "shipped"
 commands = []
 tools = ["doc_info"]
-evidence = ["crates/ui-egui/tests/ui.rs::opening_a_pdf_shows_comments_and_bookmarks", "crates/ui-egui/tests/control.rs::state_and_view_options", "crates/ui-egui/tests/view.rs::bookmark_destinations_scroll_to_their_position"]
+evidence = ["crates/ui-egui/tests/ui.rs::opening_a_pdf_shows_comments_and_bookmarks", "crates/ui-egui/tests/control.rs::state_and_view_options", "crates/ui-egui/tests/ui_gpu_group/view.rs::bookmark_destinations_scroll_to_their_position"]
 notes = "A bookmark goes to its destination's position and zoom, not just its page. The panel shows the first 10,000 bookmarks, nested 33 levels deep at most, and says so; bookmark_list pages through every bookmark in the file (up to 33 levels deep)."
 
 [[feature]]
@@ -2238,7 +2238,7 @@ milestone = "M7"
 status = "shipped"
 commands = ["edit.link"]
 tools = ["link_add"]
-evidence = ["crates/annot/src/tests.rs::links_are_added_edited_listed_and_removed", "crates/automation/tests/automation.rs::links_through_tools", "crates/ui-egui/tests/document_links.rs::a_link_asks_first_and_opens_when_allowed", "crates/ui-egui/tests/document_links.rs::a_button_uri_action_asks_first", "crates/ui-egui/tests/document_links.rs::an_email_link_cannot_attach_a_local_file", "crates/ui-egui/tests/document_links.rs::a_lookalike_host_is_shown_in_punycode_and_flagged"]
+evidence = ["crates/annot/src/tests.rs::links_are_added_edited_listed_and_removed", "crates/automation/tests/automation.rs::links_through_tools", "crates/ui-egui/tests/ui_gpu_group/document_links.rs::a_link_asks_first_and_opens_when_allowed", "crates/ui-egui/tests/ui_gpu_group/document_links.rs::a_button_uri_action_asks_first", "crates/ui-egui/tests/ui_gpu_group/document_links.rs::an_email_link_cannot_attach_a_local_file", "crates/ui-egui/tests/ui_gpu_group/document_links.rs::a_lookalike_host_is_shown_in_punycode_and_flagged"]
 notes = "Opening a document's link or button URI asks first; only http, https and mailto addresses are offered (#90, #91), and an email address that asks the email app to attach or insert a local file is refused. The prompt shows the host as the browser receives it: international hosts in punycode, lookalikes that mix alphabets flagged, numeric hosts in their usual form."
 
 [[feature]]
@@ -3418,7 +3418,7 @@ milestone = "M3"
 status = "shipped"
 commands = ["file.properties"]
 tools = ["doc_info"]
-evidence = ["crates/ui-egui/tests/view.rs::fonts_tab_lists_fonts_and_embedding"]
+evidence = ["crates/ui-egui/tests/ui_gpu_group/view.rs::fonts_tab_lists_fonts_and_embedding"]
 notes = ""
 
 [[feature]]
@@ -3614,7 +3614,7 @@ milestone = "M5"
 status = "shipped"
 commands = ["sign.fill.text"]
 tools = ["fill_sign_add"]
-evidence = ["crates/annot/src/tests.rs::fill_and_sign_items_are_drawn", "crates/ui-egui/tests/fill_sign.rs::text_marks_and_date"]
+evidence = ["crates/annot/src/tests.rs::fill_and_sign_items_are_drawn", "crates/ui-egui/tests/ui_gpu_group/fill_sign.rs::text_marks_and_date"]
 notes = ""
 
 [[feature]]
@@ -4338,7 +4338,7 @@ milestone = "M3"
 status = "shipped"
 commands = ["form.fields"]
 tools = ["doc_info"]
-evidence = ["crates/ui-egui/tests/view.rs::field_list_jumps_to_a_fields_page", "crates/render/src/inspect.rs::fields_listed_only_on_the_pages_are_listed", "crates/ui-egui/tests/ui_group/bulk_fields.rs::fields_panel_selects_multiple_fields_and_opens_their_shared_properties", "crates/ui-egui/tests/ui_group/bulk_fields.rs::double_clicking_a_field_in_the_panel_opens_its_individual_properties"]
+evidence = ["crates/ui-egui/tests/ui_gpu_group/view.rs::field_list_jumps_to_a_fields_page", "crates/render/src/inspect.rs::fields_listed_only_on_the_pages_are_listed", "crates/ui-egui/tests/ui_group/bulk_fields.rs::fields_panel_selects_multiple_fields_and_opens_their_shared_properties", "crates/ui-egui/tests/ui_group/bulk_fields.rs::double_clicking_a_field_in_the_panel_opens_its_individual_properties"]
 notes = "list with jump-to-field; in Prepare a form, Shift/Ctrl/Command-click selects several fields and Properties edits their shared properties; double-click opens field properties; fields a file lists only as page widgets (empty /Fields) are adopted too"
 
 [[feature]]
@@ -4350,7 +4350,7 @@ milestone = "M3"
 status = "shipped"
 commands = []
 tools = []
-evidence = ["crates/ui-egui/tests/view.rs::highlight_fields_tints_the_field_area", "crates/ui-egui/tests/view.rs::required_radio_buttons_get_a_round_red_border", "crates/ui-egui/tests/view.rs::field_highlighting_is_remembered"]
+evidence = ["crates/ui-egui/tests/ui_gpu_group/view.rs::highlight_fields_tints_the_field_area", "crates/ui-egui/tests/ui_gpu_group/view.rs::required_radio_buttons_get_a_round_red_border", "crates/ui-egui/tests/ui_gpu_group/view.rs::field_highlighting_is_remembered"]
 notes = "remembered for the next document and session; required fields get a red border (round for radio buttons); the tint is drawn over the field, where Acrobat paints the highlight colour behind it"
 
 [[feature]]
@@ -4602,7 +4602,7 @@ milestone = "M6"
 status = "shipped"
 commands = []
 tools = ["form_set_props"]
-evidence = ["crates/ui-egui/tests/view.rs::required_fields_get_a_red_border_when_highlighting"]
+evidence = ["crates/ui-egui/tests/ui_gpu_group/view.rs::required_fields_get_a_red_border_when_highlighting"]
 notes = "required fields get a red border when fields are highlighted"
 
 [[feature]]
@@ -5142,7 +5142,7 @@ milestone = "M6"
 status = "shipped"
 commands = ["app.preferences"]
 tools = ["js_enabled"]
-evidence = ["crates/js/src/tests.rs::the_sandbox_has_no_host_access", "crates/js/src/tests.rs::errors_and_runaway_scripts_are_contained", "crates/ui-egui/tests/javascript.rs::document_scripts_and_preferences", "crates/ui-egui/tests/document_links.rs::a_script_asks_first_and_only_once", "crates/ui-egui/tests/document_links.rs::a_script_cannot_open_other_kinds_of_address"]
+evidence = ["crates/js/src/tests.rs::the_sandbox_has_no_host_access", "crates/js/src/tests.rs::errors_and_runaway_scripts_are_contained", "crates/ui-egui/tests/javascript.rs::document_scripts_and_preferences", "crates/ui-egui/tests/ui_gpu_group/document_links.rs::a_script_asks_first_and_only_once", "crates/ui-egui/tests/ui_gpu_group/document_links.rs::a_script_cannot_open_other_kinds_of_address"]
 notes = "Preferences \u25b8 JavaScript \u25b8 Enable Acrobat JavaScript (remembered); no host access; loop and recursion limits; app.launchURL asks before opening and only offers http, https and mailto addresses (#90, #91)."
 
 [[feature]]
@@ -5226,7 +5226,7 @@ milestone = "M5"
 status = "shipped"
 commands = ["sign.fill.text"]
 tools = ["fill_sign_add"]
-evidence = ["crates/ui-egui/tests/fill_sign.rs::text_marks_and_date", "crates/annot/src/tests.rs::fill_and_sign_items_are_drawn", "crates/automation/tests/automation.rs::fill_and_sign_through_tools"]
+evidence = ["crates/ui-egui/tests/ui_gpu_group/fill_sign.rs::text_marks_and_date", "crates/annot/src/tests.rs::fill_and_sign_items_are_drawn", "crates/automation/tests/automation.rs::fill_and_sign_through_tools"]
 notes = "typewriter FreeText, 10 pt Helvetica"
 
 [[feature]]
@@ -5238,7 +5238,7 @@ milestone = "M5"
 status = "shipped"
 commands = ["sign.fill.check", "sign.fill.cross", "sign.fill.dot", "sign.fill.line"]
 tools = ["fill_sign_add"]
-evidence = ["crates/ui-egui/tests/fill_sign.rs::text_marks_and_date", "crates/annot/src/tests.rs::fill_and_sign_items_are_drawn"]
+evidence = ["crates/ui-egui/tests/ui_gpu_group/fill_sign.rs::text_marks_and_date", "crates/annot/src/tests.rs::fill_and_sign_items_are_drawn"]
 notes = "PdfCraft-drawn stamps"
 
 [[feature]]
@@ -5250,7 +5250,7 @@ milestone = "M5"
 status = "shipped"
 commands = ["sign.fill.date"]
 tools = ["fill_sign_add", "fill_sign_date_format"]
-evidence = ["crates/ui-egui/tests/fill_sign.rs::text_marks_and_date", "crates/automation/tests/automation.rs::fill_and_sign_through_tools", "crates/ui-egui/tests/ui_group/date_format.rs::fill_and_sign_dates_follow_the_date_format_preference_and_it_is_remembered", "crates/engine/src/dates.rs::presets_write_the_day_in_their_own_order", "crates/engine/src/dates.rs::names_follow_the_date_language", "crates/ui-egui/tests/ui_group/date_format.rs::month_names_follow_the_date_language_or_else_the_interface_language", "crates/ui-egui/tests/ui_group/date_format.rs::a_date_the_pdf_cannot_hold_is_refused_with_a_warning_first"]
+evidence = ["crates/ui-egui/tests/ui_gpu_group/fill_sign.rs::text_marks_and_date", "crates/automation/tests/automation.rs::fill_and_sign_through_tools", "crates/ui-egui/tests/ui_group/date_format.rs::fill_and_sign_dates_follow_the_date_format_preference_and_it_is_remembered", "crates/engine/src/dates.rs::presets_write_the_day_in_their_own_order", "crates/engine/src/dates.rs::names_follow_the_date_language", "crates/ui-egui/tests/ui_group/date_format.rs::month_names_follow_the_date_language_or_else_the_interface_language", "crates/ui-egui/tests/ui_group/date_format.rs::a_date_the_pdf_cannot_hold_is_refused_with_a_warning_first"]
 notes = "local date in Preferences ▸ Date format (default m/d/yyyy; 12 presets or any pattern in Acrobat date letters with \\ escapes, checked and previewed as typed, remembered; only whole date codes accepted; month and weekday names in the interface languages, Czech months in the genitive after a day, following the interface language unless one is picked; fill_sign_add takes a one-off format and language). Beyond Acrobat: its Fill & Sign has no format setting (only Acrobat Sign accounts do). Missing: Fill & Sign text is Helvetica/WinAnsi, so a date with letters outside Western European (Czech ř, Japanese, Chinese names) is refused with a warning instead of being saved as ?; the OS locale's format isn't offered as a preset; names in languages without an interface translation"
 
 [[feature]]
@@ -5262,7 +5262,7 @@ milestone = "M5"
 status = "shipped"
 commands = ["sign.fill.signature", "sign.fill.initials", "sign.fill.signature.change", "sign.fill.initials.change", "sign.fill.signature.remove", "sign.fill.initials.remove"]
 tools = ["fill_sign_add", "comment_edit", "comment_image_preview"]
-evidence = ["crates/ui-egui/tests/fill_sign.rs::drawn_signatures_resize_from_their_corners", "crates/ui-egui/tests/fill_sign.rs::drawn_and_typed_signatures_stay_upright_on_rotated_pages", "crates/automation/tests/automation.rs::typed_signatures_stay_upright_on_rotated_pages", "crates/ui-egui/tests/fill_sign.rs::image_signature_corners_restore_original_aspect_after_edge_resize_and_reopen", "crates/ui-egui/src/comments.rs::proportional_corners_keep_the_opposite_anchor_and_edges_stretch_one_axis", "crates/ui-egui/tests/fill_sign.rs::image_signature_live_resize_and_move_preserve_background_and_hide_moving_handles", "crates/ui-egui/tests/fill_sign.rs::embedded_image_signature_live_gestures_follow_document_and_view_rotation", "crates/automation/tests/automation.rs::image_signature_preview_layers_are_read_only_and_survive_encrypted_save", "crates/engine/src/signature_image.rs::embedded_signature_preview_preserves_alpha_without_editing_the_document", "crates/engine/src/signature_image.rs::oversized_embedded_signature_preview_is_rejected_before_decoding", "crates/ui-egui/tests/fill_sign.rs::image_signature_preview_follows_pointer_at_page_size_with_zoom_and_rotation", "crates/ui-egui/tests/fill_sign.rs::image_signature_placement_selects_resize_handles_and_requires_reselecting_to_repeat", "crates/ui-egui/tests/fill_sign.rs::typed_signatures_and_initials", "crates/ui-egui/tests/fill_sign.rs::signing_draws_a_signature_once_and_places_it", "crates/ui-egui/tests/fill_sign.rs::changing_saved_signatures_and_initials_preserves_placed_marks", "crates/ui-egui/tests/fill_sign.rs::changing_drawn_signatures_can_be_cancelled_or_switched_to_type", "crates/ui-egui/tests/fill_sign.rs::saved_signature_cards_remove_and_add_without_changing_the_document", "crates/ui-egui/tests/fill_sign.rs::long_typed_names_fit_the_placed_signature_and_keep_every_outline", "crates/ui-egui/src/fill_sign.rs::long_signature_previews_have_clear_margins", "crates/ui-egui/tests/control.rs::saved_signature_can_be_changed_through_the_control_channel", "crates/fonts/src/script.rs::a_name_becomes_outlines", "crates/fonts/src/script.rs::long_names_keep_every_glyph_with_bounded_outline_work", "crates/automation/tests/automation.rs::fill_and_sign_through_tools", "crates/ui-egui/tests/fill_sign.rs::image_signatures_and_initials_can_be_imported_placed_and_remembered", "crates/ui-egui/tests/fill_sign.rs::image_import_cancel_clear_and_errors_preserve_saved_signatures", "crates/engine/src/signature_image.rs::image_signatures_preserve_alpha_and_fit_the_signature_box", "crates/engine/src/signature_image.rs::invalid_and_oversized_signature_images_are_rejected", "crates/engine/src/signature_image.rs::large_signature_images_are_scaled_down", "crates/engine/src/signature_image.rs::jpeg_signatures_are_normalized_to_png", "crates/engine/src/signature_image.rs::jpeg_signature_orientation_is_applied_before_preview_and_embedding", "crates/engine/src/signature_image.rs::very_wide_image_signatures_keep_the_requested_rectangle", "crates/automation/tests/automation.rs::image_signatures_through_tools_preserve_transparency_and_survive_save", "crates/ui-egui/tests/fill_sign.rs::fill_and_sign_tools_pick_up_placed_marks_to_move_and_resize_them", "crates/ui-egui/tests/fill_sign.rs::select_tool_picks_up_a_signature_over_a_form_field", "crates/ui-egui/tests/fill_sign.rs::scanned_signatures_are_framed_cleaned_adjusted_placed_and_remembered", "crates/ui-egui/tests/fill_sign.rs::scan_cancel_errors_and_stale_answers_preserve_saved_signatures", "crates/automation/tests/automation.rs::scanned_signatures_through_tools_drop_the_paper_and_report_bad_arguments", "crates/engine/src/signature_scan.rs::a_photo_is_scanned_into_a_trimmed_transparent_signature_in_its_ink_colour"]
+evidence = ["crates/ui-egui/tests/ui_gpu_group/fill_sign.rs::drawn_signatures_resize_from_their_corners", "crates/ui-egui/tests/ui_gpu_group/fill_sign.rs::drawn_and_typed_signatures_stay_upright_on_rotated_pages", "crates/automation/tests/automation.rs::typed_signatures_stay_upright_on_rotated_pages", "crates/ui-egui/tests/ui_gpu_group/fill_sign.rs::image_signature_corners_restore_original_aspect_after_edge_resize_and_reopen", "crates/ui-egui/src/comments.rs::proportional_corners_keep_the_opposite_anchor_and_edges_stretch_one_axis", "crates/ui-egui/tests/ui_gpu_group/fill_sign.rs::image_signature_live_resize_and_move_preserve_background_and_hide_moving_handles", "crates/ui-egui/tests/ui_gpu_group/fill_sign.rs::embedded_image_signature_live_gestures_follow_document_and_view_rotation", "crates/automation/tests/automation.rs::image_signature_preview_layers_are_read_only_and_survive_encrypted_save", "crates/engine/src/signature_image.rs::embedded_signature_preview_preserves_alpha_without_editing_the_document", "crates/engine/src/signature_image.rs::oversized_embedded_signature_preview_is_rejected_before_decoding", "crates/ui-egui/tests/ui_gpu_group/fill_sign.rs::image_signature_preview_follows_pointer_at_page_size_with_zoom_and_rotation", "crates/ui-egui/tests/ui_gpu_group/fill_sign.rs::image_signature_placement_selects_resize_handles_and_requires_reselecting_to_repeat", "crates/ui-egui/tests/ui_gpu_group/fill_sign.rs::typed_signatures_and_initials", "crates/ui-egui/tests/ui_gpu_group/fill_sign.rs::signing_draws_a_signature_once_and_places_it", "crates/ui-egui/tests/ui_gpu_group/fill_sign.rs::changing_saved_signatures_and_initials_preserves_placed_marks", "crates/ui-egui/tests/ui_gpu_group/fill_sign.rs::changing_drawn_signatures_can_be_cancelled_or_switched_to_type", "crates/ui-egui/tests/ui_gpu_group/fill_sign.rs::saved_signature_cards_remove_and_add_without_changing_the_document", "crates/ui-egui/tests/ui_gpu_group/fill_sign.rs::long_typed_names_fit_the_placed_signature_and_keep_every_outline", "crates/ui-egui/src/fill_sign.rs::long_signature_previews_have_clear_margins", "crates/ui-egui/tests/control.rs::saved_signature_can_be_changed_through_the_control_channel", "crates/fonts/src/script.rs::a_name_becomes_outlines", "crates/fonts/src/script.rs::long_names_keep_every_glyph_with_bounded_outline_work", "crates/automation/tests/automation.rs::fill_and_sign_through_tools", "crates/ui-egui/tests/ui_gpu_group/fill_sign.rs::image_signatures_and_initials_can_be_imported_placed_and_remembered", "crates/ui-egui/tests/ui_gpu_group/fill_sign.rs::image_import_cancel_clear_and_errors_preserve_saved_signatures", "crates/engine/src/signature_image.rs::image_signatures_preserve_alpha_and_fit_the_signature_box", "crates/engine/src/signature_image.rs::invalid_and_oversized_signature_images_are_rejected", "crates/engine/src/signature_image.rs::large_signature_images_are_scaled_down", "crates/engine/src/signature_image.rs::jpeg_signatures_are_normalized_to_png", "crates/engine/src/signature_image.rs::jpeg_signature_orientation_is_applied_before_preview_and_embedding", "crates/engine/src/signature_image.rs::very_wide_image_signatures_keep_the_requested_rectangle", "crates/automation/tests/automation.rs::image_signatures_through_tools_preserve_transparency_and_survive_save", "crates/ui-egui/tests/ui_gpu_group/fill_sign.rs::fill_and_sign_tools_pick_up_placed_marks_to_move_and_resize_them", "crates/ui-egui/tests/ui_gpu_group/fill_sign.rs::select_tool_picks_up_a_signature_over_a_form_field", "crates/ui-egui/tests/ui_gpu_group/fill_sign.rs::scanned_signatures_are_framed_cleaned_adjusted_placed_and_remembered", "crates/ui-egui/tests/ui_gpu_group/fill_sign.rs::scan_cancel_errors_and_stale_answers_preserve_saved_signatures", "crates/automation/tests/automation.rs::scanned_signatures_through_tools_drop_the_paper_and_report_bad_arguments", "crates/engine/src/signature_scan.rs::a_photo_is_scanned_into_a_trimmed_transparent_signature_in_its_ink_colour"]
 notes = "signature and initials, typed (Dancing Script outlines as filled paths, no font embedded), drawn or imported from local PNG/JPEG images; all three are placed upright and anchored as displayed on pages with /Rotate (#299); saved in settings with preview cards and add/change/remove controls; changes leave placed annotations untouched; images preserve alpha, aspect ratio and EXIF orientation, fit within 150 pt by 32 pt (24 pt for initials), and are normalized without source paths or metadata; image previews follow the pointer at placement size with zoom and rotation; signatures/initials place once then select the new annotation; while a Fill & Sign tool is active, marks already placed are picked up as with Select (hover shows the move cursor, a click selects, a drag moves, the selected mark's handles resize) and the tool places only away from them; embedded image signatures resize and move live, hiding the frame during movement and restoring it on release; corner handles preserve the original aspect ratio of the embedded image with the opposite corner anchored, while edge midpoint handles stretch width or height independently; cached background layers preserve page content and alpha, including reopened/encrypted documents; Escape cancels a gesture without committing; stamps resize through selection handles or comment_edit with their original appearance; native and web asynchronous pickers; fill_sign_add accepts path instead of text; image imports capped at 4 MiB, 32 megapixels and 8192 pixels per side, larger than 4 megapixels or 4096 pixels per side scaled down to fit (#1075); Scan tab (fill_sign_add scan/sensitivity headless): a phone photo of a signature on paper (PNG/JPEG within the same image limits, EXIF-oriented, kept at most 4 megapixels) is framed automatically (all words; table, sheet edge and dust ignored; a sideways signature turned upright), the frame can be moved, resized or redrawn and the photo turned in quarter turns, and an ink-sensitivity slider (0-100) controls how faint ink is kept; the paper is estimated by a morphological closing, so shadows and uneven light are removed, and the result is trimmed ink in its own colour on transparency, saved like an imported image. Still missing: perspective correction of a skewed sheet, live camera capture, keyboard control of the frame, and processing off the UI thread (bounded by the 4-megapixel working copy; quick 900 px previews while dragging)"
 
 [[feature]]
@@ -5274,7 +5274,7 @@ milestone = "M5"
 status = "shipped"
 commands = ["comment.flatten"]
 tools = ["doc_save", "doc_flatten"]
-evidence = ["crates/edit/src/tests.rs::fill_sign_flatten_bakes_marks_keeps_other_comments_and_does_not_reuse_pcfl0", "crates/engine/src/tests.rs::flattening_fill_and_sign_keeps_other_comments_fields_and_undoes", "crates/engine/src/tests.rs::flattening_fill_and_sign_is_refused_without_permission_to_change", "crates/automation/tests/automation.rs::saving_with_flatten_fill_sign_bakes_marks_and_leaves_other_comments", "crates/ui-egui/tests/fill_sign.rs::saving_flattens_fill_and_sign_only_when_the_preference_is_on"]
+evidence = ["crates/edit/src/tests.rs::fill_sign_flatten_bakes_marks_keeps_other_comments_and_does_not_reuse_pcfl0", "crates/engine/src/tests.rs::flattening_fill_and_sign_keeps_other_comments_fields_and_undoes", "crates/engine/src/tests.rs::flattening_fill_and_sign_is_refused_without_permission_to_change", "crates/automation/tests/automation.rs::saving_with_flatten_fill_sign_bakes_marks_and_leaves_other_comments", "crates/ui-egui/tests/ui_gpu_group/fill_sign.rs::saving_flattens_fill_and_sign_only_when_the_preference_is_on"]
 notes = "Preferences ▸ Fill & Sign, and doc_save flatten_fill_sign, bake text, marks and signatures into the page. The option defaults off, so a normal save leaves them editable. Other comments and form fields stay. Flatten comments still flattens every comment."
 
 [[feature]]
@@ -9774,7 +9774,7 @@ milestone = "M14"
 status = "partial"
 commands = []
 tools = []
-evidence = ["crates/ui-egui/tests/view.rs::default_page_display_is_used_for_new_documents", "crates/ui-egui/tests/view.rs::default_zoom_is_used_for_new_documents", "crates/ui-egui/tests/view.rs::preferences_set_the_default_zoom"]
+evidence = ["crates/ui-egui/tests/ui_gpu_group/view.rs::default_page_display_is_used_for_new_documents", "crates/ui-egui/tests/ui_gpu_group/view.rs::default_zoom_is_used_for_new_documents", "crates/ui-egui/tests/ui_gpu_group/view.rs::preferences_set_the_default_zoom"]
 notes = "Preferences ▸ Documents and view: Default page display and Default zoom (Fit to width, Zoom to page level or a percentage) for every new tab; a PDF that asks for a layout or zoom gets it. Missing: Acrobat's resolution, rendering and page-content options"
 
 [[feature]]

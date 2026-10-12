@@ -1,5 +1,6 @@
 //! Fill & Sign in the real shell (egui_kittest): text, marks, date and a drawn signature.
 
+use super::gpu;
 use egui::{Pos2, pos2};
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable;
@@ -12,16 +13,6 @@ const FIXTURE: &[u8] = b"%PDF-1.7
 3 0 obj << /Type /Page /Parent 2 0 R >> endobj
 trailer << /Root 1 0 R >>
 %%EOF";
-
-/// Tests that render pixels (`h.render()`) take this first, so only one wgpu device compiles
-/// shaders at a time: WARP's ARM64 pixel-shader JIT crashes when two do (see `tests/view.rs`).
-/// Declared before the harness, so it is released after the device is dropped.
-static GPU: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
-fn gpu() -> std::sync::MutexGuard<'static, ()> {
-    // A test that panicked while holding it leaves nothing to clean up.
-    GPU.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
-}
 
 fn harness() -> Harness<'static, PdfCraftApp> {
     harness_bytes(FIXTURE)
@@ -1198,7 +1189,7 @@ fn drawn_signatures_resize_from_their_corners() {
 /// doesn't take the press. Away from the signature, a click still fills the field.
 #[test]
 fn select_tool_picks_up_a_signature_over_a_form_field() {
-    let mut h = harness_bytes(include_bytes!("data/form.pdf"));
+    let mut h = harness_bytes(include_bytes!("../data/form.pdf"));
     h.state_mut().signature = Some(SavedSig::Typed("Ada Lovelace".into()));
     h.state_mut().execute("sign.fill.signature");
     click(&mut h, 150.0, 270.0);

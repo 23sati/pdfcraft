@@ -13,6 +13,7 @@ on:
       - "**/Cargo.toml"
       - "**/build.rs"
       - .github/workflows/windows-arm64.yml
+      - crates/ui-egui/tests/**
       - packaging/windows/**
   schedule:
     - cron: "41 4 * * 1" # weekly, so drift in the runner images shows up

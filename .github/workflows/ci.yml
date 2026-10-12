@@ -106,6 +106,12 @@ jobs:
             candidate: 9bb13debe170adb2bcee3222fac3d487885e1550
           - id: filesystem-light
             baseline: 9bb13debe170adb2bcee3222fac3d487885e1550
+            candidate: 149c8b53ad4a60a8d30c2a54919246c17bd29fb3
+          - id: signing-trust
+            baseline: 149c8b53ad4a60a8d30c2a54919246c17bd29fb3
+            candidate: 52cd3e9642debe5e5627616a1d36adff27c27311
+          - id: gpu-cohort
+            baseline: 52cd3e9642debe5e5627616a1d36adff27c27311
         os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
