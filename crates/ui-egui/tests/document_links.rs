@@ -208,6 +208,8 @@ fn a_gotor_link_to_a_directory_or_device_is_refused_without_reading_it() {
     let dir = std::env::temp_dir().join(format!("pdfcraft-ui-gotor-not-a-file-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("folder.pdf")).unwrap();
+    // Only Unix adds a target (a device), so elsewhere the list is never changed.
+    #[cfg_attr(not(unix), allow(unused_mut))]
     let mut targets = vec!["folder.pdf"];
     #[cfg(unix)]
     {

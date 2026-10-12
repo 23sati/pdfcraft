@@ -3179,6 +3179,8 @@ fn local_gotor_link_open_refuses_directories_devices_and_non_pdf_targets() {
     std::fs::write(root.join("notes.txt"), fixture(1)).unwrap();
     std::fs::write(root.join("dir-source.pdf"), remote_link_pdf("folder.pdf", None)).unwrap();
     std::fs::write(root.join("txt-source.pdf"), remote_link_pdf("notes.txt", None)).unwrap();
+    // Only Unix adds a case (a FIFO), so elsewhere the list is never changed.
+    #[cfg_attr(not(unix), allow(unused_mut))]
     let mut cases = vec![("dir-source.pdf", "not a regular file"), ("txt-source.pdf", "not a .pdf file")];
     #[cfg(unix)]
     {
