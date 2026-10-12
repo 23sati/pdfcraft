@@ -24,6 +24,31 @@ trailer << /Root 1 0 R >>
     .into_bytes()
 }
 
+/// Two short pages that fit together in the test window, so one pointer drag can cross the gap.
+fn two_pages() -> Vec<u8> {
+    let first = "BT /F1 14 Tf 20 60 Td (begin first) Tj ET";
+    let second = "BT /F1 14 Tf 20 60 Td (second end) Tj ET";
+    format!(
+        "%PDF-1.7
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 300 100] /Contents 4 0 R /Resources << /Font << /F1 7 0 R >> >> >> endobj
+4 0 obj << /Length {} >> stream
+{first}
+endstream endobj
+5 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 300 100] /Contents 6 0 R /Resources << /Font << /F1 7 0 R >> >> >> endobj
+6 0 obj << /Length {} >> stream
+{second}
+endstream endobj
+7 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
+trailer << /Root 1 0 R >>
+%%EOF",
+        first.len(),
+        second.len()
+    )
+    .into_bytes()
+}
+
 /// The page on screen and the pointer over the "u" of "quick". Frames are 1/60 s: a click takes
 /// two frames (press, release), and egui counts a double-click only within 0.3 s.
 fn harness(setup: impl FnOnce(&mut PdfCraftApp) + 'static) -> (Harness<'static, PdfCraftApp>, Pos2) {
@@ -47,6 +72,25 @@ fn harness(setup: impl FnOnce(&mut PdfCraftApp) + 'static) -> (Harness<'static, 
     h.hover_at(at);
     h.run_steps(1);
     (h, at)
+}
+
+fn two_page_harness() -> Harness<'static, PdfCraftApp> {
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).with_step_dt(1.0 / 60.0).build_eframe(|_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("two-pages.pdf", None, two_pages()).expect("opens");
+        app.set_option("left", "closed").unwrap();
+        app.set_option("author", "Tester").unwrap();
+        app
+    });
+    for _ in 0..200 {
+        h.run_steps(2);
+        if !h.state().render_pending() && h.state().views[0].glyph_screen_pos(1, 0).is_some() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    h
 }
 
 /// Press and release without moving or leaving the page.
@@ -183,4 +227,13 @@ fn multiclick_selects_on_pointer_press_before_release() {
     h.event(Event::PointerButton { pos: at, button: PointerButton::Primary, pressed: false, modifiers: Modifiers::NONE });
     h.run_steps(1);
     assert_eq!(h.state().views[0].selected_text().as_deref(), Some("The quick brown fox"), "line stays selected on release");
+}
+
+#[test]
+fn drag_selection_continues_across_pages_and_copies_in_reading_order() {
+    let mut h = two_page_harness();
+    let first = h.state().views[0].glyph_screen_pos(0, 6).expect("first-page text");
+    let last = h.state().views[0].glyph_screen_pos(1, 5).expect("second-page text");
+    drag(&mut h, first, last);
+    assert_eq!(h.state().views[0].selected_text().as_deref(), Some("first\nsecond"));
 }
