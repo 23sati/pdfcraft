@@ -2582,3 +2582,14 @@ key	Esc	Esc
 key	Home	Home
 key	End	End
 key	Space	Tarpas
+
+	Read out loud	Skaityti balsu
+	Voice	Balsas
+	Speed	Greitis
+	Pause	Pristabdyti
+	Resume	Tęsti
+	Stop	Sustabdyti
+	Paused	Pristabdyta
+	Preparing read-aloud text…	Ruošiamas tekstas skaitymui…
+	Read out loud currently requires Windows.	Skaitymui balsu šiuo metu reikia Windows.
+	Scanned pages need OCR. Reading order follows extracted page text.	Nuskaitytiems puslapiams reikia OCR. Skaitymo tvarka atitinka iš puslapio išgautą tekstą.

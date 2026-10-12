@@ -118,6 +118,18 @@ pub fn tools() -> Vec<ToolDef> {
     let save_out = json!({ "type": "string", "description": "File to write. Omit to open the result as a new unsaved document instead." });
     let open = json!({ "type": "boolean", "description": "Also open the result as a new document (default: only when out is omitted)." });
     vec![
+        t("read_aloud_prepare", "Prepare read-aloud text", "Prepare bounded assistive reading text without sound or document changes. Defaults to page 1. At most 64 unique pages in document order, 1 MiB of text. Empty pages are reported; scanned pages need OCR first. Uses extracted page reading order, not a semantic tag-tree traversal.")
+            .ro().with(schema(json!({"doc":doc(),"pages":pages("to read aloud")}), &["doc"])),
+        t("read_aloud_start", "Read out loud", "Explicitly play document text through installed local Windows voices. Defaults to page 1; pages follow read_aloud_prepare limits. Asynchronous: poll read_aloud_status for completion/errors. Edits or closing the source document stop playback. Audio stops when the CLI/MCP session ends; end a CLI script with read_aloud_wait to keep playback alive.")
+            .cmd("a11y.read_aloud").with(schema(json!({"doc":doc(),"pages":pages("to read aloud"),"voice":{"type":"string","maxLength":1024},"rate":{"type":"number","minimum":0.5,"maximum":2.0}}), &["doc"])),
+        t("read_aloud_control", "Control read-aloud playback", "Pause, resume at the same audio position, or stop this session's speech. Requests are asynchronous; poll read_aloud_status.")
+            .with(schema(json!({"action":{"type":"string","enum":["pause","resume","stop"]}}), &["action"])),
+        t("read_aloud_status", "Read-aloud status", "Read playback state, current source page, completed chunk count, installed voices and any asynchronous error. Does not start audio.")
+            .ro().with(schema(json!({}), &[])),
+        t("read_aloud_voices", "List local speech voices", "Request installed Windows voice discovery without speaking. Poll read_aloud_status for the voice ids, display names, languages and errors. No cloud or runtime downloads.")
+            .with(schema(json!({}), &[])),
+        t("read_aloud_wait", "Wait for speech", "Keep a CLI script alive until speech completes or errors, or until the 1–60 second timeout (default 30). Reports timed_out without stopping playback; a persistent session can wait again. Does not start sound.")
+            .ro().with(schema(json!({"seconds":{"type":"integer","minimum":1,"maximum":60}}), &[])),
         t("doc_open", "Open a PDF", "Open a PDF file and return its document id, page count and whether it can be edited.")
             .cmd("file.open")
             .with(schema(json!({ "path": { "type": "string" }, "password": { "type": "string", "description": "User or owner password for encrypted files." } }), &["path"])),

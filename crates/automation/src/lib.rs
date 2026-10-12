@@ -24,6 +24,7 @@ mod printing;
 mod reading;
 mod redact;
 mod signing;
+mod speech;
 mod tools;
 
 use std::collections::HashMap;
@@ -106,6 +107,8 @@ pub struct Automation {
     renderers: HashMap<DocId, (Arc<Vec<u8>>, PageRenderer)>,
     /// Extracted page text per document version (the working bytes it was taken from).
     texts: HashMap<DocId, TextCache>,
+    speech: pdfcraft_platform::speech::Player,
+    speech_source: Option<(DocId, Arc<Vec<u8>>)>,
 }
 
 impl Default for Automation {
@@ -116,7 +119,14 @@ impl Default for Automation {
 
 impl Automation {
     pub fn new() -> Self {
-        Self { session: Session::new(), root: None, renderers: HashMap::new(), texts: HashMap::new() }
+        Self {
+            session: Session::new(),
+            root: None,
+            renderers: HashMap::new(),
+            texts: HashMap::new(),
+            speech: Default::default(),
+            speech_source: None,
+        }
     }
 
     /// Confine every path the tools read or write to `root` (relative paths resolve inside it).
@@ -155,6 +165,7 @@ impl Automation {
 
     /// Run the tool `name` with JSON `args` (an object; `null` means no arguments).
     pub fn call(&mut self, name: &str, args: &Value) -> Result<Vec<Content>> {
+        self.invalidate_speech()?;
         let empty = json!({});
         let args = if args.is_null() { &empty } else { args };
         if !args.is_object() {
@@ -717,6 +728,12 @@ impl Automation {
             "sign_list" => self.sign_list(&a)?,
             "accessibility_check" => self.a11y_check(&a)?,
             "accessibility_autotag_preview" => self.accessibility_autotag_preview(&a)?,
+            "read_aloud_prepare" => self.read_aloud_prepare(&a)?,
+            "read_aloud_start" => self.read_aloud_start(&a)?,
+            "read_aloud_control" => self.read_aloud_control(&a)?,
+            "read_aloud_status" => self.read_aloud_status()?,
+            "read_aloud_voices" => self.read_aloud_voices()?,
+            "read_aloud_wait" => self.read_aloud_wait(&a)?,
             "ocr_recognize" => self.ocr_recognize(&a)?,
             "js_run" => self.js_run(&a)?,
             "js_document_scripts" => self.js_document_scripts(&a)?,
@@ -792,6 +809,7 @@ impl Automation {
             "comment_delete" => self.comment_delete(&a)?,
             other => return Err(ToolError::UnknownTool(other.into())),
         };
+        self.invalidate_speech()?;
         Ok(vec![Content::Json(out)])
     }
 

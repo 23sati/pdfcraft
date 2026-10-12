@@ -119,6 +119,7 @@ pub(crate) const MAX_AUTHOR_CHARS: usize = 200;
 
 pub mod portable;
 mod protect;
+pub mod read_aloud;
 mod recovery;
 pub mod scroll_speed;
 #[cfg(not(target_arch = "wasm32"))]
@@ -432,6 +433,7 @@ pub struct RecentFile {
 }
 
 pub struct PdfCraftApp {
+    pub read_aloud: read_aloud::ReadAloud,
     pub docking: docking::Workspace,
     pub(crate) pending_panel_reveals: Vec<docking::Panel>,
     pub session: Session,
@@ -794,6 +796,7 @@ impl PdfCraftApp {
     pub fn new() -> Self {
         Self {
             session: Session::new(),
+            read_aloud: Default::default(),
             views: Vec::new(),
             closed_tabs: Vec::new(),
             active: None,
@@ -1445,6 +1448,9 @@ impl PdfCraftApp {
             return;
         }
         let id = self.views.remove(index).id;
+        if self.read_aloud.source.as_ref().is_some_and(|s| s.0 == id) {
+            self.stop_read_aloud();
+        }
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(path) = self.session.get(id).and_then(|d| d.path.clone()) {
             if self.closed_tabs.len() == 10 {
@@ -2535,6 +2541,7 @@ impl eframe::App for PdfCraftApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         i18n::set_current(i18n::Lang::from_pref(&self.language));
+        self.poll_read_aloud(&ctx);
         // Fonts registered via set_fonts only take effect next frame; named families would panic now.
         if !self.fonts_ready {
             ctx.request_repaint();
@@ -2566,6 +2573,7 @@ impl eframe::App for PdfCraftApp {
                 },
             );
             dialogs::show(self, &ctx);
+            read_aloud::show(self, &ctx);
             // Notices too: a refused field value or a failed save must be seen in full screen.
             self.show_progress(&ctx);
             widgets::toast(self, &ctx);
@@ -2603,6 +2611,7 @@ impl eframe::App for PdfCraftApp {
         self.process_pending_edits();
         palette::show(self, &ctx);
         dialogs::show(self, &ctx);
+        read_aloud::show(self, &ctx);
         self.show_progress(&ctx);
         widgets::toast(self, &ctx);
         self.finish_render_frame(&ctx);
