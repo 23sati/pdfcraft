@@ -35,7 +35,11 @@ fn fixture(n: usize) -> Vec<u8> {
 }
 
 fn harness(pages: usize, setup: impl FnOnce(&mut PdfCraftApp) + 'static) -> Harness<'static, PdfCraftApp> {
-    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
+    let mut builder = Harness::builder().with_size(egui::vec2(1400.0, 900.0));
+    if std::env::var_os("PDFCRAFT_ORGANIZE_SNAPSHOT").is_some() {
+        builder = builder.wgpu();
+    }
+    let mut h = builder.build_eframe(move |_cc| {
         let mut app = PdfCraftApp::new();
         app.set_option("language", "en").unwrap();
         app.open_bytes("doc.pdf", None, fixture(pages)).expect("fixture opens");
@@ -48,6 +52,75 @@ fn harness(pages: usize, setup: impl FnOnce(&mut PdfCraftApp) + 'static) -> Harn
 
 fn organize(pages: usize) -> Harness<'static, PdfCraftApp> {
     harness(pages, |app| app.set_option("organize", "on").unwrap())
+}
+
+fn type_selection(h: &mut Harness<'static, PdfCraftApp>, text: &str) {
+    use egui::accesskit::Role;
+    h.get_by_role_and_label(Role::TextInput, "Selected pages").click();
+    h.run_steps(1);
+    h.key_press_modifiers(Modifiers::COMMAND, Key::A);
+    h.get_by_role_and_label(Role::TextInput, "Selected pages").type_text(text);
+    h.run_steps(2);
+}
+
+#[test]
+fn organize_page_range_tracks_thumbnails_and_applies_typed_selection() {
+    use egui::accesskit::Role;
+    let mut h = organize(100);
+    h.get_by_label("Select page 2").click();
+    h.run_steps(2);
+    assert_eq!(h.get_by_role_and_label(Role::TextInput, "Selected pages").value().as_deref(), Some("2"));
+    h.get_by_label("Select page 3").click();
+    h.run_steps(2);
+    assert_eq!(h.get_by_role_and_label(Role::TextInput, "Selected pages").value().as_deref(), Some("2-3"));
+    let old = h.state().views[0].selected.clone();
+    type_selection(&mut h, "1,12,16-18,89,92,93,97,99");
+    assert_eq!(h.state().views[0].selected, old, "typing is not committed until Enter or focus loss");
+    h.key_press(Key::Enter);
+    h.run_steps(2);
+    assert_eq!(h.state().views[0].target_pages(), [0, 11, 15, 16, 17, 88, 91, 92, 96, 98]);
+    assert_eq!(h.get_by_role_and_label(Role::TextInput, "Selected pages").value().as_deref(), Some("1, 12, 16-18, 89, 92-93, 97, 99"));
+    if let Some(path) = std::env::var_os("PDFCRAFT_ORGANIZE_SNAPSHOT") {
+        h.render().unwrap().save(std::path::Path::new(&path)).unwrap();
+    }
+    h.get_by_label("Rotate clockwise").click();
+    h.run_steps(3);
+    let doc = h.state().session.get(h.state().views[0].id).unwrap();
+    for (i, page) in doc.info.pages.iter().enumerate() {
+        assert_eq!(page.rotation, if h.state().views[0].selected.contains(&i) { 90 } else { 0 });
+    }
+    h.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+    h.run_steps(3);
+    assert!(h.state().session.get(h.state().views[0].id).unwrap().info.pages.iter().all(|p| p.rotation == 0));
+}
+
+#[test]
+fn organize_page_range_rejects_invalid_input_and_escape_cancels_without_clearing() {
+    use egui::accesskit::Role;
+    let mut h = organize(5);
+    h.state_mut().set_option("select", "2-3").unwrap();
+    h.run_steps(2);
+    for text in ["0", "6", "1,", "no"] {
+        type_selection(&mut h, text);
+        h.key_press(Key::Enter);
+        h.run_steps(2);
+        assert_eq!(h.state().views[0].target_pages(), [1, 2]);
+    }
+    type_selection(&mut h, "1-5");
+    h.key_press(Key::Escape);
+    h.run_steps(2);
+    assert_eq!(h.state().views[0].target_pages(), [1, 2]);
+    assert_eq!(h.get_by_role_and_label(Role::TextInput, "Selected pages").value().as_deref(), Some("2-3"));
+    type_selection(&mut h, "5, 4, 4");
+    h.get_by_label("Apply").click();
+    h.run_steps(2);
+    assert_eq!(h.state().views[0].target_pages(), [3, 4]);
+    type_selection(&mut h, " ");
+    h.key_press(Key::Enter);
+    h.run_steps(2);
+    assert!(h.state().views[0].selected.is_empty());
+    assert!(h.state_mut().set_option("select", "0").is_err());
+    assert!(h.state_mut().set_option("select", "6").is_err());
 }
 
 #[test]
@@ -778,6 +851,85 @@ fn edit_menu_names_the_step_to_undo() {
 }
 
 // ── Combine / insert from file / extract / split ──────────────────────────────────────────────
+
+/// A one-page PDF whose form holds one text field named `name`.
+fn form_pdf(name: &str) -> Vec<u8> {
+    form_pdf_pages(name, 1)
+}
+
+/// A PDF of `pages` pages whose form holds one text field named `name` (on the first page).
+fn form_pdf_pages(name: &str, pages: usize) -> Vec<u8> {
+    let kids: Vec<String> = (0..pages).map(|i| format!("{} 0 R", 3 + i)).collect();
+    let mut objs: Vec<String> = vec![
+        "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] >> >>".into(),
+        format!("<< /Type /Pages /Kids [{}] /Count {pages} /MediaBox [0 0 300 400] >>", kids.join(" ")),
+        "<< /Type /Page /Parent 2 0 R /Annots [4 0 R] >>".into(),
+        format!("<< /Type /Annot /Subtype /Widget /FT /Tx /T ({name}) /V (x) /Rect [60 60 200 80] /P 3 0 R >>"),
+    ];
+    for _ in 1..pages {
+        objs.push("<< /Type /Page /Parent 2 0 R >>".to_string()); // objects after the field's number
+    }
+    let mut out = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offsets.push(out.len());
+        out.extend_from_slice(format!("{} 0 obj\n{o}\nendobj\n", i + 1).as_bytes());
+    }
+    let xref = out.len();
+    out.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+    for o in offsets {
+        out.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+    }
+    out.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objs.len() + 1).as_bytes());
+    out
+}
+
+/// organize.field-name-conflicts: the Combine tab warns, before anything is combined, that a
+/// file's form fields collide with earlier files' and will be renamed, naming the new names.
+#[test]
+fn combine_list_warns_that_colliding_field_names_will_be_renamed() {
+    let mut h = harness(1, |app| {
+        app.set_option("combine-view", "list").unwrap();
+        app.use_files(pdfcraft_ui_egui::FilePurpose::Combine, vec![("one.pdf".into(), form_pdf("Text1")), ("two.pdf".into(), form_pdf("Text1"))]);
+    });
+    h.run_steps(3);
+    h.get_by_label_contains("will be renamed");
+    h.get_by_label_contains("Text1 → Text1-1");
+}
+
+/// A file split into parts (its pages moved among other files') is combined as one file, once —
+/// so the preview must not warn that its field names collide with their own.
+#[test]
+fn combine_list_does_not_warn_that_a_split_file_collides_with_itself() {
+    let mut h = harness(1, |app| {
+        app.set_option("combine-view", "list").unwrap();
+        app.use_files(pdfcraft_ui_egui::FilePurpose::Combine, vec![("one.pdf".into(), form_pdf_pages("Text1", 2))]);
+    });
+    h.run_steps(3);
+    // one.pdf in two parts — pages 1 and 2, sharing a group, as moving its pages apart leaves it.
+    let mut part = h.state().combine_draft[0].clone();
+    part.id += 1000;
+    h.state_mut().combine_draft[0].range = "1".into();
+    part.range = "2".into();
+    h.state_mut().combine_draft.push(part);
+    h.run_steps(3);
+    assert!(h.query_by_label_contains("will be renamed").is_none(), "one file, however many parts, cannot collide with itself");
+}
+
+/// Copying a page with a field and pasting it back into the same document is a duplicate: the
+/// copy keeps the field's name rather than becoming Text1-1.
+#[test]
+fn pasting_pages_into_their_own_document_keeps_field_names() {
+    let mut app = PdfCraftApp::new();
+    app.set_option("language", "en").unwrap();
+    app.open_bytes("form.pdf", None, form_pdf("Text1")).unwrap();
+    app.views[0].select_pages(&[0]);
+    assert!(app.execute("page.copy"));
+    assert!(app.execute("page.paste"));
+    let doc = app.session.get(app.views[0].id).unwrap();
+    assert_eq!(doc.info.pages.len(), 2, "pasted");
+    assert!(doc.form.iter().all(|f| f.name == "Text1"), "{:?}", doc.form.iter().map(|f| &f.name).collect::<Vec<_>>());
+}
 
 fn texts_of(app: &PdfCraftApp, tab: usize) -> Vec<String> {
     let doc = app.session.get(app.views[tab].id).unwrap();
@@ -1931,7 +2083,7 @@ fn copying_out_of_a_document_honours_its_security() {
     let mut h = open("pw");
     assert!(!copy(&mut h), "⌘C copies nothing");
     assert_eq!(h.state().toast.as_ref().map(|t| t.0.as_str()), refused);
-    for command in ["edit.snapshot", "export.image", "export.text", "export.docx", "export.html", "export.rtf", "export.all_images"] {
+    for command in ["edit.snapshot", "export.image", "export.text", "export.docx", "export.pptx", "export.html", "export.rtf", "export.all_images"] {
         h.state_mut().toast = None;
         assert!(!h.state_mut().execute(command), "{command} is refused");
         assert_eq!(h.state().toast.as_ref().map(|t| t.0.as_str()), refused, "{command} says why");

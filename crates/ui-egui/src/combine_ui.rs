@@ -251,6 +251,43 @@ pub enum Lock {
     Permissions,
 }
 
+/// The combine list's field-name conflicts, computed once per list (it opens the files):
+/// for each file, the renames combining would make of its form fields. Keyed by the file ids
+/// and their lock state, so unlocking a file refreshes it.
+#[derive(Default, Debug)]
+pub struct ConflictPreview {
+    key: (Vec<u64>, Vec<bool>),
+    per_file: Vec<Vec<(String, String)>>,
+}
+
+impl ConflictPreview {
+    /// Bring the preview in step with `files`, opening them through the engine when the list
+    /// changed. A file split into parts is combined as one file, once — each group's first
+    /// entry stands for it, as the combine does — and every part shows the file's preview.
+    /// A file that cannot be opened previews as nothing (its row says why).
+    fn refresh(&mut self, session: &pdfcraft_engine::Session, files: &[CombineFile]) {
+        let key = (files.iter().map(|f| f.id).collect(), files.iter().map(|f| f.password.is_some()).collect());
+        if self.key == key && self.per_file.len() == files.len() {
+            return;
+        }
+        let mut groups: Vec<u64> = Vec::new();
+        let mut sources: Vec<pdfcraft_engine::CombineSource> = Vec::new();
+        let mut passwords: Vec<Option<&str>> = Vec::new();
+        for f in files {
+            if groups.contains(&f.group) {
+                continue;
+            }
+            groups.push(f.group);
+            sources.push((f.name.clone(), f.bytes.clone(), None));
+            passwords.push(f.password.as_ref().map(|p| p.0.as_str()));
+        }
+        let per_group = session.combine_field_conflicts(&sources, &passwords);
+        self.per_file =
+            files.iter().map(|f| groups.iter().position(|g| *g == f.group).and_then(|at| per_group.get(at)).cloned().unwrap_or_default()).collect();
+        self.key = key;
+    }
+}
+
 /// Unlock…'s password box: the rows it unlocks and what has been typed.
 #[derive(Clone, Debug)]
 struct UnlockPrompt {
@@ -550,6 +587,10 @@ pub(crate) fn page(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
     let files_hovering = ui.ctx().input(|i| !i.raw.hovered_files.is_empty());
     // Ranges are checked before anything below reads them.
     let checks: Vec<Result<usize, String>> = app.combine_draft.iter_mut().map(CombineFile::selection).collect();
+    // Same-named form fields across the files are renamed when combining: preview it once per
+    // list, so the Warnings column can say so before anything is combined.
+    app.combine_conflicts.refresh(&app.session, &app.combine_draft);
+    let conflicts = app.combine_conflicts.per_file.clone();
     let n = app.combine_draft.len();
     let ids: Vec<u64> = app.combine_draft.iter().map(|f| f.id).collect();
     app.combine_tab.selected.retain(|id| ids.contains(id));
@@ -741,7 +782,7 @@ pub(crate) fn page(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                         events.action = Some(action);
                     }
                 } else {
-                    let table_events = table(app, ui, &t, &checks, &selected);
+                    let table_events = table(app, ui, &t, &checks, &selected, &conflicts);
                     events.range_focused |= table_events.range_focused;
                     events.range_changed |= table_events.range_changed;
                     if table_events.action.is_some() {
@@ -1178,7 +1219,14 @@ fn add_menu(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
 }
 
 /// The file table.
-fn table(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens, checks: &[Result<usize, String>], selected: &[bool]) -> TableEvents {
+fn table(
+    app: &mut PdfCraftApp,
+    ui: &mut egui::Ui,
+    t: &Tokens,
+    checks: &[Result<usize, String>],
+    selected: &[bool],
+    conflicts: &[Vec<(String, String)>],
+) -> TableEvents {
     let mut events = TableEvents::default();
     // The same file twice is allowed (e.g. a cover sheet), but probably a mistake.
     // (A file's parts are the one file, not copies.)
@@ -1196,7 +1244,7 @@ fn table(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens, checks: &[Result<
         app.combine_tab.layout = app.combine_tab.layout.wrapping_add(1);
     }
     let widths = app.combine_columns.resolved(available);
-    let rows = Rows { checks, selected, twice: &twice, dragging, sort: app.combine_tab.sort };
+    let rows = Rows { checks, selected, twice: &twice, conflicts, dragging, sort: app.combine_tab.sort };
     let mut heading_event = None;
     let mut shown = None;
     egui::ScrollArea::horizontal()
@@ -1233,6 +1281,8 @@ struct Rows<'a> {
     checks: &'a [Result<usize, String>],
     selected: &'a [bool],
     twice: &'a [bool],
+    /// What combining would rename of this file's form fields (the field-name conflict preview).
+    conflicts: &'a [Vec<(String, String)>],
     dragging: bool,
     sort: Option<(SortKey, bool)>,
 }
@@ -1422,6 +1472,19 @@ fn table_body(
                                 let mut warnings = f.notes.clone();
                                 if rows.twice.get(i).copied().unwrap_or(false) {
                                     warnings.push(tl!("Added more than once").to_string());
+                                }
+                                if let Some(renames) = rows.conflicts.get(i).filter(|r| !r.is_empty()) {
+                                    let shown: Vec<String> = renames.iter().take(3).map(|(old, new)| format!("{old} → {new}")).collect();
+                                    let list = shown.join(", ");
+                                    warnings.push(crate::i18n::fmt(
+                                        &crate::i18n::trn(
+                                            crate::i18n::current(),
+                                            renames.len() as u64,
+                                            "{n} field name collides with earlier files and will be renamed: {list}",
+                                            "{n} field names collide with earlier files and will be renamed: {list}",
+                                        ),
+                                        &[("list", &list)],
+                                    ));
                                 }
                                 let (icon, colour, first) = match (errors.first(), warnings.first()) {
                                     (Some(e), _) => ("circle-x", ERROR, e.clone()),

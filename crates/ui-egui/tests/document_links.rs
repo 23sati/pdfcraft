@@ -21,11 +21,18 @@ fn fixture() -> Vec<u8> {
     let objs = [
         "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R 6 0 R] /DA (/Helv 0 Tf 0 g) >> >>".to_string(),
         "<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 300 400] >>".to_string(),
-        "<< /Type /Page /Parent 2 0 R /Annots [4 0 R 5 0 R 6 0 R] >>".to_string(),
+        "<< /Type /Page /Parent 2 0 R /Annots [4 0 R 5 0 R 6 0 R 7 0 R 8 0 R] >>".to_string(),
         format!("<< /Type /Annot /Subtype /Link /Rect [50 300 250 350] /Border [0 0 0] /A << /S /URI /URI ({LINK_URL}) >> >>"),
         format!("<< /Type /Annot /Subtype /Widget /FT /Btn /Ff 65536 /T (web) /Rect [20 200 100 220] /P 3 0 R /A << /S /URI /URI ({BUTTON_URL}) >> >>"),
         "<< /Type /Annot /Subtype /Widget /FT /Btn /Ff 65536 /T (sneaky) /Rect [120 200 200 220] /P 3 0 R /AA << /U << /S /JavaScript /JS (app.launchURL\\(\"file:///C:/Windows/System32/calc.exe\", true\\);) >> >> >>".to_string(),
     ];
+    let objs = objs
+        .into_iter()
+        .chain([
+            "<< /Type /Annot /Subtype /Link /Rect [50 250 250 280] /A << /S /GoToR /F (target.pdf) /D [0 /Fit] >> >>".to_string(),
+            "<< /Type /Annot /Subtype /Link /Rect [50 220 250 240] /A << /S /Launch /F (program) >> >>".to_string(),
+        ])
+        .collect::<Vec<_>>();
     let mut out = b"%PDF-1.7\n".to_vec();
     let mut offs = Vec::new();
     for (i, o) in objs.iter().enumerate() {
@@ -64,10 +71,14 @@ fn click_at(h: &mut Harness<'static, PdfCraftApp>, at: egui::Pos2) {
 }
 
 /// Click the link on page 1, at the middle of its rectangle.
-fn click_link(h: &mut Harness<'static, PdfCraftApp>) {
+fn click_link_at(h: &mut Harness<'static, PdfCraftApp>, y: f32) {
     let r = h.state().views[0].page_screen_rect(0).expect("page 1 on screen");
-    let at = egui::pos2(r.min.x + r.width() * (150.0 / 300.0), r.min.y + r.height() * (1.0 - 325.0 / 400.0));
+    let at = egui::pos2(r.min.x + r.width() * (150.0 / 300.0), r.min.y + r.height() * (1.0 - y / 400.0));
     click_at(h, at);
+}
+
+fn click_link(h: &mut Harness<'static, PdfCraftApp>) {
+    click_link_at(h, 325.0);
 }
 
 fn click_field(h: &mut Harness<'static, PdfCraftApp>, name: &str) {
@@ -96,6 +107,19 @@ fn a_link_asks_first_and_opens_when_allowed() {
     h.run_steps(3);
     assert_eq!(h.state().last_opened_url.as_deref(), Some(LINK_URL));
     assert_eq!(h.state().pending_link, None);
+}
+
+#[test]
+fn unsupported_launch_action_is_reported_without_claiming_javascript() {
+    let _gpu = gpu();
+    let mut h = harness();
+    click_link_at(&mut h, 230.0);
+    assert_eq!(h.state().pending_link, None);
+    assert_eq!(h.state().last_opened_url, None);
+    assert_eq!(h.state().views.len(), 1);
+    assert_eq!(h.state().views[0].current, 0);
+    let toast = h.state().toast.clone().expect("the unsupported action is reported").0;
+    assert_eq!(toast, "This PDF uses the unsupported Launch action.");
 }
 
 #[test]

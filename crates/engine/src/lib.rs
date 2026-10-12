@@ -26,15 +26,17 @@ pub mod links;
 pub mod ocr;
 pub mod optimizer;
 pub mod signature_image;
+pub mod signature_scan;
 pub mod text_fonts;
 mod text_preview;
 mod upright_image;
 pub mod xfa;
 
 pub use signature_image::{ImageSignaturePreview, SignatureImage};
+pub use signature_scan::{PhotoRect, ScanError, SignaturePhoto, Turn};
 pub use text_preview::TextEditPreview;
 
-pub use pdfcraft_organize::{BoxSpec, PageBox, SplitBy, split_ranges};
+pub use pdfcraft_organize::{BoxSpec, FieldConflicts, PageBox, SplitBy, split_ranges};
 
 /// One file produced by a split: (1-based first page, last page, PDF bytes).
 pub use pdfcraft_organize::LabelStyle;
@@ -748,6 +750,14 @@ fn apply_layer_state(layers: &mut [Layer], groups: &[Vec<(u32, u16)>], changes: 
 /// A file to combine: its name (the bookmark title), bytes, and page range (`None`: all).
 pub type CombineSource = (String, Arc<Vec<u8>>, Option<String>);
 
+/// What a combine produced: the new PDF bytes, and the fields renamed to keep colliding names
+/// separate (old fully-qualified name → new one), in order across the sources.
+#[derive(Debug)]
+pub struct Combined {
+    pub bytes: Arc<Vec<u8>>,
+    pub renamed_fields: Vec<(String, String)>,
+}
+
 /// A bookmark as the bookmark list shows it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BookmarkRow {
@@ -999,6 +1009,8 @@ pub enum Edit {
         bytes: Arc<Vec<u8>>,
         pages: Option<Vec<usize>>,
         at: usize,
+        /// How a form field whose name the document already uses is kept separate.
+        field_conflicts: pdfcraft_organize::FieldConflicts,
     },
     /// Add a bookmark to `page` as child `index` of the bookmark at `parent` (`[]` = top level).
     AddBookmark {
@@ -1197,6 +1209,12 @@ pub enum Edit {
         object: pdfcraft_cos::ObjRef,
         property: a11y::TagProperty,
         value: Option<String>,
+    },
+    /// Move a structure tag before or after a direct sibling in reading order.
+    MoveTag {
+        object: pdfcraft_cos::ObjRef,
+        anchor: pdfcraft_cos::ObjRef,
+        placement: a11y::TagPlacement,
     },
     /// Add alternate text ▸ Decorative figure: the figure's content becomes an artifact.
     MarkDecorative {
@@ -1477,6 +1495,8 @@ pub const EDIT_LABELS: &[&str] = &[
     "Change Keywords",
     "Change {key}",
     "Insert pages from {name}",
+    "Insert pages from {name} — 1 field renamed",
+    "Insert pages from {name} — fields renamed",
     "Add bookmark",
     "Rename bookmark",
     "Delete bookmark",
@@ -1661,6 +1681,7 @@ impl Edit {
             Edit::SetInitialView(_) => Label::of("Change initial view"),
             Edit::SetAltText { .. } => Label::of("Set alternate text"),
             Edit::SetTagProperty { .. } => Label::of("Change tag properties"),
+            Edit::MoveTag { .. } => Label::of("Move object"),
             Edit::MarkDecorative { .. } => Label::of("Mark figure as decorative"),
             Edit::AddOcrText { .. } => Label::of("Recognize text"),
             Edit::ApplyScriptChanges { .. } => Label::of("Run JavaScript"),
@@ -1848,6 +1869,7 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::SetInitialView(_)
         | Edit::SetAltText { .. }
         | Edit::SetTagProperty { .. }
+        | Edit::MoveTag { .. }
         | Edit::MarkDecorative { .. }
         | Edit::AddOcrText { .. }
         | Edit::SetDocumentScript { .. }
@@ -1888,6 +1910,9 @@ struct EditCtx {
     today: (i64, u32, u32),
     seed: u64,
     count: u64,
+    /// Fields the edit renamed to keep imported names separate (old → new), for the repair
+    /// log and the undo label.
+    renamed_fields: Vec<(String, String)>,
 }
 
 impl EditCtx {
@@ -1912,6 +1937,7 @@ impl EditCtx {
             today: (1970, 1, 1),
             seed,
             count: 0,
+            renamed_fields: Vec::new(),
         }
     }
 
@@ -1968,13 +1994,14 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
             pdfcraft_organize::replace_pages(doc, pages, &src, src_pages)?;
         }
         Edit::SetPageBox { pages, which, spec } => pdfcraft_organize::set_page_box(doc, pages, *which, *spec)?,
-        Edit::InsertPagesFrom { name, bytes, pages, at } => {
+        Edit::InsertPagesFrom { name, bytes, pages, at, field_conflicts } => {
             let src = open_source(name, bytes)?;
             let pages = match pages {
                 Some(p) => p.clone(),
                 None => (0..pdfcraft_organize::page_count(&src)?).collect(),
             };
-            pdfcraft_organize::import_pages(doc, &src, &pages, *at)?;
+            let outcome = pdfcraft_organize::import_pages_with(doc, &src, &pages, *at, *field_conflicts)?;
+            cx.renamed_fields = outcome.renamed_fields;
         }
         Edit::AddBookmark { parent, index, title, page } => {
             pdfcraft_organize::add_bookmark(doc, parent, *index, title, *page)?;
@@ -2120,6 +2147,9 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         }
         Edit::SetTagProperty { object, property, value } => {
             a11y::set_tag_property(doc, *object, *property, value.as_deref()).map_err(|e| EditError::Accessibility(e.to_string()))?;
+        }
+        Edit::MoveTag { object, anchor, placement } => {
+            a11y::move_tag(doc, *object, *anchor, *placement).map_err(|e| EditError::Accessibility(e.to_string()))?;
         }
         Edit::EditTextLine { page, line, text } => {
             pdfcraft_edit::replace_line(doc, *page, *line, text)?;
@@ -3080,9 +3110,38 @@ impl Session {
         if !js_off && uses_scripts(&edit) {
             cx.js = Some(js::JsRunner::new(&next, &name));
         }
+        cx.renamed_fields.clear();
         // `next` is a copy: if the edit fails or crashes, the document is unchanged.
         guard(|| run_edit(&mut next, &edit, &mut cx))
             .unwrap_or_else(|m| Err(EditError::Invalid(format!("{} failed unexpectedly ({m}); the document was not changed", edit.label()))))?;
+        // Renamed fields are said, not slipped in: a repair-log note (with the caveat that
+        // scripts were left alone) and a count in the undo step's label.
+        let renamed_note = |renamed: &[(String, String)]| {
+            (!renamed.is_empty()).then(|| {
+                let shown: Vec<String> = renamed.iter().take(5).map(|(old, new)| format!("{old} → {new}")).collect();
+                let more = renamed.len().saturating_sub(shown.len());
+                let more = if more > 0 { format!(", and {more} more") } else { String::new() };
+                format!(
+                    "inserted pages renamed {} form field{} to keep their names separate ({}{more}); scripts that refer to the old names were not rewritten",
+                    renamed.len(),
+                    if renamed.len() == 1 { "" } else { "s" },
+                    shown.join(", ")
+                )
+            })
+        };
+        if let Some(note) = renamed_note(&cx.renamed_fields) {
+            next.note_repair(note);
+        }
+        // Only Insert from File renames fields; its label says so in a wording the interface
+        // translates (the count lives in the repair note).
+        let label = match (&edit, cx.renamed_fields.len()) {
+            (_, 0) => edit.label(),
+            (Edit::InsertPagesFrom { name, .. }, n) => Label::with(
+                if n == 1 { "Insert pages from {name} — 1 field renamed" } else { "Insert pages from {name} — fields renamed" },
+                name.as_str(),
+            ),
+            _ => edit.label(),
+        };
         // An XFA form's scripts answer the change: exit and validate scripts of the field, then
         // every calculation (and a reset recalculates). They read the data, so it is brought up
         // to date first.
@@ -3143,7 +3202,7 @@ impl Session {
         let keys = keys_after(&edit).unwrap_or_else(|| editor.keys.clone());
         let previous_keys = std::mem::replace(&mut editor.keys, keys);
         let scope = scope_of(&edit);
-        editor.undo.push((edit.label(), previous, previous_keys, scope));
+        editor.undo.push((label, previous, previous_keys, scope));
         if editor.undo.len() > MAX_UNDO {
             editor.undo.remove(0);
         }
@@ -3160,7 +3219,9 @@ impl Session {
                 ed.keys = keys;
             }
             Self::adopt_keys(doc);
-            let _ = guard(|| Self::refresh(doc));
+            if !matches!(guard(|| Self::refresh(doc)), Ok(Ok(()))) {
+                Self::show_released(doc);
+            }
             return Err(e);
         }
         doc.dirty = true;
@@ -3189,7 +3250,7 @@ impl Session {
         let current_keys = std::mem::replace(&mut editor.keys, keys);
         editor.redo.push((label.clone(), current, current_keys, scope));
         Self::adopt_keys(doc);
-        Self::refresh_scoped(doc, scope)?;
+        Self::refresh_scoped(doc, scope).inspect_err(|_| Self::show_released(doc))?;
         doc.dirty = true;
         doc.generation += 1;
         Ok(label)
@@ -3204,7 +3265,7 @@ impl Session {
         let current_keys = std::mem::replace(&mut editor.keys, keys);
         editor.undo.push((label.clone(), current, current_keys, scope));
         Self::adopt_keys(doc);
-        Self::refresh_scoped(doc, scope)?;
+        Self::refresh_scoped(doc, scope).inspect_err(|_| Self::show_released(doc))?;
         doc.dirty = true;
         doc.generation += 1;
         Ok(label)
@@ -3228,6 +3289,10 @@ impl Session {
         }
         if scope == Scope::Content {
             return Self::refresh_content(doc, None);
+        }
+        // Metadata edits keep the renderer, which holds the working file anyway.
+        if scope != Scope::Metadata {
+            Self::release_working(doc);
         }
         let Some(editor) = doc.editor.as_mut() else { return Ok(()) };
         // Comment edits, and form edits (a script may change annotation properties), may change
@@ -3321,6 +3386,7 @@ impl Session {
     /// from undo/redo, re-reads both: always correct, rarely paid). The cached display
     /// appearances are kept: content edits leave every annotation dictionary alone.
     fn refresh_content(doc: &mut Document, edit: Option<&Edit>) -> Result<(), EditError> {
+        Self::release_working(doc);
         let Some(editor) = doc.editor.as_mut() else { return Ok(()) };
         // A script may have laid an XFA form out again (rows added, subforms shown).
         if doc.xfa.is_some()
@@ -3353,6 +3419,28 @@ impl Session {
         Ok(())
     }
 
+    /// Let go of the working file before the next one is written (gap 13). The working file is
+    /// the original plus one appended revision, so on a 1 GiB file keeping the old one (in the
+    /// working bytes, the display bytes and the renderer) while writing the new one held three
+    /// copies at once; this keeps two. Until the refresh finishes, the working and display bytes
+    /// are the original's (already held by the editor, so free) and the renderer draws nothing.
+    /// A failed edit rolls back and refreshes again, which replaces all three; where a refresh
+    /// still fails, [`Self::show_released`] draws the original rather than nothing. Save writes
+    /// from the editor, never from these.
+    fn release_working(doc: &mut Document) {
+        let Some(original) = doc.editor.as_ref().map(|e| e.cos.bytes().clone()) else { return };
+        // Dropping the pool stops its workers; each lets go of the file when it exits.
+        doc.renderer = RenderPool::new_inline(Arc::new(Vec::new()), doc.config.clone());
+        doc.display = original.clone();
+        doc.bytes = original;
+    }
+
+    /// After a refresh failed: draw the display bytes it left (the original, once released),
+    /// so the page still shows a document.
+    fn show_released(doc: &mut Document) {
+        doc.renderer = RenderPool::new(doc.display.clone(), render_threads(), doc.config.clone());
+    }
+
     /// Rebuild working bytes, inspection and renderer from the current edit state.
     fn refresh(doc: &mut Document) -> Result<(), EditError> {
         // A full refresh may follow structural or annotation changes: cached appearances
@@ -3360,6 +3448,7 @@ impl Session {
         if let Some(editor) = doc.editor.as_mut() {
             editor.appearances.clear();
         }
+        Self::release_working(doc);
         let Some(editor) = doc.editor.as_mut() else { return Ok(()) };
         // A script may have laid an XFA form out again (rows added, subforms shown).
         if doc.xfa.is_some()
@@ -3436,7 +3525,7 @@ impl Session {
         }
         doc.dirty = false;
         doc.generation += 1;
-        Self::refresh(doc)
+        Self::refresh(doc).inspect_err(|_| Self::show_released(doc))
     }
 
     /// Enter the permissions (owner) password of a document opened with its user password,
@@ -3494,7 +3583,7 @@ impl Session {
         Self::adopt_keys(doc);
         doc.dirty = false;
         doc.generation += 1;
-        Self::refresh(doc)
+        Self::refresh(doc).inspect_err(|_| Self::show_released(doc))
     }
 
     /// The document's file changed on disk (a LaTeX or Typst build rewrote it, #431): open
@@ -3695,6 +3784,28 @@ impl Session {
     /// [`Self::combine_ranges`] with the password each encrypted source is opened with, by
     /// position (missing or `None`: no password). The result is not encrypted.
     pub fn combine_unlocked(&self, sources: &[CombineSource], passwords: &[Option<&str>]) -> Result<Arc<Vec<u8>>, EditError> {
+        Ok(self.combine_unlocked_reporting(sources, passwords, pdfcraft_organize::FieldConflicts::Rename)?.bytes)
+    }
+
+    /// The pre-flight over byte sources: what combining them, in order, would rename in each one
+    /// (whole files; page ranges are the combine's to apply). A source that cannot be opened
+    /// previews as nothing — its row already says why it cannot be combined.
+    pub fn combine_field_conflicts(&self, sources: &[CombineSource], passwords: &[Option<&str>]) -> Vec<Vec<(String, String)>> {
+        let docs: Vec<Option<pdfcraft_cos::Document>> =
+            sources.iter().enumerate().map(|(i, (n, b, _))| open_source_with(n, b, passwords.get(i).copied().flatten()).ok()).collect();
+        let refs: Vec<&pdfcraft_cos::Document> = docs.iter().filter_map(|d| d.as_ref()).collect();
+        let mut opened = pdfcraft_organize::combine_field_conflicts(&refs).into_iter();
+        // One preview per source, in step with it: a file that cannot be opened has none.
+        docs.iter().map(|d| if d.is_some() { opened.next().unwrap_or_default() } else { Default::default() }).collect()
+    }
+
+    /// [`Self::combine_unlocked`] reporting what the conflict resolution renamed.
+    pub fn combine_unlocked_reporting(
+        &self,
+        sources: &[CombineSource],
+        passwords: &[Option<&str>],
+        field_conflicts: pdfcraft_organize::FieldConflicts,
+    ) -> Result<Combined, EditError> {
         let docs = sources
             .iter()
             .enumerate()
@@ -3715,8 +3826,9 @@ impl Session {
         }
         let named: Vec<(&str, &pdfcraft_cos::Document, Option<&[usize]>)> =
             sources.iter().zip(docs.iter()).zip(&pages).map(|(((n, _, _), d), p)| (n.as_str(), d, p.as_deref())).collect();
-        let out = pdfcraft_organize::combine_selected(&named)?;
-        self.write_new(&out)
+        let out = pdfcraft_organize::combine_selected_with(&named, field_conflicts)?;
+        let bytes = self.write_new(&out.doc)?;
+        Ok(Combined { bytes, renamed_fields: out.renamed_fields })
     }
 
     /// [`Self::combine_unlocked`] where sources with the same `groups` key (by position) are one
@@ -3725,7 +3837,17 @@ impl Session {
     /// `pdfcraft_organize::combine_grouped`). A group's later sources use its first source's bytes
     /// and password; a source without a key is a file of its own.
     pub fn combine_grouped(&self, sources: &[CombineSource], groups: &[u64], passwords: &[Option<&str>]) -> Result<Arc<Vec<u8>>, EditError> {
-        // Each file opened once: `file[i]` is source i's place in `docs`.
+        Ok(self.combine_grouped_reporting(sources, groups, passwords, pdfcraft_organize::FieldConflicts::Rename)?.bytes)
+    }
+
+    /// [`Self::combine_grouped`] reporting what the conflict resolution renamed.
+    pub fn combine_grouped_reporting(
+        &self,
+        sources: &[CombineSource],
+        groups: &[u64],
+        passwords: &[Option<&str>],
+        field_conflicts: pdfcraft_organize::FieldConflicts,
+    ) -> Result<Combined, EditError> {
         let (mut keys, mut docs, mut file): (Vec<Option<u64>>, Vec<pdfcraft_cos::Document>, Vec<usize>) = (Vec::new(), Vec::new(), Vec::new());
         for (i, (name, bytes, _)) in sources.iter().enumerate() {
             let key = groups.get(i).copied();
@@ -3759,8 +3881,9 @@ impl Session {
             let Some(d) = docs.get(*at) else { return Err(EditError::Write(format!("{name}: not opened"))) };
             runs.push((*at, name.as_str(), d, p.as_deref()));
         }
-        let out = pdfcraft_organize::combine_grouped(&runs)?;
-        self.write_new(&out)
+        let out = pdfcraft_organize::combine_grouped_with(&runs, field_conflicts)?;
+        let bytes = self.write_new(&out.doc)?;
+        Ok(Combined { bytes, renamed_fields: out.renamed_fields })
     }
 
     /// New PDF bytes containing copies of `pages` of the document (Extract Pages).

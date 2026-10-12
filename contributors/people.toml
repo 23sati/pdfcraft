@@ -115,3 +115,6 @@ sync_github_name = false
 real_name = "Ufuk Efe"
 display_name = "Ufuk Efe"
 sync_github_name = true
+
+[people.lollinoo]
+sync_github_name = true

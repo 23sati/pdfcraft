@@ -57,6 +57,7 @@
 	Create PDF from file…	ファイルから PDF を作成…
 	Create PDF from images…	画像から PDF を作成…
 	Create PDF from multiple files…	複数のファイルから PDF を作成…
+	Create separate PDFs…	個別の PDF を作成…
 	Create PDF from clipboard	クリップボードから PDF を作成
 	Combine files…	ファイルを結合…
 	Save	保存
@@ -262,6 +263,7 @@
 	Optimize PDF…	PDF を最適化…
 	Export to text…	テキストに書き出す…
 	Export to Word…	Word に書き出す…
+	Export to PowerPoint…	PowerPoint に書き出す…
 	Export to HTML…	HTML に書き出す…
 	Export to RTF…	RTF に書き出す…
 	JavaScript console…	JavaScript コンソール…
@@ -346,6 +348,7 @@
 	Create from	作成元
 	Single file	単一ファイル
 	Multiple files	複数のファイル
+	Separate PDFs	個別の PDF
 	Images	画像
 	Clipboard	クリップボード
 	Blank page	空白のページ
@@ -1535,7 +1538,7 @@
 	Couldn't optimize the file: {e}	ファイルを最適化できませんでした: {e}
 	Couldn't write {path}: {e}	{path} に書き込めませんでした: {e}
 	The form asks to be submitted to {u}; PdfCraft doesn't send form data. Save the document to keep your entries.	フォームは {u} への送信を要求していますが、PdfCraft はフォームデータを送信しません。入力内容を保持するには文書を保存してください。
-	{s} actions run in the JavaScript engine (M6)	{s} 件のアクションは JavaScript エンジンで実行します（M6）
+	This PDF uses the unsupported {s} action.	この PDF では未対応の {s} アクションが使われています。
 	{name}: the {other} action isn't supported yet	{name}: {other} アクションにはまだ対応していません
 	{name} submits the form to {url}; PdfCraft doesn't send form data. Save the document to keep your entries.	{name} はフォームを {url} に送信しますが、PdfCraft はフォームデータを送信しません。入力内容を保持するには文書を保存してください。
 	Export stopped: {e}	書き出しを中止しました: {e}
@@ -1880,6 +1883,8 @@
 	{month} {y}	{y}年{month}
 	Change {key}	{key}を変更
 	Insert pages from {name}	{name} からページを挿入
+	Insert pages from {name} — 1 field renamed	{name} からページを挿入 — 1 個のフィールド名を変更
+	Insert pages from {name} — fields renamed	{name} からページを挿入 — フィールド名を変更
 	Fill in {name}	{name} に入力
 	Set the image of {name}	{name} の画像を設定
 	Edit script of {name}	{name} のスクリプトを編集
@@ -2159,6 +2164,7 @@
 	−Bin	−Bin
 	−LOC	−LOC
 @plural	{n} field|{n} fields	{n} 個のフィールド
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	{n} 個のフィールド名が前のファイルと競合するため、名前が変更されます: {list}
 @plural	{n} page|{n} pages	{n} ページ
 signature pad	Type	入力
 	Flatten Fill & Sign when saving	保存時に入力と署名を統合する
@@ -2264,3 +2270,16 @@ scroll speed	Fast	速い
 	Tools panel side	ツールパネルの位置
 	Add comment	コメントを追加
 	Change tag properties	タグのプロパティを変更
+	Left out: {names}	除外: {names}
+	already a PDF	すでに PDF です
+	no unused output name	使用可能な出力名がありません
+	no output folder was chosen	出力フォルダーが選択されていません
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	{n} 個の PDF をダウンロードしました
+	Scan	スキャン
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	白い紙に署名し、明るく均一な光の下で写真を撮ってください（フラッシュを使用）。写真を選択するか、ここにドロップしてください。PdfCraft が署名を見つけ、紙の部分を取り除きます。
+	Choose photo…	写真を選択…
+	No photo chosen	写真が選択されていません
+	Photo	写真
+	Ink sensitivity	インクの感度
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	枠内に署名が見つかりません。枠を署名に合わせるか、インクの感度を上げてください。
+	Couldn't use the photo: {e}	写真を使用できません: {e}

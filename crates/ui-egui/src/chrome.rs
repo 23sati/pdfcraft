@@ -307,17 +307,20 @@ fn tab(
     let label = crate::bidi::visual(&label).into_owned();
     let text_w = ui.fonts_mut(|f| f.layout_no_wrap(label.clone(), font.clone(), t.text).size().x);
     let width = cap.map_or(text_w + TAB_CHROME, |cap| (text_w + TAB_CHROME).min(cap));
+    // Full strip height so the active tab sits on the mode bar instead of floating in the title bar.
+    let height = ui.available_height().max(height);
     let (rect, _) = ui.allocate_exact_size(vec2(width, height), Sense::hover());
     let a11y = if dirty { format!("{name} (edited)") } else { name.to_string() };
     let resp = craft_ui::tabs::Tab::new(id, &a11y, active).focus_stroke(Stroke::new(1.0, t.accent)).show_at(ui, rect, |ui, resp| {
+        let press = theme::Press::track(ui, resp);
         let bg = if active {
-            t.chrome
-        } else if resp.hovered() {
-            t.hover
+            press.fill(t.chrome, t.chrome.lerp_to_gamma(t.hover, 0.65), t.hover)
         } else {
-            Color32::TRANSPARENT
+            press.fill(Color32::TRANSPARENT, t.hover, t.pressed)
         };
-        ui.painter().rect_filled(rect, CornerRadius { nw: 7, ne: 7, sw: 0, se: 0 }, bg);
+        if bg.a() > 0 {
+            ui.painter().rect_filled(rect, CornerRadius { nw: 7, ne: 7, sw: 0, se: 0 }, bg);
+        }
         icons::paint(
             ui,
             Rect::from_min_size(rect.min + vec2(6.0, (height - 16.0) / 2.0), vec2(16.0, 16.0)),
@@ -329,23 +332,26 @@ fn tab(
     });
     let x_rect = Rect::from_center_size(rect.right_center() - vec2(16.0, 0.0), vec2(20.0, 20.0));
     let x = ui.interact(x_rect, id.with("close"), Sense::click());
-    if x.hovered() {
-        ui.painter().rect_filled(x_rect, CornerRadius::same(4), t.pressed);
-    }
+    let x_press = theme::Press::track(ui, &x);
+    x_press.wash(ui, x_rect, 4, false);
     // Unsaved changes: a dot where the close button sits, until the tab is hovered.
     if dirty && !resp.hovered() && !x.hovered() {
         ui.painter().circle_filled(x_rect.center(), 4.0, if active { t.text } else { t.text_muted });
     } else if active || resp.hovered() || x.hovered() {
-        icons::paint(ui, x_rect, "x", 13.0, t.text_muted);
+        icons::paint(ui, x_rect.translate(x_press.offset()), "x", 13.0, t.text_muted);
     }
-    if x.clicked() {
+    if theme::hand(x).clicked() {
         *close = Some(index);
     }
     let shown = match file {
         Some(file) => std::borrow::Cow::Owned(format!("{}\n{}", crate::bidi::visual(name), crate::bidi::visual(file))),
         None => crate::bidi::visual(name),
     };
-    resp.on_hover_text(if dirty { crate::i18n::fmt(tl!("{name} — unsaved changes"), &[("name", shown.as_ref())]) } else { shown.into_owned() })
+    theme::hand(resp).on_hover_text(if dirty {
+        crate::i18n::fmt(tl!("{name} — unsaved changes"), &[("name", shown.as_ref())])
+    } else {
+        shown.into_owned()
+    })
 }
 
 pub fn mode_bar(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
@@ -552,7 +558,10 @@ pub fn right_rail(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     view.fit = if view.fit == Fit::Width { Fit::Page } else { Fit::Width };
                     view.goto = Some((view.current, 0.0));
                 }
-                ui.label(egui::RichText::new(format!("{:.0}%", view.zoom * 100.0)).font(theme::regular(10.5)).color(t.text_faint));
+                let zoom = format!("{:.0}%", view.zoom * 100.0);
+                ui.allocate_ui_with_layout(vec2(40.0, 16.0), Layout::top_down(Align::Center), |ui| {
+                    ui.label(egui::RichText::new(zoom).font(theme::medium(11.0)).color(t.text_muted));
+                });
                 ui.add_space(6.0);
                 if icons::button(ui, "chevron-down", 30.0, false, tl!("Next page")).clicked() {
                     view.step_page(true);
