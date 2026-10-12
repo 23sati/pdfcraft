@@ -35,6 +35,8 @@ pub enum Handling {
 #[derive(Clone, Debug, PartialEq)]
 pub struct PrintDraft {
     pub printers: Vec<spool::Printer>,
+    /// The unit the sheet size is shown in (Preferences).
+    pub units: crate::units::Unit,
     /// The printers are still being listed in the background (see [`PrinterSource`]).
     pub printers_loading: bool,
     /// The user chose the printer, so a list arriving late doesn't move it to the default.
@@ -82,6 +84,7 @@ impl Default for PrintDraft {
     fn default() -> Self {
         PrintDraft {
             printers: Vec::new(),
+            units: Default::default(),
             printers_loading: false,
             printer_picked: false,
             printer: None,
@@ -136,7 +139,9 @@ impl PrintDraft {
         } else {
             print::select_pages(count, range.as_deref(), labels, self.subset, self.reverse)
         }
-        .map_err(|e| e.to_string())?;
+        // What the person got wrong about what to print is said in their language: the engine hands
+        // the wording over whole and the page numbers apart from it.
+        .map_err(|e| e.said(&crate::i18n::words))?;
         let layout = match self.handling {
             Handling::Size => Layout::Size(match self.size {
                 SizeMode::Custom(_) => SizeMode::Custom(self.custom_scale),
@@ -159,7 +164,8 @@ impl PrintDraft {
             printer: self.printer.clone(),
             copies: self.copies.max(1),
             collate: self.collate,
-            duplex: self.duplex,
+            duplex: Some(self.duplex),
+            scaling: spool::Scaling::Exact,
             grayscale: self.grayscale,
             title: title.to_string(),
             // Only for the printer the options were read from.
@@ -223,6 +229,7 @@ impl PdfCraftApp {
             printers,
             printers_loading,
             printer_picked: false,
+            units: self.units,
             printer: default,
             current_page: current,
             sheet: 0,
@@ -312,7 +319,7 @@ impl PdfCraftApp {
         let settings = match self.print_draft.settings(doc.info.pages.len(), &labels) {
             Ok(s) => s,
             Err(e) => {
-                self.notify_error(e);
+                self.notify_tr(&e);
                 return false;
             }
         };
@@ -585,8 +592,8 @@ pub(crate) fn body(
                 ui.label(tl!("Copies:"));
                 ui.horizontal(|ui| {
                     ui.add(egui::DragValue::new(&mut d.copies).range(1..=999));
-                    ui.checkbox(&mut d.collate, tl!("Collate"));
-                    ui.checkbox(&mut d.grayscale, tl!("Print in grayscale"));
+                    ui.add(widgets::checkbox(&mut d.collate, tl!("Collate")));
+                    ui.add(widgets::checkbox(&mut d.grayscale, tl!("Print in grayscale")));
                 });
                 ui.end_row();
                 ui.label(tl!("Two-sided:"));
@@ -603,28 +610,51 @@ pub(crate) fn body(
                 );
                 ui.end_row();
                 ui.label(tl!("Paper:"));
-                egui::ComboBox::from_id_salt("paper").selected_text(PAPERS[d.paper].0).width(160.0).show_ui(ui, |ui| {
+                let paper_name = PAPERS.get(d.paper).map_or("US Letter", |p| p.0);
+                egui::ComboBox::from_id_salt("paper").selected_text(paper_name).width(260.0).show_ui(ui, |ui| {
                     for (i, (name, _)) in PAPERS.iter().enumerate() {
                         ui.selectable_value(&mut d.paper, i, *name);
                     }
                 });
                 ui.end_row();
             });
+            // Windows says which drivers can't print two-sided as they're asked; they keep their
+            // own setting, even when Two-sided is Off.
+            if let Some(p) = d.printers.iter().find(|p| d.printer.as_ref() == Some(&p.name))
+                && p.two_sided == Some(false)
+            {
+                ui.label(egui::RichText::new(tl!("This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…")).small().color(t.text_muted));
+            }
             if let Some(e) = &d.driver_error {
                 ui.label(egui::RichText::new(crate::i18n::fmt(tl!("Couldn't open the printer's preferences: {e}"), &[("e", e)])).small().color(t.text_muted));
             }
             if d.show_driver_options {
                 driver_options_panel(ui, d, t);
             }
+            if let Some(&source) = sizes.get(d.current_page) {
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(crate::i18n::fmt(tl!("PDF page: {size}"), &[("size", &d.units.size(source.0, source.1))]));
+                    let matched = print::matching_paper(source);
+                    if ui.add_enabled(matched.is_some(), egui::Button::new(tl!("Match page at 100%"))).clicked()
+                        && let Some(paper) = matched
+                    {
+                        d.paper = paper;
+                        d.handling = Handling::Size;
+                        d.size = SizeMode::Actual;
+                        d.orientation = Orientation::Auto;
+                        d.sheet = 0;
+                    }
+                });
+            }
             ui.add_space(6.0);
             widgets::section_title(ui, tl!("Pages to Print"));
             ui.horizontal(|ui| {
-                ui.radio_value(&mut d.which, Which::All, tl!("All"));
-                ui.radio_value(&mut d.which, Which::Current, tl!("Current page"));
-                ui.radio_value(&mut d.which, Which::Range, tl!("Pages"));
+                widgets::radio_value(ui, &mut d.which, Which::All, tl!("All"));
+                widgets::radio_value(ui, &mut d.which, Which::Current, tl!("Current page"));
+                widgets::radio_value(ui, &mut d.which, Which::Range, tl!("Pages"));
                 let r = ui.add_enabled(
                     d.which == Which::Range,
-                    egui::TextEdit::singleline(&mut d.range).hint_text(format!("1-{}", sizes.len())).desired_width(110.0),
+                    crate::widgets::line(&mut d.range).hint_text(format!("1-{}", sizes.len())).desired_width(110.0),
                 );
                 if r.gained_focus() {
                     d.which = Which::Range;
@@ -633,7 +663,7 @@ pub(crate) fn body(
             // Offered only when pages were picked before the dialog opened.
             if !d.selected.is_empty() {
                 let label = format!("{} ({})", tl!("Selected pages"), d.selected.len());
-                ui.radio_value(&mut d.which, Which::Selected, label);
+                widgets::radio_value(ui, &mut d.which, Which::Selected, label);
             }
             ui.horizontal(|ui| {
                 ui.label(tl!("More options:"));
@@ -644,11 +674,11 @@ pub(crate) fn body(
                     &[(Subset::All, tl!("All pages in range")), (Subset::Odd, tl!("Odd pages only")), (Subset::Even, tl!("Even pages only"))],
                     150.0,
                 );
-                ui.checkbox(&mut d.reverse, tl!("Reverse pages"));
+                ui.add(widgets::checkbox(&mut d.reverse, tl!("Reverse pages")));
             });
             ui.add_space(6.0);
             widgets::section_title(ui, tl!("Page Sizing & Handling"));
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 for (h, label) in [
                     (Handling::Size, tl!("Size")),
                     (Handling::Poster, tl!("Poster")),
@@ -665,13 +695,13 @@ pub(crate) fn body(
             match d.handling {
                 Handling::Size => {
                     ui.horizontal(|ui| {
-                        ui.radio_value(&mut d.size, SizeMode::Fit, tl!("Fit"));
-                        ui.radio_value(&mut d.size, SizeMode::Actual, tl!("Actual size"));
-                        ui.radio_value(&mut d.size, SizeMode::Shrink, tl!("Shrink oversized pages"));
+                        widgets::radio_value(ui, &mut d.size, SizeMode::Fit, tl!("Fit"));
+                        widgets::radio_value(ui, &mut d.size, SizeMode::Actual, tl!("Actual size"));
+                        widgets::radio_value(ui, &mut d.size, SizeMode::Shrink, tl!("Shrink oversized pages"));
                     });
                     ui.horizontal(|ui| {
                         let custom = matches!(d.size, SizeMode::Custom(_));
-                        if ui.radio(custom, tl!("Custom scale:")).clicked() {
+                        if ui.add(widgets::radio(custom, tl!("Custom scale:"))).clicked() {
                             d.size = SizeMode::Custom(d.custom_scale);
                         }
                         ui.add_enabled(custom, egui::DragValue::new(&mut d.custom_scale).range(1.0..=1000.0).suffix(" %"));
@@ -683,7 +713,7 @@ pub(crate) fn body(
                         ui.add(egui::DragValue::new(&mut d.poster_scale).range(10.0..=1000.0).suffix(" %"));
                         ui.label(tl!("Overlap:"));
                         ui.add(egui::DragValue::new(&mut d.overlap).range(0.0..=144.0).suffix(" pt"));
-                        ui.checkbox(&mut d.cut_marks, tl!("Cut marks"));
+                        ui.add(widgets::checkbox(&mut d.cut_marks, tl!("Cut marks")));
                     });
                 }
                 Handling::Multiple => {
@@ -706,8 +736,8 @@ pub(crate) fn body(
                         );
                     });
                     ui.horizontal(|ui| {
-                        ui.checkbox(&mut d.border, tl!("Print page border"));
-                        ui.checkbox(&mut d.auto_rotate, tl!("Auto-rotate pages"));
+                        ui.add(widgets::checkbox(&mut d.border, tl!("Print page border")));
+                        ui.add(widgets::checkbox(&mut d.auto_rotate, tl!("Auto-rotate pages")));
                     });
                     if d.order == PageOrder::CutStack {
                         ui.label(tl!(
@@ -737,9 +767,9 @@ pub(crate) fn body(
             ui.add_space(6.0);
             ui.horizontal(|ui| {
                 ui.label(tl!("Orientation:"));
-                ui.radio_value(&mut d.orientation, Orientation::Auto, tl!("Auto portrait/landscape"));
-                ui.radio_value(&mut d.orientation, Orientation::Portrait, tl!("Portrait"));
-                ui.radio_value(&mut d.orientation, Orientation::Landscape, tl!("Landscape"));
+                widgets::radio_value(ui, &mut d.orientation, Orientation::Auto, tl!("Auto portrait/landscape"));
+                widgets::radio_value(ui, &mut d.orientation, Orientation::Portrait, tl!("Portrait"));
+                widgets::radio_value(ui, &mut d.orientation, Orientation::Landscape, tl!("Landscape"));
             });
             ui.add_space(6.0);
             widgets::section_title(ui, tl!("Comments & Forms"));
@@ -764,7 +794,7 @@ pub(crate) fn body(
             ui.painter().rect_filled(area, 6.0, t.hover);
             match (&settings, sheets.get(d.sheet)) {
                 (Err(e), _) => {
-                    ui.put(area.shrink(16.0), egui::Label::new(egui::RichText::new(e).color(t.text_muted)).wrap());
+                    ui.put(area.shrink(16.0), egui::Label::new(egui::RichText::new(tl!(e)).color(t.text_muted)).wrap());
                 }
                 (Ok(_), Some(sheet)) => {
                     let k = (PREVIEW_BOX.0 / sheet.size.0 as f32).min(PREVIEW_BOX.1 / sheet.size.1 as f32);
@@ -841,9 +871,18 @@ pub(crate) fn body(
                     d.sheet += 1;
                 }
             });
-            if let Some(s) = sheets.first() {
-                let (w, h) = (s.size.0 / 72.0, s.size.1 / 72.0);
-                ui.label(egui::RichText::new(format!("{w:.2} × {h:.2} in")).small().color(t.text_muted));
+            if let Some(s) = sheets.get(d.sheet) {
+                ui.label(egui::RichText::new(d.units.size(s.size.0, s.size.1)).small().color(t.text_muted));
+                if d.handling == Handling::Size
+                    && let Some(p) = s.placed.first()
+                {
+                    let scale = p.matrix.0[0].hypot(p.matrix.0[1]) * 100.0;
+                    ui.label(crate::i18n::fmt(tl!("PDF scale: {scale}%"), &[("scale", &format!("{scale:.2}"))]));
+                    ui.label(egui::RichText::new(tl!("Printer paper and scaling may differ. Check driver settings.")).small().color(t.text_muted));
+                    if (scale - 100.0).abs() > 0.01 {
+                        ui.label(egui::RichText::new(tl!("Drawing scale changes. Use Actual size for full-scale plans.")).small().color(t.text_muted));
+                    }
+                }
             }
         });
     });
@@ -864,6 +903,15 @@ pub(crate) fn body(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn composed_sheets_keep_exact_scaling_and_the_dialogs_duplex_choice() {
+        let draft = PrintDraft { duplex: spool::Duplex::LongEdge, ..PrintDraft::default() };
+        let job = draft.job("report.pdf");
+        assert_eq!(job.scaling, spool::Scaling::Exact);
+        assert_eq!(job.duplex, Some(spool::Duplex::LongEdge));
+        assert_eq!(PrintDraft::default().job("report.pdf").duplex, Some(spool::Duplex::Off));
+    }
 
     #[test]
     fn print_preview_rasters_stay_within_the_texture_limit() {

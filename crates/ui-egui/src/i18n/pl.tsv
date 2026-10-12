@@ -54,6 +54,7 @@
 	Create PDF from file…	Utwórz PDF z pliku…
 	Create PDF from images…	Utwórz PDF z obrazów…
 	Create PDF from multiple files…	Utwórz PDF z wielu plików…
+	Create separate PDFs…	Utwórz osobne pliki PDF…
 	Create PDF from clipboard	Utwórz PDF ze schowka
 	Combine files…	Połącz pliki…
 	Save	Zapisz
@@ -258,6 +259,7 @@
 	Optimize PDF…	Optymalizuj PDF…
 	Export to text…	Eksportuj do tekstu…
 	Export to Word…	Eksportuj do Worda…
+	Export to PowerPoint…	Eksportuj do PowerPointa…
 	Export to HTML…	Eksportuj do HTML…
 	Export to RTF…	Eksportuj do RTF…
 	JavaScript console…	Konsola JavaScript…
@@ -341,6 +343,7 @@
 	Create from	Utwórz z
 	Single file	Pojedynczy plik
 	Multiple files	Wiele plików
+	Separate PDFs	Osobne pliki PDF
 	Images	Obrazy
 	Clipboard	Schowek
 	Blank page	Pusta strona
@@ -693,6 +696,11 @@
 	of the following fields:	następujących pól:
 	Simplified field notation:	Uproszczony zapis pól:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Nazwy pól z + - * / i nawiasami; przed spacjami w nazwach wpisz \\.
+	Finding document fonts…	Wyszukiwanie czcionek dokumentu…
+	Installed fonts…	Zainstalowane czcionki…
+	Keep source fonts	Zachowaj czcionki źródłowe
+	Load font…	Wczytaj czcionkę…
+	No openly licensed document fonts found. Load a font file.	Nie znaleziono czcionek dokumentu na otwartej licencji. Wczytaj plik czcionki.
 	Format text	Formatuj tekst
 	Bold	Pogrubienie
 	Italic	Kursywa
@@ -700,7 +708,7 @@
 	Centre	Wyśrodkuj
 	Align right	Wyrównaj do prawej
 	Justify	Wyjustuj
-	Standard fonts; text outside Windows-1252 isn't supported yet.	Standardowe czcionki; tekst spoza Windows-1252 nie jest jeszcze obsługiwany.
+	Thai and Arabic use regular fallback fonts when available.	Tajski i arabski używają zwykłych czcionek zastępczych, gdy są dostępne.
 	Edit image	Edytuj obraz
 	Rotate counterclockwise	Obróć w lewo
 	Rotate clockwise	Obróć w prawo
@@ -1209,6 +1217,8 @@
 	Searchable Image (Exact)	Obraz z możliwością wyszukiwania (dokładny)
 	Adds invisible text over each word; the page image is not changed	Dodaje niewidoczny tekst nad każdym słowem; obraz strony pozostaje bez zmian
 	Downsample to	Zmniejsz rozdzielczość do
+	Also recognize pages that already have text	Rozpoznaj także strony, które zawierają już tekst
+	Pictures on those pages are recognized too; words already in the page's text are not added again	Obrazy na tych stronach też są rozpoznawane; słowa, które już są w tekście strony, nie są dodawane ponownie
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	Rozpoznawanie tekstu nie jest zainstalowane: brakuje plików modeli. Zainstaluj PdfCraft ponownie lub ustaw PDFCRAFT_MODELS na folder zawierający te pliki.
 	Settings	Ustawienia
 	Optional	Opcjonalne
@@ -1709,7 +1719,12 @@
 	watermark	znak wodny
 	background	tło
 	This document isn't password-protected	Ten dokument nie jest chroniony hasłem
-	Only the document's owner can change its security (open it with the permissions password)	Tylko właściciel dokumentu może zmienić zabezpieczenia (otwórz go przy użyciu hasła uprawnień)
+	Enter permissions password…	Wpisz hasło uprawnień…
+	Permissions password	Hasło uprawnień
+	“{name}” has security restrictions. Enter its permissions password to lift them.	Plik „{name}” ma ograniczenia zabezpieczeń. Wpisz jego hasło uprawnień, aby je znieść.
+	Restrictions lifted	Ograniczenia zniesione
+	Couldn't unlock {name}: {e}	Nie udało się odblokować pliku {name}: {e}
+	This document has no restrictions to lift	Ten dokument nie ma ograniczeń do zniesienia
 	The document's security settings don't allow this change	Ustawienia zabezpieczeń dokumentu nie zezwalają na tę zmianę
 	Open a document first	Najpierw otwórz dokument
 	Security will be removed when you save	Zabezpieczenia zostaną usunięte przy zapisie
@@ -1849,6 +1864,8 @@
 	{month} {y}	{month} {y}
 	Change {key}	Zmień {key}
 	Insert pages from {name}	Wstaw strony z {name}
+	Insert pages from {name} — 1 field renamed	Wstaw strony z {name} — zmieniono nazwę 1 pola
+	Insert pages from {name} — fields renamed	Wstaw strony z {name} — zmieniono nazwy pól
 	Fill in {name}	Wypełnij {name}
 	Set the image of {name}	Ustaw obraz pola {name}
 	Edit script of {name}	Edytuj skrypt pola {name}
@@ -1879,6 +1896,7 @@
 	Delete document JavaScript	Usuń JavaScript dokumentu
 	Edit document JavaScript	Edytuj JavaScript dokumentu
 	Edit text	Edytuj tekst
+	Load document font	Wczytaj czcionkę dokumentu
 	Move image	Przenieś obraz
 	Rotate image	Obróć obraz
 	Flip image	Odbij obraz
@@ -1996,7 +2014,10 @@
 	Couldn't import the signature image: {e}	Nie można zaimportować obrazu podpisu: {e}
 	Go to page…	Przejdź do strony…
 	Reopen the files that were open when PdfCraft last closed	Otwórz ponownie pliki otwarte przy ostatnim zamknięciu PdfCraft
+	The PDF text fonts can't draw “{c}” ({code}). Choose supported text.	Czcionki tekstu PDF nie obsługują znaku „{c}” ({code}). Wybierz obsługiwany tekst.
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	Standardowe czcionki nie obsługują znaku „{c}” ({code}). Na razie można dodawać tylko tekst ze znakami zachodnioeuropejskimi.
+	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Czcionka tego pola nie obsługuje znaku „{c}” ({code}), więc PdfCraft wyświetla w jego miejscu ?. Wartość została zapisana, a inne przeglądarki PDF odrysują pole na jej podstawie.
+	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Czcionki, którymi pisze PdfCraft, nie obsługują znaku „{c}” ({code}), więc w każdej przeglądarce PDF w jego miejscu widać ?. Tekst został zapisany.
 	Open arrow	Otwarta strzałka
 	Closed arrow	Zamknięta strzałka
 	Butt	Poprzeczna kreska
@@ -2122,6 +2143,7 @@
 	−Bin	−Bin
 	−LOC	−LOC
 @plural	{n} field|{n} fields	{n} pole|{n} pola|{n} pól
+@plural	{n} field name collides with earlier files and will be renamed: {list}|{n} field names collide with earlier files and will be renamed: {list}	Nazwa {n} pola koliduje z wcześniejszymi plikami i zostanie zmieniona: {list}|Nazwy {n} pól kolidują z wcześniejszymi plikami i zostaną zmienione: {list}|{n} nazw pól koliduje z wcześniejszymi plikami i zostanie zmienionych: {list}
 @plural	{n} page|{n} pages	{n} strona|{n} strony|{n} stron
 signature pad	Type	Wpisz
 	Flatten Fill & Sign when saving	Spłaszczaj elementy Wypełnij i podpisz przy zapisie
@@ -2205,6 +2227,10 @@ key	Space	Spacja
 	Text used as a clipping path cannot be moved with this selection.	Tekstu używanego jako ścieżka przycinania nie można przenieść razem z tym zaznaczeniem.
 	These objects could not be moved. Select them again and try a smaller move.	Nie udało się przenieść tych obiektów. Zaznacz je ponownie i spróbuj mniejszego przesunięcia.
 	This page contains objects that cannot be selected together.	Ta strona zawiera obiekty, których nie można zaznaczyć razem.
+	Reload documents when their files change on disk	Wczytuj ponownie dokumenty, gdy ich pliki zmienią się na dysku
+	This file changed on disk. Reload it to see the new version; your unsaved changes will be lost.	Ten plik zmienił się na dysku. Wczytaj go ponownie, aby zobaczyć nową wersję; niezapisane zmiany zostaną utracone.
+	Reload	Wczytaj ponownie
+	Couldn't reload {name}: {e}	Nie można ponownie wczytać {name}: {e}
 	Select page {label}	Wybierz stronę {label}
 	Rotate page {label} counterclockwise	Obróć stronę {label} w lewo
 	Rotate page {label} clockwise	Obróć stronę {label} w prawo
@@ -2216,3 +2242,24 @@ scroll speed	Fast	Szybka
 	Enhance camera image	Popraw zdjęcie z aparatu
 	Drag the corners onto the document's edges, then choose Enhance page.	Przeciągnij narożniki na krawędzie dokumentu, a następnie wybierz Popraw stronę.
 	Enhance page	Popraw stronę
+	Clean-up	Oczyszczanie
+	Original	Oryginał
+	Greyscale	Skala szarości
+	Black and white	Czarno-biały
+	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Sterownik tej drukarki nie przyjmuje ustawień druku dwustronnego z innych programów, więc obowiązuje jego własne ustawienie. Zmień je w oknie Właściwości…
+	Tools panel side	Strona panelu narzędzi
+	Add comment	Dodaj komentarz
+	Change tag properties	Zmień właściwości znacznika
+	Left out: {names}	Pominięto: {names}
+	already a PDF	to już jest PDF
+	no unused output name	brak wolnej nazwy pliku wyjściowego
+	no output folder was chosen	nie wybrano folderu wyjściowego
+@plural	Downloaded {n} PDF|Downloaded {n} PDFs	Pobrano {n} plik PDF|Pobrano {n} pliki PDF|Pobrano {n} plików PDF
+	Scan	Skanuj
+	Sign a sheet of white paper and take a photo of it in bright, even light (use the flash). Choose the photo or drop it here: PdfCraft finds the signature and removes the paper.	Podpisz się na białej kartce i zrób jej zdjęcie przy jasnym, równomiernym świetle (użyj lampy błyskowej). Wybierz zdjęcie lub upuść je tutaj: PdfCraft znajdzie podpis i usunie papier.
+	Choose photo…	Wybierz zdjęcie…
+	No photo chosen	Nie wybrano zdjęcia
+	Photo	Zdjęcie
+	Ink sensitivity	Czułość na atrament
+	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	W ramce nie znaleziono podpisu. Przesuń ramkę na podpis lub zwiększ czułość na atrament.
+	Couldn't use the photo: {e}	Nie można użyć zdjęcia: {e}
