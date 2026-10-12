@@ -2255,3 +2255,13 @@ scroll speed	Fast	Veloce
 	Original	Originale
 	Greyscale	Scala di grigi
 	Black and white	Bianco e nero
+	Reading colours	Colori di lettura
+	Replace document colours	Sostituisci i colori del documento
+	Black on white	Nero su bianco
+	White on black	Bianco su nero
+	Yellow on black	Giallo su nero
+	Green on black	Verde su nero
+	Page background	Sfondo della pagina
+	Only change the colour of black text or line art	Modifica solo il colore del testo nero e dei tratti
+	Change the colour of line art as well as text	Modifica il colore anche dei tratti, oltre al testo
+	Colours are remapped while rendering; the document itself never changes.	I colori vengono riassociati durante il rendering; il documento in sé non cambia mai.

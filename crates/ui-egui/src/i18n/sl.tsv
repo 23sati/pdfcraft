@@ -2255,3 +2255,13 @@ scroll speed	Fast	Hitro
 	Original	Izvirnik
 	Greyscale	Sivine
 	Black and white	Črno-belo
+	Reading colours	Barve za branje
+	Replace document colours	Zamenjaj barve dokumenta
+	Black on white	Črno na belem
+	White on black	Belo na črnem
+	Yellow on black	Rumeno na črnem
+	Green on black	Zeleno na črnem
+	Page background	Ozadje strani
+	Only change the colour of black text or line art	Spremeni samo barvo črnega besedila in črt
+	Change the colour of line art as well as text	Spremeni barvo tudi črt, ne samo besedila
+	Colours are remapped while rendering; the document itself never changes.	Barve se spremenijo pri izrisovanju; sam dokument se nikoli ne spremeni.

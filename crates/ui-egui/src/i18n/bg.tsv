@@ -2209,3 +2209,13 @@ scroll speed	Fast	Висока
 	Original	Оригинал
 	Greyscale	Нива на сивото
 	Black and white	Черно-бяло
+	Reading colours	Цветове за четене
+	Replace document colours	Замяна на цветовете на документа
+	Black on white	Черно на бяло
+	White on black	Бяло на черно
+	Yellow on black	Жълто на черно
+	Green on black	Зелено на черно
+	Page background	Фон на страницата
+	Only change the colour of black text or line art	Да се променя само цветът на черния текст и линиите
+	Change the colour of line art as well as text	Да се променя цветът и на линиите, не само на текста
+	Colours are remapped while rendering; the document itself never changes.	Цветовете се променят при изчертаването; самият документ никога не се променя.

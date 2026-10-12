@@ -2247,3 +2247,13 @@ scroll speed	Fast	Schnell
 	Original	Original
 	Greyscale	Graustufen
 	Black and white	Schwarzweiß
+	Reading colours	Lesefarben
+	Replace document colours	Dokumentfarben ersetzen
+	Black on white	Schwarz auf weiß
+	White on black	Weiß auf schwarz
+	Yellow on black	Gelb auf schwarz
+	Green on black	Grün auf schwarz
+	Page background	Seitenhintergrund
+	Only change the colour of black text or line art	Nur die Farbe von schwarzem Text oder Strichzeichnungen ändern
+	Change the colour of line art as well as text	Auch die Farbe von Strichzeichnungen ändern, nicht nur von Text
+	Colours are remapped while rendering; the document itself never changes.	Farben werden beim Rendern neu zugeordnet; das Dokument selbst bleibt unverändert.

@@ -2260,3 +2260,13 @@ scroll speed	Fast	Rápida
 	Original	Original
 	Greyscale	Escala de cinza
 	Black and white	Preto e branco
+	Reading colours	Cores de leitura
+	Replace document colours	Substituir as cores do documento
+	Black on white	Preto no branco
+	White on black	Branco no preto
+	Yellow on black	Amarelo no preto
+	Green on black	Verde no preto
+	Page background	Fundo da página
+	Only change the colour of black text or line art	Alterar apenas a cor do texto preto e dos traços
+	Change the colour of line art as well as text	Alterar também a cor dos traços, além do texto
+	Colours are remapped while rendering; the document itself never changes.	As cores são remapeadas na renderização; o documento em si nunca muda.

@@ -2267,3 +2267,13 @@ scroll speed	Fast	سريعة
 	Original	الأصل
 	Greyscale	تدرج رمادي
 	Black and white	أبيض وأسود
+	Reading colours	ألوان القراءة
+	Replace document colours	استبدال ألوان المستند
+	Black on white	أسود على أبيض
+	White on black	أبيض على أسود
+	Yellow on black	أصفر على أسود
+	Green on black	أخضر على أسود
+	Page background	خلفية الصفحة
+	Only change the colour of black text or line art	تغيير لون النص الأسود والخطوط فقط
+	Change the colour of line art as well as text	تغيير لون الخطوط أيضًا، وليس النص فقط
+	Colours are remapped while rendering; the document itself never changes.	تُستبدل الألوان عند الرسم؛ المستند نفسه لا يتغير أبدًا.

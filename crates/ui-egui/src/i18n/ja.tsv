@@ -2246,3 +2246,13 @@ scroll speed	Fast	速い
 	Original	オリジナル
 	Greyscale	グレースケール
 	Black and white	白黒
+	Reading colours	読書用の色
+	Replace document colours	文書の色を置き換える
+	Black on white	白地に黒
+	White on black	黒地に白
+	Yellow on black	黒地に黄
+	Green on black	黒地に緑
+	Page background	ページの背景
+	Only change the colour of black text or line art	黒いテキストと線画の色だけを変更する
+	Change the colour of line art as well as text	テキストに加えて線画の色も変更する
+	Colours are remapped while rendering; the document itself never changes.	色は描画時に置き換えられ、文書自体が変わることはありません。

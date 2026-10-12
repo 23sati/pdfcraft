@@ -2159,3 +2159,13 @@ scroll speed	Fast	Высокая
 	Original	Оригинал
 	Greyscale	Оттенки серого
 	Black and white	Чёрно-белый
+	Reading colours	Цвета для чтения
+	Replace document colours	Заменить цвета документа
+	Black on white	Чёрный на белом
+	White on black	Белый на чёрном
+	Yellow on black	Жёлтый на чёрном
+	Green on black	Зелёный на чёрном
+	Page background	Фон страницы
+	Only change the colour of black text or line art	Менять только цвет чёрного текста и линий
+	Change the colour of line art as well as text	Менять цвет и линий, а не только текста
+	Colours are remapped while rendering; the document itself never changes.	Цвета меняются при отрисовке; сам документ никогда не изменяется.
