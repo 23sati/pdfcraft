@@ -9,6 +9,7 @@ use std::borrow::Cow;
 use std::collections::{BinaryHeap, HashMap, HashSet};
 
 use pdfcraft_cos::{Dict, Document, Object};
+use skrifa::raw::TableProvider as _;
 
 /// How the bytes of a string map to codes.
 #[derive(Clone, Debug, PartialEq)]
@@ -55,6 +56,8 @@ pub struct Metrics {
     /// font name and, when present, `/FontDescriptor` flags/weight/angle.
     pub bold: bool,
     pub italic: bool,
+    /// Whether this font requires visual-order Indic text (legacy TrueType/Type 1 fonts without OpenType GSUB).
+    pub visual_order: bool,
     /// Bytes per code for writing new text (1 for simple fonts, else the codespace length).
     code_len: usize,
     /// Valid single-character explicit mappings, preindexed once for large full CJK fonts.
@@ -69,6 +72,21 @@ fn nums(doc: &Document, o: Option<&Object>) -> Vec<f64> {
 
 fn dict(doc: &Document, o: Option<&Object>) -> Option<Dict> {
     o.and_then(|o| doc.resolve(o).as_dict().cloned())
+}
+
+/// The embedded sfnt bytes (FontFile2 or FontFile3) of a font descriptor, if present.
+fn font_sfnt_bytes(doc: &Document, font: &Dict) -> Option<Vec<u8>> {
+    let descendant = dict(doc, font.get(b"DescendantFonts").and_then(|o| doc.resolve(o).as_array().and_then(|a| a.first()).cloned()).as_ref());
+    let descriptor = dict(doc, descendant.as_ref().unwrap_or(font).get(b"FontDescriptor"))?;
+    for key in [b"FontFile2".as_slice(), b"FontFile3".as_slice()] {
+        let Some(object) = descriptor.get(key) else { continue };
+        let object = doc.resolve(object);
+        let Object::Stream(stream) = object.as_ref() else { continue };
+        if let Ok(bytes) = stream.decoded_within(16 << 20) {
+            return Some(bytes);
+        }
+    }
+    None
 }
 
 /// A source PDF's sfnt program for an in-memory editor. Never a bundled font or an export
@@ -523,6 +541,7 @@ impl Metrics {
             subset: false,
             bold: false,
             italic: false,
+            visual_order: false,
             code_len: 1,
             explicit_reverse: (32..127u8).map(|c| (char::from(c), u32::from(c))).collect(),
         }
@@ -560,6 +579,14 @@ impl Metrics {
             }
         }
         m.explicit_reverse = reverse;
+        let has_indic = m.unicode.explicit.values().any(|(_, t)| t.chars().any(|c| matches!(u32::from(c), 0x0900..=0x0D7F)))
+            || m.unicode.encoding.values().any(|t| t.chars().any(|c| matches!(u32::from(c), 0x0900..=0x0D7F)))
+            || m.unicode.ranges.iter().any(|r| r.units.iter().any(|&u| matches!(u, 0x0900..=0x0D7F)));
+        let base_lower = m.base_font.to_ascii_lowercase();
+        let legacy_indic =
+            ["kruti", "devlys", "chanakya", "shusha", "shivaji", "walkman", "akruti", "aps-", "dv-"].iter().any(|&name| base_lower.contains(name));
+        let has_gsub = font_sfnt_bytes(doc, font).is_some_and(|bytes| skrifa::FontRef::new(&bytes).is_ok_and(|face| face.gsub().is_ok()));
+        m.visual_order = legacy_indic || (has_indic && !has_gsub);
         m
     }
 

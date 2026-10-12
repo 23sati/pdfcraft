@@ -42,6 +42,8 @@ pub struct TextLine {
     /// Whether new text in this font can only be shown by substituting another font (no
     /// Unicode mapping for the line, so nothing could be reused).
     pub decodable: bool,
+    /// Whether the font requires visual-order Indic text.
+    pub visual_order: bool,
     /// The Japanese or Hebrew fallback face the font subsets, when the line is in one (see [`same_font`]).
     face: Option<String>,
     /// The content stream piece the line starts in, and its operators (indices into the page's
@@ -464,6 +466,7 @@ struct Shown {
     size: f64,
     bold: bool,
     italic: bool,
+    visual_order: bool,
     decodable: bool,
     scope: Option<usize>,
 }
@@ -704,6 +707,7 @@ fn interpret(
                     size: if size_user > 0.0 { size_user } else { ts.size },
                     bold: m.bold,
                     italic: m.italic,
+                    visual_order: m.visual_order,
                     decodable,
                     scope: marked.last().copied().flatten(),
                 });
@@ -758,6 +762,7 @@ pub fn text_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditErro
             l.ops.push(s.op);
             l.ops.extend(s.extra_ops.iter().copied());
             l.decodable &= s.decodable;
+            l.visual_order |= s.visual_order;
             // Spaces may use a separate subset font; they do not change the visible style.
         } else {
             lines.push(TextLine {
@@ -770,6 +775,7 @@ pub fn text_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditErro
                 italic: s.italic,
                 color: fill_color(&s.state.fill),
                 decodable: s.decodable,
+                visual_order: s.visual_order,
                 face: s.face.clone(),
                 stream: si,
                 scope: s.scope,
@@ -791,6 +797,9 @@ pub fn text_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditErro
     }
     // Content streams draw right-to-left lines in visual order; the editor works in typing order.
     for l in &mut lines {
+        if l.visual_order {
+            l.text = crate::indic::to_logical(&l.text);
+        }
         l.text = crate::bidi::to_logical(&l.text);
     }
     // Lines of only spaces aren't editable text.
@@ -836,6 +845,7 @@ fn add_shown(lines: &mut Vec<TextLine>, last: &mut Option<(usize, f64, f64, f64)
         l.ops.push(s.op);
         l.ops.extend(s.extra_ops.iter().copied());
         l.decodable &= s.decodable;
+        l.visual_order |= s.visual_order;
     } else {
         lines.push(TextLine {
             text: s.text.clone(),
@@ -847,6 +857,7 @@ fn add_shown(lines: &mut Vec<TextLine>, last: &mut Option<(usize, f64, f64, f64)
             italic: s.italic,
             color: fill_color(&s.state.fill),
             decodable: s.decodable,
+            visual_order: s.visual_order,
             face: s.face.clone(),
             stream,
             scope: s.scope,
@@ -978,6 +989,12 @@ fn reading_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditError
         walk(&mut w, &parse(&data).ops, &res, &mut carry, si);
     }
     let mut lines = w.lines;
+    for l in &mut lines {
+        if l.visual_order {
+            l.text = crate::indic::to_logical(&l.text);
+        }
+        l.text = crate::bidi::to_logical(&l.text);
+    }
     lines.retain(|l| !l.text.trim().is_empty());
     Ok(lines)
 }
@@ -1362,8 +1379,10 @@ pub(crate) fn replace_line_with_limit(doc: &mut Document, page: usize, line: usi
     let first = target.ops.first().copied().filter(|i| *i < ops.len()).ok_or_else(|| EditError::Invalid("the page's content changed".into()))?;
     // The line's own font, when it can show every character.
     let font = fonts_res.get(target.font.as_bytes()).and_then(|f| doc.resolve(f).as_dict().cloned()).map(|d| Metrics::from_dict(doc, &d));
+    let visual_indic = font.as_ref().is_some_and(|m| m.visual_order) || target.visual_order;
+    let indic_text = if visual_indic { crate::indic::to_visual(&text) } else { text.clone() };
     // Typed in logical order; drawn left to right (right-to-left runs reversed).
-    let shown = crate::bidi::to_visual(&text);
+    let shown = crate::bidi::to_visual(&indic_text);
     let reused = font.as_ref().filter(|m| source_encodes(m, &shown));
     let mut substituted = None;
     let mut replacement: Vec<Op> = Vec::new();
@@ -1387,9 +1406,10 @@ pub(crate) fn replace_line_with_limit(doc: &mut Document, page: usize, line: usi
             target.origin.state.word_spacing,
         )?),
         None => {
+            let fallback_shown = crate::bidi::to_visual(&text);
             if needs_type3(&text) {
                 let fallback = type3_font(doc, &mut fonts_res, &text, source_family(&target.base_font), target.bold, max_glyphs)?;
-                let runs = type3_encode(&fallback, &shown)
+                let runs = type3_encode(&fallback, &fallback_shown)
                     .ok_or_else(|| EditError::Invalid(format!("\"{text}\" can't be shown by the {} fallback", fallback.family)))?;
                 let size = font_size_before(&ops, first).unwrap_or(target.size);
                 for (name, bytes) in runs {
@@ -1399,10 +1419,10 @@ pub(crate) fn replace_line_with_limit(doc: &mut Document, page: usize, line: usi
                 replacement.push(Op::new("Tf", vec![Object::name(&target.font), pdfcraft_content::num(size)]));
                 substituted = Some(format!("{} Type3", fallback.family));
             } else {
-                let win = pdfcraft_fonts::win_ansi(&shown);
+                let win = pdfcraft_fonts::win_ansi(&fallback_shown);
                 // WinAnsi turns what it can't show into '?'; refuse rather than print the wrong thing.
                 let back: String = win.iter().map(|b| char::from_u32(u32::from(*b)).unwrap_or('?')).collect();
-                if shown.chars().zip(back.chars()).any(|(a, b)| b == '?' && a != '?') {
+                if fallback_shown.chars().zip(back.chars()).any(|(a, b)| b == '?' && a != '?') {
                     return Err(EditError::Invalid(format!("\"{text}\" has characters neither {} nor Helvetica can show", target.base_font)));
                 }
                 // The size in text space: the current Tf's size.
@@ -1631,7 +1651,9 @@ pub(crate) fn rewrite_block_with_limit(
             "formatting part of right-to-left (Hebrew) text, or choosing a document font for it, isn't supported yet".into(),
         ));
     }
+    let visual_indic = members.iter().any(|line| line.visual_order);
     if !hebrew
+        && !visual_indic
         && (!style.ranges.is_empty()
             || style.resource.is_some()
             || (text.is_some_and(|draft| {
@@ -1665,7 +1687,9 @@ pub(crate) fn rewrite_block_with_limit(
     }
     let o_state = ts_state.clone();
     let metrics = fonts_res.get(font_name.as_bytes()).and_then(|f| doc.resolve(f).as_dict().cloned()).map(|d| Metrics::from_dict(doc, &d));
-    let reuse = style.family.is_none() && style.bold.is_none() && metrics.as_ref().is_some_and(|m| source_encodes(m, &text));
+    let visual_indic = metrics.as_ref().is_some_and(|m| m.visual_order) || first.visual_order;
+    let indic_text = if visual_indic { crate::indic::to_visual(&text) } else { text.clone() };
+    let reuse = style.family.is_none() && style.bold.is_none() && metrics.as_ref().is_some_and(|m| source_encodes(m, &indic_text));
     let space = metrics.as_ref().map_or(0.33, |m| source_space(doc, &fonts_res, m));
     // The chosen style also determines the real Japanese fallback outlines and advances.
     let (family, bold, italic) = style.family.unwrap_or((source_family(&b.base_font), b.bold, b.italic));
@@ -1716,7 +1740,10 @@ pub(crate) fn rewrite_block_with_limit(
     let type3 = if !reuse && needs_type3(&text) { Some(type3_font(doc, &mut fonts_res, &text, family, bold, max_glyphs)?) } else { None };
     let advance = |s: &str| -> f64 {
         let t = match (&metrics, reuse) {
-            (Some(m), true) => source_width(m, s, size, space, o_state.char_spacing, o_state.word_spacing),
+            (Some(m), true) => {
+                let visual_s = if m.visual_order { crate::indic::to_visual(s) } else { s.to_owned() };
+                source_width(m, &visual_s, size, space, o_state.char_spacing, o_state.word_spacing)
+            }
             _ if let Some(fallback) = &type3 => {
                 // Each character's count in `s`, from one pass over `s`.
                 let mut counts: HashMap<char, usize> = HashMap::new();
@@ -1822,7 +1849,8 @@ pub(crate) fn rewrite_block_with_limit(
         // Each wrapped line in typing order; drawn left to right (right-to-left runs reversed).
         let visual = crate::bidi::to_visual(line);
         if let Some(metrics) = metrics.as_ref().filter(|_| reuse) {
-            block_ops.extend(source_show(metrics, &visual, size, space, o_state.char_spacing, tw)?);
+            let indic_line = if metrics.visual_order { crate::indic::to_visual(&visual) } else { visual };
+            block_ops.extend(source_show(metrics, &indic_line, size, space, o_state.char_spacing, tw)?);
         } else {
             for (font, bytes) in encode(&visual).ok_or_else(|| EditError::Invalid(format!("\"{line}\" can't be shown")))? {
                 if font != shown_font {

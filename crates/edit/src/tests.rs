@@ -3093,3 +3093,50 @@ fn marked_paragraph_boundaries_and_cross_stream_transforms_survive_rewrite() {
     }
     assert_eq!(after[1].text, "Changed row");
 }
+
+#[test]
+fn logical_indic_with_nuktas_not_reordered_on_standard_font() {
+    // Already logical Hindi text with nuktas (बढ़िया) must not be corrupted by pre-base reordering
+    // when the font does not require visual order.
+    let hex_actual = "<FEFF092C0922093C093F092F093E>";
+    let doc = text_page(&format!("/Span << /ActualText {hex_actual} >> BDC BT /F1 12 Tf 40 500 Td (ab) Tj ET EMC"));
+    let lines = text::text_lines(&doc, 0).unwrap();
+    assert_eq!(lines.len(), 1);
+    assert_eq!(lines[0].text, "\u{092C}\u{0922}\u{093C}\u{093F}\u{092F}\u{093E}");
+    assert!(!lines[0].visual_order);
+}
+
+#[test]
+fn legacy_indic_font_flags_visual_order_and_reorders_pre_base_vowels() {
+    let objs: Vec<String> = vec![
+        "<< /Type /Catalog /Pages 2 0 R >>".into(),
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".into(),
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 800] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>".into(),
+        // Stream shows visual order बढ़िया: ba + short_i + ddha + nukta + ya + aa
+        // In UTF-16BE: <FEFF092C093F0922093C092F093E>
+        "/Span << /ActualText <FEFF092C093F0922093C092F093E> >> BDC BT /F1 12 Tf 40 500 Td (ab) Tj ET EMC\n".into(),
+        "<< /Type /Font /Subtype /TrueType /BaseFont /KrutiDev010 /Encoding /WinAnsiEncoding >>".into(),
+    ];
+    let mut out = b"%PDF-1.7\n".to_vec();
+    let mut offs = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offs.push(out.len());
+        if i == 3 {
+            out.extend_from_slice(format!("{} 0 obj\n<< /Length {} >>\nstream\n{o}endstream\nendobj\n", i + 1, o.len()).as_bytes());
+        } else {
+            out.extend_from_slice(format!("{} 0 obj\n{o}\nendobj\n", i + 1).as_bytes());
+        }
+    }
+    let x = out.len();
+    out.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+    for o in offs {
+        out.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+    }
+    out.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{x}\n%%EOF\n", objs.len() + 1).as_bytes());
+    let doc = Document::open(Arc::new(out)).unwrap();
+    let lines = text::text_lines(&doc, 0).unwrap();
+    assert_eq!(lines.len(), 1);
+    assert!(lines[0].visual_order);
+    // Extracted text converted from visual order (ब + ि + ढ़ + या) to logical order (ब + ढ़ि + या = बढ़िया)
+    assert_eq!(lines[0].text, "\u{092C}\u{0922}\u{093C}\u{093F}\u{092F}\u{093E}");
+}
