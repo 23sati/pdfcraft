@@ -36,6 +36,10 @@ fn fixture(n: usize) -> Vec<u8> {
 }
 
 fn remote_link_pdf(file: &str, destination: Option<&str>) -> Vec<u8> {
+    // canonicalize() uses a Windows device prefix; a PDF file specification uses the ordinary drive path.
+    #[cfg(windows)]
+    let file = file.strip_prefix(r"\\?\").filter(|path| path.as_bytes().get(1) == Some(&b':')).unwrap_or(file);
+    let file = file.replace('\\', "\\\\").replace('(', "\\(").replace(')', "\\)");
     let destination = destination.map_or_else(String::new, |d| format!("/D {d}"));
     let objects: Vec<Vec<u8>> = vec![
         b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
@@ -3174,15 +3178,17 @@ fn local_gotor_link_open_refuses_directories_devices_and_non_pdf_targets() {
     std::fs::write(root.join("notes.txt"), fixture(1)).unwrap();
     std::fs::write(root.join("dir-source.pdf"), remote_link_pdf("folder.pdf", None)).unwrap();
     std::fs::write(root.join("txt-source.pdf"), remote_link_pdf("notes.txt", None)).unwrap();
-    let mut cases = vec![("dir-source.pdf", "not a regular file"), ("txt-source.pdf", "not a .pdf file")];
+    let cases = vec![("dir-source.pdf", "not a regular file"), ("txt-source.pdf", "not a .pdf file")];
     #[cfg(unix)]
-    {
+    let cases = {
+        let mut cases = cases;
         // A FIFO inside the root would block a plain read forever.
         if std::process::Command::new("mkfifo").arg(root.join("pipe.pdf")).status().is_ok_and(|s| s.success()) {
             std::fs::write(root.join("fifo-source.pdf"), remote_link_pdf("pipe.pdf", None)).unwrap();
             cases.push(("fifo-source.pdf", "not a regular file"));
         }
-    }
+        cases
+    };
     let mut a = auto(&root);
     for (source_path, reason) in cases {
         let source = ok(&mut a, "doc_open", json!({ "path": source_path }))["doc"].as_u64().unwrap();
