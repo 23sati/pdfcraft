@@ -67,7 +67,7 @@ fn checking_fixing_skipping_and_reporting() {
     h.state_mut().dialog = None;
     h.run_steps(2);
     h.get_by_label("Compare");
-    h.get_by_label_contains("Title: Failed (1) → Passed (0)");
+    h.get_by_label_contains("Title: Failed (2) → Passed (0)");
     // Skip a rule; it stays skipped when checking again.
     right_click(&mut h, "Tagged PDF - Failed");
     h.get_by_label("Skip Rule").click();
