@@ -2358,3 +2358,7 @@ scroll speed	Fast	Rychlá
 	Ink sensitivity	Citlivost na inkoust
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	V rámečku nebyl nalezen žádný podpis. Přesuňte rámeček na podpis nebo zvyšte citlivost na inkoust.
 	Couldn't use the photo: {e}	Fotografii nelze použít: {e}
+	Couldn't follow linked PDF: {reason}	Odkazovaný PDF nelze otevřít: {reason}
+	The linked PDF opened, but its named destination was not applied.	Odkazovaný PDF se otevřel, ale jeho pojmenovaný cíl nebyl použit.
+	The linked PDF opened, but its page destination was out of range.	Odkazovaný PDF se otevřel, ale cílová stránka je mimo rozsah.
+	Local cross-PDF links require the desktop app	Místní odkazy mezi soubory PDF vyžadují desktopovou aplikaci

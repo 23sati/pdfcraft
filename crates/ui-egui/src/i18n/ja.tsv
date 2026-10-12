@@ -2284,3 +2284,7 @@ scroll speed	Fast	速い
 	Ink sensitivity	インクの感度
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	枠内に署名が見つかりません。枠を署名に合わせるか、インクの感度を上げてください。
 	Couldn't use the photo: {e}	写真を使用できません: {e}
+	Couldn't follow linked PDF: {reason}	リンク先の PDF を開けませんでした: {reason}
+	The linked PDF opened, but its named destination was not applied.	リンク先の PDF を開きましたが、名前付き移動先は適用されませんでした。
+	The linked PDF opened, but its page destination was out of range.	リンク先の PDF を開きましたが、移動先のページが範囲外です。
+	Local cross-PDF links require the desktop app	PDF 間のローカルリンクにはデスクトップアプリが必要です

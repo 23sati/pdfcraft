@@ -1,7 +1,7 @@
 //! Link tools: list, add, edit and delete links; create links from URLs in the text; remove
 //! all links. Rectangles are points from the top-left of the displayed page.
 
-use pdfcraft_engine::{Edit, LinkAction, LinkHighlight, LinkStyle, resolve_remote_document_path};
+use pdfcraft_engine::{Edit, LinkAction, LinkHighlight, LinkStyle, read_remote_document, resolve_remote_document_path};
 use pdfcraft_render::{DestView, LinkTarget, RemoteDestination};
 use serde_json::{Value, json};
 use std::path::Path;
@@ -107,7 +107,7 @@ impl Automation {
         };
         let path = resolve_remote_document_path(source_path.as_deref().map(Path::new), &file).map_err(failed)?;
         let path = self.resolve(&path.to_string_lossy(), false)?;
-        let bytes = std::fs::read(&path).map_err(|e| failed(format!("{}: {e}", path.display())))?;
+        let bytes = read_remote_document(&path).map_err(|e| failed(format!("{}: {e}", path.display())))?;
         let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
         let id =
             self.session.open(name, Some(path.to_string_lossy().into_owned()), std::sync::Arc::new(bytes), a.opt_str("password")?).map_err(failed)?;

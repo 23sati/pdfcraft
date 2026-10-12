@@ -2248,3 +2248,7 @@ scroll speed	Fast	快
 	Ink sensitivity	墨迹灵敏度
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	框内未找到签名。请将框移到签名上，或提高墨迹灵敏度。
 	Couldn't use the photo: {e}	无法使用该照片：{e}
+	Couldn't follow linked PDF: {reason}	无法打开链接的 PDF：{reason}
+	The linked PDF opened, but its named destination was not applied.	已打开链接的 PDF，但未应用其命名目标。
+	The linked PDF opened, but its page destination was out of range.	已打开链接的 PDF，但其页面目标超出范围。
+	Local cross-PDF links require the desktop app	PDF 之间的本地链接需要桌面应用

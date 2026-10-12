@@ -2305,3 +2305,7 @@ scroll speed	Fast	سريعة
 	Ink sensitivity	حساسية الحبر
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	لم يُعثر على توقيع داخل الإطار. حرّك الإطار فوق التوقيع أو ارفع حساسية الحبر.
 	Couldn't use the photo: {e}	تعذّر استخدام الصورة: {e}
+	Couldn't follow linked PDF: {reason}	تعذّر فتح ملف PDF المرتبط: {reason}
+	The linked PDF opened, but its named destination was not applied.	فُتح ملف PDF المرتبط، لكن لم تُطبَّق وجهته المسماة.
+	The linked PDF opened, but its page destination was out of range.	فُتح ملف PDF المرتبط، لكن وجهة الصفحة خارج النطاق.
+	Local cross-PDF links require the desktop app	تتطلب الروابط المحلية بين ملفات PDF تطبيق سطح المكتب

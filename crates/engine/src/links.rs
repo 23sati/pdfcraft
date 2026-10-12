@@ -139,6 +139,14 @@ pub enum RemoteDocumentPathError {
     Hidden,
     UrlOrNetwork,
     MissingSourcePath,
+    /// The target doesn't end in `.pdf`.
+    NotPdf,
+    /// The target is a directory, device, FIFO or socket rather than a regular file.
+    NotAFile,
+    /// The target is larger than [`MAX_REMOTE_DOCUMENT_BYTES`].
+    TooLarge,
+    /// The target couldn't be read.
+    Read(String),
 }
 
 impl std::fmt::Display for RemoteDocumentPathError {
@@ -149,6 +157,10 @@ impl std::fmt::Display for RemoteDocumentPathError {
             Self::Hidden => f.write_str("the file specification contains hidden or control characters"),
             Self::UrlOrNetwork => f.write_str("only local document paths are supported"),
             Self::MissingSourcePath => f.write_str("a relative link needs a source document path"),
+            Self::NotPdf => f.write_str("the linked file is not a .pdf file"),
+            Self::NotAFile => f.write_str("the linked path is not a regular file"),
+            Self::TooLarge => f.write_str("the linked file is too large to open"),
+            Self::Read(e) => write!(f, "the linked file couldn't be read: {e}"),
         }
     }
 }
@@ -184,6 +196,35 @@ pub fn resolve_remote_document_path(source: Option<&Path>, raw: &str) -> Result<
     let source = source.ok_or(RemoteDocumentPathError::MissingSourcePath)?;
     let parent = source.parent().ok_or(RemoteDocumentPathError::MissingSourcePath)?;
     Ok(parent.join(path))
+}
+
+/// Largest linked PDF a GoToR link may open (1 GiB, the largest size the large-file work measures).
+pub const MAX_REMOTE_DOCUMENT_BYTES: u64 = 1 << 30;
+
+/// Read the PDF a GoToR link resolved to. The path comes from an untrusted document, so only a
+/// regular `.pdf` file of at most [`MAX_REMOTE_DOCUMENT_BYTES`] is read: a directory, a device such
+/// as `/dev/zero` or a FIFO is refused before it is opened, and a file that grows past the cap
+/// while it is read is refused too.
+pub fn read_remote_document(path: &Path) -> Result<Vec<u8>, RemoteDocumentPathError> {
+    use std::io::Read;
+    let is_pdf = path.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf"));
+    if !is_pdf {
+        return Err(RemoteDocumentPathError::NotPdf);
+    }
+    let meta = std::fs::metadata(path).map_err(|e| RemoteDocumentPathError::Read(e.to_string()))?;
+    if !meta.is_file() {
+        return Err(RemoteDocumentPathError::NotAFile);
+    }
+    if meta.len() > MAX_REMOTE_DOCUMENT_BYTES {
+        return Err(RemoteDocumentPathError::TooLarge);
+    }
+    let file = std::fs::File::open(path).map_err(|e| RemoteDocumentPathError::Read(e.to_string()))?;
+    let mut bytes = Vec::with_capacity(usize::try_from(meta.len()).unwrap_or(0));
+    file.take(MAX_REMOTE_DOCUMENT_BYTES.saturating_add(1)).read_to_end(&mut bytes).map_err(|e| RemoteDocumentPathError::Read(e.to_string()))?;
+    if u64::try_from(bytes.len()).map_or(true, |n| n > MAX_REMOTE_DOCUMENT_BYTES) {
+        return Err(RemoteDocumentPathError::TooLarge);
+    }
+    Ok(bytes)
 }
 
 /// Email-address parameters that make an email app read a file from the user's computer: Evolution,
@@ -397,6 +438,32 @@ fn mixes_scripts(label: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn remote_documents_must_be_regular_pdf_files() {
+        use super::{RemoteDocumentPathError as E, read_remote_document as read};
+        let dir = std::env::temp_dir().join(format!("pdfcraft-gotor-read-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("folder.pdf")).unwrap();
+        std::fs::write(dir.join("doc.PDF"), b"%PDF-1.7\n").unwrap();
+        std::fs::write(dir.join("notes.txt"), b"text").unwrap();
+        assert_eq!(read(&dir.join("doc.PDF")).as_deref(), Ok(&b"%PDF-1.7\n"[..]));
+        assert_eq!(read(&dir.join("folder.pdf")), Err(E::NotAFile), "a directory is refused");
+        assert_eq!(read(&dir.join("notes.txt")), Err(E::NotPdf));
+        assert_eq!(read(&dir), Err(E::NotPdf));
+        assert!(matches!(read(&dir.join("missing.pdf")), Err(E::Read(_))));
+        #[cfg(unix)]
+        {
+            // A device (like /dev/zero, which never ends) and a FIFO (which blocks) are never opened.
+            std::os::unix::fs::symlink("/dev/zero", dir.join("zero.pdf")).unwrap();
+            assert_eq!(read(&dir.join("zero.pdf")), Err(E::NotAFile));
+            let fifo = dir.join("pipe.pdf");
+            if std::process::Command::new("mkfifo").arg(&fifo).status().is_ok_and(|s| s.success()) {
+                assert_eq!(read(&fifo), Err(E::NotAFile));
+            }
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn remote_document_paths_are_local_and_source_relative() {
         use super::{RemoteDocumentPathError as E, resolve_remote_document_path as resolve};

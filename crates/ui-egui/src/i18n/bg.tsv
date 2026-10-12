@@ -2247,3 +2247,7 @@ scroll speed	Fast	Висока
 	Ink sensitivity	Чувствителност към мастило
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	В рамката не е открит подпис. Преместете рамката върху подписа или увеличете чувствителността към мастило.
 	Couldn't use the photo: {e}	Снимката не може да се използва: {e}
+	Couldn't follow linked PDF: {reason}	Свързаният PDF не можа да бъде отворен: {reason}
+	The linked PDF opened, but its named destination was not applied.	Свързаният PDF се отвори, но именуваната му цел не беше приложена.
+	The linked PDF opened, but its page destination was out of range.	Свързаният PDF се отвори, но целевата му страница е извън обхвата.
+	Local cross-PDF links require the desktop app	Локалните връзки между PDF файлове изискват настолното приложение

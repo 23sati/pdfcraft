@@ -1305,10 +1305,10 @@ impl PdfCraftApp {
         let stamp = file_watch::Stamp::at(&path);
         let tabs = self.views.len();
         self.startup_superseded = true;
-        let bytes = match std::fs::read(&path) {
+        let bytes = match pdfcraft_engine::read_remote_document(std::path::Path::new(&path)) {
             Ok(bytes) => bytes,
             Err(e) => {
-                self.notify_fmt("Couldn't read {name}: {e}", &[("name", &name), ("e", &e.to_string())]);
+                self.notify_fmt("Couldn't follow linked PDF: {reason}", &[("reason", &e.to_string())]);
                 return;
             }
         };

@@ -3100,6 +3100,32 @@ fn links_through_tools() {
 }
 
 #[test]
+fn local_gotor_link_open_refuses_directories_devices_and_non_pdf_targets() {
+    let (_base, root) = sandbox("gotor-not-a-file");
+    std::fs::create_dir_all(root.join("folder.pdf")).unwrap();
+    std::fs::write(root.join("notes.txt"), fixture(1)).unwrap();
+    std::fs::write(root.join("dir-source.pdf"), remote_link_pdf("folder.pdf", None)).unwrap();
+    std::fs::write(root.join("txt-source.pdf"), remote_link_pdf("notes.txt", None)).unwrap();
+    let mut cases = vec![("dir-source.pdf", "not a regular file"), ("txt-source.pdf", "not a .pdf file")];
+    #[cfg(unix)]
+    {
+        // A FIFO inside the root would block a plain read forever.
+        if std::process::Command::new("mkfifo").arg(root.join("pipe.pdf")).status().is_ok_and(|s| s.success()) {
+            std::fs::write(root.join("fifo-source.pdf"), remote_link_pdf("pipe.pdf", None)).unwrap();
+            cases.push(("fifo-source.pdf", "not a regular file"));
+        }
+    }
+    let mut a = auto(&root);
+    for (source_path, reason) in cases {
+        let source = ok(&mut a, "doc_open", json!({ "path": source_path }))["doc"].as_u64().unwrap();
+        let documents_before = a.session().docs().len();
+        let e = err(&mut a, "link_open", json!({ "doc": source, "page": 1, "index": 1 }));
+        assert!(matches!(&e, ToolError::Failed(m) if m.contains(reason)), "{source_path}: {e:?}");
+        assert_eq!(a.session().docs().len(), documents_before, "a refused target is not opened: {source_path}");
+    }
+}
+
+#[test]
 fn local_gotor_link_open_applies_destinations_and_honors_root() {
     let (base, root) = sandbox("gotor-open");
     std::fs::create_dir_all(root.join("sub")).unwrap();

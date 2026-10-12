@@ -2263,3 +2263,8 @@ scroll speed	Fast	Szybka
 	Ink sensitivity	Czułość na atrament
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	W ramce nie znaleziono podpisu. Przesuń ramkę na podpis lub zwiększ czułość na atrament.
 	Couldn't use the photo: {e}	Nie można użyć zdjęcia: {e}
+	Couldn't follow linked PDF: {reason}	Nie można otworzyć połączonego pliku PDF: {reason}
+	The linked PDF opened, but its named destination was not applied.	Połączony plik PDF został otwarty, ale jego nazwany cel nie został zastosowany.
+	The linked PDF opened, but its page destination was out of range.	Połączony plik PDF został otwarty, ale jego strona docelowa jest poza zakresem.
+	Local cross-PDF links require the desktop app	Lokalne łącza między plikami PDF wymagają aplikacji komputerowej
+	The existing action will be preserved.	Istniejąca akcja zostanie zachowana.

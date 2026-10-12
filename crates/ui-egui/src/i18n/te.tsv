@@ -2196,3 +2196,8 @@ scroll speed	Fast	వేగంగా
 	Ink sensitivity	ఇంక్ సున్నితత్వం
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	ఫ్రేమ్‌లో సంతకం కనబడలేదు. ఫ్రేమ్‌ను సంతకం మీదకు జరపండి లేదా ఇంక్ సున్నితత్వాన్ని పెంచండి.
 	Couldn't use the photo: {e}	ఫోటోను ఉపయోగించలేకపోయాం: {e}
+	Couldn't follow linked PDF: {reason}	లింక్ చేసిన PDFను తెరవలేకపోయాం: {reason}
+	The linked PDF opened, but its named destination was not applied.	లింక్ చేసిన PDF తెరుచుకుంది, కానీ దాని పేరున్న గమ్యం వర్తించలేదు.
+	The linked PDF opened, but its page destination was out of range.	లింక్ చేసిన PDF తెరుచుకుంది, కానీ దాని పేజీ గమ్యం పరిధికి వెలుపల ఉంది.
+	Local cross-PDF links require the desktop app	PDFల మధ్య స్థానిక లింక్‌లకు డెస్క్‌టాప్ యాప్ అవసరం
+	The existing action will be preserved.	ఉన్న చర్య అలాగే ఉంచబడుతుంది.

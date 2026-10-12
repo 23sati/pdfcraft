@@ -203,6 +203,30 @@ fn a_remote_destination_survives_password_retries_and_cancel_opens_no_tab() {
 
 #[cfg(not(target_arch = "wasm32"))]
 #[test]
+fn a_gotor_link_to_a_directory_or_device_is_refused_without_reading_it() {
+    let _gpu = gpu();
+    let dir = std::env::temp_dir().join(format!("pdfcraft-ui-gotor-not-a-file-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("folder.pdf")).unwrap();
+    let mut targets = vec!["folder.pdf"];
+    #[cfg(unix)]
+    {
+        // /dev/zero never ends: reading it would exhaust memory.
+        std::os::unix::fs::symlink("/dev/zero", dir.join("zero.pdf")).unwrap();
+        targets.push("zero.pdf");
+    }
+    for target in targets {
+        let mut h = remote_harness(Some(dir.join("source.pdf").to_string_lossy().into_owned()), target, "[0 /Fit]");
+        click_remote_link(&mut h);
+        assert_eq!(h.state().views.len(), 1, "{target} opens no tab");
+        let toast = &h.state().toast.as_ref().unwrap().0;
+        assert!(toast.contains("not a regular file"), "{target}: {toast}");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
 fn an_in_memory_source_does_not_resolve_a_relative_gotor_against_cwd() {
     let _gpu = gpu();
     let mut h = remote_harness(None, "target.pdf", "[0 /Fit]");

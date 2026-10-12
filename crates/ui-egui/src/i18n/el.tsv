@@ -2299,3 +2299,8 @@ scroll speed	Fast	Γρήγορη
 	Ink sensitivity	Ευαισθησία μελανιού
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Δεν βρέθηκε υπογραφή στο πλαίσιο. Μετακινήστε το πλαίσιο πάνω από την υπογραφή ή αυξήστε την ευαισθησία μελανιού.
 	Couldn't use the photo: {e}	Δεν ήταν δυνατή η χρήση της φωτογραφίας: {e}
+	Couldn't follow linked PDF: {reason}	Δεν ήταν δυνατό να ανοίξει το συνδεδεμένο PDF: {reason}
+	The linked PDF opened, but its named destination was not applied.	Το συνδεδεμένο PDF άνοιξε, αλλά ο ονομασμένος προορισμός του δεν εφαρμόστηκε.
+	The linked PDF opened, but its page destination was out of range.	Το συνδεδεμένο PDF άνοιξε, αλλά ο προορισμός σελίδας του είναι εκτός εύρους.
+	Local cross-PDF links require the desktop app	Οι τοπικοί σύνδεσμοι μεταξύ PDF απαιτούν την εφαρμογή υπολογιστή
+	The existing action will be preserved.	Η υπάρχουσα ενέργεια θα διατηρηθεί.

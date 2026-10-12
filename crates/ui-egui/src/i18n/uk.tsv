@@ -2306,3 +2306,7 @@ scroll speed	Fast	Швидка
 	Ink sensitivity	Чутливість до чорнила
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	У рамці не знайдено підпису. Наведіть рамку на підпис або збільште чутливість до чорнила.
 	Couldn't use the photo: {e}	Не вдалося використати фото: {e}
+	Couldn't follow linked PDF: {reason}	Не вдалося відкрити пов’язаний PDF: {reason}
+	The linked PDF opened, but its named destination was not applied.	Пов’язаний PDF відкрито, але його іменоване призначення не застосовано.
+	The linked PDF opened, but its page destination was out of range.	Пов’язаний PDF відкрито, але сторінка призначення поза межами діапазону.
+	Local cross-PDF links require the desktop app	Локальні посилання між PDF працюють лише в настільному застосунку

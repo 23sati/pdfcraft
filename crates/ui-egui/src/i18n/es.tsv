@@ -2413,3 +2413,8 @@ scroll speed	Fast	Rápida
 	Ink sensitivity	Sensibilidad de la tinta
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	No se encontró ninguna firma en el marco. Mueva el marco sobre la firma o aumente la sensibilidad de la tinta.
 	Couldn't use the photo: {e}	No se puede usar la foto: {e}
+	Couldn't follow linked PDF: {reason}	No se pudo abrir el PDF vinculado: {reason}
+	The linked PDF opened, but its named destination was not applied.	El PDF vinculado se abrió, pero no se aplicó su destino con nombre.
+	The linked PDF opened, but its page destination was out of range.	El PDF vinculado se abrió, pero su página de destino está fuera de rango.
+	Local cross-PDF links require the desktop app	Los enlaces locales entre PDF requieren la aplicación de escritorio
+	The existing action will be preserved.	Se conservará la acción existente.

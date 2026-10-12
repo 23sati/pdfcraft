@@ -2293,3 +2293,7 @@ scroll speed	Fast	Veloce
 	Ink sensitivity	Sensibilità all’inchiostro
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	Nessuna firma trovata nella cornice. Sposta la cornice sulla firma o aumenta la sensibilità all’inchiostro.
 	Couldn't use the photo: {e}	Impossibile usare la foto: {e}
+	Couldn't follow linked PDF: {reason}	Impossibile aprire il PDF collegato: {reason}
+	The linked PDF opened, but its named destination was not applied.	Il PDF collegato è stato aperto, ma la sua destinazione con nome non è stata applicata.
+	The linked PDF opened, but its page destination was out of range.	Il PDF collegato è stato aperto, ma la pagina di destinazione è fuori intervallo.
+	Local cross-PDF links require the desktop app	I collegamenti locali tra PDF richiedono l'app desktop

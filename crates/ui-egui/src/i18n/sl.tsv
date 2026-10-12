@@ -2289,3 +2289,7 @@ scroll speed	Fast	Hitro
 	Ink sensitivity	Občutljivost za črnilo
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	V okvirju ni bilo najdenega podpisa. Premaknite okvir nad podpis ali povečajte občutljivost za črnilo.
 	Couldn't use the photo: {e}	Fotografije ni bilo mogoče uporabiti: {e}
+	Couldn't follow linked PDF: {reason}	Povezanega PDF-ja ni bilo mogoče odpreti: {reason}
+	The linked PDF opened, but its named destination was not applied.	Povezani PDF se je odprl, vendar njegov poimenovani cilj ni bil uporabljen.
+	The linked PDF opened, but its page destination was out of range.	Povezani PDF se je odprl, vendar je ciljna stran zunaj obsega.
+	Local cross-PDF links require the desktop app	Lokalne povezave med PDF-ji zahtevajo namizno aplikacijo
