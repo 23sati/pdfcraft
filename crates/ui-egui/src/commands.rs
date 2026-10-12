@@ -394,6 +394,7 @@ impl PdfCraftApp {
             }
             "a11y.report" => self.show_accessibility_report(),
             "a11y.alt_text" => self.start_alt_text(),
+            "a11y.tags" => self.choose_right_panel(Some(RightPanel::Tags)),
             "a11y.reading_options" => self.dialog = Some(Dialog::Properties(crate::PropsTab::Advanced)),
             "export.all_images" => self.dialog = Some(Dialog::Export(crate::export_ui::ExportKind::AllImages)),
             "edit.text" => {
@@ -407,9 +408,7 @@ impl PdfCraftApp {
                 self.notify_tr("Drag a rectangle to create a link; double-click a link to edit it");
             }
             "edit.links_from_urls" => self.links_from_urls(),
-            "edit.remove_links" => {
-                self.apply_edit(Edit::RemoveLinks { pages: None });
-            }
+            "edit.remove_links" => self.remove_all_links(),
             "redact.mark" => {
                 self.quick_tool = crate::QuickTool::Redact;
                 self.left = crate::LeftPanel::Tool("redact");
