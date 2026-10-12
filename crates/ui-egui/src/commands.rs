@@ -625,6 +625,11 @@ impl PdfCraftApp {
             "page.split" => self.dialog = Some(Dialog::Split),
             "help.shortcuts" => self.dialog = Some(Dialog::Shortcuts),
             "help.about" => self.dialog = Some(Dialog::About),
+            // Brings back the card closed on Home, and shows Home.
+            "help.community_card" => {
+                self.community_card_closed = false;
+                self.active = None;
+            }
             "help.check_updates" => self.check_for_updates(),
             _ => return false,
         }
