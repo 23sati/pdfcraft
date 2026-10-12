@@ -141,9 +141,11 @@ impl Press {
     pub fn track(ui: &egui::Ui, resp: &Response) -> Self {
         let hot = resp.hovered() || resp.is_pointer_button_down_on();
         let ease = egui::emath::easing::quadratic_out;
+        // With animation effects off the wash and the press are simply there.
+        let (hover, down) = if crate::motion::animated(ui.ctx()) { (0.12, 0.06) } else { (0.0, 0.0) };
         Self {
-            hover: ui.ctx().animate_bool_with_time_and_easing(resp.id.with("chrome-hover"), hot, 0.12, ease),
-            down: ui.ctx().animate_bool_with_time_and_easing(resp.id.with("chrome-down"), resp.is_pointer_button_down_on(), 0.06, ease),
+            hover: ui.ctx().animate_bool_with_time_and_easing(resp.id.with("chrome-hover"), hot, hover, ease),
+            down: ui.ctx().animate_bool_with_time_and_easing(resp.id.with("chrome-down"), resp.is_pointer_button_down_on(), down, ease),
         }
     }
 

@@ -2132,6 +2132,9 @@ key	Space	空格
 scroll speed	Slow	慢
 scroll speed	Normal	正常
 scroll speed	Fast	快
+	Animation effects	動畫效果
+animation effects	On	開
+animation effects	Off	關
 	Table rows belong directly in a table or its head, body or foot. Fix the table's tags.	表格列應直接位於表格或其表頭、主體、表尾內。請修正表格標記。
 	Enhance camera image	增強相機影像
 	Drag the corners onto the document's edges, then choose Enhance page.	將四個角拖曳到文件邊緣，然後選擇「增強頁面」。
@@ -2141,9 +2144,28 @@ scroll speed	Fast	快
 	Greyscale	灰階
 	Black and white	黑白
 	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	此印表機的驅動程式不接受其他程式的雙面列印設定，因此使用其自身設定。變更位置：屬性…
+	Browser's print dialog	瀏覽器的列印對話框
+	Copies, two-sided printing and colour are chosen in the browser's print dialog.	份數、雙面列印和色彩在瀏覽器的列印對話框中選擇。
+	Preparing {n} sheets for printing…	正在準備 {n} 張紙以供列印…
+	Preparing sheet {done} of {total} for printing…	正在準備列印第 {done} 張，共 {total} 張…
+	Opening the browser's print dialog…	正在開啟瀏覽器的列印對話框…
+	Couldn't print from the browser ({e}); downloaded {name} to print instead	無法從瀏覽器列印（{e}）；已改為下載 {name} 以供列印
 	Tools panel side	工具面板位置
 	Add comment	新增註解
 	Change tag properties	變更標籤屬性
+# Accessibility structure tags.
+	Tags panel	標籤面板
+	Tags	標籤
+	Tag type	標籤類型
+	Actual text	實際文字
+	Find a tag	尋找標籤
+	Collapse tag	收合標籤
+	Expand tag	展開標籤
+	Revert changes	還原變更
+	Save tag properties	儲存標籤屬性
+	This document has no editable structure tags.	此文件沒有可編輯的結構標籤。
+	{n} tags	{n} 個標籤
+	Save or revert changes before selecting another tag.	選取其他標籤前，請儲存或還原變更。
 	Left out: {names}	已略過：{names}
 	already a PDF	已經是 PDF
 	no unused output name	沒有可用的輸出檔名
@@ -2163,3 +2185,20 @@ scroll speed	Fast	快
 	Reopen Closed Tab	重新開啟已關閉的分頁
 	Reveal in Finder	在 Finder 中顯示
 	Reveal in File Explorer	在檔案總管中顯示
+	Other colour…	其他顏色…
+	Recent colours	最近使用的顏色
+	Reading colours	閱讀色彩
+	Replace document colours	取代文件色彩
+	Page background	頁面背景
+	Only change the colour of black text or line art	僅變更黑色文字或線條圖的色彩
+	Change the colour of line art as well as text	除文字外，也變更線條圖的色彩
+	Colours are remapped while rendering; the document itself never changes.	色彩僅在顯示時重新對應；文件本身不會變更。
+	Black on white	白底黑字
+	White on black	黑底白字
+	Yellow on black	黑底黃字
+	Green on black	黑底綠字
+	Couldn't follow linked PDF: {reason}	無法開啟連結的 PDF：{reason}
+	The linked PDF opened, but its named destination was not applied.	已開啟連結的 PDF，但未套用其命名目的地。
+	The linked PDF opened, but its page destination was out of range.	已開啟連結的 PDF，但其頁面目的地超出範圍。
+	Local cross-PDF links require the desktop app	PDF 之間的本機連結需要桌面應用程式
+	The existing action will be preserved.	將保留現有動作。
