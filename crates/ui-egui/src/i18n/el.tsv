@@ -181,6 +181,7 @@
 	Details	Λεπτομέρειες
 	More	Περισσότερα
 	Edit text	Επεξεργασία κειμένου
+	Load document font	Φόρτωση γραμματοσειράς εγγράφου
 	Add text	Προσθήκη κειμένου
 	Edit image	Επεξεργασία εικόνας
 	Add image	Προσθήκη εικόνας
@@ -1984,6 +1985,11 @@
 	of the following fields:	των παρακάτω πεδίων:
 	Simplified field notation:	Απλοποιημένη σύνταξη πεδίων:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Ονόματα πεδίων με + - * / και παρενθέσεις· προσθέστε \\ πριν από τα κενά των ονομάτων.
+	Finding document fonts…	Αναζήτηση γραμματοσειρών εγγράφου…
+	Installed fonts…	Εγκατεστημένες γραμματοσειρές…
+	Keep source fonts	Διατήρηση αρχικών γραμματοσειρών
+	Load font…	Φόρτωση γραμματοσειράς…
+	No openly licensed document fonts found. Load a font file.	Δεν βρέθηκαν γραμματοσειρές εγγράφου με ανοιχτή άδεια. Φορτώστε ένα αρχείο γραμματοσειράς.
 	Format text	Μορφοποίηση κειμένου
 	Centre	Κεντράρισμα
 	Thai and Arabic use regular fallback fonts when available.	Τα ταϊλανδικά και τα αραβικά χρησιμοποιούν κανονικές εναλλακτικές γραμματοσειρές, όταν είναι διαθέσιμες.

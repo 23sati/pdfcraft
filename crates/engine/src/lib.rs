@@ -26,10 +26,13 @@ pub mod links;
 pub mod ocr;
 pub mod optimizer;
 pub mod signature_image;
+pub mod text_fonts;
+mod text_preview;
 mod upright_image;
 pub mod xfa;
 
 pub use signature_image::{ImageSignaturePreview, SignatureImage};
+pub use text_preview::TextEditPreview;
 
 pub use pdfcraft_organize::{BoxSpec, PageBox, SplitBy, split_ranges};
 
@@ -49,7 +52,7 @@ pub use pdfcraft_forms::{
 };
 
 pub use pdfcraft_a11y as a11y;
-pub use pdfcraft_edit::{BlockStyle, PageImage, TextBlock, TextLine, first_undrawable};
+pub use pdfcraft_edit::{BlockStyle, PageImage, RangeStyle, TextBlock, TextLine, first_undrawable};
 pub use pdfcraft_measure as measure;
 pub use pdfcraft_xfa::Report as XfaLayout;
 
@@ -1263,6 +1266,11 @@ pub enum Edit {
         /// Formatting changes (font, size, colour, alignment); default keeps the paragraph's.
         style: pdfcraft_edit::BlockStyle,
     },
+    /// An explicit open-licensed full font program, completing subsets or selected by a user.
+    RegisterTextFont {
+        page: usize,
+        bytes: Arc<Vec<u8>>,
+    },
     /// Order tabs manually: move a field one place earlier or later on its page.
     MoveInTabOrder {
         name: String,
@@ -1539,6 +1547,7 @@ pub const EDIT_LABELS: &[&str] = &[
     "Delete document JavaScript",
     "Edit document JavaScript",
     "Edit text",
+    "Load document font",
     "Move object",
     "Move objects",
     "Move image",
@@ -1662,6 +1671,7 @@ impl Edit {
             Edit::SetDocumentScript { script: None, .. } => Label::of("Delete document JavaScript"),
             Edit::SetDocumentScript { .. } => Label::of("Edit document JavaScript"),
             Edit::EditTextLine { .. } | Edit::EditTextBlock { .. } => Label::of("Edit text"),
+            Edit::RegisterTextFont { .. } => Label::of("Load document font"),
             Edit::MoveObjects { objects, .. } => plural("Move object", "Move objects", objects.len()),
             Edit::EditPageImage { change, .. } => Label::of(match change {
                 ImageEdit::Move(_) => "Move image",
@@ -1845,6 +1855,7 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::ConvertPdfA { .. }
         | Edit::EditTextLine { .. }
         | Edit::EditTextBlock { .. }
+        | Edit::RegisterTextFont { .. }
         | Edit::EditPageImage { .. }
         | Edit::Flatten { .. }
         | Edit::FlattenFillSign => {
@@ -2134,10 +2145,15 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
                 .ok_or_else(|| EditError::Edit(pdfcraft_edit::EditError::Invalid(format!("page {} has no image {}", page + 1, index + 1))))?;
             let c = match change {
                 ImageEdit::Move(to) => pdfcraft_edit::ImageChange::Transform(pdfcraft_edit::rect_to_rect(img.rect, *to)),
-                ImageEdit::Rotate(q) => pdfcraft_edit::ImageChange::Transform(pdfcraft_edit::turn_about_centre(img.rect, *q, false, false)),
-                ImageEdit::Flip { horizontal } => {
-                    pdfcraft_edit::ImageChange::Transform(pdfcraft_edit::turn_about_centre(img.rect, 0, *horizontal, !*horizontal))
+                ImageEdit::Rotate(q) => {
+                    pdfcraft_edit::ImageChange::Transform(pdfcraft_edit::turn_about_centre(img.visible_rect.unwrap_or(img.rect), *q, false, false))
                 }
+                ImageEdit::Flip { horizontal } => pdfcraft_edit::ImageChange::Transform(pdfcraft_edit::turn_about_centre(
+                    img.visible_rect.unwrap_or(img.rect),
+                    0,
+                    *horizontal,
+                    !*horizontal,
+                )),
                 ImageEdit::Replace { name, bytes } => {
                     if img.is_form {
                         return Err(EditError::Edit(pdfcraft_edit::EditError::Invalid(
@@ -2153,6 +2169,9 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         Edit::MoveObjects { page, objects, offset } => pdfcraft_edit::move_objects(doc, *page, objects, *offset)?,
         Edit::EditTextBlock { page, block, text, style } => {
             pdfcraft_edit::rewrite_block(doc, *page, *block, Some(text), style)?;
+        }
+        Edit::RegisterTextFont { page, bytes } => {
+            pdfcraft_edit::text::register_text_font(doc, *page, bytes)?;
         }
         Edit::MarkDecorative { figure } => {
             let r = pdfcraft_cos::ObjRef::new(*figure, doc.generation(*figure));

@@ -82,6 +82,55 @@ fn tool_table_is_well_formed() {
     }
 }
 
+#[test]
+fn explicit_font_and_disjoint_ranges_save_reopen_through_tools() {
+    let dir = workdir("font-ranges");
+    std::fs::write(dir.join("inter.ttf"), include_bytes!("../../../assets/fonts/Inter-Regular.ttf")).unwrap();
+    let mut a = auto(&dir);
+    std::fs::write(dir.join("broken.otf"), b"not a font").unwrap();
+    let found = ok(&mut a, "text_font_files", json!({}));
+    assert_eq!(found["fonts"].as_array().unwrap().len(), 1);
+    assert_eq!(found["fonts"][0]["font"], "Inter-Regular");
+    assert!(a.call("text_font_files", &json!({"directories":["../outside"]})).is_err());
+    let id = ok(&mut a, "doc_open", json!({"path":"a.pdf"}))["doc"].as_u64().unwrap();
+    let font = ok(&mut a, "text_font_import", json!({"doc":id,"page":1,"path":"inter.ttf"}));
+    let resource = font["resource"].as_str().unwrap();
+    assert_eq!(font["font"], "Inter-Regular");
+    assert_eq!(page_text(&mut a, id), ["Page 1", "Page 2", "Page 3"]);
+    let draft = ok(
+        &mut a,
+        "text_edit_layout",
+        json!({"doc":id,"page":1,"paragraph":1,"text":"Aé ΩЖ","font_resource":resource,"ranges":[{"range":[0,3],"size":16,"color":"#cc0000"},{"range":[4,8],"size":20,"color":"#003399"}]}),
+    );
+    assert!(draft["draft_rect"].is_array());
+    assert_eq!(page_text(&mut a, id), ["Page 1", "Page 2", "Page 3"]);
+    ok(
+        &mut a,
+        "text_edit",
+        json!({"doc":id,"page":1,"paragraph":1,"text":"Aé ΩЖ","font_resource":resource,"ranges":[{"range":[0,3],"size":16,"color":"#cc0000"},{"range":[4,8],"size":20,"color":"#003399"}]}),
+    );
+    let lines = ok(&mut a, "text_lines", json!({"doc":id,"page":1}));
+    assert!(
+        lines["lines"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|l| l["text"].as_str().is_some_and(|s| s.trim_end() == "Aé") && l["size"].as_f64() == Some(16.0)),
+        "{lines}"
+    );
+    let rendered = a.call("page_render", &json!({"doc":id,"page":1,"dpi":72})).unwrap();
+    ok(&mut a, "doc_save", json!({"doc":id,"path":"edited.pdf"}));
+    let reopened = ok(&mut a, "doc_open", json!({"path":"edited.pdf"}))["doc"].as_u64().unwrap();
+    let saved = ok(&mut a, "text_lines", json!({"doc":reopened,"page":1}));
+    assert_eq!(lines, saved);
+    assert_eq!(rendered, a.call("page_render", &json!({"doc":reopened,"page":1,"dpi":72})).unwrap());
+    let before = saved.clone();
+    assert!(a.call("text_edit", &json!({"doc":reopened,"page":1,"paragraph":1,"text":"é test","ranges":[{"range":[1,2],"size":18}]})).is_err());
+    assert_eq!(ok(&mut a, "text_lines", json!({"doc":reopened,"page":1})), before);
+    assert!(a.call("text_font_import", &json!({"doc":id,"page":1,"path":"../outside.ttf"})).is_err());
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
 /// Each of these writes to its required `path` and replaces an existing file there, so the MCP
 /// annotations must not tell clients the call is read-only or harmless (#130).
 #[test]
@@ -122,6 +171,30 @@ fn open_inspect_render_and_find() {
     let decoder = png::Decoder::new(std::io::Cursor::new(data.as_slice()));
     let info = decoder.read_info().unwrap().info().clone();
     assert_eq!((info.width, info.height), (200, 300));
+}
+
+#[test]
+fn text_editor_background_is_read_only_and_removes_source_glyphs() {
+    let dir = workdir("text-preview");
+    let mut a = auto(&dir);
+    std::fs::write(dir.join("text-preview.pdf"), fixture(2)).unwrap();
+    let doc = ok(&mut a, "doc_open", json!({ "path": "text-preview.pdf" }))["doc"].as_u64().unwrap();
+    let args = json!({ "doc": doc, "page": 1, "dpi": 72 });
+    let before = a.call("page_render", &args).unwrap();
+    let state = ok(&mut a, "doc_info", json!({ "doc": doc }));
+    let preview = a.call("page_render", &json!({ "doc": doc, "page": 1, "dpi": 72, "hide_text_block": 1 })).unwrap();
+    assert_ne!(preview, before);
+    let Content::Png { data, .. } = &preview[0] else { panic!("expected PNG") };
+    let mut reader = png::Decoder::new(std::io::Cursor::new(data)).read_info().unwrap();
+    let mut pixels = vec![0; reader.output_buffer_size().unwrap()];
+    let info = reader.next_frame(&mut pixels).unwrap();
+    assert!(pixels[..info.buffer_size()].iter().all(|b| *b == 255), "no source glyphs remain on the white page");
+    assert_eq!(a.call("page_render", &args).unwrap(), before);
+    assert_eq!(ok(&mut a, "doc_info", json!({ "doc": doc })), state);
+    assert_eq!(page_text(&mut a, doc), ["Page 1", "Page 2"]);
+    for block in [-1, 0, 2, i64::MAX] {
+        assert!(a.call("page_render", &json!({ "doc": doc, "page": 1, "hide_text_block": block })).is_err());
+    }
 }
 
 #[test]
@@ -4416,6 +4489,135 @@ fn text_extract_with_a_rect_takes_one_column() {
         let e = a.call("text_extract", &json!({ "doc": doc, "rect": bad })).unwrap_err();
         assert!(matches!(e, ToolError::InvalidArgs(_)), "{bad}: {e}");
     }
+}
+
+#[test]
+fn mixed_visual_region_edit_preview_save_reopen_and_undo_through_tools() {
+    use pdfcraft_cos::{Dict, Document, Object, Stream, write_incremental};
+    let dir = workdir("mixed-region");
+    let mut cos = Document::open(std::sync::Arc::new(fixture(1))).unwrap();
+    let page = pdfcraft_model::pages(&cos)[0].clone();
+    let mut font = Dict::new();
+    font.set(b"Type".to_vec(), Object::name("Font"));
+    font.set(b"Subtype".to_vec(), Object::name("Type1"));
+    font.set(b"BaseFont".to_vec(), Object::name("Helvetica-Bold"));
+    let bold = cos.add(Object::Dict(font));
+    let mut resources = cos.resolve(page.dict.get(b"Resources").unwrap()).as_dict().unwrap().clone();
+    let mut fonts = cos.resolve(resources.get(b"Font").unwrap()).as_dict().unwrap().clone();
+    fonts.set(b"F2".to_vec(), Object::Ref(bold));
+    resources.set(b"Font".to_vec(), Object::Dict(fonts));
+    let stream = cos.add(Object::Stream(Stream::flate(Dict::new(),
+        b"BT /F2 1 Tf 18 0 0 18 20 240 Tm (Heading) Tj ET BT /F1 12 Tf 0 g 20 217 Td (Body ) Tj /F2 12 Tf 0 0.2 0.5 rg (bold) Tj /F1 12 Tf 0 g ( text) Tj ET")));
+    cos.update_dict(page.obj, |d| {
+        d.set(b"Resources".to_vec(), Object::Dict(resources));
+        d.set(b"Contents".to_vec(), Object::Ref(stream));
+    })
+    .unwrap();
+    std::fs::write(dir.join("mixed.pdf"), write_incremental(&cos, &Default::default()).unwrap()).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({"path":"mixed.pdf"}))["doc"].as_u64().unwrap();
+    let before = ok(&mut a, "text_paragraphs", json!({"doc":doc,"page":1}));
+    assert_eq!(before["count"], 1);
+    assert_eq!(before["paragraphs"][0]["editor_text"], "Heading\nBody bold text");
+    assert_eq!(before["paragraphs"][0]["rows"].as_array().unwrap().len(), 2);
+    assert_eq!(before["paragraphs"][0]["lines"].as_array().unwrap().len(), 4);
+    let unchanged = ok(&mut a, "text_edit_layout", json!({"doc":doc,"page":1,"paragraph":1}));
+    assert_eq!(unchanged["overflow"], false);
+    assert_eq!(unchanged["source_rect"], unchanged["draft_rect"]);
+    let growing = ok(&mut a, "text_edit_layout", json!({"doc":doc,"page":1,"paragraph":1,"text":"Heading\nBody bold text\nExtra row\nAnother row"}));
+    assert_eq!(growing["overflow"], true);
+    assert_eq!(ok(&mut a, "text_paragraphs", json!({"doc":doc,"page":1})), before, "measuring does not apply a draft");
+    let normal = a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap();
+    let preview = a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72,"hide_text_block":1})).unwrap();
+    assert_ne!(normal, preview);
+    assert_eq!(ok(&mut a, "text_paragraphs", json!({"doc":doc,"page":1})), before, "preview is read-only");
+    ok(&mut a, "text_edit", json!({"doc":doc,"page":1,"paragraph":1,"text":"Heading\nText bold text"}));
+    ok(&mut a, "doc_save", json!({"doc":doc,"path":"out/mixed-edited.pdf"}));
+    let re = ok(&mut a, "doc_open", json!({"path":"out/mixed-edited.pdf"}))["doc"].as_u64().unwrap();
+    let after = ok(&mut a, "text_paragraphs", json!({"doc":re,"page":1}));
+    assert_eq!(after["count"], 1);
+    assert_eq!(after["paragraphs"][0]["editor_text"], "Heading\nText bold text");
+    let saved = Document::open(std::sync::Arc::new(std::fs::read(dir.join("out/mixed-edited.pdf")).unwrap())).unwrap();
+    let mut session = pdfcraft_engine::Session::new();
+    let id = session.open("saved.pdf", None, std::sync::Arc::new(write_incremental(&saved, &Default::default()).unwrap()), None).unwrap();
+    let runs = session.get(id).unwrap().text_lines(0);
+    let preserved = runs.iter().find(|l| l.text == "bold").unwrap();
+    assert!(preserved.bold);
+    assert_eq!(preserved.color, [0.0, 0.2, 0.5]);
+    ok(&mut a, "text_edit", json!({"doc":re,"page":1,"paragraph":1,"text":""}));
+    assert_eq!(ok(&mut a, "text_paragraphs", json!({"doc":re,"page":1}))["count"], 0);
+    ok(&mut a, "edit_undo", json!({"doc":re}));
+    assert_eq!(ok(&mut a, "text_paragraphs", json!({"doc":re,"page":1})), after);
+}
+
+#[test]
+fn clipped_image_bounds_and_text_edit_save_reopen_through_tools() {
+    use pdfcraft_cos::{Dict, Document, Object, Stream, write_incremental};
+    let dir = workdir("clipped-artwork");
+    let mut cos = Document::open(std::sync::Arc::new(fixture(1))).unwrap();
+    let page = pdfcraft_model::pages(&cos)[0].clone();
+    let mut image = Dict::new();
+    for (key, value) in [
+        ("Type", Object::name("XObject")),
+        ("Subtype", Object::name("Image")),
+        ("Width", Object::Int(1)),
+        ("Height", Object::Int(1)),
+        ("BitsPerComponent", Object::Int(8)),
+        ("ColorSpace", Object::name("DeviceRGB")),
+    ] {
+        image.set(key.as_bytes().to_vec(), value);
+    }
+    let image = cos.add(Object::Stream(Stream::flate(image, &[220, 235, 245])));
+    let mut resources = cos.resolve(page.dict.get(b"Resources").unwrap()).as_dict().unwrap().clone();
+    let mut xo = Dict::new();
+    xo.set(b"Im0".to_vec(), Object::Ref(image));
+    resources.set(b"XObject".to_vec(), Object::Dict(xo));
+    let contents = cos.add(Object::Stream(Stream::flate(
+        Dict::new(),
+        b"q 30 170 130 80 re W* n q 800 0 0 900 -300 -400 cm /Im0 Do Q BT /F1 12 Tf 30 195 Td (Shared caption) Tj ET Q BT /F1 12 Tf 30 130 Td (Editable caption) Tj ET",
+    )));
+    cos.update_dict(page.obj, |d| {
+        d.set(b"Resources".to_vec(), Object::Dict(resources));
+        d.set(b"Contents".to_vec(), Object::Ref(contents));
+    })
+    .unwrap();
+    std::fs::write(dir.join("clipped.pdf"), write_incremental(&cos, &Default::default()).unwrap()).unwrap();
+    let mut a = auto(&dir);
+    let doc = ok(&mut a, "doc_open", json!({"path":"clipped.pdf"}))["doc"].as_u64().unwrap();
+    let pixels = a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap();
+    let images = ok(&mut a, "page_images", json!({"doc":doc,"page":1}));
+    assert_eq!(ok(&mut a, "image_hit", json!({"doc":doc,"page":1,"point":[50,60]}))["images"], json!([1]));
+    assert_eq!(ok(&mut a, "image_hit", json!({"doc":doc,"page":1,"point":[20,60]}))["images"], json!([]));
+    assert_eq!(images["images"][0]["visible_rect"], json!([30.0, 50.0, 160.0, 130.0]));
+    assert_eq!(images["images"][0]["rect"], json!([-300.0, -200.0, 500.0, 700.0]), "raw placement remains available for transforms");
+    let objects = ok(&mut a, "object_list", json!({"doc":doc,"page":1}));
+    let object = objects["objects"].as_array().unwrap().iter().find(|o| o["kind"] == "image").unwrap();
+    assert_eq!(object["rect"], images["images"][0]["visible_rect"]);
+    assert_eq!(a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap(), pixels, "inventory does not change rendering");
+    let labels = ok(&mut a, "text_paragraphs", json!({"doc":doc,"page":1}));
+    ok(&mut a, "image_edit", json!({"doc":doc,"page":1,"image":1,"action":"move","rect":[-432.0,-300.0,688.0,960.0]}));
+    let resized = ok(&mut a, "page_images", json!({"doc":doc,"page":1}));
+    assert_eq!(
+        resized["images"][0]["visible_rect"],
+        json!([30.0, 50.0, 160.0, 130.0]),
+        "a clip shared with the caption stays where it is (#1049 moves only an image's own clip)"
+    );
+    assert_eq!(ok(&mut a, "text_paragraphs", json!({"doc":doc,"page":1})), labels);
+    // The one-colour image still fills the fixed shared clip, so the page looks the same.
+    let resized_pixels = a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap();
+    ok(&mut a, "doc_save", json!({"doc":doc,"path":"out/resized.pdf"}));
+    let resized_re = ok(&mut a, "doc_open", json!({"path":"out/resized.pdf"}))["doc"].as_u64().unwrap();
+    assert_eq!(ok(&mut a, "page_images", json!({"doc":resized_re,"page":1})), resized);
+    assert_eq!(a.call("page_render", &json!({"doc":resized_re,"page":1,"dpi":72})).unwrap(), resized_pixels);
+    ok(&mut a, "edit_undo", json!({"doc":doc}));
+    assert_eq!(a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap(), pixels);
+    ok(&mut a, "text_edit", json!({"doc":doc,"page":1,"paragraph":2,"text":"Edited caption"}));
+    ok(&mut a, "doc_save", json!({"doc":doc,"path":"out/edited.pdf"}));
+    let re = ok(&mut a, "doc_open", json!({"path":"out/edited.pdf"}))["doc"].as_u64().unwrap();
+    assert_eq!(ok(&mut a, "text_paragraphs", json!({"doc":re,"page":1}))["paragraphs"][1]["editor_text"], "Edited caption");
+    assert_eq!(ok(&mut a, "page_images", json!({"doc":re,"page":1})), images, "image placement and crop survive text editing");
+    ok(&mut a, "edit_undo", json!({"doc":doc}));
+    assert_eq!(a.call("page_render", &json!({"doc":doc,"page":1,"dpi":72})).unwrap(), pixels);
 }
 
 /// Independent inch/mm dimensions, checked in the saved file through the tool path.

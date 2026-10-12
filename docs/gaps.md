@@ -1,7 +1,6 @@
 # Where PdfCraft falls short of Acrobat Pro
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** patch (gap 2: hayro patch counts after the native-gradient backport) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (gap 1 closed by #836; fixed issues removed from gaps 3, 6 and 16) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** minor (document-font subset completion and curved/shared image clips in the contributor fork; gap 2: hayro patch counts after the native-gradient backport) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
 
 Every known shortfall, one entry each, ranked by what it costs users. This is the work list: agents
 choose from the top unless the owner says otherwise, and prefer these over new P2/P3 checklist
@@ -67,6 +66,25 @@ update the numbers.
   **Doc:** [pdf-spec-parity.md](pdf-spec-parity.md).
 
 ### 3. Editing existing text is fragile on real files
+
+- **Fork progress (2026-10-11):** compatible words and subset-font spaces form lines;
+  source fonts lacking a space glyph remain reusable; inline editing previews remove source
+  glyphs on a clone. Aligned visual rows now form mixed-style regions (including matrix-scaled headings),
+  with source-run styles preserved during editing and delete/save/reopen regressions. A private
+  real-file acceptance check and opt-in UI regression supplement synthetic coverage.
+  Embedded sfnt faces now render in the editor, including Mac format-6 subsets adapted in memory
+  through the PDF Unicode map. Source baselines remain stable; draft frames expand/shrink with
+  visible text, and `text_edit_layout` measures saved draft bounds without applying them.
+  Page/path-clipped artwork bounds and text-first hit testing prevent large cropped images from
+  blocking text. A separate private four-page regression opens all 73 detected text regions;
+  curve/hole hit testing now evaluates clipping paths and fill rules. A clip the image owns
+  (`q re W n cm Do Q`) moves with it; shared path clips stay where they are.
+  Full matching document fonts complete absent subset glyphs; explicit installed/file font
+  selection, TrueType/OpenType-CFF embedding, disjoint style ranges, marked paragraph boundaries
+  and single-face OpenType shaping/bidi have regression coverage. Actual Chinese keyboard
+  insertion/deletion and save/reopen renders are checked on all four private pages.
+  Legacy non-SFNT previews, mixed-font/style contextual runs, structure-tree fidelity and reliable
+  semantic grouping on every untagged PDF remain open. Estimates are unchanged.
 
 - **Missing:** robust in-place editing of text PdfCraft didn't write: subset fonts without the
   needed glyphs, CJK and right-to-left text, rotated text, lists, superscript/subscript, keeping
@@ -287,6 +305,7 @@ update the numbers.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Contributor fork: mixed-style visual regions, source-font space reuse and a read-only textless background. Embedded sfnt source faces and Mac subset Unicode mappings keep edit baselines stable; live frames follow Apply/Save geometry as text grows or shrinks. Engine/tool/UI regressions and private all-page checks cover the changes; full matching font import, CFF, range styles, shaping and private Chinese typing checks added; legacy programs and general fidelity remain open; estimates unchanged |
 | 2026-10-11 | patch | Gap 2: 23 hayro-interpret and 10 hayro patches after axial and radial shadings became native gradients (backport of hayro 0.8) |
 | 2026-10-11 | minor | Closed gap 1 (#774, fixed by #836; numbers kept, its interop suite moved to gap 12); gap 6 lists the fixed #799–#821 batch; gap 3 and 16 updated for #844 (same-page move), #740 (column select) and #759 (1:1 touchpad scrolling) |
 | 2026-10-10 | minor | Removed the alpha markers: with the cross-app gate rule, gaps 1 and 8 are partial sub-cases, not blockers; stage alpha |

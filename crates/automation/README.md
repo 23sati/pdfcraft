@@ -118,3 +118,19 @@ Exports complete synchronously. `progressToken` and cancellation notifications a
 ignored; no background-job or cancellation behavior is added.
 
 Session resources `pdfcraft://document` and `pdfcraft://commands`, and the refusal of unknown argument keys, are described in [docs/mcp.md](../../docs/mcp.md).
+
+For inline editor previews, `page_render` accepts `hide_text_block` (a 1-based index from
+`text_paragraphs`). It renders the page without that paragraph’s source glyphs and leaves the
+working document unchanged.
+
+
+## Existing text and document fonts
+
+`text_font_files` discovers eligible installed files on request (or specified confined folders),
+`text_font_import` registers a full document face, and `text_fonts` lists source/full resources.
+Use `text_edit.font_resource` to choose a resource, or keep source faces and let matching full
+faces complete absent subset glyphs. `text_edit.ranges` accepts disjoint UTF-8 byte ranges;
+`text_edit_layout` measures the same resource/range draft without committing. All changes are
+undoable and survive saving/reopening. `image_hit` shares the UI's curve and hole hit testing.
+The bounds, limits and font requirements are in [existing-text editing](../../docs/editing-existing-text.md)
+and [image editing](../../docs/editing-images.md).

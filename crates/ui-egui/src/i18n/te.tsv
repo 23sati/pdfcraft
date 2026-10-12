@@ -675,6 +675,11 @@ comment menu	Edit	సవరించు
 	of the following fields:	కింది ఫీల్డ్‌లపై:
 	Simplified field notation:	సరళీకృత ఫీల్డ్ సూత్రం:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	ఫీల్డ్ పేర్లను + - * / గుర్తులు, బ్రాకెట్‌లతో రాయండి; పేర్లలోని ఖాళీల ముందు \\ పెట్టండి.
+	Finding document fonts…	పత్రం ఫాంట్‌లను కనుగొంటోంది…
+	Installed fonts…	ఇన్‌స్టాల్ చేసిన ఫాంట్‌లు…
+	Keep source fonts	మూల ఫాంట్‌లను ఉంచు
+	Load font…	ఫాంట్‌ను లోడ్ చేయి…
+	No openly licensed document fonts found. Load a font file.	బహిరంగ లైసెన్స్ ఉన్న పత్రం ఫాంట్‌లు కనుగొనబడలేదు. ఫాంట్ ఫైల్‌ను లోడ్ చేయండి.
 	Format text	టెక్స్ట్ ఫార్మాటింగ్
 	Bold	బోల్డ్
 	Italic	ఇటాలిక్
@@ -1814,6 +1819,7 @@ action wizard	Start	ప్రారంభించు
 	Delete document JavaScript	పత్రం స్థాయి JavaScriptను తొలగించు
 	Edit document JavaScript	పత్రం స్థాయి JavaScriptను సవరించు
 	Edit text	టెక్స్ట్‌ను సవరించు
+	Load document font	పత్రం ఫాంట్‌ను లోడ్ చేయి
 	Move image	చిత్రాన్ని తరలించు
 	Rotate image	చిత్రాన్ని తిప్పు
 	Flip image	చిత్రాన్ని తిరగేయి

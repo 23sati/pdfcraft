@@ -698,6 +698,14 @@
 	of the following fields:	للحقول التالية:
 	Simplified field notation:	صيغة الحقول المبسطة:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	أسماء الحقول مع + - * / والأقواس؛ ضع \\ قبل المسافات في الأسماء.
+
+# Document font selection
+	Finding document fonts…	جارٍ البحث عن خطوط المستند…
+	Installed fonts…	الخطوط المثبتة…
+	Keep source fonts	الاحتفاظ بالخطوط الأصلية
+	Load font…	تحميل خط…
+	No openly licensed document fonts found. Load a font file.	لم يُعثر على خطوط ذات ترخيص مفتوح. حمّل ملف خط.
+
 	Format text	تنسيق النص
 	Bold	غامق
 	Italic	مائل
@@ -1891,6 +1899,7 @@
 	Delete document JavaScript	حذف JavaScript المستند
 	Edit document JavaScript	تحرير JavaScript المستند
 	Edit text	تحرير النص
+	Load document font	تحميل خط المستند
 	Move image	نقل الصورة
 	Rotate image	تدوير الصورة
 	Flip image	قلب الصورة

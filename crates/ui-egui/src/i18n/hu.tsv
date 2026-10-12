@@ -668,6 +668,14 @@
 	of the following fields:	a következő mezőkből:
 	Simplified field notation:	Egyszerűsített mezőjelölés:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Mezőnevek + - * / jelekkel és zárójelekkel; a nevekben lévő szóköz elé tegyél \\ jelet.
+
+# Document font selection
+	Finding document fonts…	Dokumentumbetűtípusok keresése…
+	Installed fonts…	Telepített betűtípusok…
+	Keep source fonts	Eredeti betűtípusok megtartása
+	Load font…	Betűtípus betöltése…
+	No openly licensed document fonts found. Load a font file.	Nem található nyílt licencű betűtípus. Töltsön be egy betűtípusfájlt.
+
 	Format text	Szöveg formázása
 	Bold	Félkövér
 	Italic	Dőlt
@@ -1811,6 +1819,7 @@
 	Delete document JavaScript	Dokumentum-JavaScript törlése
 	Edit document JavaScript	Dokumentum-JavaScript szerkesztése
 	Edit text	Szöveg szerkesztése
+	Load document font	Dokumentum betűtípusának betöltése
 	Move image	Kép áthelyezése
 	Rotate image	Kép forgatása
 	Flip image	Kép tükrözése

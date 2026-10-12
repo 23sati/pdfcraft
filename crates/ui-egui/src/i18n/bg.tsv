@@ -378,6 +378,14 @@
 	of the following fields:	на следните полета:
 	Simplified field notation:	Опростен запис с полета:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Имена на полета с + - * / и скоби; поставете \\ пред интервалите в имената.
+
+# Document font selection
+	Finding document fonts…	Търсене на шрифтове за документа…
+	Installed fonts…	Инсталирани шрифтове…
+	Keep source fonts	Запазване на оригиналните шрифтове
+	Load font…	Зареждане на шрифт…
+	No openly licensed document fonts found. Load a font file.	Не са открити шрифтове с отворен лиценз. Заредете файл с шрифт.
+
 	Format text	Форматирай текст
 	Bold	Удебелен
 	Italic	Курсив
@@ -1936,6 +1944,7 @@
 	Edit document JavaScript	Редактирай JavaScript на документа
 	Edit script of {name}	Редактирай скрипта на {name}
 	Edit text	Редактирай текста
+	Load document font	Зареждане на шрифт на документа
 	Embedded files must be PDF/A files themselves (use PDF/A-3 for others)	Вградените файлове трябва също да са PDF/A файлове (за други използвайте PDF/A-3)
 	Erase	Изтриване
 	Fill & Sign: change initials	Попълни и подпиши: промяна на инициалите

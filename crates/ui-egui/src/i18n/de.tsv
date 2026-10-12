@@ -671,6 +671,14 @@
 	of the following fields:	der folgenden Felder:
 	Simplified field notation:	Vereinfachte Feldschreibweise:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Feldnamen mit + - * / und Klammern; setze \\ vor Leerzeichen in Namen.
+
+# Document font selection
+	Finding document fonts…	Dokumentschriftarten werden gesucht…
+	Installed fonts…	Installierte Schriftarten…
+	Keep source fonts	Quellschriftarten beibehalten
+	Load font…	Schriftart laden…
+	No openly licensed document fonts found. Load a font file.	Keine offen lizenzierten Schriftarten gefunden. Laden Sie eine Schriftartdatei.
+
 	Format text	Text formatieren
 	Bold	Fett
 	Italic	Kursiv
@@ -1826,6 +1834,7 @@
 	Delete document JavaScript	Dokument-JavaScript löschen
 	Edit document JavaScript	Dokument-JavaScript bearbeiten
 	Edit text	Text bearbeiten
+	Load document font	Dokumentschriftart laden
 	Move image	Bild verschieben
 	Rotate image	Bild drehen
 	Flip image	Bild spiegeln

@@ -692,6 +692,14 @@
 	of the following fields:	из следующих полей:
 	Simplified field notation:	Упрощённая запись полей:
 	Field names with + - * / and parentheses; put \\ before spaces in names.	Имена полей с + - * / и скобками; ставьте \\ перед пробелами в именах.
+
+# Document font selection
+	Finding document fonts…	Поиск шрифтов для документа…
+	Installed fonts…	Установленные шрифты…
+	Keep source fonts	Сохранить исходные шрифты
+	Load font…	Загрузить шрифт…
+	No openly licensed document fonts found. Load a font file.	Шрифты с открытой лицензией не найдены. Загрузите файл шрифта.
+
 	Format text	Форматировать текст
 	Bold	Полужирный
 	Italic	Курсив
@@ -1892,6 +1900,7 @@
 	Delete document JavaScript	Удалить JavaScript документа
 	Edit document JavaScript	Редактировать JavaScript документа
 	Edit text	Редактировать текст
+	Load document font	Загрузить шрифт документа
 	Move image	Переместить изображение
 	Rotate image	Повернуть изображение
 	Flip image	Отразить изображение
