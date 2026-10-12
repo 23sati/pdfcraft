@@ -462,6 +462,7 @@ pub static TOOL_GROUPS: &[ToolGroup] = &[
                 item("Check for accessibility", "accessibility", "a11y.check", Ready),
                 item("Open accessibility report", "file-text", "a11y.report", Ready),
                 item("Add alternate text", "image", "a11y.alt_text", Ready),
+                item("Tags panel", "tag", "a11y.tags", Ready),
                 item("Fix reading order", "list-ordered", "a11y.reading_order", Planned("M12")),
             ],
         }],
