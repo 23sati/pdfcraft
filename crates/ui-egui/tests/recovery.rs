@@ -248,7 +248,7 @@ fn incomplete_entries_are_preserved_until_explicitly_discarded() {
     }
     s.clear();
     assert!(!s.dir().join("orphan.pdf").exists());
-    assert!(s.dir().join("broken.json").exists(), "unrelated metadata is preserved");
+    assert_eq!(files_in(&s), 0, "metadata without a snapshot holds no work and is cleared too");
 }
 
 #[test]
@@ -301,6 +301,9 @@ fn missing_corrupt_or_mismatched_metadata_recovers_the_snapshot_without_an_origi
         let recovered = s.list();
         assert_eq!(recovered.len(), 1);
         assert_eq!(s.read(&recovered[0].key).unwrap(), saved);
+        // The damaged sidecar was replaced with metadata for the recovered snapshot.
+        let sidecar: pdfcraft_ui_egui::RecoveryMeta = serde_json::from_slice(&std::fs::read(&sidecar).unwrap()).unwrap();
+        assert_eq!((sidecar.key.as_str(), sidecar.path.as_deref()), (recovered[0].key.as_str(), None), "{case}");
     }
 }
 
@@ -328,6 +331,9 @@ fn an_encrypted_snapshot_without_metadata_still_requires_its_password() {
     assert_eq!(doc.path, None);
     assert_eq!(doc.info.pages.len(), 1);
     assert_eq!(s.read(&meta.key).unwrap(), saved, "recovery must not rewrite encrypted bytes");
+    let sidecar: pdfcraft_ui_egui::RecoveryMeta =
+        serde_json::from_slice(&std::fs::read(s.dir().join(format!("{}.json", meta.key))).unwrap()).unwrap();
+    assert!(sidecar.encrypted, "the replacement metadata records that the snapshot is encrypted");
 }
 
 /// Through the control channel, the reply to a click comes after the click's effects: state read

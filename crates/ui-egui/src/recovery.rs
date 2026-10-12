@@ -111,14 +111,41 @@ impl RecoveryStore {
         out
     }
 
+    /// Rewrite `meta`'s sidecar when it is missing, unreadable or names another key (a snapshot
+    /// recovered without metadata), so damaged metadata doesn't stay behind. The PDF is untouched.
+    pub fn repair_meta(&self, meta: &RecoveryMeta) {
+        let path = self.dir.join(format!("{}.json", meta.key));
+        let readable = std::fs::read(&path).ok().and_then(|b| serde_json::from_slice::<RecoveryMeta>(&b).ok()).is_some_and(|m| m.key == meta.key);
+        if readable {
+            return;
+        }
+        let written = serde_json::to_vec_pretty(meta)
+            .map_err(std::io::Error::other)
+            .and_then(|json| crate::editing::write_atomically(&path.to_string_lossy(), &json));
+        if let Err(e) = written {
+            log::warn!("couldn't replace recovery metadata {}: {e}", path.display());
+        }
+    }
+
     pub fn read(&self, key: &str) -> std::io::Result<Vec<u8>> {
         std::fs::read(self.dir.join(format!("{key}.pdf")))
     }
 
-    /// Remove every entry (clean quit, or "Discard all").
+    /// Remove every entry (clean quit, or "Discard all"), and metadata left without a snapshot.
     pub fn clear(&self) {
         for m in self.list() {
             self.remove(&m.key);
+        }
+        let Ok(dir) = std::fs::read_dir(&self.dir) else { return };
+        for entry in dir.flatten() {
+            let path = entry.path();
+            // Only sidecars whose PDF is gone: they hold no document content.
+            if path.extension().and_then(|e| e.to_str()) == Some("json")
+                && entry.file_type().is_ok_and(|t| t.is_file())
+                && !path.with_extension("pdf").exists()
+            {
+                let _ = std::fs::remove_file(&path);
+            }
         }
     }
 }
@@ -200,6 +227,15 @@ impl PdfCraftApp {
         let Some(id) = self.views.last().map(|v| v.id) else { return };
         self.session.mark_recovered(id, meta.path.clone());
         self.recovery_keys.insert(id, meta.key.clone());
+        // A snapshot recovered without readable metadata gets a fresh sidecar now, so the
+        // damaged one doesn't linger until the next autosave (or forever, if none comes).
+        if let Some(store) = &self.recovery {
+            let mut meta = meta.clone();
+            if let Some(doc) = self.session.get(id) {
+                meta.encrypted = doc.info.encrypted;
+            }
+            store.repair_meta(&meta);
+        }
     }
 
     /// Delete recovery entries the user chose not to recover.
