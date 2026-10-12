@@ -257,7 +257,10 @@ struct Editor {
 /// page is not cheap. Only an unmodified document is cached: its identity changes on every edit,
 /// undo and save (each reopens the working file), so a stale entry never matches.
 #[derive(Default)]
-struct TextBlocksCache(std::sync::Mutex<Option<(pdfcraft_cos::SourceIdentity, usize, Arc<Vec<pdfcraft_edit::TextBlock>>)>>);
+struct TextBlocksCache(std::sync::Mutex<Option<CachedTextBlocks>>);
+
+/// The document state, the page (0-based) and its text blocks.
+type CachedTextBlocks = (pdfcraft_cos::SourceIdentity, usize, Arc<Vec<pdfcraft_edit::TextBlock>>);
 
 impl Clone for TextBlocksCache {
     fn clone(&self) -> Self {
@@ -3057,7 +3060,17 @@ impl Session {
         let (mut editor, read_only_reason) = match cos {
             Ok(Ok(cos)) => {
                 let keys = Keys { render: render_password.clone(), reopen: password.map(str::to_owned) };
-                (Some(Editor { cos, undo: Vec::new(), redo: Vec::new(), keys, appearances: AppearanceCache::default(), text_blocks: TextBlocksCache::default() }), None)
+                (
+                    Some(Editor {
+                        cos,
+                        undo: Vec::new(),
+                        redo: Vec::new(),
+                        keys,
+                        appearances: AppearanceCache::default(),
+                        text_blocks: TextBlocksCache::default(),
+                    }),
+                    None,
+                )
             }
             Ok(Err(e)) => (None, Some(e.to_string())),
             Err(_) => (None, Some("the document structure could not be read for editing".into())),
