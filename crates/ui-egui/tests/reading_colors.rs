@@ -18,6 +18,19 @@ endstream endobj
 trailer << /Root 1 0 R >>
 %%EOF";
 
+/// A small PNG for the Create ▸ Images path, which opens the document it builds.
+fn png() -> Vec<u8> {
+    let mut out = Vec::new();
+    {
+        let mut enc = png::Encoder::new(&mut out, 8, 4);
+        enc.set_color(png::ColorType::Rgb);
+        enc.set_depth(png::BitDepth::Eight);
+        let mut w = enc.write_header().unwrap();
+        w.write_image_data(&[120u8; 8 * 4 * 3]).unwrap();
+    }
+    out
+}
+
 /// The Reading colours combo of the preferences dialog: it shows the chosen mode as its value,
 /// and no other combo in the dialog shows `Off` while the setting is off.
 fn combo(h: &Harness<'static, PdfCraftApp>) {
@@ -100,6 +113,17 @@ fn reading_colours_seed_on_open() {
     let signed = h.state().views.last().unwrap().id;
     assert_ne!(signed, id);
     assert_eq!(h.state().session.reading_colors(signed), Some(ReadingColors::YELLOW_ON_BLACK));
+
+    // Created documents open through their own session calls too — a comment summary via
+    // `open_created`, an image import via `open_created_bytes` — and seed the same way.
+    h.state_mut().summarize_comments();
+    let summary = h.state().views.last().unwrap().id;
+    assert_ne!(summary, signed);
+    assert_eq!(h.state().session.reading_colors(summary), Some(ReadingColors::YELLOW_ON_BLACK));
+    h.state_mut().create_from_images(vec![("scan.png".into(), png())]);
+    let created = h.state().views.last().unwrap().id;
+    assert_ne!(created, summary);
+    assert_eq!(h.state().session.reading_colors(created), Some(ReadingColors::YELLOW_ON_BLACK));
 
     // And back off, for every open document.
     h.state_mut().set_reading_colors(ReadingColors::default());
