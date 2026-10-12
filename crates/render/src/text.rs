@@ -377,6 +377,12 @@ const CELL: f32 = 8.0;
 /// Most grid cells searched around one place: a glyph so tall its tolerance spans more is skipped.
 const MAX_CELLS: i64 = 4096;
 
+/// Most work (grid cells visited plus glyphs compared) the redraw dedupe in `TextDevice::finish`
+/// may do on one page. A hostile page stacking ~10^5 glyphs and ~10^5 replacements at one spot
+/// would otherwise make ~10^10 comparisons; past the budget the remaining replacements keep
+/// their unmarked redraws (the text reads twice, as it would without `/ActualText`).
+const MAX_REDRAW_WORK: usize = 1 << 22;
+
 fn cell(v: f32) -> i64 {
     // Glyph boxes are finite (`draw_glyph` and `merge` drop the rest); `as` saturates.
     (v / CELL).floor() as i64
@@ -468,15 +474,22 @@ impl TextDevice {
         }
         // Redraws found: the glyph range and the replacement standing for it.
         let mut redraws: Vec<(std::ops::Range<usize>, usize)> = Vec::new();
-        for (k, r) in self.replaced.iter().enumerate() {
+        let mut budget = MAX_REDRAW_WORK;
+        'replacements: for (k, r) in self.replaced.iter().enumerate() {
             let Some((_, rect)) = r.originals.first() else { continue };
             let tol = redraw_tolerance(rect);
             let (x0, x1, y0, y1) = (cell(rect[0] - tol), cell(rect[0] + tol), cell(rect[1] - tol), cell(rect[1] + tol));
             if x1.saturating_sub(x0).saturating_add(1).saturating_mul(y1.saturating_sub(y0).saturating_add(1)) > MAX_CELLS {
                 continue;
             }
+            // Checking one candidate walks its run twice (free, then same).
+            let candidate_cost = r.originals.len().saturating_mul(2).saturating_add(1);
             for key in (x0..=x1).flat_map(|x| (y0..=y1).map(move |y| (x, y))) {
+                let Some(rest) = budget.checked_sub(1) else { break 'replacements };
+                budget = rest;
                 for &i in grid.get(&key).map_or(&[][..], Vec::as_slice) {
+                    let Some(rest) = budget.checked_sub(candidate_cost) else { break 'replacements };
+                    budget = rest;
                     let Some(range) = i.checked_add(r.originals.len()).map(|end| i..end) else { continue };
                     let Some(run) = self.glyphs.get(range.clone()) else { continue };
                     let free = taken.get(range.clone()).is_some_and(|t| t.iter().all(|t| !t));
@@ -1624,6 +1637,33 @@ mod tests {
             }
             assert_eq!(text.glyphs[1].direction, control.glyphs[1].direction, "Tm {turn}");
         }
+    }
+
+    #[test]
+    fn redraw_dedupe_work_is_bounded_on_hostile_pages() {
+        // 100,000 replacements and 100,000 unmarked glyphs that never match, all at one spot:
+        // unbounded, every replacement would compare every glyph (10^10 comparisons).
+        const N: usize = 100_000;
+        let glyph = |text: &str| {
+            let quad = [[100.0, 110.0], [110.0, 110.0], [110.0, 100.0], [100.0, 100.0]];
+            (0, [1.0, 0.0], TextGlyph { text: text.into(), rect: [100.0, 100.0, 110.0, 110.0], quad, direction: [1.0, 0.0] })
+        };
+        let mut dev = TextDevice::new();
+        // A genuine redraw first: it is still deduplicated within the budget.
+        dev.glyphs.push(glyph("fi"));
+        dev.glyphs.push(glyph("x"));
+        dev.replaced.push(Replaced { at: Some(0), text: "fi".into(), originals: vec![("x".into(), [100.0, 100.0, 110.0, 110.0])] });
+        dev.glyphs.extend((0..N).map(|_| glyph("y")));
+        for _ in 0..N {
+            dev.glyphs.push(glyph("z"));
+            let at = dev.glyphs.len() - 1;
+            dev.replaced.push(Replaced { at: Some(at), text: "z".into(), originals: vec![("q".into(), [100.0, 100.0, 110.0, 110.0])] });
+        }
+        let started = std::time::Instant::now();
+        dev.finish();
+        assert!(started.elapsed() < std::time::Duration::from_secs(30), "took {:?}", started.elapsed());
+        assert_eq!(dev.glyphs.len(), 2 * N + 2, "unmatched glyphs are kept");
+        assert_eq!(dev.glyphs[1].2.text, "fi", "the redraw found within the budget takes the replacement");
     }
 
     #[test]
