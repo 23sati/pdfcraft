@@ -1411,15 +1411,41 @@ fn swatch(ui: &mut egui::Ui, c: Rgb, on: bool, tooltip: &str) -> egui::Response 
     resp.on_hover_text(tooltip)
 }
 
-/// A grid of colour swatches, the recent custom colours and "Other colour…" (a full picker, as
-/// Acrobat's quick colours offer); returns the colour chosen.
+/// The "+" swatch that opens "Other colour…": a ring with a plus, the size of a swatch.
+fn other_colour_swatch(ui: &mut egui::Ui, open: bool) -> egui::Response {
+    let (r, resp) = ui.allocate_exact_size(vec2(22.0, 22.0), Sense::click());
+    let ink = ui.visuals().widgets.inactive.fg_stroke.color;
+    ui.painter().circle_stroke(r.center(), 9.0, Stroke::new(1.0, ink.gamma_multiply(0.6)));
+    let c = r.center();
+    for d in [vec2(4.5, 0.0), vec2(0.0, 4.5)] {
+        ui.painter().line_segment([c - d, c + d], Stroke::new(1.5, ink));
+    }
+    if open || resp.hovered() {
+        ui.painter().circle_stroke(c, 11.0, Stroke::new(1.5, SELECT_BLUE));
+    }
+    let label = tl!("Other colour…");
+    resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Button, true, open, label));
+    resp.on_hover_text(label)
+}
+
+/// A grid of colour swatches with a "+" swatch for "Other colour…" (a full picker, as Acrobat's
+/// quick colours offer) and, once used, the recent custom colours; returns the colour chosen.
+/// The "+" sits in the first row, so the grid is no taller than before until the picker opens.
 pub fn swatch_grid(ui: &mut egui::Ui, current: Option<Rgb>) -> Option<Rgb> {
     let mut picked = None;
     let on = |c: &Rgb| current.is_some_and(|cur| same_colour(&cur, c));
+    let open_id = ui.id().with("other-colour");
+    let value_id = open_id.with("value");
+    let mut open = ui.data(|d| d.get_temp::<bool>(open_id)).unwrap_or(false);
     egui::Grid::new(ui.id().with("swatches")).spacing(vec2(6.0, 6.0)).show(ui, |ui| {
         for (i, (name, c)) in SWATCHES.iter().enumerate() {
             if swatch(ui, *c, on(c), tl!(name)).clicked() {
                 picked = Some(*c);
+            }
+            if i == 4 && other_colour_swatch(ui, open).clicked() {
+                open = !open;
+                // Start from the current colour each time the picker opens.
+                ui.data_mut(|d| d.insert_temp(value_id, current.map_or(Color32::BLACK, color32)));
             }
             if i % 5 == 4 {
                 ui.end_row();
@@ -1439,15 +1465,7 @@ pub fn swatch_grid(ui: &mut egui::Ui, current: Option<Rgb>) -> Option<Rgb> {
             }
         });
     }
-    let open_id = ui.id().with("other-colour");
-    let value_id = open_id.with("value");
-    let mut open = ui.data(|d| d.get_temp::<bool>(open_id)).unwrap_or(false);
-    if ui.selectable_label(open, tl!("Other colour…")).clicked() {
-        open = !open;
-        // Start from the current colour each time the picker opens.
-        ui.data_mut(|d| d.insert_temp(value_id, current.map_or(Color32::BLACK, color32)));
-    }
-    if open {
+    if open && picked.is_none() {
         let mut value = ui.data(|d| d.get_temp::<Color32>(value_id)).unwrap_or_else(|| current.map_or(Color32::BLACK, color32));
         egui::widgets::color_picker::color_picker_color32(ui, &mut value, egui::widgets::color_picker::Alpha::Opaque);
         ui.data_mut(|d| d.insert_temp(value_id, value));
@@ -1456,7 +1474,6 @@ pub fn swatch_grid(ui: &mut egui::Ui, current: Option<Rgb>) -> Option<Rgb> {
             let c = rgb_of(value);
             remember_custom_colour(ui.ctx(), c);
             picked = Some(c);
-            open = false;
         }
     }
     if picked.is_some() {
