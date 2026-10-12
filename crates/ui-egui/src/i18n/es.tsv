@@ -2387,6 +2387,9 @@ key	Space	Espacio
 scroll speed	Slow	Lenta
 scroll speed	Normal	Normal
 scroll speed	Fast	Rápida
+	Animation effects	Efectos de animación
+animation effects	On	Activados
+animation effects	Off	Desactivados
 	Enhance camera image	Mejorar foto de cámara
 	Drag the corners onto the document's edges, then choose Enhance page.	Arrastra las esquinas hasta los bordes del documento y elige Mejorar página.
 	Enhance page	Mejorar página
@@ -2397,9 +2400,28 @@ scroll speed	Fast	Rápida
 	Greyscale	Escala de grises
 	Black and white	Blanco y negro
 	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	El controlador de esta impresora no acepta los ajustes de doble cara de otros programas, así que se aplica su propio ajuste. Cámbielo en Propiedades…
+	Browser's print dialog	Diálogo de impresión del navegador
+	Copies, two-sided printing and colour are chosen in the browser's print dialog.	Las copias, la impresión a doble cara y el color se eligen en el diálogo de impresión del navegador.
+	Preparing {n} sheets for printing…	Preparando {n} hojas para imprimir…
+	Preparing sheet {done} of {total} for printing…	Preparando la hoja {done} de {total} para imprimir…
+	Opening the browser's print dialog…	Abriendo el diálogo de impresión del navegador…
+	Couldn't print from the browser ({e}); downloaded {name} to print instead	No se pudo imprimir desde el navegador ({e}); se descargó {name} para imprimirlo
 	Tools panel side	Lado del panel de herramientas
 	Add comment	Añadir comentario
 	Change tag properties	Cambiar propiedades de la etiqueta
+# Accessibility structure tags.
+	Tags panel	Panel de etiquetas
+	Tags	Etiquetas
+	Tag type	Tipo de etiqueta
+	Actual text	Texto real
+	Find a tag	Buscar una etiqueta
+	Collapse tag	Contraer etiqueta
+	Expand tag	Expandir etiqueta
+	Revert changes	Descartar cambios
+	Save tag properties	Guardar propiedades de la etiqueta
+	This document has no editable structure tags.	Este documento no tiene etiquetas de estructura editables.
+	{n} tags	{n} etiquetas
+	Save or revert changes before selecting another tag.	Guarda o descarta los cambios antes de seleccionar otra etiqueta.
 	Left out: {names}	Omitidos: {names}
 	already a PDF	ya es un PDF
 	no unused output name	no hay un nombre de salida libre
@@ -2423,3 +2445,8 @@ scroll speed	Fast	Rápida
 	White on black	Blanco sobre negro
 	Yellow on black	Amarillo sobre negro
 	Green on black	Verde sobre negro
+	Couldn't follow linked PDF: {reason}	No se pudo abrir el PDF vinculado: {reason}
+	The linked PDF opened, but its named destination was not applied.	El PDF vinculado se abrió, pero no se aplicó su destino con nombre.
+	The linked PDF opened, but its page destination was out of range.	El PDF vinculado se abrió, pero su página de destino está fuera de rango.
+	Local cross-PDF links require the desktop app	Los enlaces locales entre PDF requieren la aplicación de escritorio
+	The existing action will be preserved.	Se conservará la acción existente.

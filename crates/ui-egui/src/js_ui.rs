@@ -369,6 +369,14 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
             widgets::radio_value(ui, &mut app.scroll_speed, speed, tl_ctx!("scroll speed", speed.label()));
         }
     });
+    // Whether anything animates, the wheel's scrolling and zooming included; left alone it
+    // follows the system's animation setting.
+    ui.horizontal(|ui| {
+        ui.label(tl!("Animation effects"));
+        for choice in crate::motion::AnimationEffects::ALL {
+            widgets::radio_value(ui, &mut app.animation_effects, choice, tl_ctx!("animation effects", choice.label()));
+        }
+    });
     ui.add_space(8.0);
     // Reading colours (Acrobat: Replace Document Colors): solid text and line-art paints are
     // remapped while rendering, and the page clears to the background colour. The preference

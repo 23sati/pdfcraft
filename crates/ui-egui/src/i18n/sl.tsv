@@ -1793,6 +1793,7 @@
 	The same password is tried on each file.	Isto geslo se poskusi pri vsaki datoteki.
 	The selected area has been copied ({w} × {h} pixels)	Izbrano območje je kopirano ({w} × {h} slikovnih pik)
 	The signature will be invisible.	Podpis bo nevidni.
+	The existing action will be preserved.	Obstoječe dejanje bo ohranjeno.
 	The text is the same	Besedilo je enako
 	The title in the metadata and the document information differ	Naslov v metapodatkih in podatkih o dokumentu se razlikujeta
 	The value is shown as typed.	Vrednost je prikazana, kot je vnesena.
@@ -2259,6 +2260,9 @@ key	Space	Preslednica
 scroll speed	Slow	Počasi
 scroll speed	Normal	Običajno
 scroll speed	Fast	Hitro
+	Animation effects	Učinki animacije
+animation effects	On	Vklopljeni
+animation effects	Off	Izklopljeni
 	Enhance camera image	Izboljšaj fotografijo s kamere
 	Drag the corners onto the document's edges, then choose Enhance page.	Povlecite vogale na robove dokumenta, nato izberite Izboljšaj stran.
 	Enhance page	Izboljšaj stran
@@ -2281,9 +2285,28 @@ scroll speed	Fast	Hitro
 	This printer's driver doesn't take two-sided settings from other programs, so its own setting applies. Change it in Properties…	Gonilnik tega tiskalnika ne sprejema nastavitev obojestranskega tiskanja iz drugih programov, zato velja njegova lastna nastavitev. Spremenite jo v Lastnosti…
 	This field's font can't draw “{c}” ({code}), so PdfCraft shows ? in its place. The value is saved, and other PDF viewers redraw the field from it.	Pisava tega polja ne more prikazati »{c}« ({code}), zato PdfCraft namesto njega prikaže ?. Vrednost se shrani, drugi pregledovalniki PDF pa polje znova narišejo iz nje.
 	The fonts PdfCraft writes with can't draw “{c}” ({code}), so it shows as ? in every PDF viewer. The text is saved.	Pisave, s katerimi piše PdfCraft, ne morejo prikazati »{c}« ({code}), zato se v vseh pregledovalnikih PDF prikaže kot ?. Besedilo se shrani.
+	Browser's print dialog	Pogovorno okno za tiskanje v brskalniku
+	Copies, two-sided printing and colour are chosen in the browser's print dialog.	Število kopij, obojestransko tiskanje in barvo izberete v pogovornem oknu za tiskanje v brskalniku.
+	Preparing {n} sheets for printing…	Priprava listov za tiskanje: {n}…
+	Preparing sheet {done} of {total} for printing…	Priprava lista {done} od {total} za tiskanje…
+	Opening the browser's print dialog…	Odpiranje pogovornega okna za tiskanje v brskalniku…
+	Couldn't print from the browser ({e}); downloaded {name} to print instead	Tiskanje iz brskalnika ni mogoče ({e}); namesto tega je bila za tiskanje prenesena datoteka {name}
 	Tools panel side	Stran podokna z orodji
 	Add comment	Dodaj komentar
 	Change tag properties	Spremeni lastnosti oznake
+# Accessibility structure tags.
+	Tags panel	Podokno oznak
+	Tags	Oznake
+	Tag type	Vrsta oznake
+	Actual text	Dejansko besedilo
+	Find a tag	Poišči oznako
+	Collapse tag	Strni oznako
+	Expand tag	Razširi oznako
+	Revert changes	Razveljavi spremembe
+	Save tag properties	Shrani lastnosti oznake
+	This document has no editable structure tags.	Ta dokument nima oznak strukture, ki bi jih bilo mogoče urejati.
+	{n} tags	{n} oznak
+	Save or revert changes before selecting another tag.	Preden izberete drugo oznako, shranite ali razveljavite spremembe.
 	Left out: {names}	Izpuščeno: {names}
 	already a PDF	je že PDF
 	no unused output name	ni prostega izhodnega imena
@@ -2298,3 +2321,7 @@ scroll speed	Fast	Hitro
 	Ink sensitivity	Občutljivost za črnilo
 	No signature was found in the frame. Move the frame over the signature or raise the ink sensitivity.	V okvirju ni bilo najdenega podpisa. Premaknite okvir nad podpis ali povečajte občutljivost za črnilo.
 	Couldn't use the photo: {e}	Fotografije ni bilo mogoče uporabiti: {e}
+	Couldn't follow linked PDF: {reason}	Povezanega PDF-ja ni bilo mogoče odpreti: {reason}
+	The linked PDF opened, but its named destination was not applied.	Povezani PDF se je odprl, vendar njegov poimenovani cilj ni bil uporabljen.
+	The linked PDF opened, but its page destination was out of range.	Povezani PDF se je odprl, vendar je ciljna stran zunaj obsega.
+	Local cross-PDF links require the desktop app	Lokalne povezave med PDF-ji zahtevajo namizno aplikacijo
